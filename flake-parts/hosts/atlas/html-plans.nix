@@ -46,7 +46,6 @@ in {
       "/outpost.goauthentik.io" = {
         proxyPass = authentikUpstream;
         extraConfig = ''
-          proxy_set_header Host $host;
           proxy_set_header X-Original-URL $scheme://$http_host$request_uri;
           proxy_pass_request_body off;
           proxy_set_header Content-Length "";
