@@ -127,6 +127,7 @@ in {
       disable_startup_analytics = true;
       avatars = "initials";
       blueprints_dir = "/var/lib/authentik/blueprints";
+      postgresql.host = "/run/postgresql";
     };
 
     nginx = {
