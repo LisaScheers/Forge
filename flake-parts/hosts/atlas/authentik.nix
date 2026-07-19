@@ -79,6 +79,7 @@
           client_id: html-plans-api
           client_secret: !Env HTML_PLANS_AUTH_CLIENT_SECRET
           access_token_validity: minutes=10
+          redirect_uris: []
           property_mappings:
             - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'openid'"]]
             - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'profile'"]]
