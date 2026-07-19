@@ -7,6 +7,7 @@
     ./comicCodeNerdFont.nix
     ./packages.nix
     ./homes.nix
+    ./html-plans.nix
   ];
   system.stateVersion = 7;
   documentation.doc.enable = false;

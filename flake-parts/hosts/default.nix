@@ -150,6 +150,7 @@ in {
             config.flake.nixosModules.services_authentik
             config.flake.nixosModules.services_forgejo-runner
             config.flake.nixosModules.services_matrix
+            inputs.html-plans.nixosModules.default
             inputs.shop-empty-track.nixosModules.default
           ];
         }
@@ -178,6 +179,10 @@ in {
   flake-file.inputs = {
     disko = {
       url = "github:nix-community/disko";
+    };
+    html-plans = {
+      inputs.nixpkgs.follows = "nixpkgs";
+      url = "github:LisaScheers/html-plans/main";
     };
     shop-empty-track = {
       inputs.nixpkgs.follows = "nixpkgs";
