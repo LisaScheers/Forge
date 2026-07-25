@@ -1,5 +1,5 @@
 {config, ...}: let
-  pdsHostname = "matrix.bylisa.dev";
+  pdsHostname = "bylisa.dev";
 in {
   services.bluesky-pds = {
     enable = true;
