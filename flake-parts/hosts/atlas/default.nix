@@ -113,5 +113,7 @@
     coturn.restartTriggers = [../../agenix/secrets/atlas/matrix-turn-secret.age];
   };
 
+  services.freenet.enable = true;
+
   system.stateVersion = "25.05";
 }
