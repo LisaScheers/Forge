@@ -22,7 +22,5 @@
     ./acme.nix
   ];
 
-  services.freenet.enable = true;
-
   system.stateVersion = "25.11";
 }
