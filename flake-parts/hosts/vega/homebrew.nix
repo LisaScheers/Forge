@@ -7,7 +7,7 @@ in {
   homebrew = {
     enable = true;
     onActivation.autoUpdate = true;
-    onActivation.cleanup = "check";
+    onActivation.cleanup = "zap";
     brews = [];
     casks = [];
   };

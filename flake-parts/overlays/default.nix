@@ -18,6 +18,21 @@
           doCheck = false;
         })
       else prev.nushell;
+
+    nushellPlugins = prev.nushellPlugins // {
+      polars = prev.nushellPlugins.polars.overrideAttrs (old: let
+        cargoPatch = ./update-ethnum.patch;
+      in {
+        # Remove after https://github.com/NixOS/nixpkgs/pull/546343 lands
+        # in the pinned nixpkgs revision.
+        patches = (old.patches or []) ++ [cargoPatch];
+        cargoDeps = prev.rustPlatform.fetchCargoVendor {
+          inherit (old) pname version src;
+          patches = [cargoPatch];
+          hash = "sha256-Cpv58bqpx1o0Dz2AykqzFY+PQE/Updr5MusQflpEF74=";
+        };
+      });
+    };
   };
 
   flake-parts-builder = final: prev: {
