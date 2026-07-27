@@ -20,10 +20,14 @@
       else prev.nushell;
   };
 
-  default = final: prev: (claudex final prev) // (codex final prev) // (nushell final prev);
+  flake-parts-builder = final: prev: {
+    flake-parts-builder = inputs.flake-parts-builder.packages.${final.stdenv.hostPlatform.system}.default;
+  };
+
+  default = final: prev: (claudex final prev) // (codex final prev) // (nushell final prev) // (flake-parts-builder final prev);
 in {
   flake.overlays = {
-    inherit claudex codex default nushell;
+    inherit claudex codex default nushell flake-parts-builder;
   };
 
   perSystem = {system, ...}: let
@@ -39,6 +43,11 @@ in {
 
   flake-file.inputs.codex-cli-nix = {
     url = "github:sadjow/codex-cli-nix";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+
+  flake-file.inputs.flake-parts-builder = {
+    url = "github:tsandrini/flake-parts-builder";
     inputs.nixpkgs.follows = "nixpkgs";
   };
 }

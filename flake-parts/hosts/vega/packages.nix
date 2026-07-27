@@ -19,5 +19,6 @@
     the-unarchiver
     oxfmt
     oxlint
+    flake-parts-builder
   ];
 }

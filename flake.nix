@@ -28,6 +28,10 @@
     disko.url = "github:nix-community/disko";
     flake-file.url = "github:denful/flake-file";
     flake-parts.url = "github:hercules-ci/flake-parts";
+    flake-parts-builder = {
+      url = "github:tsandrini/flake-parts-builder";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     home-manager = {
       url = "github:LisaScheers/home-manager/agent/nushell-session-environment";
       inputs.nixpkgs.follows = "nixpkgs";
