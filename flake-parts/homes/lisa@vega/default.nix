@@ -1,4 +1,4 @@
-{...}: {
+{pkgs, ...}: {
   imports = [
     ./git.nix
     ./starship.nix
@@ -20,4 +20,6 @@
 
   programs.home-manager.enable = true;
   manual.manpages.enable = false;
+
+  programs.zed-editor = import ./zed {inherit pkgs;};
 }

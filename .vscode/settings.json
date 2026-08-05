@@ -5,11 +5,45 @@
     "editor.tabSize": 2
   },
   "nix.enableLanguageServer": true,
-  "nix.serverPath": "nil",
+  "nix.serverPath": "nixd",
   "files.associations": {
     "*.nix": "nix"
   },
-  "editor.rulers": [80, 100],
+  "nix.serverSettings": {
+    "nixd": {
+      "settings": {
+        "formatting": {
+          "command": [
+            "nixfmt"
+          ]
+        },
+        "nixpkgs": {
+          "expr": "import (builtins.getFlake \"/private/etc/nix-darwin\").inputs.nixpkgs { }   "
+        },
+        "options": {
+          "home-manager": {
+            "expr": "(builtins.getFlake \"/private/etc/nix-darwin\").homeConfigurations.\"lisa@vega\".options"
+          },
+          "nixos": {
+            "expr": "(builtins.getFlake \"/private/etc/nix-darwin\").nixosConfigurations.atlas.options"
+          },
+          "flake-parts": {
+            "expr": "(builtins.getFlake \"/private/etc/nix-darwin\").debug.options"
+          },
+          "flake-parts2": {
+            "expr": "(builtins.getFlake \"/private/etc/nix-darwin\").currentSystem.options"
+          },
+          "nix-darwin": {
+            "expr": "(builtins.getFlake \"/private/etc/nix-darwin\").darwinConfigurations.vega.options"
+          }
+        }
+      }
+    }
+  },
+  "editor.rulers": [
+    80,
+    100
+  ],
   "files.trimTrailingWhitespace": true,
   "files.insertFinalNewline": true,
   "files.exclude": {

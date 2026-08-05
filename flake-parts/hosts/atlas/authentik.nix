@@ -193,6 +193,7 @@ in {
       ExecStartPre = "${pkgs.coreutils}/bin/install -D -m 0600 ${grafanaBlueprint} %S/authentik/blueprints/grafana.yaml";
       ExecStart = "${config.services.authentik.package}/bin/ak apply_blueprint grafana.yaml";
     };
+    restartTriggers = [../../agenix/secrets/atlas/authentik-env.age];
   };
 
   systemd.services.authentik-html-plans-blueprint = {
@@ -217,16 +218,15 @@ in {
       ExecStartPre = "${pkgs.coreutils}/bin/install -D -m 0600 ${htmlPlansBlueprint} %S/authentik/blueprints/html-plans.yaml";
       ExecStart = "${config.services.authentik.package}/bin/ak apply_blueprint html-plans.yaml";
     };
+    restartTriggers = [
+      ../../agenix/secrets/atlas/authentik-env.age
+      ../../agenix/secrets/shared/html-plans-oauth-env.age
+    ];
   };
 
   systemd.services = {
     authentik.restartTriggers = [../../agenix/secrets/atlas/authentik-env.age];
     authentik-worker.restartTriggers = [../../agenix/secrets/atlas/authentik-env.age];
-    authentik-grafana-blueprint.restartTriggers = [../../agenix/secrets/atlas/authentik-env.age];
-    authentik-html-plans-blueprint.restartTriggers = [
-      ../../agenix/secrets/atlas/authentik-env.age
-      ../../agenix/secrets/shared/html-plans-oauth-env.age
-    ];
     docker-authentik-ldap-outpost.restartTriggers = [../../agenix/secrets/atlas/authentik-ldap-outpost-env.age];
   };
 

@@ -8,6 +8,8 @@
   outputs = inputs: import ./outputs.nix inputs;
 
   nixConfig = {
+    extra-substituters = [ "https://zed.cachix.org" ];
+    extra-trusted-public-keys = [ "zed.cachix.org-1:/pHQ6dpMsAZk2DiP4WCL0p9YDNKWj2Q5FL20bNmw1cU=" ];
     extraSubstituters = [ ];
     extraTrustedPublicKeys = [ ];
   };
@@ -82,5 +84,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     systems.url = "github:nix-systems/default";
+    zed.url = "github:zed-industries/zed";
   };
 }

@@ -8,6 +8,10 @@
     claudex = final.callPackage ../_packages/claudex.nix {};
   };
 
+  zed = final: _prev: {
+    zed = inputs.zed.packages.${final.stdenv.hostPlatform.system}.default;
+  };
+
   # Nushell's integration tests assume a full TTY/shell nesting; they fail
   # on Darwin Nix builds with EPERM / wrong SHLVL (see env.rs SHLVL checks).
   nushell = _final: prev: {
@@ -19,30 +23,32 @@
         })
       else prev.nushell;
 
-    nushellPlugins = prev.nushellPlugins // {
-      polars = prev.nushellPlugins.polars.overrideAttrs (old: let
-        cargoPatch = ./update-ethnum.patch;
-      in {
-        # Remove after https://github.com/NixOS/nixpkgs/pull/546343 lands
-        # in the pinned nixpkgs revision.
-        patches = (old.patches or []) ++ [cargoPatch];
-        cargoDeps = prev.rustPlatform.fetchCargoVendor {
-          inherit (old) pname version src;
-          patches = [cargoPatch];
-          hash = "sha256-Cpv58bqpx1o0Dz2AykqzFY+PQE/Updr5MusQflpEF74=";
-        };
-      });
-    };
+    nushellPlugins =
+      prev.nushellPlugins
+      // {
+        polars = prev.nushellPlugins.polars.overrideAttrs (old: let
+          cargoPatch = ./update-ethnum.patch;
+        in {
+          # Remove after https://github.com/NixOS/nixpkgs/pull/546343 lands
+          # in the pinned nixpkgs revision.
+          patches = (old.patches or []) ++ [cargoPatch];
+          cargoDeps = prev.rustPlatform.fetchCargoVendor {
+            inherit (old) pname version src;
+            patches = [cargoPatch];
+            hash = "sha256-Cpv58bqpx1o0Dz2AykqzFY+PQE/Updr5MusQflpEF74=";
+          };
+        });
+      };
   };
 
   flake-parts-builder = final: prev: {
     flake-parts-builder = inputs.flake-parts-builder.packages.${final.stdenv.hostPlatform.system}.default;
   };
 
-  default = final: prev: (claudex final prev) // (codex final prev) // (nushell final prev) // (flake-parts-builder final prev);
+  default = final: prev: (claudex final prev) // (codex final prev) // (nushell final prev) // (flake-parts-builder final prev) // (zed final prev);
 in {
   flake.overlays = {
-    inherit claudex codex default nushell flake-parts-builder;
+    inherit claudex codex default nushell flake-parts-builder zed;
   };
 
   perSystem = {system, ...}: let
@@ -54,6 +60,7 @@ in {
   in {
     _module.args.pkgs = pkgs;
     packages.claudex = pkgs.claudex;
+    packages.zed = pkgs.zed;
   };
 
   flake-file.inputs.codex-cli-nix = {

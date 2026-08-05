@@ -31,6 +31,10 @@ in {
       experimental-features = "nix-command flakes";
       trusted-users = ["lisa" "root"];
       builders-use-substitutes = true;
+      extra-substituters = ["https://zed.cachix.org"];
+      extra-trusted-public-keys = [
+        "zed.cachix.org-1:/pHQ6dpMsAZk2DiP4WCL0p9YDNKWj2Q5FL20bNmw1cU="
+      ];
     };
     extraOptions = ''
       !include ${nixGithubAccessTokenSystemPath}

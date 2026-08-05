@@ -1,4 +1,4 @@
-{pkgs, ...}: {
+{ pkgs, ... }: {
   environment.systemPackages = with pkgs; [
     just
     sops
@@ -7,6 +7,7 @@
     alejandra
     fh
     nil
+    nixd
     ripgrep
     raycast
     ghostty-bin
