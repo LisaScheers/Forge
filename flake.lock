@@ -766,11 +766,11 @@
         "treefmt-nix": "sl-remote--treefmt-nix"
       },
       "locked": {
-        "lastModified": 1786032746,
-        "narHash": "sha256-vO5rtG8pNJCs6t8nLjzIvfhnCXImfAcYiv0sJSscffI=",
+        "lastModified": 1786034301,
+        "narHash": "sha256-bDrJfDSd1HGlecWqWfjvjh/RPDcDqwRgKyvyRfV6w54=",
         "owner": "LisaScheers",
         "repo": "sl-remote",
-        "rev": "b3d67f2909e0a21ca927127348164e98b2271cf3",
+        "rev": "0619bae1b774e4797e0be0fa2644286451346d95",
         "type": "github"
       },
       "original": {
