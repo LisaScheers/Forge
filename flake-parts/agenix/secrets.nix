@@ -30,6 +30,7 @@ in {
   "secrets/atlas/matrix-turn-secret.age".publicKeys = all;
   "secrets/atlas/monitoring-otlp-env.age".publicKeys = all;
   "secrets/atlas/shop-empty-track-env.age".publicKeys = all;
+  "secrets/atlas/sl-remote-credentials.age".publicKeys = all;
 
   "secrets/nook/cloudflare-dns-api-token.age".publicKeys = nook;
   "secrets/nook/gotify-env.age".publicKeys = all;

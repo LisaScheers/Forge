@@ -152,6 +152,7 @@ in {
             config.flake.nixosModules.services_matrix
             inputs.html-plans.nixosModules.default
             inputs.shop-empty-track.nixosModules.default
+            inputs.sl-remote.nixosModules.default
           ];
         }
     );
@@ -187,6 +188,10 @@ in {
     shop-empty-track = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:LisaScheers/shop-empty-track/main";
+    };
+    sl-remote = {
+      inputs.nixpkgs.follows = "nixpkgs";
+      url = "github:LisaScheers/sl-remote/main";
     };
 
     nix-darwin = {
