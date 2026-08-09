@@ -1,8 +1,11 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }: let
+  defaultBrowserBundleId = "net.imput.helium";
+
   appTile = path: {
     tile-data.file-data = {
       _CFURLString = path;
@@ -16,7 +19,7 @@ in {
     "persistent-apps" = map appTile [
       "file:///System/Applications/Apps.app/"
       "file:///System/Applications/Mail.app/"
-      "file:///Applications/Dia.app/"
+      "file:///Applications/Helium.app/"
       "file:///System/Applications/Calendar.app/"
       "file:///Applications/ChatGPT.app/"
       "file:///Applications/Visual%20Studio%20Code.app/"
@@ -50,5 +53,12 @@ in {
 
   home.activation.restartDock = lib.hm.dag.entryAfter ["setDarwinDefaults"] ''
     run /usr/bin/killall Dock || true
+  '';
+
+  home.activation.setDefaultBrowser = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    run /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
+      -f /Applications/Helium.app
+    run ${pkgs.duti}/bin/duti -s ${defaultBrowserBundleId} http
+    run ${pkgs.duti}/bin/duti -s ${defaultBrowserBundleId} https
   '';
 }
