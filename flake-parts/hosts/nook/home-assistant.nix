@@ -6,9 +6,26 @@
   primaryDomain = "ha.bylisa.dev";
   localDomain = "ha.local.bylisa.dev";
   proxyErrorPage = import ./_nginx-error-page.nix {inherit pkgs;};
-  configurationFile =
-    (pkgs.formats.yaml {}).generate "configuration.yaml"
-    {
+in {
+  services.home-assistant = {
+    enable = true;
+    package = pkgs.home-assistant;
+    openFirewall = true;
+    configDir = "/var/lib/hass";
+    extraComponents = [
+      # Components required to complete the onboarding
+      "analytics"
+      "google_translate"
+      "met"
+      "radio_browser"
+      "shopping_list"
+      # Recommended for fast zlib compression
+      # https://www.home-assistant.io/integrations/isal
+      "isal"
+    ];
+
+    config = {
+      default_config = {};
       homeassistant = {
         name = "Home Assistant";
         #51.203108, 4.769569
@@ -27,13 +44,11 @@
           "::1"
         ];
       };
-      prometheus = {
-        namespace = "homeassistant";
-        requires_auth = false;
-      };
     };
-in {
-  environment.etc."home-assistant/configuration.yaml".source = configurationFile;
+    customComponents = with pkgs.home-assistant-custom-components; [
+      volkswagencarnet
+    ];
+  };
 
   hardware.bluetooth = {
     enable = true;
@@ -68,59 +83,4 @@ in {
       }
     ];
   };
-
-  virtualisation = {
-    podman.enable = true;
-    oci-containers = {
-      backend = "podman";
-      containers.home-assistant = {
-        image = "ghcr.io/home-assistant/home-assistant:stable";
-        pull = "newer";
-        autoStart = true;
-        privileged = true;
-        capabilities = {
-          NET_ADMIN = true;
-          NET_RAW = true;
-        };
-        devices = [
-          "/dev/home-assistant/intel-bluetooth:/dev/home-assistant/intel-bluetooth"
-          "/dev/home-assistant/tp-link-ub500:/dev/home-assistant/tp-link-ub500"
-        ];
-        environment = {
-          OTEL_EXPORTER_OTLP_ENDPOINT = "http://127.0.0.1:4318";
-          OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf";
-          OTEL_LOGS_EXPORTER = "otlp";
-          OTEL_METRICS_EXPORTER = "otlp";
-          OTEL_RESOURCE_ATTRIBUTES = "service.namespace=home-server,deployment.environment=home";
-          OTEL_SERVICE_NAME = "home-assistant";
-          OTEL_TRACES_EXPORTER = "otlp";
-          TZ = "Europe/Brussels";
-        };
-        volumes = [
-          "/var/lib/hass:/config"
-          "/etc/localtime:/etc/localtime:ro"
-          "/run/dbus:/run/dbus:ro"
-        ];
-        extraOptions = ["--network=host"];
-      };
-    };
-  };
-
-  systemd.services.podman-home-assistant.preStart = ''
-    install -d -m 0700 /var/lib/hass
-
-    # Re-apply the stable USB symlinks when this configuration introduces or
-    # changes the udev rules without requiring nook to reboot first.
-    ${pkgs.systemd}/bin/udevadm trigger --action=add --subsystem-match=usb \
-      --attr-match=idVendor=8087 --attr-match=idProduct=0029
-    ${pkgs.systemd}/bin/udevadm trigger --action=add --subsystem-match=usb \
-      --attr-match=idVendor=2357 --attr-match=idProduct=0604 --attr-match=serial=E848B8C82000
-    ${pkgs.systemd}/bin/udevadm settle
-
-    if [ -L /var/lib/hass/configuration.yaml ]; then
-      rm /var/lib/hass/configuration.yaml
-    fi
-
-    install -m 0644 ${configurationFile} /var/lib/hass/configuration.yaml
-  '';
 }
