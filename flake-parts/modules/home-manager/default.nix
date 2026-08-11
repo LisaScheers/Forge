@@ -18,6 +18,7 @@ in {
     # reusable even outside of your flake. For more info see
     # https://flake.parts/dogfood-a-reusable-module#example-with-importapply
 
+    codex-environment = importApply ./programs/codex {inherit localFlake;};
     xdg-extra = importApply ./services/xdg-extra {inherit localFlake;};
 
     # programs_myProgram = importApply ./programs/myProgram { inherit localFlake; };

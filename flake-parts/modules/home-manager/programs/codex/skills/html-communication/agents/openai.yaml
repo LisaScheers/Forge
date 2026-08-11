@@ -1,0 +1,4 @@
+interface:
+  display_name: "HTML Communication"
+  short_description: "Share readable HTML documents and UI mocks"
+  default_prompt: "Use $html-communication to present this as readable HTML and publish it to my hosted PostPlan service."

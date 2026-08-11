@@ -3,8 +3,6 @@
   pkgs,
   ...
 }: let
-  codexAlias = "nix run github:sadjow/codex-cli-nix --";
-  codexYoloAlias = "nix run github:sadjow/codex-cli-nix -- --yolo";
   homeDirectory = config.home.homeDirectory;
   nomShellFunctions = ''
     nix() {
@@ -37,18 +35,13 @@ in {
     EDITOR = "code --wait";
     VISUAL = "code --wait";
     SSH_AUTH_SOCK = "${homeDirectory}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
-    HTML_PLANS_API_URL = "https://plans.bylisa.dev";
-    HTML_PLANS_AUTH_TOKEN_URL = "https://auth.bylisa.dev/application/o/token/";
-    HTML_PLANS_AUTH_CLIENT_ID = "html-plans-api";
-    HTML_PLANS_AUTH_ENV_FILE = "/run/agenix/html-plans-oauth-env";
   };
 
   programs.bash = {
     enable = true;
     enableCompletion = true;
     shellAliases = {
-      codex = codexAlias;
-      codex-yolo = codexYoloAlias;
+      codex-yolo = "codex --yolo";
     };
     initExtra = nomShellFunctions;
   };
@@ -59,8 +52,7 @@ in {
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
     shellAliases = {
-      codex = codexAlias;
-      codex-yolo = codexYoloAlias;
+      codex-yolo = "codex --yolo";
     };
     initContent = nomShellFunctions;
     oh-my-zsh = {
@@ -88,8 +80,7 @@ in {
         "/nix/var/nix/profiles/default/bin"
       ] | append $env.PATH | uniq)
 
-      alias codex = ${codexAlias}
-      alias codex-yolo = ${codexYoloAlias}
+      alias codex-yolo = codex --yolo
     '';
     extraConfig = ''
       def --wrapped nix [...args: string] {

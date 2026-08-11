@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit Codex History"
+  short_description: "Find recurring friction in recent Codex work"
+  default_prompt: "Use $audit-codex-history to find recurring failure patterns in my recent Codex tasks."

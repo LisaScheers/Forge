@@ -5,7 +5,7 @@
 }: let
   authentikEnvironmentFile = config.age.secrets.authentik-env.path;
   authentikLdapEnvironmentFile = config.age.secrets.authentik-ldap-outpost-env.path;
-  htmlPlansOAuthEnvironmentFile = config.age.secrets.html-plans-oauth-env.path;
+  postplanEnvironmentFile = config.age.secrets.postplan-env.path;
   awsIdentityCenterReady = pkgs.writeShellScript "authentik-aws-identity-center-ready" ''
     [[ -n "''${AWS_IDENTITY_CENTER_ACS_URL:-}" ]]
     [[ -n "''${AWS_IDENTITY_CENTER_AUDIENCE:-}" ]]
@@ -48,72 +48,39 @@
           name: Grafana
           provider: !KeyOf grafana-provider
   '';
-  htmlPlansBlueprint = pkgs.writeText "authentik-html-plans-blueprint.yaml" ''
+  postplanBlueprint = pkgs.writeText "authentik-postplan-blueprint.yaml" ''
     version: 1
 
     metadata:
-      name: HTML Plans
-      labels:
-        blueprints.goauthentik.io/instantiate: "false"
+      name: PostPlan OAuth2/OIDC
 
     entries:
-      - model: authentik_providers_proxy.proxyprovider
-        identifiers:
-          name: HTML Plans
-        id: html-plans-proxy-provider
-        attrs:
-          authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
-          invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
-          external_host: https://plans.bylisa.dev
-          mode: forward_single
-          intercept_header_auth: true
-          property_mappings:
-            - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: Proxy outpost"]]
-
       - model: authentik_providers_oauth2.oauth2provider
         identifiers:
-          name: HTML Plans API
-        id: html-plans-api-provider
+          name: PostPlan
+        id: postplan-provider
         attrs:
           authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
           invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
           client_type: confidential
           grant_types:
-            - client_credentials
-          client_id: html-plans-api
-          client_secret: !Env HTML_PLANS_AUTH_CLIENT_SECRET
-          access_token_validity: minutes=10
-          redirect_uris: []
+            - authorization_code
+          client_id: postplan
+          client_secret: !Env AUTHENTIK_CLIENT_SECRET
+          redirect_uris:
+            - matching_mode: strict
+              url: https://plans.bylisa.dev/auth/callback
           property_mappings:
             - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'openid'"]]
+            - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'email'"]]
             - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'profile'"]]
-          jwt_federation_providers:
-            - !KeyOf html-plans-proxy-provider
 
       - model: authentik_core.application
         identifiers:
-          slug: html-plans
+          slug: postplan
         attrs:
-          name: HTML Plans
-          provider: !KeyOf html-plans-proxy-provider
-          meta_description: Private, shareable implementation plans
-          meta_publisher: Lisa Scheers
-
-      - model: authentik_core.application
-        identifiers:
-          slug: html-plans-api
-        attrs:
-          name: HTML Plans API
-          provider: !KeyOf html-plans-api-provider
-          meta_description: Machine-to-machine access for publishing HTML plans
-          meta_hide: true
-
-      - model: authentik_outposts.outpost
-        identifiers:
-          managed: goauthentik.io/outposts/embedded
-        attrs:
-          providers:
-            - !KeyOf html-plans-proxy-provider
+          name: PostPlan
+          provider: !KeyOf postplan-provider
   '';
   awsIdentityCenterBlueprint = pkgs.writeText "authentik-aws-identity-center-blueprint.yaml" ''
     version: 1
@@ -207,12 +174,6 @@ in {
       group = "root";
       mode = "0400";
     };
-    html-plans-oauth-env = {
-      file = ../../agenix/secrets/shared/html-plans-oauth-env.age;
-      owner = "root";
-      group = "root";
-      mode = "0400";
-    };
   };
 
   virtualisation.oci-containers.backend = "docker";
@@ -255,8 +216,8 @@ in {
     restartTriggers = [../../agenix/secrets/atlas/authentik-env.age];
   };
 
-  systemd.services.authentik-html-plans-blueprint = {
-    description = "Apply HTML Plans Authentik blueprint";
+  systemd.services.authentik-postplan-blueprint = {
+    description = "Apply PostPlan Authentik OAuth2/OIDC blueprint";
     requiredBy = ["authentik.service"];
     before = ["authentik.service"];
     after = ["authentik-migrate.service"];
@@ -267,21 +228,18 @@ in {
       User = "authentik";
       StateDirectory = "authentik";
       WorkingDirectory = "%S/authentik";
-      EnvironmentFile = [
-        authentikEnvironmentFile
-        htmlPlansOAuthEnvironmentFile
-      ];
+      EnvironmentFile = [authentikEnvironmentFile postplanEnvironmentFile];
       Environment = [
         "AUTHENTIK_CONFIG=/etc/authentik/config.yml"
       ];
       ExecStartPre = [
-        "${pkgs.coreutils}/bin/install -D -m 0600 ${htmlPlansBlueprint} %S/authentik/blueprints/html-plans.yaml"
+        "${pkgs.coreutils}/bin/install -D -m 0600 ${postplanBlueprint} %S/authentik/blueprints/postplan.yaml"
       ];
-      ExecStart = "${config.services.authentik.package}/bin/ak apply_blueprint html-plans.yaml";
+      ExecStart = "${config.services.authentik.package}/bin/ak apply_blueprint postplan.yaml";
     };
     restartTriggers = [
       ../../agenix/secrets/atlas/authentik-env.age
-      ../../agenix/secrets/shared/html-plans-oauth-env.age
+      ../../agenix/secrets/shared/postplan-env.age
     ];
   };
 

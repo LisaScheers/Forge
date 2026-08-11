@@ -1,0 +1,4 @@
+interface:
+  display_name: "Read Hosted HTML"
+  short_description: "Fetch and read a hosted HTML document"
+  default_prompt: "Use $postplan-read to fetch and read this plans.bylisa.dev document without opening a browser."

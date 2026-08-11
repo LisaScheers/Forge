@@ -14,10 +14,9 @@ let
     keys.users.lisa
     keys.hosts.vega
   ];
-  htmlPlans = [
+  postplan = [
     keys.users.lisa
     keys.hosts.atlas
-    keys.hosts.vega
   ];
 in {
   "secrets/atlas/authentik-env.age".publicKeys = all;
@@ -46,5 +45,5 @@ in {
   "secrets/vega/nix-github-access-token-conf.age".publicKeys = vega;
 
   "secrets/shared/github-env.age".publicKeys = all;
-  "secrets/shared/html-plans-oauth-env.age".publicKeys = htmlPlans;
+  "secrets/shared/postplan-env.age".publicKeys = postplan;
 }

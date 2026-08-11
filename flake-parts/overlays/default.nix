@@ -8,6 +8,10 @@
     claudex = final.callPackage ../_packages/claudex.nix {};
   };
 
+  postplan-selfhosted = final: _prev: {
+    postplan-selfhosted = final.callPackage ../_packages/postplan-selfhosted.nix {};
+  };
+
   zed = final: _prev: {
     zed = inputs.zed.packages.${final.stdenv.hostPlatform.system}.default;
   };
@@ -28,10 +32,16 @@
     flake-parts-builder = inputs.flake-parts-builder.packages.${final.stdenv.hostPlatform.system}.default;
   };
 
-  default = final: prev: (claudex final prev) // (codex final prev) // (nushell final prev) // (flake-parts-builder final prev) // (zed final prev);
+  default = final: prev:
+    (claudex final prev)
+    // (codex final prev)
+    // (postplan-selfhosted final prev)
+    // (nushell final prev)
+    // (flake-parts-builder final prev)
+    // (zed final prev);
 in {
   flake.overlays = {
-    inherit claudex codex default nushell flake-parts-builder zed;
+    inherit claudex codex default flake-parts-builder nushell postplan-selfhosted zed;
   };
 
   perSystem = {system, ...}: let
@@ -43,6 +53,7 @@ in {
   in {
     _module.args.pkgs = pkgs;
     packages.claudex = pkgs.claudex;
+    packages.postplan-selfhosted = pkgs.postplan-selfhosted;
     packages.zed = pkgs.zed;
   };
 

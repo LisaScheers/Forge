@@ -14,6 +14,8 @@
   home.username = "lisa";
   home.homeDirectory = "/Users/lisa";
 
+  forge.codex.enable = true;
+
   home.stateVersion = "25.11";
 
   xdg.enable = true;
