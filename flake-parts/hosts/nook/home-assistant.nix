@@ -38,6 +38,7 @@ in {
         internal_url = "https://${localDomain}";
       };
       http = {
+        server_port = 8123;
         use_x_forwarded_for = true;
         trusted_proxies = [
           "127.0.0.1"
