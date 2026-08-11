@@ -114,6 +114,7 @@ in {
       bind_address = lanAddress;
       upnp = "disabled";
       origin_web_ui_allowed = "lan";
+      csrf_allowed_origins = "https://${lanAddress}:47990";
       lan_encryption_mode = 2;
 
       capture = "x11";
