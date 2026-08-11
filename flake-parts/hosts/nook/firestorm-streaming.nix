@@ -9,6 +9,15 @@
       --replace-fail 'button="A-' 'button="W-'
   '';
 in {
+  # Keep a GPU-backed scanout available when no physical display is connected.
+  hardware.display = {
+    edid.modelines.firestorm = "193.25 1920 2056 2256 2592 1200 1203 1209 1245 -hsync +vsync";
+    outputs."HDMI-A-1" = {
+      edid = "firestorm.bin";
+      mode = "e";
+    };
+  };
+
   users.users.firestorm = {
     isNormalUser = true;
     description = "Firestorm streaming session";
@@ -32,7 +41,6 @@ in {
   };
 
   services.xserver = {
-    # The RX 480 needs a connected display or HDMI/DisplayPort dummy plug for EDID.
     enable = true;
     videoDrivers = ["amdgpu"];
     windowManager.openbox.enable = true;
