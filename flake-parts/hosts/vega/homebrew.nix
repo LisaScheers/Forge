@@ -9,7 +9,7 @@ in {
     onActivation.autoUpdate = true;
     onActivation.cleanup = "zap";
     brews = [];
-    casks = [];
+    casks = ["moonlight"];
   };
 
   nix-homebrew = {

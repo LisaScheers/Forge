@@ -10,6 +10,7 @@
     ./packages.nix
     ./disk.nix
     ./second-life-cache.nix
+    ./firestorm-streaming.nix
     ./home-assistant.nix
     ./dns.nix
     ./gotify.nix
