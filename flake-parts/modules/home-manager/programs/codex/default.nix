@@ -14,6 +14,8 @@ localFlake: {
     html-communication = ./skills/html-communication;
     nix-dependancies = ./skills/nix-dependancies;
     postplan-read = ./skills/postplan-read;
+    lsl = ./skills/lsl;
+    use-lsl-tester = ./skills/use-lsl-tester;
   };
 in {
   options.forge.codex = {
