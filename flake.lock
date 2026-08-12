@@ -688,11 +688,11 @@
     "pony-tack": {
       "flake": false,
       "locked": {
-        "lastModified": 1786543016,
-        "narHash": "sha256-TN1kalYnuRPPOliDcPu6TyGWgxxRfQPbES5Q7yMCdSE=",
+        "lastModified": 1786557453,
+        "narHash": "sha256-KDbuZaMru80ks5JosppssB/w3GHx3Ex0lgMEHmF1zh4=",
         "ref": "main",
-        "rev": "8e5d252c55c253e536f747313972e3d5d1eb1aa8",
-        "revCount": 1,
+        "rev": "e1dae583a1bb98af0ee29f166d66e402d905ca61",
+        "revCount": 2,
         "type": "git",
         "url": "ssh://git@ssh.github.com:443/LisaScheers/sl-pony-tack.git"
       },

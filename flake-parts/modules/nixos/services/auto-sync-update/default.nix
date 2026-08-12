@@ -52,6 +52,7 @@ _:
         pkgs.curl
         pkgs.git
         pkgs.nix
+        pkgs.openssh
       ];
       text = ''
         set -euo pipefail
