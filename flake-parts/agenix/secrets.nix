@@ -18,6 +18,10 @@ let
     keys.users.lisa
     keys.hosts.atlas
   ];
+  ponyTack = [
+    keys.users.lisa
+    keys.hosts.atlas
+  ];
 in {
   "secrets/atlas/authentik-env.age".publicKeys = all;
   "secrets/atlas/authentik-ldap-outpost-env.age".publicKeys = all;
@@ -28,6 +32,8 @@ in {
   "secrets/atlas/matrix-registration-secret.age".publicKeys = all;
   "secrets/atlas/matrix-turn-secret.age".publicKeys = all;
   "secrets/atlas/monitoring-otlp-env.age".publicKeys = all;
+  "secrets/atlas/pony-tack-deploy-key.age".publicKeys = ponyTack;
+  "secrets/atlas/pony-tack-env.age".publicKeys = ponyTack;
   "secrets/atlas/shop-empty-track-env.age".publicKeys = all;
   "secrets/atlas/sl-remote-credentials.age".publicKeys = all;
 

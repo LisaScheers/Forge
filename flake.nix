@@ -8,10 +8,10 @@
   outputs = inputs: import ./outputs.nix inputs;
 
   nixConfig = {
-    extra-substituters = [ "https://zed.cachix.org" ];
-    extra-trusted-public-keys = [ "zed.cachix.org-1:/pHQ6dpMsAZk2DiP4WCL0p9YDNKWj2Q5FL20bNmw1cU=" ];
-    extraSubstituters = [ ];
-    extraTrustedPublicKeys = [ ];
+    extra-substituters = ["https://zed.cachix.org"];
+    extra-trusted-public-keys = ["zed.cachix.org-1:/pHQ6dpMsAZk2DiP4WCL0p9YDNKWj2Q5FL20bNmw1cU="];
+    extraSubstituters = [];
+    extraTrustedPublicKeys = [];
   };
 
   inputs = {
@@ -70,6 +70,10 @@
     onepassword-shell-plugins = {
       url = "github:1Password/shell-plugins";
       inputs.nixpkgs.follows = "nixpkgs";
+    };
+    pony-tack = {
+      url = "git+ssh://git@ssh.github.com:443/LisaScheers/sl-pony-tack.git?ref=main";
+      flake = false;
     };
     shop-empty-track = {
       url = "github:LisaScheers/shop-empty-track/main";

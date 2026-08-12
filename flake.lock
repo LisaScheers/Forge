@@ -685,6 +685,23 @@
         "type": "github"
       }
     },
+    "pony-tack": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786543016,
+        "narHash": "sha256-TN1kalYnuRPPOliDcPu6TyGWgxxRfQPbES5Q7yMCdSE=",
+        "ref": "main",
+        "rev": "8e5d252c55c253e536f747313972e3d5d1eb1aa8",
+        "revCount": 1,
+        "type": "git",
+        "url": "ssh://git@ssh.github.com:443/LisaScheers/sl-pony-tack.git"
+      },
+      "original": {
+        "ref": "main",
+        "type": "git",
+        "url": "ssh://git@ssh.github.com:443/LisaScheers/sl-pony-tack.git"
+      }
+    },
     "pre-commit-hooks": {
       "inputs": {
         "flake-compat": "flake-compat",
@@ -723,6 +740,7 @@
         "nix-homebrew": "nix-homebrew",
         "nixpkgs": "nixpkgs_2",
         "onepassword-shell-plugins": "onepassword-shell-plugins",
+        "pony-tack": "pony-tack",
         "shop-empty-track": "shop-empty-track",
         "sl-remote": "sl-remote",
         "sops-nix": "sops-nix",

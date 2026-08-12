@@ -8,6 +8,7 @@
     ./minecraft.nix
     ./mastodon.nix
     ./monitoring.nix
+    ./pony-tack.nix
     ./sl-remote.nix
     # ./shop-empty-track.nix
     ./authentik.nix

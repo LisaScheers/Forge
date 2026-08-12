@@ -180,6 +180,10 @@ in {
     disko = {
       url = "github:nix-community/disko";
     };
+    pony-tack = {
+      flake = false;
+      url = "git+ssh://git@ssh.github.com:443/LisaScheers/sl-pony-tack.git?ref=main";
+    };
     shop-empty-track = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "github:LisaScheers/shop-empty-track/main";
