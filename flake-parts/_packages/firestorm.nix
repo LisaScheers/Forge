@@ -38,8 +38,11 @@ in
       pkgs.alsa-lib
       pkgs.at-spi2-atk
       pkgs.at-spi2-core
+      pkgs.cairo
+      pkgs.cups.lib
       pkgs.dbus
       pkgs.dbus-glib
+      pkgs.expat
       pkgs.fontconfig
       pkgs.freetype
       pkgs.glib
@@ -47,21 +50,27 @@ in
       pkgs.libGL
       pkgs.libGLU
       pkgs.libX11
+      pkgs.libXcomposite
       pkgs.libXcursor
+      pkgs.libXdamage
       pkgs.libXext
+      pkgs.libXfixes
       pkgs.libXi
       pkgs.libXinerama
       pkgs.libXrandr
       pkgs.libXrender
       pkgs.libXxf86vm
       pkgs.libdrm
+      pkgs.libgbm
       pkgs.libnotify
       pkgs.libpulseaudio
       pkgs.libuuid
+      pkgs.libxcb
       pkgs.libxkbcommon
       pkgs.mesa
       pkgs.nspr
       pkgs.nss
+      pkgs.pango.out
       pkgs.stdenv.cc.cc.lib
       pkgs.udev
       pkgs.zlib
