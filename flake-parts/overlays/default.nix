@@ -1,5 +1,9 @@
 # --- flake-parts/overlays/default.nix
 {inputs, ...}: let
+  antigravity-cli = final: _prev: {
+    antigravity-cli = inputs.antigravity-cli.packages.${final.stdenv.hostPlatform.system}.default;
+  };
+
   codex = final: _prev: {
     codex = inputs.codex-cli-nix.packages.${final.stdenv.hostPlatform.system}.default;
   };
@@ -33,7 +37,8 @@
   };
 
   default = final: prev:
-    (claudex final prev)
+    (antigravity-cli final prev)
+    // (claudex final prev)
     // (codex final prev)
     // (postplan-selfhosted final prev)
     // (nushell final prev)
@@ -41,7 +46,7 @@
     // (zed final prev);
 in {
   flake.overlays = {
-    inherit claudex codex default flake-parts-builder nushell postplan-selfhosted zed;
+    inherit antigravity-cli claudex codex default flake-parts-builder nushell postplan-selfhosted zed;
   };
 
   perSystem = {system, ...}: let
@@ -55,6 +60,11 @@ in {
     packages.claudex = pkgs.claudex;
     packages.postplan-selfhosted = pkgs.postplan-selfhosted;
     packages.zed = pkgs.zed;
+  };
+
+  flake-file.inputs.antigravity-cli = {
+    url = "github:selfhost-it/antigravity-cli-nix";
+    inputs.nixpkgs.follows = "nixpkgs";
   };
 
   flake-file.inputs.codex-cli-nix = {

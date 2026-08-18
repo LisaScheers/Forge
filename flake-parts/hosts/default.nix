@@ -117,7 +117,7 @@
             inputs.home-manager.darwinModules.home-manager
             {
               home-manager = {
-                backupFileExtension = ".before-nix-home-manager";
+                backupFileExtension = "before-nix-home-manager";
                 useGlobalPkgs = true;
                 useUserPackages = true;
                 extraSpecialArgs = baseSpecialArgs;

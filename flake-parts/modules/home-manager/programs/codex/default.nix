@@ -7,16 +7,14 @@ localFlake: {
   cfg = config.forge.codex;
   tomlFormat = pkgs.formats.toml {};
   skillType = lib.types.either lib.types.lines lib.types.path;
-  bundledSkills = {
-    audit-codex-history = ./skills/audit-codex-history;
-    babysit-pr = ./skills/babysit-pr;
-    file-pr = ./skills/file-pr;
-    html-communication = ./skills/html-communication;
-    nix-dependancies = ./skills/nix-dependancies;
-    postplan-read = ./skills/postplan-read;
-    lsl = ./skills/lsl;
-    use-lsl-tester = ./skills/use-lsl-tester;
-  };
+  # scan the skills directory for all skills, and make them available to the user
+  bundledSkills = builtins.listToAttrs (map (skill: {
+    name = skill;
+    value = ./skills/${skill};
+  }) (builtins.attrNames (builtins.readDir ./skills)));
+  effectiveSkills =
+    lib.optionalAttrs cfg.enableBundledSkills bundledSkills
+    // cfg.extraSkills;
 in {
   options.forge.codex = {
     enable = lib.mkEnableOption "the declarative Codex environment";
@@ -32,7 +30,7 @@ in {
       type = lib.types.either lib.types.lines lib.types.path;
       default = ./AGENTS.md;
       defaultText = lib.literalExpression "./AGENTS.md";
-      description = "Global instructions installed as CODEX_HOME/AGENTS.md.";
+      description = "Global instructions shared by Codex and GitHub Copilot CLI.";
     };
 
     enableBundledSkills = lib.mkOption {
@@ -44,7 +42,7 @@ in {
     extraSkills = lib.mkOption {
       type = lib.types.attrsOf skillType;
       default = {};
-      description = "Additional Codex skills keyed by their skill directory name.";
+      description = "Additional shared skills keyed by their skill directory name.";
     };
 
     settings = lib.mkOption {
@@ -68,12 +66,24 @@ in {
         enable = true;
         inherit (cfg) package;
         context = cfg.agentsFile;
-        skills =
-          lib.optionalAttrs cfg.enableBundledSkills bundledSkills
-          // cfg.extraSkills;
+        skills = effectiveSkills;
       }
       // lib.optionalAttrs (cfg.settings != null) {
         inherit (cfg) settings;
       };
+
+    programs.antigravity-cli = {
+      enable = true;
+      package = pkgs.antigravity-cli;
+      skills = effectiveSkills;
+    };
+
+    programs.github-copilot-cli = {
+      enable = true;
+      package = pkgs.github-copilot-cli;
+      context = cfg.agentsFile;
+      skills = effectiveSkills;
+      settings.autoUpdate = false;
+    };
   };
 }

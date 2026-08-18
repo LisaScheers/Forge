@@ -19,6 +19,10 @@
       url = "github:ryantm/agenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    antigravity-cli = {
+      url = "github:selfhost-it/antigravity-cli-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     codex-cli-nix = {
       url = "github:sadjow/codex-cli-nix";
       inputs.nixpkgs.follows = "nixpkgs";
