@@ -1,9 +1,14 @@
 {
-  agent.default_model = {
-    provider = "codex";
-    model = "gpt-5.6-sol";
+  project_panel = {
+    dock = "left";
   };
-  hour_format = "hour24";
+  agent = {
+    sidebar_side = "right";
+    default_model = {
+      provider = "codex";
+      model = "gpt-5.6-sol";
+    };
+  };
   vim_mode = false;
   load_direnv = "shell_hook";
   base_keymap = "VSCode";

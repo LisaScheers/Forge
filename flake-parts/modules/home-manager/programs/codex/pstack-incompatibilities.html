@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>pstack for Codex: adaptation review</title>
+  <style>
+    :root { color-scheme: dark; --bg:#000; --panel:#0a0a0a; --line:#2a2a2a; --text:#fff; --muted:#aaa; --high:#72d99d; --useful:#e5c565; --review:#ef8c8c; --accent:#93b7ff; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:14px/1.55 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; }
+    main { width:min(1480px,calc(100% - 32px)); margin:0 auto; padding:44px 0 72px; }
+    h1,h2,h3,p { margin-top:0; }
+    h1 { max-width:1100px; margin-bottom:20px; font-size:clamp(38px,7vw,84px); line-height:.92; letter-spacing:-.065em; }
+    h2 { margin:52px 0 16px; font-size:22px; letter-spacing:-.025em; }
+    h3 { margin-bottom:8px; font-size:15px; }
+    p { max-width:1050px; }
+    a { color:var(--text); text-underline-offset:3px; }
+    code { color:#ddd; font:inherit; }
+    .lede { color:var(--muted); font-size:17px; }
+    .verdict { max-width:1100px; padding-left:16px; border-left:3px solid var(--accent); font-size:16px; }
+    .summary { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:1px; margin:30px 0; border:1px solid var(--line); background:var(--line); }
+    .metric { min-height:112px; padding:17px; background:var(--panel); }
+    .metric strong { display:block; margin-bottom:8px; font-size:29px; }
+    .metric span { color:var(--muted); }
+    .notes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1px; border:1px solid var(--line); background:var(--line); }
+    .note { padding:20px; background:var(--panel); }
+    .note p { margin-bottom:0; color:var(--muted); }
+    .table-wrap { overflow-x:auto; border:1px solid var(--line); }
+    table { width:100%; border-collapse:collapse; background:var(--panel); }
+    th,td { padding:13px 15px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+    th { color:var(--muted); font-size:11px; letter-spacing:.07em; text-transform:uppercase; }
+    tr:last-child td { border-bottom:0; }
+    .rank { width:54px; color:var(--muted); text-align:right; }
+    .status { font-weight:700; white-space:nowrap; }
+    .status.high { color:var(--high); }
+    .status.useful { color:var(--useful); }
+    .status.review { color:var(--review); }
+    .catalog td:nth-child(2) { width:17%; }
+    .catalog td:nth-child(3) { width:9%; }
+    .catalog td:nth-child(4) { width:28%; }
+    .catalog td:nth-child(6) { width:8%; }
+    pre { max-width:1050px; overflow-x:auto; padding:16px; border:1px solid var(--line); background:var(--panel); color:#ddd; }
+    footer { margin-top:48px; padding-top:20px; border-top:1px solid var(--line); color:var(--muted); }
+    @media (max-width:900px) { .summary,.notes { grid-template-columns:1fr 1fr; } main { width:min(100% - 24px,1480px); padding-top:28px; } th,td { min-width:145px; } .rank { min-width:52px; } }
+    @media (max-width:560px) { .summary,.notes { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>pstack for Codex</h1>
+    <p class="lede">Review guide for the staged upstream baseline and the unstaged Codex adaptation.</p>
+    <p class="verdict"><strong>The Git index is the checkpoint.</strong> It contains the complete, unchanged pstack tree from commit <code>60c641e4fad674784b30abcf9f8915dea39df38d</code>. The working tree now contains the Codex-oriented skill edits. Review with ordinary unstaged diffs and stage only the hunks or files you want.</p>
+
+    <section class="summary" aria-label="Adaptation summary">
+      <div class="metric"><strong>44</strong><span>skill entrypoints adapted</span></div>
+      <div class="metric"><strong>23</strong><span>poteto-mode playbooks adapted</span></div>
+      <div class="metric"><strong>39</strong><span>explicit-only policies preserved</span></div>
+      <div class="metric"><strong>2</strong><span>layers: staged upstream and unstaged adaptation</span></div>
+      <div class="metric"><strong>0</strong><span>unrelated Zed files staged</span></div>
+    </section>
+
+    <h2>How to review</h2>
+    <section class="notes">
+      <article class="note"><h3>One skill</h3><p>Run <code>git diff -- flake-parts/modules/home-manager/programs/codex/pstack/skills/&lt;skill&gt;</code>. The staged file is upstream; the working file is the proposed Codex version.</p></article>
+      <article class="note"><h3>Selective staging</h3><p>Use <code>git add -p</code> for individual hunks or <code>git add &lt;path&gt;</code> after accepting a complete skill. New policy files remain untracked until you stage them.</p></article>
+      <article class="note"><h3>Return to upstream</h3><p>To discard one proposed adaptation while keeping the staged baseline, restore only the working tree copy for that path from the index.</p></article>
+    </section>
+
+    <h2>What changed across the set</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Area</th><th>Working-tree adaptation</th></tr></thead>
+        <tbody>
+          <tr><td>Paths and invocation</td><td>Repository skills use <code>.agents/skills</code> and explicit references use <code>$skill-name</code>. Cursor rule, transcript, and plugin paths were removed from active entrypoints.</td></tr>
+          <tr><td>Parallel work</td><td>Parallel skills use Codex collaboration agents, inherited models, exclusive file ownership, and evidence contracts. Ordinary skills delegate only when the user explicitly asks for parallel work.</td></tr>
+          <tr><td>Questions and authority</td><td>Questions remain read-only. External messages, tickets, PRs, pushes, merges, deployments, production changes, and destructive cleanup keep their normal authorization boundaries.</td></tr>
+          <tr><td>PR workflow</td><td>Opening and monitoring route to <code>$file-pr</code> and <code>$babysit-pr</code>. No skill treats PR creation or merging as an automatic tail step.</td></tr>
+          <tr><td>Models</td><td>Hard-coded Cursor model slugs are gone. Optional role choices are advisory, repository-local, validated against the current collaboration tool, and inherit the parent by default.</td></tr>
+          <tr><td>History and connectors</td><td>Recall and why use scoped Codex history, Git, and currently available connected sources. Missing connectors are reported as coverage gaps.</td></tr>
+          <tr><td>Personal fit</td><td>Comment preservation, YAGNI, focused tests, source-of-truth fixes, safe Nix boundaries, and minimal delegation now match Forge's instructions.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Skill review order</h2>
+    <p>The ranking still reflects the title-level sample of 108 indexed Codex tasks from 6 July through 19 August 2026. Descriptions below are the proposed working-tree descriptions, not the staged upstream descriptions.</p>
+    <div class="table-wrap">
+      <table class="catalog">
+        <thead><tr><th>Rank</th><th>Skill</th><th>Usefulness</th><th>Proposed description</th><th>Review focus</th><th>Invocation</th></tr></thead>
+        <tbody><tr>
+  <td class="rank">1</td>
+  <td><code>principle-fix-root-causes</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Use when debugging. Trace each symptom to its root cause and fix it there; reproduce first, ask why until you reach it, resist nil-check guards that silence crashes.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">2</td>
+  <td><code>principle-prove-it-works</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Apply after completing a task, before declaring done. Verify against the real artifact (run the feature, read the actual value, inspect the diff), not a proxy, self-report, or &#39;it compiles.&#39;</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">3</td>
+  <td><code>blast-radius</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Trace what a change could break beyond the diff and prove the safety-critical facts with executable evidence.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">4</td>
+  <td><code>principle-laziness-protocol</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Use when refactoring, evaluating diff size, or tempted to add abstractions, layers, or signal threading. Bias toward deletion and the smallest change that solves the problem.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">5</td>
+  <td><code>typescript-best-practices</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Apply strict, idiomatic TypeScript modeling and boundary-validation practices to TS and TSX work.</td>
+  <td>Aligns with your TypeScript preferences: no `any`, boundary validation, discriminated unions, and readable caller types.</td>
+  <td>Automatic</td>
+</tr>
+<tr>
+  <td class="rank">6</td>
+  <td><code>principle-type-system-discipline</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Use when designing types, reviewing a function signature, or writing code in any statically-typed language. Make illegal states unrepresentable, brand semantic primitives, parse external data at boundaries, refuse to lie to the compiler, exhaust variants, derive from authoritative schemas.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">7</td>
+  <td><code>principle-boundary-discipline</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Use when wiring validation, error handling, or framework adapters. Concentrate guards at system boundaries (CLI, config, network, external APIs); trust internal types and keep business logic in pure functions.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">8</td>
+  <td><code>principle-minimize-reader-load</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Use when reviewing or shaping code that&#39;s hard to trace. Count layers between question and answer, and hidden state in the reader&#39;s head; collapse one-caller wrappers and shrink mutable scope.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">9</td>
+  <td><code>principle-make-operations-idempotent</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Use when designing commands, lifecycle steps, or processing loops that run amid crashes, restarts, and retries. Converge to the same end state regardless of partial prior runs.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">10</td>
+  <td><code>principle-sequence-verifiable-units</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Apply to multi-step work (sweeps, migrations, runs of similar edits) and to how you stack commits and PRs. Break work into small units that each end in a verifiable state, check each before the next, and order delivery so the sequence proves itself to a reviewer.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">11</td>
+  <td><code>how</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Explain how a subsystem works by tracing ownership, data flow, runtime behavior, and important boundaries.</td>
+  <td>Question workflow is explicitly read-only. Parallel explorers require an explicit user request.</td>
+  <td>Automatic</td>
+</tr>
+<tr>
+  <td class="rank">12</td>
+  <td><code>tdd</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Use a focused failing-before test for a bug when the repository has a cheap, meaningful test path.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">13</td>
+  <td><code>principle-model-the-domain</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Use when writing stateful logic, or when code branches a lot or repeats a shape assumption across files. Encode the domain in a structure instead of scattered conditionals.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">14</td>
+  <td><code>principle-foundational-thinking</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Apply before writing logic: choosing core types and data structures, sequencing scaffold-vs-feature work, asking what concurrent actors share. Get the data structures right so downstream code becomes obvious.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">15</td>
+  <td><code>architect</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Design types, signatures, and module boundaries before implementing a consequential change.</td>
+  <td>Removed mandatory model-panel and arena behavior. Review the smaller design workflow and its read-only-question boundary.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">16</td>
+  <td><code>principle-separate-before-serializing-shared-state</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Use when concurrent actors might write to the same file, branch, key, or state object. Eliminate the sharing first; serialize structurally only when one shared writer is a real invariant.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">17</td>
+  <td><code>principle-subtract-before-you-add</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Use when sequencing an addition, refactor, or rewrite. Remove dead weight, redundant validators, and stub references first, then build on the simpler base.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">18</td>
+  <td><code>technical-writing</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Write or revise technical documentation, RFCs, READMEs, PR text, and commit prose for clarity and use.</td>
+  <td>Condenses the style guide into four document modes and verifiable commands, paths, counts, and examples.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">19</td>
+  <td><code>interrogate</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Run an adversarial multi-perspective review of a diff or design and verify plausible findings against the source.</td>
+  <td>Uses ordinary read-only Codex reviewers with evidence contracts; fixes remain a separate authorization.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">20</td>
+  <td><code>show-me-your-work</code></td>
+  <td><span class="status high">High value</span></td>
+  <td>Keep an append-only TSV decision trail for long-running work, with evidence for each important choice.</td>
+  <td>Keeps a local append-only decision log and commits it only when the user requests an auditable artifact.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">21</td>
+  <td><code>figure-it-out</code></td>
+  <td><span class="status useful">Situational</span></td>
+  <td>Design and run an auditable workflow for a large task that fits no narrower pstack playbook.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">22</td>
+  <td><code>create-verification-skill</code></td>
+  <td><span class="status useful">Situational</span></td>
+  <td>Create a repository-scoped skill that drives the real app and captures repeatable behavioral evidence.</td>
+  <td>Creates repository skills under `.agents/skills` and requires real launch, drive, evidence, and cleanup steps.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">23</td>
+  <td><code>principle-encode-lessons-in-structure</code></td>
+  <td><span class="status useful">Situational</span></td>
+  <td>Use when you catch yourself writing the same instruction a second time, or notice a recurring correction. Encode the rule as a lint, metadata flag, runtime check, or script instead of more text.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">24</td>
+  <td><code>principle-redesign-from-first-principles</code></td>
+  <td><span class="status useful">Situational</span></td>
+  <td>Use when integrating a new requirement into an existing design. Redesign as if the requirement had been a foundational assumption from day one, instead of bolting it on.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">25</td>
+  <td><code>principle-experience-first</code></td>
+  <td><span class="status useful">Situational</span></td>
+  <td>Use when product, UX, or feature-scope tradeoffs come up. Choose user delight over implementation convenience; ship fewer polished features over more rough ones.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">26</td>
+  <td><code>principle-migrate-callers-then-delete-legacy-apis</code></td>
+  <td><span class="status useful">Situational</span></td>
+  <td>Use when introducing a new internal API while old callers still exist. Migrate callers and delete the old API in the same wave instead of preserving compatibility layers.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">27</td>
+  <td><code>principle-outcome-oriented-execution</code></td>
+  <td><span class="status useful">Situational</span></td>
+  <td>Apply during planned rewrites and migrations with explicit phase boundaries. Converge on the target architecture; don&#39;t preserve smooth intermediate states with throwaway compatibility code.</td>
+  <td>Keeps target-state focus but requires isolated work before allowing temporary breakage.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">28</td>
+  <td><code>principle-guard-the-context-window</code></td>
+  <td><span class="status useful">Situational</span></td>
+  <td>Use when context is filling up: large outputs, long files, repeated reads, fan-out planning. Route bulk to subagents; keep summaries in the main thread, not raw payloads.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">29</td>
+  <td><code>why</code></td>
+  <td><span class="status useful">Situational</span></td>
+  <td>Investigate why code or a decision exists using source history and available connected evidence, with calibrated confidence.</td>
+  <td>Uses Git first and only currently available connectors. Parallel evidence lanes require an explicit user request.</td>
+  <td>Automatic</td>
+</tr>
+<tr>
+  <td class="rank">30</td>
+  <td><code>teach</code></td>
+  <td><span class="status useful">Situational</span></td>
+  <td>Teach a subsystem or change by combining how it works with the evidence for why it exists.</td>
+  <td>Composes `$how` and `$why` while preserving evidence confidence and avoiding unnecessary diagrams.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">31</td>
+  <td><code>unslop</code></td>
+  <td><span class="status useful">Situational</span></td>
+  <td>Edit prose to remove generic AI phrasing while preserving facts, qualifications, tone, and useful structure.</td>
+  <td>No longer claims it must rewrite every response; it applies to requested prose and preserves facts and voice.</td>
+  <td>Automatic</td>
+</tr>
+<tr>
+  <td class="rank">32</td>
+  <td><code>bro</code></td>
+  <td><span class="status useful">Situational</span></td>
+  <td>Restate the previous answer in short, plain language without jargon.</td>
+  <td>Core guidance is retained with a shorter trigger and removal of Cursor-only invocation metadata. Review any changed scope qualification.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">33</td>
+  <td><code>maintain-verification-skill</code></td>
+  <td><span class="status useful">Situational</span></td>
+  <td>Audit a repository verification skill and feature map against current source and live behavior.</td>
+  <td>Targets `.agents/skills`, limits edits to the verification skill, and no longer opens a PR automatically.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">34</td>
+  <td><code>recall</code></td>
+  <td><span class="status useful">Situational</span></td>
+  <td>Reconstruct recent project context from scoped Codex history, memories, Git state, and connected records.</td>
+  <td>Uses scoped Codex sessions, memories, Git, and available connected records without scanning unrelated projects.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">35</td>
+  <td><code>principle-exhaust-the-design-space</code></td>
+  <td><span class="status useful">Situational</span></td>
+  <td>Use when facing a novel UI interaction or architectural decision with no precedent in the codebase. Build 2-3 competing prototypes and compare side by side before committing.</td>
+  <td>Keeps multiple prototypes for consequential UI or architecture choices, not routine edits.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">36</td>
+  <td><code>automate-me</code></td>
+  <td><span class="status review">Review closely</span></td>
+  <td>Create or update a personal Codex mode skill from repeated working preferences and corrections.</td>
+  <td>Uses scoped Codex history and `$skill-creator`; proposes durable rules before editing skills or AGENTS.md.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">37</td>
+  <td><code>arena</code></td>
+  <td><span class="status review">Review closely</span></td>
+  <td>Run isolated parallel attempts at one task, select a base, combine useful parts, and verify the result.</td>
+  <td>Uses Codex collaboration agents, inherited models, isolated outputs, and explicit user authorization for parallelism.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">38</td>
+  <td><code>swarm</code></td>
+  <td><span class="status review">Review closely</span></td>
+  <td>Fan out independent slices or races to parallel Codex subagents and consolidate one evidenced report.</td>
+  <td>Uses Codex collaboration agents with assigned ownership, evidence contracts, and explicit parallel authorization.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">39</td>
+  <td><code>reflect</code></td>
+  <td><span class="status review">Review closely</span></td>
+  <td>Review a completed task for reusable process lessons and propose the smallest durable improvement.</td>
+  <td>Returns one proposed improvement and never edits skills, AGENTS.md, or memory without an explicit request.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">40</td>
+  <td><code>poteto-mode</code></td>
+  <td><span class="status review">Review closely</span></td>
+  <td>Apply the pstack engineering playbooks to a task when the user explicitly requests this mode.</td>
+  <td>Becomes a current-task router rather than a sticky Cursor mode. Routes to one playbook and keeps Forge permissions authoritative.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">41</td>
+  <td><code>no-comments</code></td>
+  <td><span class="status review">Review closely</span></td>
+  <td>Audit comments and suppressions in a diff, removing narration while preserving useful rationale and constraints.</td>
+  <td>Replaces Comment Sicko with a scoped audit that preserves rationale, constraints, API docs, and justified suppressions.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">42</td>
+  <td><code>principle-build-the-lever</code></td>
+  <td><span class="status review">Review closely</span></td>
+  <td>Apply to any non-trivial work, not just bulk work: edits, migrations, analyses, checks. Build the tool that does it or proves it (codemod, script, generator, or a skill your subagents follow) instead of working by hand. The tool is the artifact a reviewer can rerun.</td>
+  <td>Adds a YAGNI balance: build a lever only when it improves repeatability, proof, or reuse.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">43</td>
+  <td><code>principle-never-block-on-the-human</code></td>
+  <td><span class="status review">Review closely</span></td>
+  <td>Proceed on reversible in-scope local work while preserving approval, question, and external-action boundaries.</td>
+  <td>Narrows autonomy to reversible in-scope work and preserves authority, production, destructive-action, and question boundaries.</td>
+  <td>Explicit</td>
+</tr>
+<tr>
+  <td class="rank">44</td>
+  <td><code>setup-pstack</code></td>
+  <td><span class="status review">Review closely</span></td>
+  <td>Configure optional repository-local model roles for the Codex pstack skills.</td>
+  <td>Writes only an advisory repository-local `.agents/pstack-models.toml` after approval; never changes Codex global config.</td>
+  <td>Automatic</td>
+</tr>
+</tbody>
+      </table>
+    </div>
+
+    <h2>Scope boundary</h2>
+    <p>The 44 primary skills and their active poteto-mode playbooks were adapted. The copied Cursor plugin manifest, guide, custom-agent documents, unused legacy references, helper scripts, and the dormant Benny automation pack remain at the staged upstream versions. They are preserved for provenance and are not wired as primary Codex skills.</p>
+
+    <h2>Source</h2>
+    <p><a href="https://github.com/cursor/plugins/tree/main/pstack">Upstream pstack repository</a></p>
+    <footer>Generated for the Forge Codex configuration. Static HTML with no scripts or external assets.</footer>
+  </main>
+</body>
+</html>

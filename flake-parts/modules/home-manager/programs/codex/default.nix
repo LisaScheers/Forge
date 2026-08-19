@@ -12,9 +12,16 @@ localFlake: {
     name = skill;
     value = ./skills/${skill};
   }) (builtins.attrNames (builtins.readDir ./skills)));
+  pstackSkills = builtins.listToAttrs (map (skill: {
+    name = skill;
+    value = ./pstack/skills/${skill};
+  }) (builtins.attrNames (builtins.readDir ./pstack/skills)));
   effectiveSkills =
     lib.optionalAttrs cfg.enableBundledSkills bundledSkills
     // cfg.extraSkills;
+  effectiveCodexSkills =
+    effectiveSkills
+    // lib.optionalAttrs cfg.enablePstackSkills pstackSkills;
 in {
   options.forge.codex = {
     enable = lib.mkEnableOption "the declarative Codex environment";
@@ -37,6 +44,12 @@ in {
       type = lib.types.bool;
       default = true;
       description = "Whether to install the draft skills bundled with this module.";
+    };
+
+    enablePstackSkills = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Whether to install the separately maintained pstack skills in Codex.";
     };
 
     extraSkills = lib.mkOption {
@@ -66,7 +79,7 @@ in {
         enable = true;
         inherit (cfg) package;
         context = cfg.agentsFile;
-        skills = effectiveSkills;
+        skills = effectiveCodexSkills;
       }
       // lib.optionalAttrs (cfg.settings != null) {
         inherit (cfg) settings;
