@@ -35,8 +35,6 @@ in {
 
   services.i2pd = {
     enable = true;
-    port = routerPort;
-    share = 80;
 
     proto = {
       http = {
