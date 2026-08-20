@@ -1,4 +1,5 @@
 {
+  buffer_font_family = "ComicCodeLigatures Nerd Font";
   project_panel = {
     dock = "left";
   };

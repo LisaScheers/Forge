@@ -23,6 +23,7 @@ in {
       "file:///System/Applications/Calendar.app/"
       "file:///Applications/ChatGPT.app/"
       "file:///Applications/Visual%20Studio%20Code.app/"
+      "file://${pkgs.zed-editor}/Applications/Zed.app"
       "file:///Applications/Nix%20Apps/Ghostty.app/"
       "file:///Applications/Discord.app/"
       "file:///Applications/Firestorm-Nightlyx64.app/"

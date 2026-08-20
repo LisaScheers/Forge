@@ -2,10 +2,13 @@
   config,
   lib,
   pkgs,
+  system,
   ...
-}: {
+}: let
+  isDarwin = (lib.systems.elaborate system).isDarwin;
+in {
   programs.ghostty = {
-    enable = true;
+    enable = isDarwin;
     # Ghostty is installed system-wide with ghostty-bin because the source
     # package is not supported on Darwin.
     package = null;
@@ -23,8 +26,9 @@
       font-style-bold-italic = "Bold Italic";
 
       background-opacity = 0.9;
-      background = "1e1e1e";
-      foreground = "ffffff";
     };
   };
+  home.packages = with pkgs; [
+    ghostty-bin.terminfo
+  ];
 }

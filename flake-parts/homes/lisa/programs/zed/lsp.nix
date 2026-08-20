@@ -1,6 +1,5 @@
 {pkgs}: let
-flakePath = "/private/etc/nix-darwin";
-
+  flakePath = "/private/etc/nix-darwin";
 in {
   nil = {
     binary = {
@@ -29,26 +28,26 @@ in {
   nixd = {
     settings = {
       nixpkgs = {
-        expr = "import (builtins.getFlake \""+ flakePath +"\").inputs.nixpkgs { }   ";
+        expr = "import (builtins.getFlake \"" + flakePath + "\").inputs.nixpkgs { }   ";
       };
       formatting = {
         command = ["nixfmt"];
       };
       options = {
         nixos = {
-          expr = "(builtins.getFlake \""+ flakePath +"\").nixosConfigurations.atlas.options";
+          expr = "(builtins.getFlake \"" + flakePath + "\").nixosConfigurations.atlas.options";
         };
         home-manager = {
-          expr = "(builtins.getFlake \""+ flakePath +"\").homeConfigurations.\"lisa@vega\".options";
+          expr = "(builtins.getFlake \"" + flakePath + "\").homeConfigurations.\"lisa@vega\".options";
         };
         nix-darwin = {
-          expr = "(builtins.getFlake \""+ flakePath +"\").darwinConfigurations.vega.options";
+          expr = "(builtins.getFlake \"" + flakePath + "\").darwinConfigurations.vega.options";
         };
-        flake-parts ={
-          expr= "(builtins.getFlake \""+ flakePath +"\").debug.options";
+        flake-parts = {
+          expr = "(builtins.getFlake \"" + flakePath + "\").debug.options";
         };
         flake-parts2 = {
-          expr= "(builtins.getFlake \""+ flakePath +"\").currentSystem.options";
+          expr = "(builtins.getFlake \"" + flakePath + "\").currentSystem.options";
         };
       };
     };

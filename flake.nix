@@ -23,6 +23,10 @@
       url = "github:selfhost-it/antigravity-cli-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    catppuccin = {
+      url = "github:catppuccin/nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     codex-cli-nix = {
       url = "github:sadjow/codex-cli-nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -92,6 +96,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     systems.url = "github:nix-systems/default";
-    zed.url = "github:zed-industries/zed";
+    t3-code-nix = {
+      url = "github:LisaScheers/t3-code-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    zed = {
+      url = "github:zed-industries/zed";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 }

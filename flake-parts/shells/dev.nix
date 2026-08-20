@@ -27,8 +27,7 @@
   treefmt-wrapper ? null,
   dev-process ? null,
   pre-commit ? null,
-}:
-let
+}: let
   scripts = {
     rename-project = writeShellScriptBin "rename-project" ''
       find "$1" \( -type d -name .git -prune \) -o -type f -print0 | xargs -0 sed -i "s/forge/$2/g"
@@ -73,53 +72,52 @@ let
     SOPS_AGE_KEY_FILE = "$HOME/.config/sops/age/keys.txt";
   };
 in
-mkShell {
-  packages =
-    with pkgs;
-    (lib.attrValues scripts)
-    ++ (lib.optional (treefmt-wrapper != null) treefmt-wrapper)
-    ++ (lib.optional (dev-process != null) dev-process)
-    ++ [
-      # -- NIX UTILS --
-      scripts.nom-nix-wrappers
-      nil # Yet another language server for Nix
-      nixd # nixd
-      statix # Lints and suggestions for the nix programming language
-      deadnix # Find and remove unused code in .nix source files
-      nix-output-monitor # Processes output of Nix commands to show helpful and pretty information
-      nixfmt # An opinionated formatter for Nix
+  mkShell {
+    packages = with pkgs;
+      (lib.attrValues scripts)
+      ++ (lib.optional (treefmt-wrapper != null) treefmt-wrapper)
+      ++ (lib.optional (dev-process != null) dev-process)
+      ++ [
+        # -- NIX UTILS --
+        scripts.nom-nix-wrappers
+        nil # Yet another language server for Nix
+        nixd # nixd
+        statix # Lints and suggestions for the nix programming language
+        deadnix # Find and remove unused code in .nix source files
+        nix-output-monitor # Processes output of Nix commands to show helpful and pretty information
+        nixfmt # An opinionated formatter for Nix
 
-      # -- GIT RELATED UTILS --
-      # commitizen # Tool to create committing rules for projects, auto bump versions, and generate changelogs
-      # cz-cli # The commitizen command line utility
-      # fh # The official FlakeHub CLI
-      gh # GitHub CLI tool
-      gh-dash # Github Cli extension to display a dashboard with pull requests and issues
+        # -- GIT RELATED UTILS --
+        # commitizen # Tool to create committing rules for projects, auto bump versions, and generate changelogs
+        # cz-cli # The commitizen command line utility
+        # fh # The official FlakeHub CLI
+        gh # GitHub CLI tool
+        gh-dash # Github Cli extension to display a dashboard with pull requests and issues
 
-      # -- BASE LANG UTILS --
-      markdownlint-cli # Command line interface for MarkdownLint
-      # nodePackages.prettier # Prettier is an opinionated code formatter
-      # typos # Source code spell checker
+        # -- BASE LANG UTILS --
+        markdownlint-cli # Command line interface for MarkdownLint
+        # nodePackages.prettier # Prettier is an opinionated code formatter
+        # typos # Source code spell checker
 
-      # -- (YOUR) EXTRA PKGS --
-      just
-      sops
-      age
-      jq
-      ssh-to-age
-      yq-go
-      nixos-anywhere
-      inputs'.home-manager.packages.home-manager
-    ]
-    ++ lib.optionals stdenv.isDarwin [
-      inputs'.nix-darwin.packages.darwin-rebuild
-    ];
+        # -- (YOUR) EXTRA PKGS --
+        just
+        sops
+        age
+        jq
+        ssh-to-age
+        yq-go
+        nixos-anywhere
+        inputs'.home-manager.packages.home-manager
+      ]
+      ++ lib.optionals stdenv.hostPlatform.isDarwin [
+        inputs'.nix-darwin.packages.darwin-rebuild
+      ];
 
-  shellHook = ''
-    ${lib.concatLines (lib.mapAttrsToList (name: value: "export ${name}=${value}") env)}
-    ${lib.optionalString (pre-commit != null) pre-commit.installationScript}
+    shellHook = ''
+      ${lib.concatLines (lib.mapAttrsToList (name: value: "export ${name}=${value}") env)}
+      ${lib.optionalString (pre-commit != null) pre-commit.installationScript}
 
-    # Welcome splash text
-    echo ""; echo -e "\e[1;37;42mWelcome to the forge devshell!\e[0m"; echo ""
-  '';
-}
+      # Welcome splash text
+      echo ""; echo -e "\e[1;37;42mWelcome to the forge devshell!\e[0m"; echo ""
+    '';
+  }

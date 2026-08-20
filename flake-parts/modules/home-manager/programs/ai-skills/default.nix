@@ -4,7 +4,7 @@ localFlake: {
   pkgs,
   ...
 }: let
-  cfg = config.forge.codex;
+  cfg = config.forge.ai-skills;
   tomlFormat = pkgs.formats.toml {};
   skillType = lib.types.either lib.types.lines lib.types.path;
   # scan the skills directory for all skills, and make them available to the user
@@ -23,15 +23,8 @@ localFlake: {
     effectiveSkills
     // lib.optionalAttrs cfg.enablePstackSkills pstackSkills;
 in {
-  options.forge.codex = {
-    enable = lib.mkEnableOption "the declarative Codex environment";
-
-    package = lib.mkOption {
-      type = lib.types.nullOr lib.types.package;
-      default = pkgs.codex;
-      defaultText = lib.literalExpression "pkgs.codex";
-      description = "Codex package to install, or null to manage only its files.";
-    };
+  options.forge.ai-skills = {
+    enable = lib.mkEnableOption "the declarative ai skills environment";
 
     agentsFile = lib.mkOption {
       type = lib.types.either lib.types.lines lib.types.path;
@@ -57,46 +50,24 @@ in {
       default = {};
       description = "Additional shared skills keyed by their skill directory name.";
     };
-
-    settings = lib.mkOption {
-      type = lib.types.nullOr tomlFormat.type;
-      default = null;
-      description = ''
-        Codex settings to manage as CODEX_HOME/config.toml. Leave null when
-        Codex Desktop should continue to own its mutable project, plugin, and
-        interface settings; Home Manager replaces this file rather than
-        merging with an existing one.
-      '';
-    };
   };
 
   config = lib.mkIf cfg.enable {
     home.packages = [pkgs.postplan-selfhosted];
     home.sessionVariables.POSTPLAN_API_URL = "https://plans.bylisa.dev";
 
-    programs.codex =
-      {
-        enable = true;
-        inherit (cfg) package;
-        context = cfg.agentsFile;
-        skills = effectiveCodexSkills;
-      }
-      // lib.optionalAttrs (cfg.settings != null) {
-        inherit (cfg) settings;
-      };
+    programs.codex = {
+      context = cfg.agentsFile;
+      skills = effectiveCodexSkills;
+    };
 
     programs.antigravity-cli = {
-      enable = true;
-      package = pkgs.antigravity-cli;
       skills = effectiveSkills;
     };
 
     programs.github-copilot-cli = {
-      enable = true;
-      package = pkgs.github-copilot-cli;
       context = cfg.agentsFile;
       skills = effectiveSkills;
-      settings.autoUpdate = false;
     };
   };
 }

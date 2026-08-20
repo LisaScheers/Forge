@@ -11,6 +11,7 @@ in {
         User = "git";
         IdentityFile = "~/.ssh/codeberg.pub";
         IdentitiesOnly = true;
+        IdentityAgent = "\"${homeDirectory}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock\"";
       };
 
       "mail" = {
@@ -19,6 +20,7 @@ in {
         Port = 22;
         IdentityFile = "~/.ssh/root@mail.pub";
         IdentitiesOnly = true;
+        IdentityAgent = "\"${homeDirectory}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock\"";
       };
 
       "atlas" = {
@@ -26,6 +28,7 @@ in {
         User = "lisa";
         IdentityFile = "~/.ssh/lisa@atlas.pub";
         IdentitiesOnly = true;
+        IdentityAgent = "\"${homeDirectory}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock\"";
       };
 
       "nook" = {
@@ -33,15 +36,6 @@ in {
         User = "lisa";
         IdentityFile = "~/.ssh/home-server.pub";
         IdentitiesOnly = true;
-      };
-
-      "router" = {
-        HostName = "192.168.1.1";
-        User = "root";
-        PreferredAuthentications = "keyboard-interactive";
-      };
-
-      "*" = {
         IdentityAgent = "\"${homeDirectory}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock\"";
       };
     };

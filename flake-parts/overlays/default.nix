@@ -17,7 +17,13 @@
   };
 
   zed = final: _prev: {
-    zed = inputs.zed.packages.${final.stdenv.hostPlatform.system}.default;
+    zed-editor = inputs.zed.packages.${final.stdenv.hostPlatform.system}.default.override {
+      # Zed pins cargo-about to 0.8.2, which does not have the inherited `cli` feature.
+      cargo-about = final.cargo-about.overrideAttrs (_old: {
+        cargoBuildFeatures = [];
+        cargoCheckFeatures = [];
+      });
+    };
   };
 
   # Nushell's integration tests assume a full TTY/shell nesting; they fail
@@ -59,7 +65,7 @@ in {
     _module.args.pkgs = pkgs;
     packages.claudex = pkgs.claudex;
     packages.postplan-selfhosted = pkgs.postplan-selfhosted;
-    packages.zed = pkgs.zed;
+    packages.zed-editor = pkgs.zed-editor;
   };
 
   flake-file.inputs.antigravity-cli = {

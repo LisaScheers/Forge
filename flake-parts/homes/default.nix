@@ -46,8 +46,11 @@ in {
     flake.homeConfigurations = {
       "lisa@vega" = withSystem "aarch64-darwin" (
         args:
-          mkHome args "lisa@vega" {
-          }
+          mkHome args "lisa@vega" {}
+      );
+      "lisa@nook" = withSystem "x86_64-linux" (
+        args:
+          mkHome args "lisa@nook" {}
       );
     };
 
@@ -67,6 +70,9 @@ in {
     flake.checks = {
       "aarch64-darwin" = {
         "home-lisa@vega" = config.flake.homeConfigurations."lisa@vega".config.home.path;
+      };
+      "x86_64-linux" = {
+        "home-lisa@nook" = config.flake.homeConfigurations."lisa@nook".config.home.path;
       };
     };
   };

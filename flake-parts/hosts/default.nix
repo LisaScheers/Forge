@@ -137,7 +137,7 @@ in {
     nook = withSystem "x86_64-linux" (
       args:
         mkHost args "nook" {
-          withHomeManager = false;
+          withHomeManager = true;
         }
     );
 
@@ -224,6 +224,9 @@ in {
 
   flake.checks.aarch64-darwin = {
     vega = config.flake.darwinConfigurations.vega.system;
+  };
+  flake.checks.x86_64-linux = {
+    nook = config.flake.nixosConfigurations.nook.system;
   };
 
   # myExampleHost = withSystem "x86_64-linux" (

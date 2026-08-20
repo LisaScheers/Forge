@@ -18,7 +18,9 @@ in {
     # reusable even outside of your flake. For more info see
     # https://flake.parts/dogfood-a-reusable-module#example-with-importapply
 
-    codex-environment = importApply ./programs/codex {inherit localFlake;};
+    catppuccin = inputs.catppuccin.homeModules.catppuccin;
+    t3-code = inputs.t3-code-nix.homeModules.default;
+    ai-environment = importApply ./programs/ai-skills {inherit localFlake;};
     xdg-extra = importApply ./services/xdg-extra {inherit localFlake;};
 
     # programs_myProgram = importApply ./programs/myProgram { inherit localFlake; };
