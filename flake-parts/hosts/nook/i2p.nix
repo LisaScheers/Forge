@@ -37,7 +37,6 @@ in {
     enable = true;
     port = routerPort;
     share = 80;
-    notransit = true;
 
     proto = {
       http = {
