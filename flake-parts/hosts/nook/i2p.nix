@@ -37,7 +37,6 @@ in {
     enable = true;
     logLevel = "warn";
     port = routerPort;
-    bandwidth = 1024;
     share = 80;
     notransit = true;
 
