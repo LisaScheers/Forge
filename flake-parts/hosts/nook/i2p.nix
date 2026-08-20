@@ -35,7 +35,6 @@ in {
 
   services.i2pd = {
     enable = true;
-    logLevel = "warn";
     port = routerPort;
     share = 80;
     notransit = true;
