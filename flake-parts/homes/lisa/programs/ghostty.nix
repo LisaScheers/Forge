@@ -28,7 +28,5 @@ in {
       background-opacity = 0.9;
     };
   };
-  home.packages = with pkgs; [
-    ghostty-bin.terminfo
-  ];
+  home.packages = lib.optional isDarwin pkgs.ghostty-bin.terminfo;
 }
