@@ -10,7 +10,6 @@ in {
   services.home-assistant = {
     enable = true;
     package = pkgs.home-assistant;
-    openFirewall = true;
     configDir = "/var/lib/hass";
     extraComponents = [
       # Components required to complete the onboarding
