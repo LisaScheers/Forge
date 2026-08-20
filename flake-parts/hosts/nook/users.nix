@@ -7,6 +7,7 @@ in {
     isNormalUser = true;
     description = "Lisa Scheers";
     extraGroups = ["wheel"];
+    linger = true;
     openssh.authorizedKeys.keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ25EnARSLbWqw6UhR/6GyO2MsxMqE23W9VM495A2xQu"];
   };
 
