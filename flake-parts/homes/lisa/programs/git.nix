@@ -1,4 +1,4 @@
-{...}: let
+{pkgs, ...}: let
   signingKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHM77QyWYhDIEUzvyv57MoXgtO8zokNcIM0q442WUX61";
 in {
   programs.git = {
@@ -16,4 +16,8 @@ in {
   xdg.configFile."git/allowed_signers".text = ''
     lisa@scheers.tech ${signingKey}
   '';
+
+  home.packages = with pkgs; [
+    gh
+  ];
 }
