@@ -5,6 +5,7 @@
   ...
 }: let
   vaultPath = "/home/lisa/obsidian/brain";
+  obsidianHeadless = pkgs.callPackage ../../../_packages/obsidian-headless.nix {};
   skillNames = [
     "obsidian-capture-fleeting"
     "obsidian-capture-literature"
@@ -136,12 +137,34 @@ in {
         "/home/lisa/.codex/skills/unslop";
     };
 
-  home.packages = [reviewRunner];
+  home.packages = [
+    obsidianHeadless
+    reviewRunner
+  ];
+
+  systemd.user.tmpfiles.rules = ["d ${vaultPath} 0700 - - -"];
+
+  systemd.user.services.obsidian-brain-sync = {
+    Unit = {
+      Description = "Continuously sync the Obsidian brain vault";
+      ConditionPathExists = "%h/.config/obsidian-headless/auth_token";
+      ConditionPathIsDirectory = vaultPath;
+    };
+    Service = {
+      Type = "simple";
+      ExecCondition = "${lib.getExe obsidianHeadless} sync-status --path ${vaultPath} --json";
+      ExecStart = "${lib.getExe obsidianHeadless} sync --path ${vaultPath} --continuous";
+      Restart = "on-failure";
+      RestartSec = 30;
+      UMask = "0077";
+    };
+    Install.WantedBy = ["default.target"];
+  };
 
   systemd.user.services.obsidian-brain-daily-review = {
     Unit = {
       Description = "Prepare the read-only Obsidian daily review";
-      ConditionPathIsDirectory = vaultPath;
+      ConditionPathIsDirectory = "${vaultPath}/.agents/skills/obsidian-daily-review";
     };
     Service = {
       Type = "oneshot";
