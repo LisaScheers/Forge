@@ -1,4 +1,4 @@
-{...}: let
+{lib, ...}: let
   dir = ./programs;
   entries = builtins.readDir dir;
   modules =
