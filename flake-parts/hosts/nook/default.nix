@@ -14,7 +14,6 @@
     ./home-assistant.nix
     ./dns.nix
     ./gotify.nix
-    ./i2p.nix
     ./media.nix
     ./monitoring.nix
     ./neo4j.nix
