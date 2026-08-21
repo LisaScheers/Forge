@@ -6,8 +6,8 @@
   listenAddress = "192.168.111.2";
   listenPort = 3128;
   socksPort = 1080;
-  cacheRoot = "/srv/disks/second-life-cache-nvme/squid-cache";
-  cacheSizeMb = 430000;
+  cacheRoot = "/srv/disks/second-life-cache/squid-cache";
+  cacheSizeMb = 190000;
   storeIdHelper = pkgs.writeTextFile {
     name = "second-life-squid-store-id";
     executable = true;
