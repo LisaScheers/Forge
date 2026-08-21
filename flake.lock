@@ -89,11 +89,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1787094470,
-        "narHash": "sha256-UiHfeA8umiWByi/ijDnfnlGcVSEAhwNv1Gue3h6ey/U=",
+        "lastModified": 1787260212,
+        "narHash": "sha256-cd9PhHDHLOmZEGqRd+zQPGNJHCtFrFWzIreM5IVbwVQ=",
         "owner": "sadjow",
         "repo": "codex-cli-nix",
-        "rev": "cfbeeca2f4dfbbfcc3c1a5b21e61a051ff43533d",
+        "rev": "36fefe14f5549c2751afa313bfcc8582eb025707",
         "type": "github"
       },
       "original": {
@@ -1163,11 +1163,11 @@
         "pre-commit-hooks": "pre-commit-hooks_2"
       },
       "locked": {
-        "lastModified": 1787218880,
-        "narHash": "sha256-QT+G51DE9CyEudbBkcAOt/UjEJOZ5dP40FGc5FeMK6Q=",
+        "lastModified": 1787306133,
+        "narHash": "sha256-Ey88qe3Ebsnm/C197AwsQJRRx4XGzUA6QHGJXmLqKU4=",
         "owner": "LisaScheers",
         "repo": "t3-code-nix",
-        "rev": "9a0dba39c0dff38201c37ac63230d6e1e091cb5a",
+        "rev": "db58800b281494f746365dab052a7607d6550a96",
         "type": "github"
       },
       "original": {
