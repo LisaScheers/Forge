@@ -7,6 +7,5 @@
     map lib.lowPrio [
       git
       nano
-      obsidian
     ];
 }
