@@ -7,5 +7,6 @@
     map lib.lowPrio [
       git
       nano
+      ripgrep
     ];
 }

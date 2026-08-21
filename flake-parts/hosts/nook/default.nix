@@ -16,9 +16,7 @@
     ./gotify.nix
     ./media.nix
     ./monitoring.nix
-    ./neo4j.nix
     ./siem.nix
-    ./onepassword-connect.nix
     ./acme.nix
   ];
 
