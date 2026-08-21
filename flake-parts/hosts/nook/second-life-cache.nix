@@ -183,6 +183,8 @@ in {
   };
 
   systemd.services.squid = {
+    after = ["network-online.target"];
+    wants = ["network-online.target"];
     preStart = lib.mkBefore ''
       install -d -m 0750 -o squid -g squid ${cacheRoot}
     '';
