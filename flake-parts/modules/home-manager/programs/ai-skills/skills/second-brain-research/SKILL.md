@@ -1,6 +1,6 @@
 ---
 name: second-brain-research
-description: "Use for every research or investigation task for Lisa. Check her Obsidian brain before external sources and automatically capture reusable findings as fleeting notes, never atomics."
+description: "Always applies! Check Obsidian brain before external sources and automatically capture reusable findings as fleeting notes, never atomics."
 ---
 
 # Use the second brain during research
