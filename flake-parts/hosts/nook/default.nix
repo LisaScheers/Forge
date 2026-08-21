@@ -16,7 +16,6 @@
     ./gotify.nix
     ./media.nix
     ./monitoring.nix
-    ./siem.nix
     ./acme.nix
   ];
 
