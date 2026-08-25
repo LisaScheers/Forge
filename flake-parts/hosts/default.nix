@@ -148,7 +148,6 @@ in {
           extraModules = [
             config.flake.nixosModules.services_auto-sync-update
             config.flake.nixosModules.services_authentik
-            config.flake.nixosModules.services_forgejo-runner
             config.flake.nixosModules.services_matrix
             inputs.shop-empty-track.nixosModules.default
             inputs.sl-remote.nixosModules.default

@@ -3,7 +3,7 @@
   config,
   ...
 }: let
-  atm10Root = "/var/minecraft/atm10-7.2";
+  atm10Root = "/var/minecraft/atm10-8.0";
   atm11Root = "/var/minecraft/atm11-0.2.0";
   allTheMonsRoot = "/var/minecraft/allthemons-1.0.0-rc.6";
   minecraftJvmArgs = pkgs.writeText "minecraft-user_jvm_args.txt" ''
@@ -114,9 +114,9 @@ in {
 
   systemd.services.atm10-6-6.enable = false;
 
-  systemd.services.atm10-7-2 = {
+  systemd.services.atm10-8-0 = {
     enable = true;
-    description = "All The Mods 10 7.2 Minecraft server";
+    description = "All The Mods 10 8.0 Minecraft server";
     wantedBy = ["multi-user.target"];
     unitConfig.Conflicts = [
       "atm-10-tts.service"
@@ -138,7 +138,7 @@ in {
     };
     preStart = ''
       if [ ! -f ${atm10Root}/startserver.sh ]; then
-        echo "Missing ${atm10Root}/startserver.sh. Extract ServerFiles-7.2.zip into ${atm10Root} before starting this service."
+        echo "Missing ${atm10Root}/startserver.sh. Extract ServerFiles-8.0.zip into ${atm10Root} before starting this service."
         exit 1
       fi
 
@@ -205,7 +205,7 @@ in {
     unitConfig.Conflicts = [
       "atm-10-tts.service"
       "atm10-6-6.service"
-      "atm10-7-2.service"
+      "atm10-8-0.service"
       "allthemons-1-0-0-rc-6.service"
       "cutie-craft.service"
       "cus2.service"
@@ -292,7 +292,7 @@ in {
     unitConfig.Conflicts = [
       "atm-10-tts.service"
       "atm10-6-6.service"
-      "atm10-7-2.service"
+      "atm10-8-0.service"
       "atm11-0-2-0.service"
       "allthemons-1-0-0-rc-5.service"
       "cutie-craft.service"

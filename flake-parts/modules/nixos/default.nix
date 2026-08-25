@@ -15,7 +15,6 @@ in {
     # services_myService = importApply ./services/myService.nix { inherit localFlake inputs; };
     services_auto-sync-update = importApply ./services/auto-sync-update {inherit localFlake inputs;};
     services_authentik = importApply ./services/authentik {inherit localFlake inputs;};
-    services_forgejo-runner = importApply ./services/forgejo-runner {inherit localFlake inputs;};
     services_matrix = importApply ./services/matrix {inherit localFlake inputs;};
   };
 }
