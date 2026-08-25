@@ -1,4 +1,0 @@
-interface:
-  display_name: "Use LSL Tester"
-  short_description: "Test LSL scripts deterministically"
-  default_prompt: "Use $use-lsl-tester to write deterministic tests for this LSL script."
