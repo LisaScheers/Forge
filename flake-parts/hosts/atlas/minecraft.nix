@@ -56,8 +56,8 @@
     sha256 = "sha256-WsMOiwhWpoOpcAkusivRrUELIY6RkXP2q80DkwFxLtI=";
   };
   estrogenJar = pkgs.fetchurl {
-    url = "https://mediafilez.forgecdn.net/files/8746/559/estrogen-6.0.0%2B1.21.1-neoforge.jar";
-    sha256 = "sha256-BDitmk36Rds859oR8wIFPMd8+jp/MC8LwxKHHFgl0GU=";
+    url = "https://mediafilez.forgecdn.net/files/8757/560/estrogen-6.0.3%2B1.21.1-neoforge.jar";
+    sha256 = "sha256-38Q4uROc15Q0xI6Pt6KI2CHDn7b+7oxchD/M1Xm3ZPY=";
   };
   createEstrogenJar = pkgs.fetchurl {
     url = "https://mediafilez.forgecdn.net/files/8746/613/createestrogen-2.0.0%2B1.21.1.jar";
@@ -192,7 +192,8 @@ in {
 
       install -D -m 0644 ${bluemapJar} ${atm10Root}/mods/bluemap-5.7-neoforge.jar
       install -D -m 0644 ${cynosureJar} ${atm10Root}/mods/cynosure-1.0.0-neoforge-1.21.1.jar
-      install -D -m 0644 ${estrogenJar} ${atm10Root}/mods/estrogen-6.0.0+1.21.1-neoforge.jar
+      rm -f ${atm10Root}/mods/estrogen-6.0.0+1.21.1-neoforge.jar
+      install -D -m 0644 ${estrogenJar} ${atm10Root}/mods/estrogen-6.0.3+1.21.1-neoforge.jar
       install -D -m 0644 ${createEstrogenJar} ${atm10Root}/mods/createestrogen-2.0.0+1.21.1.jar
       install -D -m 0644 ${bluemapCoreConfig} ${atm10Root}/config/bluemap/core.conf
       install -D -m 0644 ${bluemapWebappConfig} ${atm10Root}/config/bluemap/webapp.conf
