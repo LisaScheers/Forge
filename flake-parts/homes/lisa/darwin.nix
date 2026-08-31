@@ -58,8 +58,10 @@ in {
 
   home.activation.setDefaultBrowser = lib.hm.dag.entryAfter ["writeBoundary"] ''
     run /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
-      -f /Applications/Helium.app
-    run ${pkgs.duti}/bin/duti -s ${defaultBrowserBundleId} http
-    run ${pkgs.duti}/bin/duti -s ${defaultBrowserBundleId} https
+      -f /Applications/Helium.app \
+      || warnEcho "Failed to register Helium with Launch Services"
+    run ${pkgs.duti}/bin/duti -s ${defaultBrowserBundleId} http \
+      || warnEcho "Failed to set Helium as the HTTP handler"
+    # macOS rejects direct HTTPS handler changes with permErr (-54).
   '';
 }

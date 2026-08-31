@@ -12,6 +12,10 @@
     claudex = final.callPackage ../_packages/claudex.nix {};
   };
 
+  cli-proxy-api-plus = final: _prev: {
+    cli-proxy-api-plus = final.callPackage ../_packages/cli-proxy-api-plus.nix {};
+  };
+
   postplan-selfhosted = final: _prev: {
     postplan-selfhosted = final.callPackage ../_packages/postplan-selfhosted.nix {};
   };
@@ -45,6 +49,7 @@
   default = final: prev:
     (antigravity-cli final prev)
     // (claudex final prev)
+    // (cli-proxy-api-plus final prev)
     // (codex final prev)
     // (postplan-selfhosted final prev)
     // (nushell final prev)
@@ -52,7 +57,7 @@
     // (zed final prev);
 in {
   flake.overlays = {
-    inherit antigravity-cli claudex codex default flake-parts-builder nushell postplan-selfhosted zed;
+    inherit antigravity-cli claudex cli-proxy-api-plus codex default flake-parts-builder nushell postplan-selfhosted zed;
   };
 
   perSystem = {system, ...}: let
@@ -64,6 +69,7 @@ in {
   in {
     _module.args.pkgs = pkgs;
     packages.claudex = pkgs.claudex;
+    packages.cli-proxy-api-plus = pkgs.cli-proxy-api-plus;
     packages.postplan-selfhosted = pkgs.postplan-selfhosted;
     packages.zed-editor = pkgs.zed-editor;
   };
