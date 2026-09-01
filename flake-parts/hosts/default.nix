@@ -55,7 +55,7 @@
             inputs.home-manager.nixosModules.home-manager
             {
               home-manager = {
-                home-manager.backupFileExtension = "before-nix-home-manager";
+                backupFileExtension = "before-nix-home-manager";
                 useGlobalPkgs = true;
                 useUserPackages = true;
                 extraSpecialArgs = baseSpecialArgs;
