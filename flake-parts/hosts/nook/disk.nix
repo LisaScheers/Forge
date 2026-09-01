@@ -1,10 +1,10 @@
 let
-  manualMountOptions = [
+  commonMountOptions = [
     "defaults"
-    "noauto"
     "nofail"
     "x-systemd.device-timeout=5s"
   ];
+  manualMountOptions = commonMountOptions ++ ["noauto"];
   dataDisk = device: mountpoint: {
     inherit device;
     type = "disk";
@@ -88,7 +88,7 @@ in {
   fileSystems."/srv/disks/projects" = {
     device = "/dev/projects/data";
     fsType = "xfs";
-    options = manualMountOptions ++ ["X-fstrim.notrim"];
+    options = commonMountOptions ++ ["X-fstrim.notrim"];
   };
 
   services.lvm.boot.vdo.enable = true;
