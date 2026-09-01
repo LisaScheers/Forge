@@ -74,18 +74,28 @@ in {
     packages.zed-editor = pkgs.zed-editor;
   };
 
-  flake-file.inputs.antigravity-cli = {
-    url = "github:selfhost-it/antigravity-cli-nix";
-    inputs.nixpkgs.follows = "nixpkgs";
-  };
+  flake-file.inputs = {
+    antigravity-cli = {
+      url = "github:selfhost-it/antigravity-cli-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
-  flake-file.inputs.codex-cli-nix = {
-    url = "github:sadjow/codex-cli-nix";
-    inputs.nixpkgs.follows = "nixpkgs";
-  };
+    codex-cli-nix = {
+      url = "github:sadjow/codex-cli-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
-  flake-file.inputs.flake-parts-builder = {
-    url = "github:tsandrini/flake-parts-builder";
-    inputs.nixpkgs.follows = "nixpkgs";
+    flake-parts-builder = {
+      url = "github:tsandrini/flake-parts-builder";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+  flake-file.nixConfig = {
+    extra-substituters = [
+      "https://zed.cachix.org"
+    ];
+    extra-trusted-public-keys = [
+      "zed.cachix.org-1:/pHQ6dpMsAZk2DiP4WCL0p9YDNKWj2Q5FL20bNmw1cU="
+    ];
   };
 }

@@ -8,8 +8,14 @@
   outputs = inputs: import ./outputs.nix inputs;
 
   nixConfig = {
-    extra-substituters = [ "https://zed.cachix.org" ];
-    extra-trusted-public-keys = [ "zed.cachix.org-1:/pHQ6dpMsAZk2DiP4WCL0p9YDNKWj2Q5FL20bNmw1cU=" ];
+    extra-substituters = [
+      "https://zed.cachix.org"
+      "https://zed.cachix.org"
+    ];
+    extra-trusted-public-keys = [
+      "zed.cachix.org-1:/pHQ6dpMsAZk2DiP4WCL0p9YDNKWj2Q5FL20bNmw1cU="
+      "zed.cachix.org-1:/pHQ6dpMsAZk2DiP4WCL0p9YDNKWj2Q5FL20bNmw1cU="
+    ];
     extraSubstituters = [ ];
     extraTrustedPublicKeys = [ ];
   };
@@ -33,6 +39,11 @@
     };
     comic-code-fonts = {
       url = "github:LisaScheers/comic-code-fonts";
+      flake = false;
+    };
+    devenv.url = "github:cachix/devenv";
+    devenv-root = {
+      url = "file+file:///dev/null";
       flake = false;
     };
     disko.url = "github:nix-community/disko";

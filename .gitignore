@@ -30,3 +30,6 @@ secrets/*.tar
 secrets/*.tar.gz
 *.agekey
 age-key.txt
+
+# devenv
+.devenv/

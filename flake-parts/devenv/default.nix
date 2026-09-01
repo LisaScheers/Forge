@@ -1,0 +1,28 @@
+# --- flake-parts/devenv/default.nix
+{
+  inputs,
+  lib,
+  ...
+}: {
+  imports = with inputs; [devenv.flakeModule];
+
+  perSystem = {
+    config,
+    pkgs,
+    system,
+    ...
+  }: {
+    devenv.shells = {
+      default = config.devenv.shells.dev;
+
+      dev = import ./dev.nix {
+        inherit pkgs system inputs;
+        inherit (inputs) devenv-root;
+        treefmt-wrapper =
+          if (lib.hasAttr "treefmt" config)
+          then config.treefmt.build.wrapper
+          else null;
+      };
+    };
+  };
+}
