@@ -11,6 +11,8 @@
   alloyPort = 12345;
   cadvisorAddress = "127.0.0.1";
   cadvisorPort = 18080;
+  forgejoAddress = config.services.forgejo.settings.server.HTTP_ADDR;
+  forgejoPort = config.services.forgejo.settings.server.HTTP_PORT;
   nginxExporterAddress = "127.0.0.1";
   nginxExporterPort = 9113;
   postgresExporterAddress = "127.0.0.1";
@@ -80,7 +82,7 @@
         {"__address__" = "${redisExporterAddress}:${toString redisExporterPort}", "job" = "matrix-redis", "instance" = "${instance}"},
         {"__address__" = "${synapseMetricsAddress}:${toString synapseMetricsPort}", "job" = "matrix-synapse", "instance" = "${instance}"},
         {"__address__" = "127.0.0.1:9300", "job" = "matrix-authentik", "instance" = "${instance}"},
-        {"__address__" = "127.0.0.1:3000", "job" = "forgejo", "instance" = "git.bylisa.dev"},
+        {"__address__" = "${forgejoAddress}:${toString forgejoPort}", "job" = "forgejo", "instance" = "git.bylisa.dev"},
       ]
       forward_to      = [otelcol.receiver.prometheus.local.receiver]
       scrape_interval = "15s"

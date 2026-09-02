@@ -1,6 +1,6 @@
 {config, ...}: let
   domain = "git.bylisa.dev";
-  httpPort = 3000;
+  httpPort = 3002;
   sshPort = 2222;
   mailAddress = "forgejo@scheers.tech";
   mailSecret = ../../agenix/secrets/atlas/forgejo-mailer-password.age;
