@@ -1,7 +1,4 @@
 # Justfile for nix-config automation
-matrix-server := env_var_or_default("MATRIX_HOST", "lisa@100.87.26.75")
-matrix-flake := "matrix.bylisa.dev"
-matrix-ssh := "ssh -o IdentitiesOnly=yes -o IdentityFile=~/.ssh/hetzner-mc"
 
 # Default recipe - show available commands
 default:
@@ -11,13 +8,10 @@ default:
 fmt:
     nix fmt
 
-# Rebuild Darwin configuration
-darwin host="Lisas-private-MacBook-Pro":
-    sudo darwin-rebuild switch --flake .#"{{host}}"
-
-# Rebuild NixOS configuration
-nixos host="home-server":
-    nixos-rebuild switch --flake .#"{{host}}"
+# Apply Vega once before its first deploy-rs activation.
+# This enables localhost SSH and installs the deployment key.
+vega-bootstrap:
+    sudo darwin-rebuild switch --flake .#vega
 
 # Install the home server with nixos-anywhere.
 # WARNING: this repartitions and formats the disk configured in config.nix.
@@ -80,40 +74,131 @@ tree:
 dev:
     nix develop
 
-# Build the host configuration for the current supported system
-build:
-    nix run .#build
+# Build one host without activating it.
+# Nix may use the remote builders declared by this flake.
+deploy-build host:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "{{host}}" in
+      nook|atlas)
+        nix build ".#nixosConfigurations.{{host}}.config.system.build.toplevel"
+        ;;
+      vega)
+        nix build ".#darwinConfigurations.vega.system"
+        ;;
+      *)
+        echo "unknown deploy host: {{host}}" >&2
+        exit 2
+        ;;
+    esac
 
-# Build and switch the host configuration for the current supported system
-apply:
-    nix run .#build-switch
+# Deploy exactly one host. Modes are switch, dry, and test.
+# Vega supports switch only and always targets localhost.
+deploy host mode="switch":
+    #!/usr/bin/env bash
+    set -euo pipefail
 
-# Deploy the current working tree to the home-server and switch it.
-# Uses normal SSH auth, or password auth when SSHPASS is set.
-deploy-home-server:
-    nix run .#deploy-home-server
+    host="{{host}}"
+    mode="{{mode}}"
+    case "$host" in
+      nook|atlas|vega) ;;
+      *)
+        echo "unknown deploy host: $host" >&2
+        exit 2
+        ;;
+    esac
 
-# Sync the current working tree to the Matrix server.
-matrix-sync:
-    rsync -a -e '{{matrix-ssh}}' --exclude=.direnv . {{matrix-server}}:~/flake
+    deploy_args=()
+    case "$mode" in
+      switch) ;;
+      dry) deploy_args+=(--dry-activate) ;;
+      test) deploy_args+=(--test) ;;
+      *)
+        echo "unknown deploy mode: $mode" >&2
+        exit 2
+        ;;
+    esac
 
-# Deploy the current working tree to the Matrix server and switch it.
-matrix-switch:
-    just matrix-sync
-    {{matrix-ssh}} {{matrix-server}} -t "sudo nixos-rebuild switch --flake ~/flake#{{matrix-flake}}"
+    if [[ "$host" == "vega" ]]; then
+      if [[ "$mode" != "switch" ]]; then
+        echo "deploy-rs does not provide useful dry or test activation for nix-darwin" >&2
+        exit 2
+      fi
+      if [[ "$(hostname -s)" != "vega" ]]; then
+        echo "Vega can only be deployed manually from Vega" >&2
+        exit 2
+      fi
+    fi
 
-# Test the Matrix server configuration remotely.
-matrix-check:
-    just matrix-sync
-    {{matrix-ssh}} {{matrix-server}} -t "sudo nixos-rebuild test --flake ~/flake#{{matrix-flake}}"
+    if [[ "$host" == "atlas" ]]; then
+      if [[ -n "$(git status --porcelain)" ]]; then
+        echo "Atlas deploys require a clean worktree" >&2
+        exit 1
+      fi
 
-# Build Darwin configuration (dry-run)
-darwin-build host="Lisas-private-MacBook-Pro":
-    darwin-rebuild build --flake .#"{{host}}"
+      git fetch --quiet origin main
+      if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
+        echo "Atlas deploys require HEAD to match origin/main" >&2
+        exit 1
+      fi
+    fi
 
-# Build NixOS configuration (dry-run)
-nixos-build host="home-server":
-    nixos-rebuild build --flake .#"{{host}}"
+    case "$host" in
+      nook|atlas) target_system="x86_64-linux" ;;
+      vega) target_system="aarch64-darwin" ;;
+    esac
+    nix build --no-link \
+      ".#checks.$target_system.deploy-schema-$host" \
+      ".#checks.$target_system.deploy-activate-$host" \
+      ".#checks.$target_system.$host"
+
+    atlas_timer_needs_restart=0
+    atlas_deploy_started=0
+    restart_atlas_timer() {
+      exit_status=$?
+      trap - EXIT
+      if [[ "$atlas_timer_needs_restart" == "1" ]]; then
+        if [[ "$atlas_deploy_started" == "1" && "$exit_status" != "0" ]]; then
+          echo "Atlas deployment failed; its auto-update timer remains stopped" >&2
+          echo "after fixing or reverting main, restart it with:" >&2
+          echo "  ssh atlas sudo systemctl start nix-auto-sync-update.timer" >&2
+        elif ! ssh atlas sudo systemctl start nix-auto-sync-update.timer; then
+          echo "failed to restart Atlas auto-update timer" >&2
+          exit_status=1
+        fi
+      fi
+      exit "$exit_status"
+    }
+    trap restart_atlas_timer EXIT
+
+    if [[ "$host" == "atlas" ]]; then
+      atlas_timer_needs_restart=1
+      ssh atlas sudo systemctl stop nix-auto-sync-update.timer
+      update_state="$(ssh atlas systemctl show --property=ActiveState --value nix-auto-sync-update.service)"
+      if [[ "$update_state" != "inactive" ]]; then
+        echo "Atlas auto-update state is $update_state; it was not deployed" >&2
+        exit 1
+      fi
+      reboot_state="$(ssh atlas systemctl show --property=ActiveState --value nix-auto-sync-update-reboot.timer)"
+      if [[ "$reboot_state" != "inactive" ]]; then
+        echo "Atlas reboot timer state is $reboot_state; it was not deployed" >&2
+        exit 1
+      fi
+
+      # Close the race where main changes while the closures are building.
+      git fetch --quiet origin main
+      if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
+        echo "origin/main changed while building; Atlas was not deployed" >&2
+        exit 1
+      fi
+    fi
+
+    # Forge's full flake check has unrelated baseline failures. The three
+    # target checks above are the deployment gate.
+    if [[ "$host" == "atlas" ]]; then
+      atlas_deploy_started=1
+    fi
+    nix run .#deploy -- --skip-checks ".#$host" "${deploy_args[@]}"
 
 # Generate an age identity for agenix (if needed).
 age-keygen:
