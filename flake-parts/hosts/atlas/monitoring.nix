@@ -80,6 +80,7 @@
         {"__address__" = "${redisExporterAddress}:${toString redisExporterPort}", "job" = "matrix-redis", "instance" = "${instance}"},
         {"__address__" = "${synapseMetricsAddress}:${toString synapseMetricsPort}", "job" = "matrix-synapse", "instance" = "${instance}"},
         {"__address__" = "127.0.0.1:9300", "job" = "matrix-authentik", "instance" = "${instance}"},
+        {"__address__" = "127.0.0.1:3000", "job" = "forgejo", "instance" = "git.bylisa.dev"},
       ]
       forward_to      = [otelcol.receiver.prometheus.local.receiver]
       scrape_interval = "15s"

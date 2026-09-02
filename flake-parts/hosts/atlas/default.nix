@@ -14,6 +14,7 @@
     ./authentik.nix
     ./bluesky-pds.nix
     ./disko-config.nix
+    ./forgejo.nix
     ./html-communication.nix
   ];
 
