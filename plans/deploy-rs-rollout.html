@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Forge deploy-rs rollout plan</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #000;
+        --panel: #0a0a0a;
+        --line: #292929;
+        --line-strong: #444;
+        --text: #fff;
+        --muted: #aaa;
+        --green: #79e6a5;
+        --amber: #ffd479;
+        --red: #ff8f8f;
+        --blue: #93c5fd;
+        --code: #d5e8ff;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+
+      html { background: var(--bg); }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 15px;
+        line-height: 1.55;
+      }
+
+      a { color: var(--blue); }
+      a:hover { color: #bfdbfe; }
+
+      code, pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        color: var(--code);
+      }
+
+      code {
+        overflow-wrap: anywhere;
+      }
+
+      pre {
+        margin: 1rem 0 0;
+        padding: 1rem;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        background: #050505;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      main, header, footer {
+        width: min(1120px, calc(100% - 40px));
+        margin-inline: auto;
+      }
+
+      header {
+        padding: 64px 0 34px;
+        border-bottom: 1px solid var(--line-strong);
+      }
+
+      .kicker {
+        margin: 0 0 10px;
+        color: var(--muted);
+        font: 600 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1, h2, h3 {
+        margin: 0;
+        line-height: 1.15;
+        letter-spacing: -0.025em;
+      }
+
+      h1 {
+        max-width: 900px;
+        font-size: clamp(36px, 6vw, 68px);
+        font-weight: 720;
+      }
+
+      h2 {
+        margin-bottom: 18px;
+        font-size: clamp(24px, 3vw, 34px);
+      }
+
+      h3 {
+        margin-bottom: 8px;
+        font-size: 18px;
+      }
+
+      p { margin: 0.55rem 0 0; }
+
+      .lede {
+        max-width: 820px;
+        margin-top: 22px;
+        color: #ddd;
+        font-size: 19px;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 28px;
+        margin-top: 28px;
+        color: var(--muted);
+        font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      main { padding: 0 0 70px; }
+
+      section {
+        padding: 42px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        border-block: 1px solid var(--line);
+      }
+
+      .metric {
+        min-height: 126px;
+        padding: 22px 20px;
+        border-right: 1px solid var(--line);
+      }
+
+      .metric:last-child { border-right: 0; }
+
+      .metric .value {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 28px;
+        font-weight: 700;
+      }
+
+      .metric .label { color: var(--muted); }
+
+      .recommendation {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 28px;
+        align-items: start;
+      }
+
+      .callout {
+        padding: 20px;
+        border-left: 3px solid var(--green);
+        background: var(--panel);
+      }
+
+      .callout.warning { border-left-color: var(--amber); }
+      .callout.danger { border-left-color: var(--red); }
+
+      ul, ol {
+        margin: 0.7rem 0 0;
+        padding-left: 1.25rem;
+      }
+
+      li + li { margin-top: 0.45rem; }
+
+      .table-wrap { overflow-x: auto; }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+
+      th, td {
+        padding: 14px 12px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        color: var(--muted);
+        font: 600 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+        letter-spacing: 0.04em;
+      }
+
+      .ready { color: var(--green); }
+      .conditional { color: var(--amber); }
+      .blocked { color: var(--red); }
+
+      .phase {
+        display: grid;
+        grid-template-columns: 120px minmax(0, 1fr);
+        gap: 24px;
+        padding: 28px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .phase:first-of-type { border-top-color: var(--line-strong); }
+
+      .phase-id {
+        color: var(--muted);
+        font: 600 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      .phase-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-top: 16px;
+      }
+
+      .phase-grid > div {
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+      }
+
+      .files {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0 28px;
+      }
+
+      .file {
+        display: grid;
+        grid-template-columns: minmax(210px, 0.65fr) 1fr;
+        gap: 16px;
+        padding: 14px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .file p { margin: 0; color: var(--muted); }
+
+      .gates {
+        counter-reset: gate;
+        list-style: none;
+        padding: 0;
+      }
+
+      .gates li {
+        counter-increment: gate;
+        display: grid;
+        grid-template-columns: 34px 1fr;
+        gap: 12px;
+        padding: 14px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .gates li::before {
+        content: counter(gate, decimal-leading-zero);
+        color: var(--muted);
+        font: 600 12px/1.8 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      .small { color: var(--muted); font-size: 13px; }
+
+      footer {
+        padding: 26px 0 44px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      @media (max-width: 800px) {
+        .summary { grid-template-columns: 1fr 1fr; }
+        .metric:nth-child(2) { border-right: 0; }
+        .metric:nth-child(-n + 2) { border-bottom: 1px solid var(--line); }
+        .recommendation, .phase-grid, .files { grid-template-columns: 1fr; }
+        .phase { grid-template-columns: 1fr; gap: 8px; }
+        .file { grid-template-columns: 1fr; gap: 5px; }
+      }
+
+      @media print {
+        :root { color-scheme: light; --bg: #fff; --panel: #f5f5f5; --line: #ddd; --line-strong: #999; --text: #111; --muted: #555; --code: #12385a; }
+        body { font-size: 11px; }
+        header { padding-top: 24px; }
+        section { break-inside: avoid; }
+        a { color: #0645ad; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <p class="kicker">Forge / working plan</p>
+      <h1>Adopt deploy-rs one host at a time</h1>
+      <p class="lede">
+        Add one locked deployment interface for Forge, remove the stale Altair output, keep Atlas owned by <code>main</code>, and make each remaining machine prove its SSH, activation, and recovery path before it joins the fleet.
+      </p>
+      <div class="meta">
+        <span>Prepared 2 September 2026</span>
+        <span>Scope: remove Altair, deploy 2 NixOS hosts and Vega</span>
+        <span>Status: implemented locally; host rollout still pending</span>
+      </div>
+    </header>
+
+    <main>
+      <section aria-label="Plan summary">
+        <div class="summary">
+          <div class="metric"><span class="value">3</span><span class="label">managed hosts in the target state</span></div>
+          <div class="metric"><span class="value">1</span><span class="label">stale host output to remove</span></div>
+          <div class="metric"><span class="value">2</span><span class="label">server nodes ready for preflight</span></div>
+          <div class="metric"><span class="value">1</span><span class="label">Darwin node needing access work</span></div>
+        </div>
+      </section>
+
+      <section>
+        <div class="recommendation">
+          <div>
+            <p class="kicker">Recommendation</p>
+            <h2>Land the mechanism once, onboard hosts by readiness</h2>
+            <p>
+              Use a single <code>flake-parts/deploy-rs.nix</code> module for the deploy-rs input, <code>deploy.nodes</code>, the locked CLI app, and deploy checks. Remove Altair from the host outputs. Roll out Nook and Atlas first. Vega has a separate localhost-only deploy path and remains a manual workstation activation.
+            </p>
+            <p>
+              The final state has three managed hosts: Nook, Atlas, and Vega. Altair no longer exists, so retaining a buildable configuration for it would make Forge claim ownership of a machine that is gone.
+            </p>
+          </div>
+          <aside class="callout">
+            <h3>Keep the first version small</h3>
+            <ul>
+              <li>One root-owned <code>system</code> profile per host.</li>
+              <li>No separate Home Manager profiles for Nook or Vega. Their system activations already include Home Manager.</li>
+              <li>No global <code>remoteBuild</code> setting. Let Vega use its existing builders.</li>
+              <li>GitHub Actions comes after the manual rollouts. It calls the same flake app for Nook and Atlas only, and promotes only a validated <code>main</code> commit.</li>
+              <li>No convenient <code>deploy-all</code> recipe. Automation names and gates each server; Vega remains outside the deployment workflow.</li>
+            </ul>
+          </aside>
+        </div>
+      </section>
+
+      <section>
+        <p class="kicker">Current state</p>
+        <h2>Host readiness</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Host</th>
+                <th>System and role</th>
+                <th>Readiness</th>
+                <th>Known activation path</th>
+                <th>Gate before rollout</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>nook</code></td>
+                <td><code>x86_64-linux</code><br>Home server and Linux builder</td>
+                <td class="ready">Configured; rollout pending</td>
+                <td>SSH alias exists. Login is <code>lisa</code>; root login is disabled; wheel sudo is passwordless.</td>
+                <td>Verify the Tailscale host key in BatchMode and confirm local console access. Deploy only the NixOS toplevel. Disko and installer phases stay out.</td>
+              </tr>
+              <tr>
+                <td><code>atlas</code></td>
+                <td><code>x86_64-linux</code><br>Public service host</td>
+                <td class="conditional">Configured; trust bootstrap pending</td>
+                <td>SSH alias exists over Tailscale. Login and sudo match Nook.</td>
+                <td>Deploy only the clean revision at <code>origin/main</code>. Coordinate with the 50 minute auto-sync timer and reject any pending updater reboot so deployment cannot overlap either action.</td>
+              </tr>
+              <tr>
+                <td><code>altair</code></td>
+                <td>Stale <code>aarch64-darwin</code> output<br>The machine no longer exists</td>
+                <td class="blocked">Removed from Forge</td>
+                <td>None. Altair must not become a deploy-rs node.</td>
+                <td>The implementation deletes <code>darwinConfigurations.altair</code> and <code>flake-parts/hosts/altair</code>. Evaluation now exposes only Vega as a Darwin host.</td>
+              </tr>
+              <tr>
+                <td><code>vega</code></td>
+                <td><code>aarch64-darwin</code><br>Daily-driver workstation and deploy operator</td>
+                <td class="conditional">Configured; local bootstrap pending</td>
+                <td>Remote Login, localhost host-key checking, a deployment key, and interactive sudo are declared.</td>
+                <td>Bootstrap the SSH configuration once through nix-darwin, prove BatchMode localhost SSH, then switch with Lisa present.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <p class="kicker">Target shape</p>
+        <h2>One flake interface, explicit nodes</h2>
+        <pre aria-label="Target flake output diagram">Forge flake
+├── deploy.nodes
+│   ├── nook.system    → activate.nixos nixosConfigurations.nook
+│   ├── atlas.system   → activate.nixos nixosConfigurations.atlas
+│   └── vega.system    → activate.darwin darwinConfigurations.vega
+├── apps.&lt;system&gt;.deploy
+│   └── CLI from the same locked deploy-rs input
+└── checks.&lt;system&gt;
+    ├── deploy-schema
+    ├── deploy-activate
+    └── ordinary host build checks
+
+GitHub Actions, phase 6
+├── pull request      → unprivileged checks only
+├── push to main      → full validation → Nook → health gate → Atlas
+└── Vega              → validation allowed, activation never automated</pre>
+        <p class="small">
+          Altair is deliberately absent. Its configuration and output are deleted before rollout. Vega's node points to localhost and can only be activated manually from Vega.
+        </p>
+      </section>
+
+      <section>
+        <p class="kicker">Implementation</p>
+        <h2>Seven phases with a stop condition after each one</h2>
+
+        <article class="phase">
+          <div class="phase-id">Phase 0</div>
+          <div>
+            <h3>Set the operating rules</h3>
+            <p>Record the deploy machine, source revision policy, and recovery method before adding an activator.</p>
+            <div class="phase-grid">
+              <div>
+                <h3>Work</h3>
+                <ul>
+                  <li>Use Vega as the initial interactive deploy operator. Its SSH aliases, 1Password agent, and x86 Linux builder already exist.</li>
+                  <li>Keep Atlas auto-sync enabled. Manual Atlas deploys must match a clean <code>origin/main</code> revision.</li>
+                  <li>Require local console or provider console access for the first deploy-rs activation on each remaining host.</li>
+                  <li>Keep private flake input credentials on the operator until phase 6 introduces a separate read-only automation credential for trusted post-merge jobs.</li>
+                </ul>
+              </div>
+              <div>
+                <h3>Stop condition</h3>
+                <ul>
+                  <li><code>ssh -o BatchMode=yes nook true</code> succeeds.</li>
+                  <li><code>ssh -o BatchMode=yes atlas true</code> succeeds.</li>
+                  <li><code>sudo -n true</code> succeeds through both SSH sessions.</li>
+                  <li>A recovery route exists that does not depend on the same SSH configuration being changed.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="phase">
+          <div class="phase-id">Phase 1</div>
+          <div>
+            <h3>Add the locked deploy-rs module</h3>
+            <p>Put all deployment output construction in one flake-parts module. The generated root flake remains generated.</p>
+            <div class="phase-grid">
+              <div>
+                <h3>Work</h3>
+                <ul>
+                  <li>Add <code>deploy-rs</code> through <code>flake-file.inputs</code> and make its nixpkgs input follow Forge.</li>
+                  <li>Use the package, activators, and checks from that one pinned input. Do not mix the upstream library with an older nixpkgs CLI.</li>
+                  <li>Delete the Altair block from <code>darwinConfigurations</code> and remove its host directory.</li>
+                  <li>Define Nook and Atlas with <code>sshUser = "lisa"</code>, profile user <code>root</code>, <code>autoRollback = true</code>, and <code>magicRollback = true</code>.</li>
+                  <li>Use 600 seconds for activation and 60 seconds for confirmation. Leave <code>remoteBuild</code> and <code>fastConnection</code> at their defaults until measurement says otherwise.</li>
+                </ul>
+              </div>
+              <div>
+                <h3>Stop condition</h3>
+                <ul>
+                  <li>The lock file pins the current upstream revision.</li>
+                  <li><code>nix run .#deploy -- --version</code> starts under Forge's pinned Lix.</li>
+                  <li>The deploy output contains only Nook and Atlas at this point.</li>
+                  <li><code>nix eval --json .#darwinConfigurations --apply builtins.attrNames</code> returns only <code>vega</code>.</li>
+                  <li>No credential, private key path, or raw private address appears in <code>nix eval .#deploy --json</code>.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="phase">
+          <div class="phase-id">Phase 2</div>
+          <div>
+            <h3>Make checks cover what can be deployed</h3>
+            <p>Deploy-rs checks validate the schema and the wrapped activation scripts. Ordinary host builds still catch host configuration failures.</p>
+            <div class="phase-grid">
+              <div>
+                <h3>Work</h3>
+                <ul>
+                  <li>Merge <code>deployChecks</code> into the existing per-system checks without replacing the Nook and Vega build checks.</li>
+                  <li>Add the missing Atlas build check. Vega's existing Darwin build check remains. Altair gets no check because its output is removed.</li>
+                  <li>Build Nook and Atlas toplevels through Vega's existing x86 builder.</li>
+                  <li>Keep the current unrelated full-flake failures visible. Use targeted acceptance checks until the generated-lock pruning, devenv, and import-from-derivation failures are handled separately.</li>
+                </ul>
+              </div>
+              <div>
+                <h3>Stop condition</h3>
+                <ul>
+                  <li>The deploy schema check passes.</li>
+                  <li>The activation wrapper check passes for every declared node.</li>
+                  <li>Both Linux system closures build without deploying.</li>
+                  <li>Running the flake generator a second time produces no diff.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="phase">
+          <div class="phase-id">Phase 3</div>
+          <div>
+            <h3>Replace the stale operator commands</h3>
+            <p>Expose a small command set that names one target. Leave installation and disk provisioning separate.</p>
+            <div class="phase-grid">
+              <div>
+                <h3>Work</h3>
+                <ul>
+                  <li>Add Just recipes for dry activation, test activation, and normal activation of one named host.</li>
+                  <li>Add a guarded Atlas recipe that refuses a dirty tree or a revision different from <code>origin/main</code>.</li>
+                  <li>Remove or replace broken deployment recipes that reference old host names and absent flake apps.</li>
+                  <li>Leave the destructive nixos-anywhere recipes outside this change. They install disks; deploy-rs switches an existing system.</li>
+                </ul>
+              </div>
+              <div>
+                <h3>Stop condition</h3>
+                <ul>
+                  <li>Each recipe prints or targets exactly one deploy node.</li>
+                  <li>No first-class recipe invokes a whole-fleet deployment.</li>
+                  <li>The operator runbook states what <code>--dry-activate</code>, <code>--test</code>, and a normal switch change.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="phase">
+          <div class="phase-id">Phase 4</div>
+          <div>
+            <h3>Onboard Vega deliberately</h3>
+            <p>Deploy-rs has a native nix-darwin activator. Forge still needs a declared route into Vega before that helper is useful.</p>
+            <div class="phase-grid">
+              <div>
+                <h3>Work</h3>
+                <ul>
+                  <li>Confirm Vega's stable self-target and host key handling.</li>
+                  <li>Enable Apple's built-in OpenSSH server in Vega's host configuration, then bootstrap that setting once with the current local nix-darwin workflow.</li>
+                  <li>Use deploy-rs interactive sudo for Darwin unless an existing non-interactive policy is already intentional. Do not add broad passwordless sudo just to avoid a prompt.</li>
+                  <li>Use an explicit maintenance window because Vega is the daily-driver and its activation includes Home Manager and Homebrew cleanup.</li>
+                </ul>
+              </div>
+              <div>
+                <h3>Stop condition</h3>
+                <ul>
+                  <li>BatchMode SSH works to Vega after the one-time bootstrap.</li>
+                  <li>The sudo prompt works over SSH without storing a password.</li>
+                  <li>The Darwin activator and host closure checks pass.</li>
+                  <li>Vega can be targeted independently and is not pulled into a server deployment by accident.</li>
+                  <li>No Altair configuration, output, check, or deploy node remains.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="phase">
+          <div class="phase-id">Phase 5</div>
+          <div>
+            <h3>Roll out one platform canary at a time</h3>
+            <p>A successful first activation seeds a deploy-rs-wrapped generation. Later rollbacks are safer than the first migration from a plain system generation.</p>
+            <div class="phase-grid">
+              <div>
+                <h3>Order</h3>
+                <ol>
+                  <li>Nook: dry activation, test activation, health checks, then switch.</li>
+                  <li>Atlas: merge first, confirm the auto-sync unit and its reboot timer are idle, pause the update timer, then repeat the same sequence. Leave that timer stopped if deploy-rs fails so it cannot retry the bad revision.</li>
+                  <li>Vega: Darwin rollout after phase 4, while Lisa is present and has a local recovery route.</li>
+                </ol>
+              </div>
+              <div>
+                <h3>Health checks</h3>
+                <ul>
+                  <li>Reconnect with a new SSH session. Do not count the activation session itself.</li>
+                  <li>Check failed system services and the host's critical workloads.</li>
+                  <li>Confirm the active system generation matches the expected closure.</li>
+                  <li>On Atlas, restart the auto-sync timer and confirm it sees the same <code>main</code> revision.</li>
+                  <li>Wait through one normal operating interval before moving to the next critical host.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="phase">
+          <div class="phase-id">Phase 6</div>
+          <div>
+            <h3>Promote the tested commands into GitHub Actions</h3>
+            <p>
+              Start this phase only after Nook and Atlas have each completed a manual deploy and rollback exercise. Keep the existing lock-update workflow separate. A new deployment workflow validates one immutable <code>main</code> commit and calls the same <code>.#deploy</code> app used by the operator. Vega is not an Actions deployment target.
+            </p>
+            <div class="phase-grid">
+              <div>
+                <h3>Workflow and access</h3>
+                <ul>
+                  <li>Use GitHub-hosted runners. Join the tailnet through Tailscale workload identity federation as a short-lived tagged node. Do not install a persistent Actions runner on Nook, Atlas, or Vega.</li>
+                  <li>Give the tailnet tag access only to SSH on Nook and Atlas. Verify connectivity before loading the deployment key.</li>
+                  <li>Create a dedicated SSH key and target-side deployment principal, plus a separate read-only credential for the private flake input. Do not export Lisa's personal key or 1Password agent into Actions.</li>
+                  <li>Give the deployment principal only the non-interactive elevation needed by the deploy-rs activation wrapper. Do not add it to a broadly passwordless administrator group. Keep Lisa's account as the recovery path, not the CI identity.</li>
+                  <li>Check in a deployment-only <code>known_hosts</code> file with the expected public host keys and require strict host-key checking.</li>
+                  <li>Pin every third-party action to a full commit SHA. Default to <code>contents: read</code>; grant <code>id-token: write</code> only to jobs that join Tailscale.</li>
+                </ul>
+              </div>
+              <div>
+                <h3>Triggers and ordering</h3>
+                <ul>
+                  <li>Pull requests run formatting and checks that do not need the private input. They receive no tailnet access, private-input credential, SSH key, or environment secret.</li>
+                  <li>After a push to <code>main</code>, a trusted validation job obtains the read-only private-input credential and runs the complete evaluation, deploy checks, and target builds for that exact <code>github.sha</code>.</li>
+                  <li>Only a successful validation may deploy that SHA to Nook. Nook's health gate then unlocks Atlas; either failure stops the chain.</li>
+                  <li>No workflow event activates Vega. A suitable Darwin runner may evaluate or build its closure, but it must not receive a Vega SSH key, sudo path, or deployment environment.</li>
+                  <li>Serialize the server pipeline with one concurrency group and cancellation disabled. A newer run must never terminate an activation already in progress.</li>
+                  <li>Prove a compatible Linux builder for Nook and Atlas. Do not use <code>--skip-checks</code> to hide a platform mismatch.</li>
+                </ul>
+              </div>
+            </div>
+            <aside class="callout warning" style="margin-top: 20px;">
+              <h3>Atlas changes deployment owner</h3>
+              <p>
+                Before push-to-main deployment is enabled for Atlas, merge the change that disables <code>services.autoSyncUpdate</code> and let the existing updater apply it once. Confirm its timer is gone. GitHub Actions then becomes the sole automatic deployment controller for Atlas.
+              </p>
+            </aside>
+            <aside class="callout warning" style="margin-top: 20px;">
+              <h3>Vega stays outside the automation boundary</h3>
+              <p>
+                Vega's deploy node uses localhost, interactive sudo, and a hostname guard. GitHub Actions may validate its Nix configuration, but no workflow may target <code>.#vega</code> for activation or hold credentials that could do so. Lisa remains present with local recovery access for every Vega switch.
+              </p>
+            </aside>
+            <div class="phase-grid">
+              <div>
+                <h3>Protection</h3>
+                <ul>
+                  <li>Create separate GitHub environments for trusted validation, Nook, and Atlas so each job receives only the credentials it needs.</li>
+                  <li>Restrict deployment environments to <code>main</code>. Require approval for Atlas where the repository's GitHub plan supports reviewers.</li>
+                  <li>If protected-environment reviewers are unavailable, keep Atlas on explicit <code>workflow_dispatch</code> until an equivalent approval gate exists.</li>
+                  <li>Do not use <code>pull_request_target</code> for deployment or check out untrusted pull-request code in a privileged job.</li>
+                </ul>
+              </div>
+              <div>
+                <h3>Stop condition</h3>
+                <ul>
+                  <li>A pull request cannot access the tailnet, SSH keys, private input credential, or environment secrets.</li>
+                  <li>The CI deployment principal cannot open an unrestricted root shell or use general administrator sudo.</li>
+                  <li>The workflow records the commit SHA, target, activation result, and health-check result for every deployment.</li>
+                  <li>A failed deploy or health check blocks every downstream host and leaves the previous system available through deploy-rs rollback.</li>
+                  <li>Atlas has no active pull updater when its Actions deployment is enabled.</li>
+                  <li>No deployment job targets <code>.#vega</code>, and Actions holds no credential or sudo path capable of activating it.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section>
+        <p class="kicker">Expected code changes</p>
+        <h2>Small ownership map</h2>
+        <div class="files">
+          <div class="file"><code>flake-parts/deploy-rs.nix</code><p>New source of truth for the input, app, node profiles, and deployment checks.</p></div>
+          <div class="file"><code>flake-parts/hosts/default.nix</code><p>Remove the Altair constructor and add the missing Atlas host check.</p></div>
+          <div class="file"><code>flake-parts/hosts/altair/default.nix</code><p>Delete this file and its now-empty directory. The machine no longer exists.</p></div>
+          <div class="file"><code>flake-parts/hosts/vega/default.nix</code><p>Add Vega's Remote Login policy after confirming the intended SSH route.</p></div>
+          <div class="file"><code>flake-parts/homes/lisa@vega/programs/ssh.nix</code><p>Add verified Darwin aliases or host-key policy. Do not guess addresses.</p></div>
+          <div class="file"><code>Justfile</code><p>Replace stale deploy commands with single-host deploy-rs recipes.</p></div>
+          <div class="file"><code>README.md</code><p>Short operator contract with bootstrap, rollback, and Atlas updater cautions.</p></div>
+          <div class="file"><code>flake.nix / flake.lock</code><p>Generated input entry and the pinned deploy-rs revision.</p></div>
+          <div class="file"><code>flake-parts/modules/nixos/deploy-target.nix</code><p>Phase 6 only. Declarative CI deployment principal and narrowly scoped activation permission for Nook and Atlas.</p></div>
+          <div class="file"><code>.github/workflows/deploy.yml</code><p>Phase 6 only. Keep pull requests unprivileged, validate trusted commits, and deploy Nook then Atlas serially from <code>main</code>. Never activate Vega.</p></div>
+          <div class="file"><code>deployment/known_hosts</code><p>Phase 6 only. Minimal pinned host keys for the Actions deployment identity.</p></div>
+        </div>
+      </section>
+
+      <section>
+        <p class="kicker">Safety</p>
+        <h2>Rollback is useful, not magical</h2>
+        <div class="recommendation">
+          <div>
+            <ul>
+              <li><code>autoRollback</code> reactivates the previous deploy-rs profile if activation fails.</li>
+              <li><code>magicRollback</code> requires a fresh SSH confirmation after activation. Loss of connectivity triggers rollback.</li>
+              <li>The first deploy-rs activation is special because the prior generation may not contain deploy-rs's reactivation wrapper. Keep an independent console route.</li>
+              <li>Magic rollback cannot detect a problem that appears only after reboot.</li>
+              <li>An SSH address or port migration must use a separate two-step plan. Magic rollback intentionally rejects a change that prevents confirmation over the old route.</li>
+              <li>An Atlas rollback will not stay rolled back if <code>main</code> still contains the bad revision. Stop its updater or revert <code>main</code> before relying on a manual generation rollback.</li>
+            </ul>
+          </div>
+          <aside class="callout warning">
+            <h3>Never attach Disko to a deploy profile</h3>
+            <p>
+              Nook and Atlas contain disk declarations used for installation and system configuration. The deploy-rs profile must wrap only <code>config.system.build.toplevel</code>. It must not run nixos-anywhere, Disko phases, formatting, or partition changes.
+            </p>
+          </aside>
+        </div>
+      </section>
+
+      <section>
+        <p class="kicker">Acceptance</p>
+        <h2>Definition of done for the manual rollout</h2>
+        <ol class="gates">
+          <li><span>The generated flake pins deploy-rs through a flake-parts declaration, and the CLI and activation library come from that same input.</span></li>
+          <li><span>Nook and Atlas have schema-checked NixOS system profiles using their verified SSH aliases, <code>lisa</code> login, and root activation.</span></li>
+          <li><span>Altair's host directory, Darwin output, checks, and deployment references are gone.</span></li>
+          <li><span>Vega has declared SSH, user, sudo, build-check, and recovery behavior before its Darwin profile is enabled.</span></li>
+          <li><span>Nook and Atlas pass closure builds, dry activation, test activation, normal activation, fresh SSH reconnection, and host-specific health checks. Vega passes its closure build, manual localhost switch, and reconnection checks; deploy-rs dry and test modes are not used for nix-darwin.</span></li>
+          <li><span>Atlas refuses off-main deployment and cannot race its auto-sync activation during the rollout.</span></li>
+          <li><span>Nook and Vega still receive Home Manager only through their system activation. No duplicate profile owner exists.</span></li>
+          <li><span>The repository has a tested manual rollback note for NixOS and nix-darwin, including the Atlas updater caveat.</span></li>
+          <li><span>GitHub Actions deployment remains disabled until the Nook and Atlas rollouts have completed successfully. Vega remains manual regardless.</span></li>
+        </ol>
+      </section>
+
+      <section>
+        <p class="kicker">Scope correction</p>
+        <h2>Altair leaves; Vega stays local</h2>
+        <div class="recommendation">
+          <div class="callout">
+            <h3>Altair is deletion work</h3>
+            <p>
+              Remove the stale host module and output in the same change that adds deploy-rs. Do not preserve it as an example, check, disabled node, or commented block. Git history already preserves the old configuration.
+            </p>
+          </div>
+          <div class="callout warning">
+            <h3>Vega deployment boundary</h3>
+            <p>
+              Deploy-rs reaches Vega through localhost only and requires Lisa's interactive sudo. Keep that local/manual boundary even after the server workflow moves to GitHub Actions.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <p class="kicker">References</p>
+        <h2>Sources used</h2>
+        <ul>
+          <li><a href="https://github.com/serokell/deploy-rs/blob/c03082a563c010c03a5c3d5e1507ccd9dd53d341/README.md">deploy-rs README at the inspected revision</a></li>
+          <li><a href="https://github.com/serokell/deploy-rs/blob/c03082a563c010c03a5c3d5e1507ccd9dd53d341/examples/darwin/flake.nix">Official nix-darwin example</a></li>
+          <li><a href="https://github.com/serokell/deploy-rs/issues/399">Upstream crate-fetch issue affecting the older input lock</a></li>
+          <li><a href="https://docs.github.com/en/actions/reference/workflows-and-actions/deployments-and-environments">GitHub deployment environments and protection rules</a></li>
+          <li><a href="https://docs.github.com/en/actions/reference/security/secure-use">GitHub Actions security guidance</a></li>
+          <li><a href="https://tailscale.com/kb/1276/tailscale-github-action">Tailscale's GitHub Actions integration</a></li>
+        </ul>
+        <p class="small">
+          Repository evidence came from the current Forge worktree, including host constructors, SSH configuration, the auto-sync module, checks, generated flake metadata, and the Justfile. No deployment or activation was attempted. During implementation review, one closure build briefly used Forge's configured Nook builder before it was stopped; it may have copied ordinary Nix store inputs, but it did not switch the host.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      Forge deploy-rs rollout plan. This is a planning artifact, not executable configuration.
+    </footer>
+  </body>
+</html>

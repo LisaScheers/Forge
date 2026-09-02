@@ -41,6 +41,10 @@
       url = "github:LisaScheers/comic-code-fonts";
       flake = false;
     };
+    deploy-rs = {
+      url = "github:serokell/deploy-rs/c03082a563c010c03a5c3d5e1507ccd9dd53d341";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     devenv.url = "github:cachix/devenv";
     devenv-root = {
       url = "file+file:///dev/null";

@@ -27,6 +27,7 @@
     "nix-command"
     "flakes"
   ];
+  nix.settings.trusted-users = ["lisa"];
 
   networking.domain = "bylisa.dev";
 

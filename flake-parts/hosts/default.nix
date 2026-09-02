@@ -167,13 +167,6 @@ in {
           ];
         }
     );
-
-    altair = withSystem "aarch64-darwin" (
-      args:
-        mkDarwinHost args "altair" {
-          withHomeManager = true;
-        }
-    );
   };
 
   flake-file.inputs = {
@@ -226,7 +219,8 @@ in {
     vega = config.flake.darwinConfigurations.vega.system;
   };
   flake.checks.x86_64-linux = {
-    nook = config.flake.nixosConfigurations.nook.system;
+    nook = config.flake.nixosConfigurations.nook.config.system.build.toplevel;
+    atlas = config.flake.nixosConfigurations.atlas.config.system.build.toplevel;
   };
 
   # myExampleHost = withSystem "x86_64-linux" (
