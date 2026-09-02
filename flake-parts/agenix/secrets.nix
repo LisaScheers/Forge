@@ -22,12 +22,17 @@ let
     keys.users.lisa
     keys.hosts.atlas
   ];
+  forgejo = [
+    keys.users.lisa
+    keys.hosts.atlas
+  ];
 in {
   "secrets/atlas/authentik-env.age".publicKeys = all;
   "secrets/atlas/authentik-ldap-outpost-env.age".publicKeys = all;
   "secrets/atlas/auto-sync-update-env.age".publicKeys = all;
   "secrets/atlas/bluesky-pds-env.age".publicKeys = all;
   "secrets/atlas/cf-api-token.age".publicKeys = all;
+  "secrets/atlas/forgejo-mailer-password.age".publicKeys = forgejo;
   "secrets/atlas/forgejo-runner-token.age".publicKeys = all;
   "secrets/atlas/matrix-registration-secret.age".publicKeys = all;
   "secrets/atlas/matrix-turn-secret.age".publicKeys = all;
