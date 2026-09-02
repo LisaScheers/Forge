@@ -36,7 +36,7 @@ just deploy vega
 
 Do not use deploy-rs dry, test, or boot modes for Vega. The nix-darwin activator in the pinned deploy-rs revision does not implement those modes as real activations.
 
-Keep console access available for the first deploy-rs activation on every host. The generation installed before deploy-rs does not contain its rollback wrapper. Later activations use automatic and connection-confirmed rollback with a 10 minute activation timeout and a 60 second confirmation timeout.
+Keep console access available for the first deploy-rs activation on every host. The generation installed before deploy-rs does not contain its rollback wrapper. Later activations use automatic and connection-confirmed rollback with a 10-minute activation timeout and a 60-second confirmation timeout.
 
 GitHub Actions is deferred. When added, it may deploy Nook and Atlas. Vega stays manual.
 

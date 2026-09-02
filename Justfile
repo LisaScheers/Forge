@@ -108,7 +108,7 @@ deploy host mode="switch":
         ;;
     esac
 
-    deploy_args=()
+    deploy_args=(--skip-checks)
     case "$mode" in
       switch) ;;
       dry) deploy_args+=(--dry-activate) ;;
@@ -198,7 +198,7 @@ deploy host mode="switch":
     if [[ "$host" == "atlas" ]]; then
       atlas_deploy_started=1
     fi
-    nix run .#deploy -- --skip-checks ".#$host" "${deploy_args[@]}"
+    nix run .#deploy -- "${deploy_args[@]}" ".#$host"
 
 # Generate an age identity for agenix (if needed).
 age-keygen:
