@@ -7,7 +7,7 @@ description: "Use when sequencing an addition, refactor, or rewrite. Remove dead
 
 When evolving a system, remove complexity first, then build. Deletion gives you a simpler base, which makes the next addition smaller and less brittle.
 
-**Why:** Adding to a complex system compounds complexity. Removing first cuts the surface area, reveals the essential structure, and usually makes the next design obvious. Default to subtraction.
+**Why:** Adding to a complex system can compound complexity. Remove dead or redundant structure first when that deletion is inside scope and makes the requested addition smaller.
 
 Make simplification a continual investment. Leave the design slightly simpler and more capable behind the same or smaller surface than you found it.
 

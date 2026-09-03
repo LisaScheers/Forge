@@ -1,105 +1,48 @@
 # Plan
 
-Produce a phased implementation plan grounded in the **Principles** section of the `poteto-mode` skill. The plan is the deliverable. Do not implement.
+Produce an implementation plan grounded in the repository and the user's constraints. The plan is the deliverable. Do not implement.
 
-Open a todolist with one item per step below.
+## Triage
 
-## 0. Triage
+Skip formal planning when the change is small and the approach is obvious unless the user explicitly asked for a plan. Say that the task can be handled directly and stop.
 
-Skip the plan when the change is one or two files with an obvious approach. Say so and stop.
+Use a plan when work has dependent stages, consequential architecture, competing approaches, unclear scope, or a user request for one.
 
-Plan when the change spans three or more files, introduces architecture, has competing approaches or unclear scope, or the user asked for one.
+## Ground the plan
 
-## 1. Re-read principles
+Inspect the relevant code, conventions, entry points, dependency boundaries, and existing verification. Explore directly by default. Delegate only independent subsystems when the extra coverage justifies coordination; give each explorer a distinct scope and require file pointers and concrete findings.
 
-Read the **Principles** section of the `poteto-mode` skill end to end, and the leaf `principle-*` skills it indexes. The principles govern every plan decision; cross-link them.
+Read a `principle-*` skill only when it resolves a real planning decision. Use `skill-creator` for a phase that creates or changes a skill.
 
-## 2. Scope and constraints
+State the goal, scope, exclusions, constraints, and definition of done. Ask only when a missing choice materially changes the plan. Give concrete options when asking.
 
-State your read of scope and constraints in one paragraph. Use `AskQuestion` only for genuinely ambiguous intent (the **never-block-on-the-human** principle skill); give concrete options with each open question.
+## Write the plan
 
-Resolve what is in scope vs explicitly out, technical or platform constraints, patterns to preserve, and the definition of done.
+Use the location and format the user requested. Otherwise prefer one Markdown file. Split into an overview and phase files only when that makes a long plan easier to execute or review.
 
-## 3. Explore in subagents
+Start with the outcome. Then include:
 
-Delegate codebase exploration (the **guard-the-context-window** principle skill).
+- the current behavior or problem;
+- in-scope and out-of-scope work;
+- constraints and repository patterns to preserve;
+- the chosen approach and material alternatives, when alternatives are credible;
+- ordered implementation phases;
+- verification and remaining decisions.
 
-- Prefer `subagent_type: "poteto-agent"`. `generalPurpose` is the fallback. Never use the built-in `plan` subagent_type; it ignores this skill.
-- Pass `model:` explicitly per the configured roles (defaults `grok-4.6-fast-xhigh` for code, `claude-fable-5-thinking-max` for judgment).
+Size phases around coherent outcomes and dependency order, not file counts. Each phase should state:
 
-Each explorer returns file pointers, conventions, dependencies, test infrastructure, and entry points. No inlined dumps.
+- its goal;
+- the important files or modules involved;
+- the data shape, interface, or state transition when relevant;
+- the behavior it preserves or introduces;
+- the narrowest static and runtime evidence that will prove it complete.
 
-## 4. Write the plan
+Prefer phases that can be checked independently, but do not manufacture tiny phases or require every intermediate state to be shippable. Put shared types or infrastructure first only when later work actually depends on them.
 
-The user specifies where the plan lives.
+For a bug, plan to reproduce with the strongest available artifact, fix the supported cause, and verify on the matching surface when the environment permits. For a refactor, identify the behavior contract and an appropriate equivalence check. For user-facing work, include a real surface check when tools and environment permit it.
 
-Single file `NN-slug.md` for small plans. For three or more phases, a directory with `overview.md` plus phase files:
+Name a supporting skill only when the implementer should actually invoke it. Do not enumerate the entire skill chain. Include `show-me-your-work`, `interrogate`, or multi-agent workflows only when the task's size or risk earns them. Include PR creation or monitoring only when the user requested that delivery work.
 
-```
-NN-slug/
-├── overview.md
-├── phase-1-scaffold.md
-├── phase-2-...md
-└── testing.md
-```
+## Hand back
 
-### Phase sizing
-
-- One function or type plus tests, or one bug fix. Not "one file".
-- Two to three files touched, max.
-- Prefer eight to ten small phases over three to four large ones to preserve option value (the **foundational-thinking** principle skill).
-- Split if a phase has more than five test cases or three functions.
-
-### Overview file
-
-- **Context.** Problem and why now.
-- **Scope.** Included; explicitly excluded.
-- **Constraints.** Technical, platform, dependency, pattern.
-- **Alternatives.** Two or three approaches sketched, choice and rationale (the **exhaust-the-design-space** principle skill). Skip when constraints dictate one.
-- **Applicable skills.** Domain skills the implementer should invoke, by name.
-- **Phases.** Ordered standard-markdown links to phase files.
-- **Verification.** Project-level commands.
-- **Implementation guidance.** Per section 6.
-
-### Phase files
-
-- Back-link to overview.
-- **Goal.** What the phase accomplishes.
-- **Changes.** Files affected and the change at a high level. What and why, not how. No code snippets.
-- **Data structures.** Name the key types or schemas. One-line sketch only (the **foundational-thinking** principle skill).
-- **Verification.** Per section 6.
-
-Order phases so infrastructure and shared types land first (the **foundational-thinking** principle skill). Each phase should be independently shippable.
-
-For changes touching existing code, apply the **redesign-from-first-principles** principle skill: if we'd built this with the new requirement on day one, what would it look like? Redesign holistically; deliver incrementally.
-
-If a phase creates or edits a skill, the phase instructs the implementer to use the **create-skill** skill (Cursor's built-in for authoring SKILL.md files).
-
-## 5. Verification per phase
-
-Each phase needs both:
-
-**Static.** Type check, lint, project tests pass.
-
-**Runtime.** Exercise the feature on the matching surface via the relevant control skill:
-
-- Browser / Electron / Web UIs: the `control-ui` skill from the `cursor-team-kit` plugin.
-- CLIs and TUIs: the `control-cli` skill from the `cursor-team-kit` plugin.
-- Native mobile: whatever simulator-driving skill your team has.
-- No control skill for the touched surface: flag it in the plan.
-
-For bug fixes, the loop is reproduce on the surface, fix, verify on the same surface. Unit tests show a branch behaves a certain way; they do not prove the bug is gone (the **prove-it-works** principle skill).
-
-## 6. Implementation guidance
-
-In the overview, name which poteto-mode non-negotiables the implementer must apply, by name:
-
-- the **how** skill over each unfamiliar subsystem before changing it.
-- the **interrogate** skill for adversarial review on contested designs before shipping.
-- `/deslop` over each diff before commit. the **unslop** skill over any prose surface.
-- the **show-me-your-work** skill to keep a decision trail when the plan is large enough to need an auditable record.
-- Cursor's built-in **babysit** skill after opening the PR.
-
-## 7. Hand back
-
-Summarize phases, scope boundaries, applicable skills, and verification. Stop. The user decides when implementation starts.
+Summarize the phases, scope boundaries, verification, and any decision the user must make. Stop. The user decides when implementation starts.

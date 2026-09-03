@@ -1,49 +1,35 @@
 # Set up pstack
 
-In this page you install the plugin, pick which models pstack uses, and run your first task. Setup is one command plus a short conversation.
+This Forge module installs pstack declaratively through Home Manager.
 
-## Install the plugin
+## Enable the skills
 
-In a Cursor chat, run:
+Enable the AI skills module for the home configuration:
 
-```text
-/add-plugin pstack
+```nix
+forge.ai-skills.enable = true;
 ```
 
-Cursor confirms the plugin is installed.
+`forge.ai-skills.enablePstackSkills` defaults to `true`. The module discovers each directory under `pstack/skills`, so every installed directory must contain a valid `SKILL.md`.
 
-## Pick your models
+Evaluate the configuration before activating it. Activation changes the daily-driver environment and should happen only when the user asks.
 
-Run:
+## Models and reasoning effort
 
-```text
-/setup-pstack
-```
+pstack does not require a separate model-selection skill. A subagent inherits the parent model and reasoning effort by default.
 
-[`/setup-pstack`](../../skills/setup-pstack/SKILL.md) detects the models you have access to, shows you each role (code delegates, judgment, the review panels), and asks what you want. Answer the questions. It writes `~/.cursor/rules/pstack-models.mdc`, a small rule every pstack skill reads.
-
-You only override what you care about. A role with no line in the rule keeps the skill's default. To restore a default later, delete that role's line, or just run `/setup-pstack` again.
-
-You might be wondering what happens if you use Auto. Set a role to `inherit-parent` or `auto` and pstack omits the subagent `model` field, so the subagent inherits your parent chat model. Both values mean the same thing, and neither is a model slug. For a panel role the value is a list, and one subagent runs per entry, so the list length sets the panel size. Setup also configures `swarm workers`, the default model for every `/swarm` worker unless a race names a model for each arm.
-
-## Accept the verification offer, or don't
-
-At the end of setup, `/setup-pstack` looks for a way to prove app behavior in your project, either a `verify-*` skill or an existing harness. If it finds neither, it offers once to generate one with [`/create-verification-skill`](../../skills/create-verification-skill/SKILL.md).
-
-Say yes and it writes `.cursor/skills/verify-<app>/`, a project-local skill that teaches agents to drive your app the way a user does. It proves the skill works once before handing it over. Say no and setup moves on. You can run `/create-verification-skill` yourself any time. [Verify and ship](./06-verify-and-ship.md#create-a-project-verification-skill) covers when it earns its place.
-
-After setup, start a new chat. The model rule applies to new sessions.
+When repository configuration needs an override, store the supported model identifier and reasoning effort as separate settings. Do not encode an effort level into a made-up model slug. Keep overrides role-specific and omit them when inheritance is sufficient.
 
 ## Run your first task
 
-Pick something real but small, and describe it the way you'd describe it to a colleague:
+Pick something real but small, and describe it the way you would describe it to a colleague:
 
 ```text
 /poteto-mode add a --json flag to this command. text output stays byte-identical. verify both.
 ```
 
-Watch the todo list. The first item is always "read the Principles section". The rest are the matched playbook's steps copied in, the Feature playbook for this prompt. If `/poteto-mode` skips a step, the step stays in the list with `skip: <reason>`, so you can see what it chose not to do.
+For a small task, `/poteto-mode` can work directly. For work with dependent steps, it opens a plan and reads the one playbook that matches the current layer. It loads a principle only when that principle changes a concrete decision.
 
-From here you can type normal follow-ups. `/poteto-mode` is sticky. It stays on for the conversation until you opt out by saying so.
+From here you can type normal follow-ups. `/poteto-mode` stays active for the conversation until you opt out.
 
 Next: [Route work through `/poteto-mode`](./02-poteto-mode.md).

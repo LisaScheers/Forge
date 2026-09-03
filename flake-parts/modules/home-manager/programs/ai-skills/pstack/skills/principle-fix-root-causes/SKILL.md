@@ -10,7 +10,7 @@ When debugging, do not paper over symptoms. Trace every problem to its root caus
 **Why:** Symptom fixes accumulate. Each workaround makes the system harder to reason about, and the real bug remains. Root-cause fixes are slower upfront but reduce total debugging time.
 
 **Pattern:**
-- Reproduce first (if you can't reproduce it, you can't verify your fix)
+- Reproduce first when the environment permits it. Otherwise establish the failure with the strongest available test, trace, log, or captured artifact.
 - Ask "why" until you hit the root cause
 - Resist the urge to add guards (adding a nil check to silence a crash is a symptom fix)
 - If a workaround needs a paragraph-long comment to justify it, the code is wrong (fix the code, not the comment)

@@ -44,11 +44,11 @@ In context, that's enough. [`/tdd`](../../skills/tdd/SKILL.md) writes the smalle
 
 ## Let the TypeScript rules load themselves
 
-[`typescript-best-practices`](../../skills/typescript-best-practices/SKILL.md) has no slash command in your workflow. It loads whenever the agent touches a `.ts` or `.tsx` file and turns the type-system principles into concrete rules: discriminated unions, `unknown` at boundaries, exhaustive variants, schema-derived types.
+[`typescript-best-practices`](../../skills/typescript-best-practices/SKILL.md) has no slash command in your workflow. It applies when the agent changes TypeScript or makes a TypeScript design decision, with guidance for discriminated unions, external `unknown` values, exhaustive variants, and schema-derived types.
 
 ## Clean before you commit
 
-The [Opening a PR playbook](../../skills/poteto-mode/playbooks/opening-a-pr.md) runs `/deslop` on the diff before each commit and applies [`/unslop`](../../skills/unslop/SKILL.md) to the PR description and commit bodies. `/deslop` ships in the `cursor-team-kit` plugin, not in pstack. If you don't have it, ask for the same outcome in plain words: remove narrating comments, unsupported guards, dead compatibility paths, and unrelated edits.
+When you ask to open a PR, the [Opening a PR playbook](../../skills/poteto-mode/playbooks/opening-a-pr.md) hands the work to the repository's PR skill and applies [`/unslop`](../../skills/unslop/SKILL.md) to the prose. Additional cleanup skills are optional; the goal is a focused diff without narrating comments, unsupported guards, dead compatibility paths, or unrelated edits.
 
 For prose, `/unslop` takes a target and any extra rules you have:
 

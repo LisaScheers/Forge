@@ -19,4 +19,4 @@ Maintainability is the work a reader must do to understand code. Track two axes:
 - **Name the invariant at the boundary,** not in every consumer, so the reader learns it once.
 - Before adding a layer or a piece of state, ask: does this reduce reader load somewhere else by at least as much?
 
-**The test:** Can a new reader answer "where does X come from?" and "what can change X?" in under 30 seconds? If not, cut layers or cut state.
+**The test:** Can a new reader trace where a value comes from and what can change it without crossing layers that add no new abstraction? If not, cut indirection or shrink the state scope.

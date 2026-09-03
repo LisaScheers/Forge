@@ -1,6 +1,6 @@
 ---
 name: principle-outcome-oriented-execution
-description: "Apply during planned rewrites and migrations with explicit phase boundaries. Converge on the target architecture; don't preserve smooth intermediate states with throwaway compatibility code."
+description: "Use when executing a planned rewrite or migration with explicit phase boundaries and a defined target architecture."
 ---
 
 # Outcome-Oriented Execution

@@ -1,11 +1,11 @@
 # Opening a PR
 
-Invoked at the end of every other playbook.
+Use only when the user asks to open a pull request.
 
-**Worktree.** Work from a git worktree off main; subagents inherit it. Multiple `Task` calls on the same branch each get their own worktree, or `git fetch && git reset --hard origin/<branch>` between them. Dirty branch with unrelated work: patch out, fresh worktree, apply. Snarled worktree: reset from main, redo minimally.
+1. Read and follow the repository's PR instructions.
+2. Use the `file-pr` skill. It owns branch preparation, title and description conventions, checks, and creation of the PR.
+3. Keep the diff focused. Apply `unslop` to PR prose and remove unrelated edits. Use additional cleanup or review skills only when installed and justified by the change.
+4. Return the PR URL and the checks run.
+5. Use `babysit-pr` only when the user also asks to monitor or babysit the PR. Do not merge unless the user gives that authority.
 
-**Commits.** Commit liberally; rebase into small, ordered commits before opening PRs. Each commit is a future PR: landable, ordered to tell the story. Amend when the fix belongs in a just-made commit; new commit when separable.
-
-**PRs.** `/deslop` the diff before commit; `/no-comments` the diff before review; apply the **unslop** skill to the PR description and commit bodies. Small PRs, 5 narrow over 1 fat; stack follow-ups, branch off main only for genuinely independent work. For stacked PRs, use whatever stacking tool your team uses; the principle is small, ordered slices with the stack visible to reviewers. `gh pr view <number>` before referencing PR status. Rebase on `main` before substantial stack work. No `## Summary` / `## Test plan` boilerplate on small PRs; commit bodies don't restate the subject. After opening, run **babysit** skill; push back when feedback drifts from intent.
-
-A subagent that opens a PR runs `interrogate`, `/deslop`, and `/no-comments`, returns the URL, and does NOT babysit. Return to the parent.
+A delegated PR task returns the URL to the parent and does not expand into monitoring unless that was part of its scope.

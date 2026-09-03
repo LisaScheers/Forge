@@ -56,7 +56,7 @@ Apps change and feature maps rot. When yours drifts, run:
 /poteto-mode open the pr. small ordered commits, evidence in the description.
 ```
 
-The [Opening a PR playbook](../../skills/poteto-mode/playbooks/opening-a-pr.md) works from a worktree, rebases the work into small ordered commits, cleans the diff, unslops the prose, and returns the PR link. Five narrow PRs beat one fat one, and stacked follow-ups beat a growing branch.
+The [Opening a PR playbook](../../skills/poteto-mode/playbooks/opening-a-pr.md) follows the repository's PR instructions, uses its `file-pr` skill, and returns the PR link with the checks run. It does not begin monitoring unless you ask.
 
 ## Drive the PR to merge-ready with Babysit
 

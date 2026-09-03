@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: "Use a focused failing-before test for a bug when the repository has a cheap, meaningful test path."
+description: "Use only when the user invokes $tdd or an active bug-fix workflow has a cheap, meaningful path for a focused failing-before test."
 ---
 
 # TDD bug fix

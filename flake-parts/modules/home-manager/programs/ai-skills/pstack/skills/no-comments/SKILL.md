@@ -1,6 +1,6 @@
 ---
 name: no-comments
-description: "Audit comments and suppressions in a diff, removing narration while preserving useful rationale and constraints."
+description: "Use only when the user invokes $no-comments or explicitly asks to audit comments and suppressions in a diff."
 ---
 
 # No comments
