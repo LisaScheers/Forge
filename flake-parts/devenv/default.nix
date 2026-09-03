@@ -12,17 +12,14 @@
     system,
     ...
   }: {
-    devenv.shells = {
-      default = config.devenv.shells.dev;
-
-      dev = import ./dev.nix {
-        inherit pkgs system inputs;
-        inherit (inputs) devenv-root;
-        treefmt-wrapper =
-          if (lib.hasAttr "treefmt" config)
-          then config.treefmt.build.wrapper
-          else null;
-      };
+    devenv.shells.dev = import ./dev.nix {
+      inherit pkgs system inputs;
+      treefmt-wrapper =
+        if (lib.hasAttr "treefmt" config)
+        then config.treefmt.build.wrapper
+        else null;
     };
+
+    devShells.default = config.devShells.dev;
   };
 }

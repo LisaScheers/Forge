@@ -1,7 +1,6 @@
 # --- flake-parts/devenv/dev.nix
 {
   pkgs,
-  devenv-root,
   treefmt-wrapper ? null,
   inputs,
   ...
@@ -114,26 +113,35 @@
       write-flake = {
         enable = true;
         name = "write-flake";
-        description = "write flake inputs form flake parts to flake file";
+        description = "write flake inputs from flake parts to flake file";
         files = "\\.nix$";
         pass_filenames = false;
+        stages = ["pre-commit"];
         entry = "nix run .#write-flake";
       };
     };
   };
+
+  # Shell activation reaches the test task graph in flake mode. Keep the
+  # mutating write-flake hook exclusive to the installed pre-commit hook.
+  tasks."devenv:git-hooks:run".env.SKIP = "write-flake";
 
   # --------------
   # --- FLAKES ---
   # --------------
   devenv.flakesIntegration = true;
 
-  # This is currently needed for devenv to properly run in pure hermetic
-  # mode while still being able to run processes & services and modify
-  # (some parts) of the active shell.
-  devenv.root = let
-    devenvRootFileContent = builtins.readFile devenv-root.outPath;
+  # Pure flake checks cannot read PWD. Interactive shells get the checkout
+  # from direnv or impure evaluation; checks can use the read-only flake copy.
+  devenv.root = pkgs.lib.mkOverride 90 (let
+    rootFromInput = builtins.readFile inputs.devenv-root.outPath;
+    currentDirectory = builtins.getEnv "PWD";
   in
-    pkgs.lib.mkIf (devenvRootFileContent != "") devenvRootFileContent;
+    if rootFromInput != ""
+    then rootFromInput
+    else if currentDirectory != ""
+    then currentDirectory
+    else toString ../..);
 
   # ---------------------
   # --- MISCELLANEOUS ---
