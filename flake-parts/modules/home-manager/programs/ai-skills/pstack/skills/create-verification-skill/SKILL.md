@@ -1,6 +1,6 @@
 ---
 name: create-verification-skill
-description: "Generate a project-local verification skill that drives your app the way a user does — any language, framework, or platform. Use for $create-verification-skill, \"make a control skill for this repo\", or when a project has no scripted way to prove UI/CLI/service behavior."
+description: "Use only when the user invokes $create-verification-skill or explicitly asks to create a project-local way to prove UI, CLI, or service behavior."
 ---
 
 # Create a verification skill

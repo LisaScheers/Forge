@@ -1,4 +1,0 @@
-interface:
-  display_name: "nix dependancies"
-  short_description: "find and use missing system packages with nix"
-  default_prompt: "Use $nix-dependancies to find and use missing system packages with nix."

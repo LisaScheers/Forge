@@ -1,4 +1,4 @@
 interface:
   display_name: "PostPlan"
-  short_description: "Create and upload safe static HTML drafts to Postplan"
-  default_prompt: "Use $postplan to create and upload safe static HTML drafts to Postplan."
+  short_description: "Publish an existing static HTML document"
+  default_prompt: "Use $postplan to publish this static HTML document and return its public URL."

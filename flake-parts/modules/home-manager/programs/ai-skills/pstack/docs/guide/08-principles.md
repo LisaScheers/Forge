@@ -1,8 +1,8 @@
 # Steer with principle names
 
-pstack ships 21 principles as individual skills. `/poteto-mode` reads their index at the start of every multi-step task, applies the ones the task triggers, and names each applied principle in its reply along with the decision it changed.
+pstack ships 21 principles as individual skills. `/poteto-mode` reads a principle only when it resolves a concrete decision. The skills are explicit steering tools rather than a checklist every task must load.
 
-You don't invoke principles. You use their names to steer. Each name points at a complete rule the agent has already read, so one phrase redirects the work more precisely than a paragraph of instructions.
+Use a principle name when you want to steer the work. Each name points at a focused rule, so one phrase can redirect the work more precisely than a paragraph of instructions.
 
 ## Steering in practice
 
@@ -24,7 +24,7 @@ Say two parallel attempts are about to write to the same branch:
 separate before serializing shared state. give each attempt its own worktree, no locks.
 ```
 
-Each phrase lands because the rule behind it is specific. The agent still has to say, in its reply, which decision the rule changed. A principle citation with no decision behind it is the tell that it name-dropped instead of applying.
+Each phrase lands because the rule behind it is specific. Judge the result by the decision it changes, not by whether the final reply repeats the principle's name.
 
 ## The 21, briefly
 

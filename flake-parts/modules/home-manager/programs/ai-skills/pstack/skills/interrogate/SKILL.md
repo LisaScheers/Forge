@@ -1,6 +1,6 @@
 ---
 name: interrogate
-description: "Use for \"interrogate\", \"adversarial review\", \"multi-model review\", \"challenge this\", \"stress test this code\", \"find blind spots\", or \"tear this apart\". Multiple LLM reviewers challenge changes from independent angles."
+description: "Use only when the user invokes $interrogate or explicitly asks for an adversarial, multi-model review that challenges a change from independent angles."
 ---
 
 # Interrogate

@@ -1,9 +1,9 @@
 # Forge
 
-this is a nix flake that manages all my systems.
+This Nix flake manages Lisa's systems.
 
-## deployment
+## Deployment
 
-most servers in this configuration are set to auto update from the main branch.
-manual deploument of these servers are not possible due to them resetting back to main.
-you can speed up the deployment by doing a manual deployment from main.
+Most servers update automatically from `main`. A manual deployment from another revision will be replaced by the next automatic update.
+
+Do not deploy unless Lisa asks. To accelerate an approved rollout, first verify that the target revision is on `origin/main`, then use the documented manual deployment path from `main`.

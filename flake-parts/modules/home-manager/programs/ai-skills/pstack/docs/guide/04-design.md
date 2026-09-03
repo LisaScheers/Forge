@@ -1,6 +1,6 @@
 # Design before you write code
 
-One attempt at a hard design locks in the first shape the model thought of. `/architect` settles types and boundaries before implementation. `/arena` runs several attempts at the same brief and merges the best parts. `/interrogate` has other models try to break the result. When the job is coverage rather than design synthesis, `/swarm` fans out slices or races and aggregates their results.
+For a hard-to-reverse design, `/architect` settles types and boundaries before implementation. `/arena` runs several attempts at the same brief and merges the best parts when you explicitly want a bakeoff. `/interrogate` has other models try to break a result. When the job is coverage rather than design synthesis, `/swarm` fans out independent slices or races and aggregates their results.
 
 ![Three robots draft competing bridge models at their own tables under /architect, /arena, and /interrogate panels, while a judge robot with a clipboard inspects skeptically.](./images/design.jpg)
 
@@ -10,9 +10,9 @@ One attempt at a hard design locks in the first shape the model thought of. `/ar
 /architect design the import pipeline before writing any code. i care most about how callers use it.
 ```
 
-[`/architect`](../../skills/architect/SKILL.md) grounds itself first, running `/how` over the code the design touches and `/why` when it moves ownership or layers. Then it runs `/arena` to produce competing design sketches, with the caller's usage written first in each, followed by types, signatures, and a module map.
+[`/architect`](../../skills/architect/SKILL.md) grounds itself in the affected code, using `/how` when the runtime path is unclear and `/why` when recorded history may constrain the decision. It produces one coherent design with the caller's usage first, followed by types, signatures, ownership, and failure behavior. Ask for `/arena` when competing candidates are worth the coordination cost.
 
-By default it proceeds straight from the synthesized design into implementation. If you want to see the design first, say so:
+When your request includes implementation, it proceeds into the change after the design. If you want to see the design first, say so:
 
 ```text
 /architect with checkpoint. stop and show me before implementing.
@@ -40,7 +40,7 @@ flowchart LR
     H --> I[Verify]
 ```
 
-The panel comes from your [`/setup-pstack`](../../skills/setup-pstack/SKILL.md) configuration, and you can adjust it per task. Ask for more candidates when the decision matters, fewer when it doesn't:
+Panel configuration follows the available harness and any repository overrides described in [setup](./01-setup.md). Ask for more candidates when the decision matters and fewer when it does not:
 
 ```text
 /arena this, 5 candidates. the cache key format is expensive to change later.
@@ -71,11 +71,11 @@ Read the dismissals too. The lead is a pragmatic senior engineer, not an oracle,
 You might be wondering whether every change needs this. No. Most changes need none of it. A rough ladder:
 
 - A small, finished change you're unsure about needs `/interrogate` alone.
-- A change that crosses function boundaries or moves ownership earns `/architect`, which brings `/arena` with it.
+- A hard-to-reverse ownership or boundary change with several viable shapes earns `/architect`.
 - A standalone decision where independent attempts would help, like naming, formats, or an algorithm, is `/arena` directly.
 - A coverage matrix, set of parallel checks, or race with declared arms is `/swarm`.
 - A contested design that's expensive to reverse gets `/architect`, then `/interrogate` before shipping.
 
-`/poteto-mode` already applies this ladder. Boundary-crossing work triggers `/architect` on its own, so you reach for these directly mainly when you want more or less scrutiny than the default.
+`/poteto-mode` applies the lightest route that fits the task. Name one of these skills directly when you want that workflow.
 
 Next: [Build and clean the change](./05-build-and-clean.md).

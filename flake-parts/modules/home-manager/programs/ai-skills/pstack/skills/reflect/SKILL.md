@@ -1,6 +1,6 @@
 ---
 name: reflect
-description: Spawn three parallel review subagents over the active transcript, surface learnings, and route each to a concrete edit on an existing skill. Use when the user says reflect.
+description: Use only when the user invokes $reflect or explicitly asks to reflect on the active session and propose durable skill improvements.
 ---
 
 # Reflect
@@ -9,13 +9,7 @@ Mine the current conversation for durable learnings, then route them into skill 
 
 ## When to invoke
 
-- The user said "reflect" or `$reflect`.
-- A complex task (5+ tool calls) just landed cleanly and the recipe is worth keeping.
-- The agent hit dead ends, found the working path, and the path generalizes.
-- The user corrected the agent's approach mid-task.
-- A non-trivial workflow emerged that isn't captured anywhere.
-
-Skip when the conversation is trivial, off-topic, or already covered by an existing skill the parent followed correctly. One-offs are not learnings.
+Invoke only when the user says "reflect" or `$reflect`, or when an already active parent workflow explicitly requests this skill. Do not trigger it merely because a task used many tools, hit a dead end, or received a correction. One unusual session is not enough evidence for a durable rule.
 
 ## Process
 

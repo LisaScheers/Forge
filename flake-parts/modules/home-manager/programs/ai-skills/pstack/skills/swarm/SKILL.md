@@ -1,6 +1,6 @@
 ---
 name: swarm
-description: "Fan out independent slices or races to parallel Codex subagents and consolidate one evidenced report."
+description: "Use only when the user invokes $swarm or explicitly asks to fan out independent slices or race several approaches in parallel."
 ---
 
 # Swarm
