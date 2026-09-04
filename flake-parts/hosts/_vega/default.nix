@@ -3,10 +3,7 @@
     ./nix.nix
     ./launchd.nix
     ./networking.nix
-    ./homebrew.nix
-    ./comicCodeNerdFont.nix
     ./packages.nix
-    ./homes.nix
   ];
   system.stateVersion = 7;
   documentation.doc.enable = false;
@@ -19,7 +16,7 @@
     '';
   };
   users.users.lisa.openssh.authorizedKeys.keyFiles = [
-    (../../homes + "/lisa@vega/ssh/public-keys/home-server.pub")
+    (../../homes + "/_lisa@vega/ssh/public-keys/home-server.pub")
   ];
   programs.ssh.knownHosts.vega-local = {
     hostNames = ["localhost"];

@@ -2,10 +2,9 @@
   config,
   lib,
   pkgs,
-  system,
   ...
 }: let
-  isDarwin = (lib.systems.elaborate system).isDarwin;
+  inherit (pkgs.stdenv.hostPlatform) isDarwin;
 in {
   programs.ghostty = {
     enable = isDarwin;

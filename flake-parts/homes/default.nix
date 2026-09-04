@@ -1,39 +1,17 @@
-# --- flake-parts/homes/default.nix
 {
-  lib,
-  inputs,
-  withSystem,
   config,
+  inputs,
+  lib,
   ...
 }: let
-  mkHome = args: home: {
-    extraSpecialArgs ? {},
-    extraModules ? [],
-    extraOverlays ? [],
-    ...
-  }:
+  mkHome = system: module:
     inputs.home-manager.lib.homeManagerConfiguration {
       pkgs = import inputs.nixpkgs {
-        inherit (args) system;
-        overlays = [config.flake.overlays.default] ++ extraOverlays;
+        inherit system;
+        overlays = [config.flake.overlays.default];
         config.allowUnfree = true;
       };
-      extraSpecialArgs =
-        {
-          inherit (args) system;
-          inherit inputs home;
-        }
-        // extraSpecialArgs;
-      modules =
-        [
-          inputs.onepassword-shell-plugins.hmModules.default
-          ./${home}
-        ]
-        ++ extraModules
-        # NOTE You can also load all of your defined modules in the
-        # following manner
-        #
-        ++ (lib.attrValues config.flake.homeModules);
+      modules = [module];
     };
 in {
   options.flake.homeConfigurations = lib.mkOption {
@@ -42,37 +20,24 @@ in {
   };
 
   config = {
-    # loop over all hosts and check if the user has a configuration for that host, if so, add it to the flake's homeConfigurations
     flake.homeConfigurations = {
-      "lisa@vega" = withSystem "aarch64-darwin" (
-        args:
-          mkHome args "lisa@vega" {}
-      );
-      "lisa@nook" = withSystem "x86_64-linux" (
-        args:
-          mkHome args "lisa@nook" {}
-      );
+      "lisa@vega" = mkHome "aarch64-darwin" config.flake.modules.homeManager."lisa@vega";
+      "lisa@nook" = mkHome "x86_64-linux" config.flake.modules.homeManager."lisa@nook";
     };
 
-    #{
-    # "myUser@myHost" = withSystem "x86_64-linux" (
-    #   args:
-    #   mkHome args "myUser@myHost" {
-    #     extraOverlays = with inputs; [
-    #       neovim-nightly-overlay.overlays.default
-    #       (final: _prev: { nur = import inputs.nur { pkgs = final; }; })
-    #     ];
-    # }
-    # );
-
-    #};
-
     flake.checks = {
-      "aarch64-darwin" = {
-        "home-lisa@vega" = config.flake.homeConfigurations."lisa@vega".config.home.path;
+      aarch64-darwin."home-lisa@vega" = config.flake.homeConfigurations."lisa@vega".config.home.path;
+      x86_64-linux."home-lisa@nook" = config.flake.homeConfigurations."lisa@nook".config.home.path;
+    };
+
+    flake-file.inputs = {
+      home-manager = {
+        url = "github:LisaScheers/home-manager/agent/nushell-session-environment";
+        inputs.nixpkgs.follows = "nixpkgs";
       };
-      "x86_64-linux" = {
-        "home-lisa@nook" = config.flake.homeConfigurations."lisa@nook".config.home.path;
+      onepassword-shell-plugins = {
+        url = "github:1Password/shell-plugins";
+        inputs.nixpkgs.follows = "nixpkgs";
       };
     };
   };

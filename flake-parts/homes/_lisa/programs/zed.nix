@@ -1,10 +1,9 @@
 {
   pkgs,
   lib,
-  system,
   ...
 }: let
-  isDarwin = (lib.systems.elaborate system).isDarwin;
+  inherit (pkgs.stdenv.hostPlatform) isDarwin;
 
   extentions = import ./zed/extensions.nix;
   terminal = import ./zed/terminal.nix;

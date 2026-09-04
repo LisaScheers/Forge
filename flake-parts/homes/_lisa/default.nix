@@ -1,4 +1,10 @@
-{lib, ...}: let
+{
+  lib,
+  pkgs,
+  ...
+}: let
+  inherit (pkgs.stdenv.hostPlatform) isDarwin;
+
   dir = ./programs;
   entries = builtins.readDir dir;
   modules =
@@ -10,18 +16,11 @@
         && lib.hasSuffix ".nix" name)
       (builtins.attrNames entries));
 in {
-  imports =
-    [
-      ../lisa
-      ./packages.nix
-      ./files.nix
-    ]
-    ++ modules;
+  imports = modules;
+  home.homeDirectory =
+    if isDarwin
+    then "/Users/lisa"
+    else "/home/lisa";
   home.username = "lisa";
-  home.homeDirectory = "/Users/lisa";
-
-  xdg.enable = true;
-
-  programs.home-manager.enable = true;
-  manual.manpages.enable = false;
+  home.stateVersion = "25.11";
 }
