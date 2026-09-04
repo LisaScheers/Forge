@@ -42,7 +42,7 @@ nixos-install-from-installer-key target identity="/tmp/home-server-installer-ed2
 secret-edit file identity="/Users/lisa/.config/sops/age/keys.txt":
     cd flake-parts/agenix && RULES=./_secrets.nix agenix --edit "{{file}}" --identity "{{identity}}"
 
-# Re-encrypt all agenix secrets after changing recipients in secrets.nix.
+# Re-encrypt all agenix secrets after changing recipients in _secrets.nix.
 secret-rekey identity="/Users/lisa/.config/sops/age/keys.txt":
     cd flake-parts/agenix && RULES=./_secrets.nix agenix --rekey --identity "{{identity}}"
 
