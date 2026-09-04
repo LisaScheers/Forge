@@ -2,21 +2,6 @@
   flake-file = {
     description = "Multi-host Nix configuration for Darwin and NixOS";
 
-    inputs = {
-      catppuccin = {
-        url = "github:catppuccin/nix";
-        inputs.nixpkgs.follows = "nixpkgs";
-      };
-      zed = {
-        url = "github:zed-industries/zed";
-        inputs.nixpkgs.follows = "nixpkgs";
-      };
-      t3-code-nix = {
-        url = "github:LisaScheers/t3-code-nix";
-        inputs.nixpkgs.follows = "nixpkgs";
-      };
-    };
-
     nixConfig = {
       extra-substituters = ["https://zed.cachix.org"];
       extra-trusted-public-keys = [

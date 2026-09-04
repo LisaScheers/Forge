@@ -1,0 +1,922 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Forge dendritic migration plan</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #000;
+        --panel: #090909;
+        --panel-raised: #101010;
+        --line: #292929;
+        --line-strong: #4a4a4a;
+        --text: #fff;
+        --muted: #aaa;
+        --green: #78e6a4;
+        --amber: #ffd479;
+        --red: #ff9292;
+        --blue: #91c8ff;
+        --violet: #c9adff;
+        --code: #d8eaff;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+      html { background: var(--bg); scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 15px;
+        line-height: 1.58;
+      }
+
+      a { color: var(--blue); }
+      a:hover { color: #c3e0ff; }
+      code, pre {
+        color: var(--code);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      }
+      code { overflow-wrap: anywhere; }
+      pre {
+        margin: 1rem 0 0;
+        padding: 1rem;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        background: #050505;
+        font-size: 12.5px;
+        line-height: 1.55;
+      }
+
+      header, main, footer {
+        width: min(1180px, calc(100% - 40px));
+        margin-inline: auto;
+      }
+
+      header {
+        padding: 66px 0 36px;
+        border-bottom: 1px solid var(--line-strong);
+      }
+
+      .kicker, .eyebrow, th, .phase-id, .tag, .meta {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      }
+
+      .kicker {
+        margin: 0 0 10px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      h1, h2, h3, h4 {
+        margin: 0;
+        line-height: 1.15;
+        letter-spacing: -0.025em;
+      }
+      h1 {
+        max-width: 920px;
+        font-size: clamp(38px, 6vw, 70px);
+        font-weight: 730;
+      }
+      h2 {
+        margin-bottom: 18px;
+        font-size: clamp(25px, 3vw, 36px);
+      }
+      h3 { margin-bottom: 8px; font-size: 19px; }
+      h4 { margin-bottom: 6px; font-size: 15px; }
+      p { margin: 0.55rem 0 0; }
+
+      .lede {
+        max-width: 860px;
+        margin-top: 22px;
+        color: #dedede;
+        font-size: 19px;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 28px;
+        margin-top: 28px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 20px;
+        padding: 16px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      nav a {
+        color: var(--muted);
+        font-size: 13px;
+        text-decoration: none;
+      }
+      nav a:hover { color: var(--text); }
+
+      main { padding-bottom: 74px; }
+      section {
+        padding: 44px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        border-bottom: 1px solid var(--line);
+      }
+      .metric {
+        min-height: 125px;
+        padding: 22px 18px;
+        border-right: 1px solid var(--line);
+      }
+      .metric:last-child { border-right: 0; }
+      .metric .value {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 29px;
+        font-weight: 720;
+      }
+      .metric .label { color: var(--muted); }
+
+      .recommendation {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+        gap: 30px;
+        align-items: start;
+      }
+
+      .callout {
+        padding: 20px;
+        border-left: 3px solid var(--green);
+        background: var(--panel);
+      }
+      .callout + .callout { margin-top: 14px; }
+      .callout.warning { border-left-color: var(--amber); }
+      .callout.danger { border-left-color: var(--red); }
+      .callout.info { border-left-color: var(--blue); }
+
+      ul, ol {
+        margin: 0.7rem 0 0;
+        padding-left: 1.25rem;
+      }
+      li + li { margin-top: 0.45rem; }
+
+      .decision-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .decision {
+        padding: 20px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+      }
+      .decision .choice {
+        color: var(--green);
+        font-weight: 700;
+      }
+      .decision p { color: #d0d0d0; }
+
+      .diagram {
+        display: grid;
+        grid-template-columns: minmax(0, 0.85fr) 60px minmax(0, 1.15fr);
+        gap: 14px;
+        align-items: stretch;
+      }
+      .diagram-column {
+        padding: 20px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+      }
+      .diagram-column.target { border-color: var(--line-strong); }
+      .diagram-arrow {
+        display: grid;
+        place-items: center;
+        color: var(--green);
+        font-size: 28px;
+      }
+      .stack {
+        display: grid;
+        gap: 8px;
+        margin-top: 14px;
+      }
+      .stack > div {
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        background: #050505;
+      }
+      .stack .hot { border-left: 3px solid var(--red); }
+      .stack .good { border-left: 3px solid var(--green); }
+      .stack .neutral { border-left: 3px solid var(--blue); }
+      .stack small { display: block; margin-top: 3px; color: var(--muted); }
+
+      .table-wrap { overflow-x: auto; }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      th, td {
+        padding: 14px 12px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      td:first-child { color: #e7e7e7; }
+
+      .phase {
+        display: grid;
+        grid-template-columns: 120px minmax(0, 1fr);
+        gap: 26px;
+        padding: 30px 0;
+        border-top: 1px solid var(--line);
+      }
+      .phase:first-of-type { border-top-color: var(--line-strong); }
+      .phase-id {
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 650;
+      }
+      .phase-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        margin-top: 18px;
+      }
+      .phase-grid > div {
+        padding-top: 13px;
+        border-top: 1px solid var(--line);
+      }
+      .phase-grid p, .phase-grid ul { color: #d0d0d0; }
+
+      .tag {
+        display: inline-block;
+        margin-bottom: 8px;
+        color: var(--violet);
+        font-size: 11px;
+        font-weight: 650;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .tree {
+        display: grid;
+        grid-template-columns: minmax(0, 0.75fr) minmax(280px, 0.25fr);
+        gap: 26px;
+        align-items: start;
+      }
+
+      .gates {
+        counter-reset: gate;
+        list-style: none;
+        padding: 0;
+      }
+      .gates li {
+        counter-increment: gate;
+        display: grid;
+        grid-template-columns: 38px minmax(0, 1fr);
+        gap: 12px;
+        padding: 14px 0;
+        border-top: 1px solid var(--line);
+      }
+      .gates li::before {
+        content: counter(gate, decimal-leading-zero);
+        color: var(--muted);
+        font: 650 12px/1.9 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .gates strong { color: var(--text); }
+
+      .status-ok { color: var(--green); }
+      .status-warn { color: var(--amber); }
+      .status-blocked { color: var(--red); }
+      .small { color: var(--muted); font-size: 13px; }
+
+      .checklist {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0 28px;
+      }
+      .check {
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr);
+        gap: 10px;
+        padding: 13px 0;
+        border-top: 1px solid var(--line);
+      }
+      .check::before { content: "□"; color: var(--green); }
+
+      footer {
+        padding: 25px 0 50px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      @media (max-width: 900px) {
+        .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .metric:nth-child(2n) { border-right: 0; }
+        .metric:last-child { border-right: 1px solid var(--line); }
+        .recommendation, .tree { grid-template-columns: 1fr; }
+        .decision-grid, .phase-grid { grid-template-columns: 1fr; }
+      }
+
+      @media (max-width: 680px) {
+        header, main, footer { width: min(100% - 28px, 1180px); }
+        header { padding-top: 44px; }
+        .summary { grid-template-columns: 1fr; }
+        .metric { border-right: 0; border-bottom: 1px solid var(--line); }
+        .metric:last-child { border-right: 0; }
+        .diagram { grid-template-columns: 1fr; }
+        .diagram-arrow { min-height: 38px; transform: rotate(90deg); }
+        .phase { grid-template-columns: 1fr; gap: 8px; }
+        .checklist { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <p class="kicker">Forge architecture plan · 4 September 2026</p>
+      <h1>Migrate Forge to dendritic without changing what the machines do.</h1>
+      <p class="lede">
+        Keep flake-parts and flake-file, replace class-specific registries and host-owned imports with
+        typed, feature-owned aspects, then swap the loader only after every loaded Nix file has one
+        meaning. Preserve all five user-facing configurations and every deployment gate throughout.
+      </p>
+      <div class="meta">
+        <span>Recommendation: incremental refactor</span>
+        <span>Delivery: one branch, buildable commits</span>
+        <span>Activation: explicitly out of scope</span>
+      </div>
+    </header>
+
+    <main>
+      <nav aria-label="Plan sections">
+        <a href="#verdict">Verdict</a>
+        <a href="#shape">Target shape</a>
+        <a href="#mapping">Migration map</a>
+        <a href="#phases">Phases</a>
+        <a href="#verification">Verification</a>
+        <a href="#risks">Risks</a>
+        <a href="#done">Definition of done</a>
+      </nav>
+
+      <div class="summary" aria-label="Repository snapshot">
+        <div class="metric">
+          <span class="value">114</span>
+          <span class="label">Nix files below <code>flake-parts/</code></span>
+        </div>
+        <div class="metric">
+          <span class="value">3</span>
+          <span class="label">system configurations: Nook, Atlas, Vega</span>
+        </div>
+        <div class="metric">
+          <span class="value">2</span>
+          <span class="label">standalone Home Manager configurations</span>
+        </div>
+        <div class="metric">
+          <span class="value">3</span>
+          <span class="label">module classes: NixOS, Darwin, Home Manager</span>
+        </div>
+        <div class="metric">
+          <span class="value">0</span>
+          <span class="label">deployments authorized by this plan</span>
+        </div>
+      </div>
+
+      <section id="verdict">
+        <div class="recommendation">
+          <div>
+            <p class="kicker">Recommended direction</p>
+            <h2>Adopt the pattern, not another framework.</h2>
+            <p>
+              Forge is already built on flake-parts, auto-loads its top-level parts, and distributes
+              flake inputs through flake-file. That means the useful half of the foundation is present.
+              The migration should focus on the semantic inversion: a file owns an aspect across module
+              classes, while a host merely selects aspects.
+            </p>
+            <p>
+              Add flake-parts' class-checked <code>flake.modules.&lt;class&gt;.&lt;aspect&gt;</code> option,
+              keep <code>flake-file</code>, and initially keep the current loader. Once all ordinary
+              <code>.nix</code> files are flake-parts modules and helper files are explicitly excluded,
+              replace <code>flake-parts-builder</code> with <code>denful/import-tree</code> and delete the
+              bootstrap/template scaffolding it made necessary.
+            </p>
+          </div>
+          <div>
+            <div class="callout">
+              <h3>Success condition</h3>
+              <p>
+                Adding or removing a feature means changing its aspect and a host's short selection list;
+                it does not require editing a registry, threading a new special argument, or knowing which
+                kind of module a path contains.
+              </p>
+            </div>
+            <div class="callout warning">
+              <h3>Baseline prerequisite</h3>
+              <p>
+                Atlas does not currently evaluate in this worktree environment because the locked
+                <code>shop-empty-track</code> GitHub archive returns 404. Record or repair that baseline
+                before using “all hosts green” as a migration gate.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="decisions-title">
+        <p class="kicker">Architecture decisions</p>
+        <h2 id="decisions-title">Three choices keep the migration bounded.</h2>
+        <div class="decision-grid">
+          <article class="decision">
+            <span class="tag">Module model</span>
+            <h3 class="choice">Use <code>flake.modules</code></h3>
+            <p>
+              Import <code>inputs.flake-parts.flakeModules.modules</code> once. Publish aspects under
+              <code>nixos</code>, <code>darwin</code>, and <code>homeManager</code>; gain class checking and
+              remove the custom <code>flake.homeModules</code> option.
+            </p>
+          </article>
+          <article class="decision">
+            <span class="tag">Input ownership</span>
+            <h3 class="choice">Keep <code>flake-file</code></h3>
+            <p>
+              Move each input declaration next to the aspect that consumes it. Retain generated
+              <code>flake.nix</code> and the <code>write-flake</code> gate. Dendritic does not require a
+              handwritten flake manifest.
+            </p>
+          </article>
+          <article class="decision">
+            <span class="tag">Tree loader</span>
+            <h3 class="choice">Switch loaders last</h3>
+            <p>
+              The current loader is adequate for the transition. Use <code>import-tree</code> only after a
+              file-semantics audit, then remove <code>flake-parts-builder</code>, <code>_bootstrap.nix</code>,
+              and stale <code>_meta/</code> templates together.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section id="shape">
+        <p class="kicker">Control-flow inversion</p>
+        <h2>Hosts become composition roots; features become closures.</h2>
+        <div class="diagram" role="img" aria-label="Current host-centric structure changing to a feature-centric dendritic structure">
+          <div class="diagram-column">
+            <h3>Current</h3>
+            <p class="small">Meaning depends on path and import site.</p>
+            <div class="stack">
+              <div class="hot"><code>hosts/default.nix</code><small>constructors, module injection, inputs, checks</small></div>
+              <div class="hot"><code>homes/default.nix</code><small>constructor, overlay setup, registry expansion</small></div>
+              <div class="hot"><code>modules/*/default.nix</code><small>manual class registries and <code>importApply</code></small></div>
+              <div class="neutral"><code>hosts/nook/*.nix</code><small>NixOS modules imported by a host root</small></div>
+              <div class="neutral"><code>homes/lisa/**/*.nix</code><small>Home Manager modules imported by directory scans</small></div>
+            </div>
+          </div>
+          <div class="diagram-arrow" aria-hidden="true">→</div>
+          <div class="diagram-column target">
+            <h3>Target</h3>
+            <p class="small">Every loaded file is a flake-parts module; each aspect closes over what it needs.</p>
+            <div class="stack">
+              <div class="good"><code>features/access/ssh.nix</code><small>NixOS + Darwin + Home Manager definitions</small></div>
+              <div class="good"><code>features/secrets/agenix.nix</code><small>input + three module classes + package exposure</small></div>
+              <div class="good"><code>features/workstation/ai.nix</code><small>packages + Home Manager behavior + inputs</small></div>
+              <div class="good"><code>configurations/nook.nix</code><small>short, explicit selection of NixOS and home aspects</small></div>
+              <div class="neutral"><code>_data/</code> and <code>_hardware/</code><small>deliberately ignored raw modules, data, and generated files</small></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tree" style="margin-top: 28px;">
+          <div>
+            <h3>Suggested final tree</h3>
+            <pre><code>flake-parts/
+├── core/
+│   ├── flake-file.nix
+│   ├── module-classes.nix
+│   └── systems.nix
+├── configurations/
+│   ├── nook.nix
+│   ├── atlas.nix
+│   ├── vega.nix
+│   └── lisa-homes.nix
+├── features/
+│   ├── access/ssh.nix
+│   ├── identity/lisa.nix
+│   ├── nix/runtime.nix
+│   ├── secrets/{agenix,sops}.nix
+│   ├── workstation/{shell,editor,ai}.nix
+│   ├── services/{auto-sync-update,authentik,matrix}/
+│   ├── nook/{network,storage,media,observability}/
+│   ├── atlas/{forgejo,postplan,services}/
+│   └── vega/{builders,homebrew,desktop}/
+├── packages/
+├── operations/deploy.nix
+├── development/shell.nix
+├── _hardware/
+├── _data/
+└── _packages/</code></pre>
+          </div>
+          <aside class="callout info">
+            <h3>Granularity rule</h3>
+            <p>
+              Group by an operational concern, not mechanically by package. Keep Nook media or
+              observability as cohesive directories when splitting them would make changes harder to
+              understand. “Dendritic” does not mean “one tiny file per option.”
+            </p>
+          </aside>
+        </div>
+
+        <h3 style="margin-top: 30px;">Representative shape</h3>
+        <pre><code># core/module-classes.nix — one flake-parts module
+{ inputs, ... }: {
+  imports = [ inputs.flake-parts.flakeModules.modules ];
+}
+
+# features/access/ssh.nix — one aspect, several classes
+{ inputs, ... }: {
+  flake.modules.nixos.ssh = { ... }: { /* Linux SSH */ };
+  flake.modules.darwin.ssh = { ... }: { /* macOS SSH */ };
+  flake.modules.homeManager.ssh = { ... }: { /* user SSH */ };
+}
+
+# configurations/nook.nix — one explicit composition root
+{ config, inputs, ... }: {
+  flake.nixosConfigurations.nook = inputs.nixpkgs.lib.nixosSystem {
+    modules = with config.flake.modules.nixos; [
+      base-linux secrets ssh lisa nook-network nook-storage nook-services
+    ];
+  };
+}</code></pre>
+        <p class="small">
+          The outer flake-parts module captures <code>inputs</code>. Inner NixOS/Darwin/Home Manager
+          modules should use normal module arguments such as <code>config</code>, <code>lib</code>, and
+          <code>pkgs</code>; they no longer receive the whole flake through <code>specialArgs</code>.
+        </p>
+      </section>
+
+      <section id="mapping">
+        <p class="kicker">Repository-specific map</p>
+        <h2>Move by ownership, not with a flag-day rename.</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Current area</th>
+                <th>Target ownership</th>
+                <th>Migration treatment</th>
+                <th>Important invariant</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>modules/nixos/services/*</code></td>
+                <td><code>features/services/*</code></td>
+                <td>Publish typed NixOS aspects directly; remove empty <code>localFlake</code> wrappers and the central registry.</td>
+                <td>Keep option names and defaults stable, including <code>matrix.*</code> and <code>services.autoSyncUpdate.*</code>.</td>
+              </tr>
+              <tr>
+                <td><code>modules/home-manager/*</code></td>
+                <td>Matching workstation/service aspects</td>
+                <td>Publish <code>homeManager</code> aspects; co-locate package/input declarations where practical.</td>
+                <td>The same selected home aspect must feed standalone and embedded Home Manager.</td>
+              </tr>
+              <tr>
+                <td><code>agenix/</code> and <code>sops/</code></td>
+                <td><code>features/secrets/</code></td>
+                <td>One feature may publish NixOS, Darwin, and Home Manager modules plus its flake input.</td>
+                <td>Secret paths, owners, modes, recipients, and identity paths must not change.</td>
+              </tr>
+              <tr>
+                <td><code>homes/lisa/</code></td>
+                <td><code>identity/lisa</code> plus workstation aspects</td>
+                <td>Replace directory scans with named aspects such as <code>lisa-common</code>, <code>lisa-nook</code>, and <code>lisa-vega</code>.</td>
+                <td>Preserve usernames, home directories, state versions, files, and program settings.</td>
+              </tr>
+              <tr>
+                <td><code>hosts/nook/</code></td>
+                <td>Nook network, storage, media, IoT, cache, and observability aspects</td>
+                <td>Convert one coherent service slice at a time; keep generated hardware and the nginx helper ignored.</td>
+                <td>No storage device, mount, VLAN, firewall, service port, or secret binding drifts.</td>
+              </tr>
+              <tr>
+                <td><code>hosts/vega/</code></td>
+                <td>Vega builders, Homebrew, launchd, desktop, and access aspects</td>
+                <td>Close over input flakes in outer modules and use <code>pkgs.stdenv.hostPlatform</code> instead of a custom <code>system</code> argument.</td>
+                <td>Keep remote builders, localhost deployment access, primary user, taps, and activation scripts identical.</td>
+              </tr>
+              <tr>
+                <td><code>hosts/atlas/</code></td>
+                <td>Atlas service aspects plus reusable services</td>
+                <td>Migrate last after restoring evaluability; keep application-specific features distinct when they share no behavior.</td>
+                <td>Atlas follows <code>main</code> automatically, so no partial migration reaches <code>main</code>.</td>
+              </tr>
+              <tr>
+                <td><code>overlays/</code> and <code>_packages/</code></td>
+                <td>Feature-local packages with a minimal explicit override layer</td>
+                <td>Prefer <code>perSystem.packages</code> and explicit module package options. Retain one ordered overlay composition only where global overrides are genuinely required.</td>
+                <td>Never rely on module merge order for overlay ordering.</td>
+              </tr>
+              <tr>
+                <td><code>hosts/default.nix</code> and <code>homes/default.nix</code></td>
+                <td><code>configurations/*.nix</code></td>
+                <td>Replace factories with small explicit constructors and aspect lists; colocate each output check.</td>
+                <td>Output attribute names remain exactly the same.</td>
+              </tr>
+              <tr>
+                <td><code>deploy-rs.nix</code></td>
+                <td><code>operations/deploy.nix</code></td>
+                <td>Keep centralized: deployment topology is intentionally cross-host. Only update configuration references.</td>
+                <td>Rollback settings, timeouts, nodes, and deploy checks stay unchanged.</td>
+              </tr>
+              <tr>
+                <td><code>_meta/</code>, <code>_bootstrap.nix</code>, builder input</td>
+                <td>No long-term owner</td>
+                <td>Move input declarations into aspects, cut over to <code>import-tree</code>, then delete together.</td>
+                <td><code>nix run .#write-flake</code> remains deterministic.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="phases">
+        <p class="kicker">Execution sequence</p>
+        <h2>Eight phases, each ending at a safe checkpoint.</h2>
+
+        <article class="phase">
+          <div class="phase-id">PHASE 0</div>
+          <div>
+            <span class="tag">Baseline</span>
+            <h3>Freeze the behavioral contract.</h3>
+            <p>
+              Create a migration branch and record the current flake outputs, selected option values,
+              derivation paths, and known evaluation failures. Resolve the inaccessible Atlas input or
+              explicitly record the authenticated environment needed to fetch it. Do not mix a service
+              upgrade or input refresh into this migration.
+            </p>
+            <div class="phase-grid">
+              <div><h4>Change</h4><p>No configuration behavior. Add only reproducible inspection commands or notes if useful.</p></div>
+              <div><h4>Gate</h4><p>Nook evaluates; Vega and both home configurations are checked on a matching Darwin builder; Atlas has a trustworthy baseline.</p></div>
+              <div><h4>Checkpoint</h4><p>Before/after comparison inputs exist and the worktree has no unrelated changes.</p></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="phase">
+          <div class="phase-id">PHASE 1</div>
+          <div>
+            <span class="tag">Spine</span>
+            <h3>Introduce typed aspect namespaces without moving features.</h3>
+            <p>
+              Import <code>inputs.flake-parts.flakeModules.modules</code> once. Define the naming rules for
+              <code>nixos</code>, <code>darwin</code>, and <code>homeManager</code>. Add short-lived compatibility
+              aliases only where a converted aspect must still be consumed by an old constructor.
+            </p>
+            <div class="phase-grid">
+              <div><h4>Change</h4><p>Add the module-class foundation and one trivial pilot aspect, preferably SSH or XDG behavior.</p></div>
+              <div><h4>Gate</h4><p>New <code>modules</code> output lists the pilot in the correct class; importing it into the wrong class fails clearly.</p></div>
+              <div><h4>Checkpoint</h4><p>All existing host and home output names still evaluate unchanged.</p></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="phase">
+          <div class="phase-id">PHASE 2</div>
+          <div>
+            <span class="tag">Reusable aspects</span>
+            <h3>Convert the existing reusable module registries.</h3>
+            <p>
+              Migrate Agenix, sops-nix, auto-sync-update, Authentik, Matrix, AI skills,
+              cli-proxy-api-plus, and XDG extra. Each feature file now publishes its own module class,
+              declares its own flake input, and captures any input through the outer flake-parts module.
+            </p>
+            <div class="phase-grid">
+              <div><h4>Change</h4><p>Delete <code>importApply</code> and unused <code>localFlake</code> currying as each consumer moves.</p></div>
+              <div><h4>Gate</h4><p>Module option declarations and defaults compare equal; Matrix's private submodules remain one feature closure.</p></div>
+              <div><h4>Checkpoint</h4><p>The old NixOS and Home Manager registry files are empty and removable.</p></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="phase">
+          <div class="phase-id">PHASE 3</div>
+          <div>
+            <span class="tag">Home Manager</span>
+            <h3>Build one reusable Lisa home composition.</h3>
+            <p>
+              Convert common shell/editor/AI settings into Home Manager aspects and create two thin
+              selections: <code>lisa-nook</code> and <code>lisa-vega</code>. Both standalone
+              <code>homeConfigurations</code> and embedded Home Manager users consume those exact modules.
+              Replace custom <code>system</code> arguments with <code>pkgs.stdenv.hostPlatform</code>.
+            </p>
+            <div class="phase-grid">
+              <div><h4>Change</h4><p>Remove directory-scanning imports and the custom <code>flake.homeModules</code> option.</p></div>
+              <div><h4>Gate</h4><p>Standalone and embedded home activation packages match for each host, aside from expected integration metadata.</p></div>
+              <div><h4>Checkpoint</h4><p>No Home Manager module receives <code>inputs</code>, <code>system</code>, or a home identifier through <code>extraSpecialArgs</code>.</p></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="phase">
+          <div class="phase-id">PHASE 4</div>
+          <div>
+            <span class="tag">Linux canary</span>
+            <h3>Decompose Nook into operational aspects.</h3>
+            <p>
+              Start with base access and packages, then network/DNS, storage, media, Home Assistant,
+              caching/streaming, and observability. Nook is the useful local Linux canary because it also
+              exercises embedded Home Manager. Keep the generated hardware module and nginx error-page
+              function in ignored paths.
+            </p>
+            <div class="phase-grid">
+              <div><h4>Change</h4><p>Replace <code>hosts/nook/default.nix</code>'s long import list with a named aspect selection.</p></div>
+              <div><h4>Gate</h4><p>Build the full Nook toplevel and diff its closure against Phase 0; investigate every service or package delta.</p></div>
+              <div><h4>Checkpoint</h4><p>Nook's output path and deploy-rs checks still resolve; nothing is activated.</p></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="phase">
+          <div class="phase-id">PHASE 5</div>
+          <div>
+            <span class="tag">Darwin</span>
+            <h3>Convert Vega and prove cross-platform composition.</h3>
+            <p>
+              Move remote builders, Nix/Lix, Homebrew, launchd, networking, fonts, packages, and local SSH
+              access into Darwin or cross-class aspects. Evaluate and build this phase on Vega or with its
+              configured aarch64-darwin builder; a Linux-only evaluator cannot validate all Home Manager
+              sources used by Vega.
+            </p>
+            <div class="phase-grid">
+              <div><h4>Change</h4><p>Replace the Vega import root with explicit aspects and reuse the same <code>lisa-vega</code> home module.</p></div>
+              <div><h4>Gate</h4><p>Build <code>darwinConfigurations.vega.system</code> and the standalone Vega home activation package.</p></div>
+              <div><h4>Checkpoint</h4><p>Localhost SSH, deployment key wiring, remote builders, Homebrew taps, and activation behavior remain unchanged.</p></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="phase">
+          <div class="phase-id">PHASE 6</div>
+          <div>
+            <span class="tag">Production services</span>
+            <h3>Convert Atlas after its baseline is green.</h3>
+            <p>
+              Migrate base host policy, secrets, Matrix, Authentik, Forgejo, PostPlan, monitoring, and
+              application services. Keep truly host-specific services host-specific; extract a shared
+              aspect only when two hosts share policy, not merely because they use the same package.
+            </p>
+            <div class="phase-grid">
+              <div><h4>Change</h4><p>Replace unconditional module injection in the host factory with Atlas's explicit aspect selection.</p></div>
+              <div><h4>Gate</h4><p>Build the Atlas toplevel and both Atlas deploy-rs checks; compare services, users, ports, and secrets.</p></div>
+              <div><h4>Checkpoint</h4><p>No migration commit has reached <code>main</code>; Atlas's auto-update path cannot see a partial tree.</p></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="phase">
+          <div class="phase-id">PHASE 7</div>
+          <div>
+            <span class="tag">Closure and cleanup</span>
+            <h3>Localize packages, cut over the loader, and delete legacy glue.</h3>
+            <p>
+              Move package outputs and input declarations beside their consumers. Prefer explicit package
+              options and <code>perSystem.packages</code>; keep a single ordered overlay composition for the
+              few global overrides that cannot be removed safely. Audit every <code>.nix</code> file, move raw
+              data/modules below an underscore-prefixed path, then switch to <code>import-tree</code>.
+            </p>
+            <div class="phase-grid">
+              <div><h4>Change</h4><p>Remove factories, registries, compatibility aliases, <code>specialArgs</code>, builder metadata, and dead template comments.</p></div>
+              <div><h4>Gate</h4><p>Regenerate <code>flake.nix</code>, run the file-semantics audit, and repeat all host/home/package/deploy builds.</p></div>
+              <div><h4>Checkpoint</h4><p>One loader, one module namespace, one source of input declarations, and no behavior changes hidden in cleanup.</p></div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section id="verification">
+        <p class="kicker">Verification ladder</p>
+        <h2>Prove wiring first, closures second, activation only later.</h2>
+        <ol class="gates">
+          <li><span><strong>Static semantics.</strong> Format check; every auto-loaded Nix file returns a flake-parts module; raw Nix values and generated hardware live only below ignored paths.</span></li>
+          <li><span><strong>Generated manifest.</strong> Run <code>nix run .#write-flake</code> and require a clean second run. Review the input diff; only the planned loader replacement should alter the lock graph.</span></li>
+          <li><span><strong>Output surface.</strong> Compare the names under NixOS, Darwin, Home Manager, packages, apps, overlays, deploy, and checks with the Phase 0 snapshot.</span></li>
+          <li><span><strong>Typed aspect surface.</strong> List the names under <code>modules.nixos</code>, <code>modules.darwin</code>, and <code>modules.homeManager</code>; ensure each host selects only its intended aspects.</span></li>
+          <li><span><strong>Targeted evaluation.</strong> Evaluate all five configurations and the deploy schema/activation checks. Do this on matching platforms where evaluation realizes platform-specific sources.</span></li>
+          <li><span><strong>Full builds.</strong> Build Nook, Atlas, Vega, both standalone Home Manager activations, published packages, and host-specific deploy-rs gates without activating anything.</span></li>
+          <li><span><strong>Closure review.</strong> Use <code>nix store diff-closures</code> (or equivalent recorded store paths) for each before/after system. Classify every difference as structural-only, expected loader metadata, or an unintended behavior change.</span></li>
+          <li><span><strong>Full-flake diagnostic.</strong> Run <code>nix flake check --all-systems</code> with matching builders. Existing generated-lock/devenv baseline failures may remain documented, but no new failure is accepted.</span></li>
+        </ol>
+
+        <div class="callout info" style="margin-top: 24px;">
+          <h3>Suggested per-commit gate</h3>
+          <p>
+            Format → regenerate flake → evaluate every affected configuration → build its system/home
+            closure → build the corresponding deploy checks. Run the complete matrix at the end of every
+            host phase and again after loader cleanup.
+          </p>
+        </div>
+      </section>
+
+      <section id="risks">
+        <p class="kicker">Risk controls</p>
+        <h2>Guard the boundaries most likely to drift.</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Risk</th><th>Why it matters here</th><th>Control</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="status-blocked">Atlas baseline is not reproducible</td>
+                <td>An unavailable locked source makes migration failures indistinguishable from existing failures.</td>
+                <td>Restore authenticated fetch/evaluation or update that input in a separate, reviewed change before Phase 6.</td>
+              </tr>
+              <tr>
+                <td class="status-warn">Automatic server updates</td>
+                <td>Nook and Atlas track <code>main</code>; a partial merge can become a deployment.</td>
+                <td>Keep all phases on one branch/PR. Merge only the fully verified result. Actual rollout still requires explicit approval and follows the repository deployment policy.</td>
+              </tr>
+              <tr>
+                <td class="status-warn">Home Manager divergence</td>
+                <td>Each Lisa home exists both standalone and embedded today.</td>
+                <td>Make each pair consume the identical aggregate <code>homeManager</code> aspect; test both output paths.</td>
+              </tr>
+              <tr>
+                <td class="status-warn">Overlay order changes</td>
+                <td>The default overlay composes package overrides in an explicit order, while module definitions do not promise overlay ordering.</td>
+                <td>Move ordinary packages to <code>perSystem</code>; retain one explicit ordered composition for remaining global overrides.</td>
+              </tr>
+              <tr>
+                <td class="status-warn">Secret ownership drift</td>
+                <td>Agenix and sops-nix span NixOS, Darwin, and Home Manager and carry activation-time paths.</td>
+                <td>Move declarations without editing values; compare evaluated secret metadata before and after.</td>
+              </tr>
+              <tr>
+                <td class="status-warn">Hidden raw Nix files</td>
+                <td>Several files return lists, attrsets, package functions, or ordinary NixOS/HM modules rather than flake-parts modules.</td>
+                <td>Rename/move them below ignored underscore paths or wrap them before enabling <code>import-tree</code> for the full tree.</td>
+              </tr>
+              <tr>
+                <td class="status-ok">Over-abstraction</td>
+                <td>Dendritic examples can tempt a rewrite into factories, constants modules, and tiny layers.</td>
+                <td>Begin with simple aspects and lexical closures. Add a flake-level option only when two independently loaded aspects truly need a configurable shared value.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="done">
+        <p class="kicker">Definition of done</p>
+        <h2>The migration is complete when these are all true.</h2>
+        <div class="checklist">
+          <div class="check">All ordinary auto-loaded <code>.nix</code> files are flake-parts modules.</div>
+          <div class="check">Raw modules, package functions, and data are visibly private under ignored underscore paths.</div>
+          <div class="check">Features publish through <code>flake.modules.nixos</code>, <code>.darwin</code>, or <code>.homeManager</code>.</div>
+          <div class="check">No central NixOS/Home Manager module registry or <code>importApply</code> wrapper remains.</div>
+          <div class="check">No project-defined <code>specialArgs</code> or <code>extraSpecialArgs</code> are needed to pass <code>inputs</code>, <code>system</code>, host, or home identity.</div>
+          <div class="check">Nook, Atlas, Vega, <code>lisa@nook</code>, and <code>lisa@vega</code> retain their exact flake output names.</div>
+          <div class="check">Standalone and embedded Home Manager use the same selected Lisa aspects.</div>
+          <div class="check">All flake inputs are declared by the feature or core concern that owns them.</div>
+          <div class="check"><code>flake.nix</code> is still generated reproducibly by flake-file.</div>
+          <div class="check"><code>import-tree</code> is the only tree loader; builder/bootstrap/template glue is gone.</div>
+          <div class="check">All five configurations and their relevant deployment checks build on matching systems.</div>
+          <div class="check">Before/after closure differences are reviewed and contain no unexplained behavior drift.</div>
+          <div class="check">README and Justfile paths describe the new structure without changing deployment semantics.</div>
+          <div class="check">No host has been activated or deployed merely by executing this migration plan.</div>
+        </div>
+      </section>
+
+      <section aria-labelledby="sources-title">
+        <p class="kicker">References</p>
+        <h2 id="sources-title">Design basis</h2>
+        <ul>
+          <li><a href="https://dendrix.denful.dev/Dendritic.html">Dendritic Nix overview</a> — aspect orientation, feature closures, file semantics, and the distinction between a pattern and a framework.</li>
+          <li><a href="https://flake.parts/options/flake-parts-modules.html">flake-parts modules option</a> — class-checked <code>flake.modules</code> definitions and installation.</li>
+          <li><a href="https://github.com/denful/import-tree">denful/import-tree</a> — recursive module loading and underscore-path exclusions.</li>
+          <li><a href="https://github.com/denful/flake-file">denful/flake-file</a> — module-owned input declarations and reproducible <code>flake.nix</code> generation.</li>
+          <li><a href="https://flake.parts/options/flake-parts.html">flake-parts core options</a> — output semantics and the ordering warning for overlays.</li>
+        </ul>
+      </section>
+    </main>
+
+    <footer>
+      Prepared from the current Forge worktree. This document changes no Nix configuration and grants no
+      permission to deploy, activate, push, or merge.
+    </footer>
+  </body>
+</html>

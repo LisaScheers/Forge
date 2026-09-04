@@ -42,10 +42,6 @@
       else prev.nushell;
   };
 
-  flake-parts-builder = final: prev: {
-    flake-parts-builder = inputs.flake-parts-builder.packages.${final.stdenv.hostPlatform.system}.default;
-  };
-
   default = final: prev:
     (antigravity-cli final prev)
     // (claudex final prev)
@@ -53,11 +49,10 @@
     // (codex final prev)
     // (postplan-selfhosted final prev)
     // (nushell final prev)
-    // (flake-parts-builder final prev)
     // (zed final prev);
 in {
   flake.overlays = {
-    inherit antigravity-cli claudex cli-proxy-api-plus codex default flake-parts-builder nushell postplan-selfhosted zed;
+    inherit antigravity-cli claudex cli-proxy-api-plus codex default nushell postplan-selfhosted zed;
   };
 
   perSystem = {system, ...}: let
@@ -85,8 +80,8 @@ in {
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    flake-parts-builder = {
-      url = "github:tsandrini/flake-parts-builder";
+    zed = {
+      url = "github:zed-industries/zed";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

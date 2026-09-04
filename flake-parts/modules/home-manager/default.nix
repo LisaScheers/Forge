@@ -1,30 +1,17 @@
-# --- flake-parts/modules/home-manager/default.nix
-{
-  lib,
-  inputs,
-  self,
-  ...
-}: let
-  inherit (inputs.flake-parts.lib) importApply;
-  localFlake = self;
-in {
-  options.flake.homeModules = lib.mkOption {
-    type = with lib.types; lazyAttrsOf unspecified;
-    default = {};
-  };
-
-  config.flake.homeModules = {
-    # NOTE Dogfooding your modules with `importApply` will make them more
-    # reusable even outside of your flake. For more info see
-    # https://flake.parts/dogfood-a-reusable-module#example-with-importapply
-
+{inputs, ...}: {
+  flake.modules.homeManager = {
     catppuccin = inputs.catppuccin.homeModules.catppuccin;
     t3-code = inputs.t3-code-nix.homeModules.default;
-    ai-environment = importApply ./programs/ai-skills {inherit localFlake;};
-    cli-proxy-api-plus = importApply ./services/cli-proxy-api-plus {inherit localFlake;};
-    xdg-extra = importApply ./services/xdg-extra {inherit localFlake;};
+  };
 
-    # programs_myProgram = importApply ./programs/myProgram { inherit localFlake; };
-    # services_myService = importApply ./services/myService { inherit localFlake inputs; };
+  flake-file.inputs = {
+    catppuccin = {
+      url = "github:catppuccin/nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    t3-code-nix = {
+      url = "github:LisaScheers/t3-code-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 }

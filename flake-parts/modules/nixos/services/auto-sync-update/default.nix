@@ -1,11 +1,11 @@
-_:
-{
-  config,
-  lib,
-  options,
-  pkgs,
-  ...
-}: let
+{...}: {
+  flake.modules.nixos.services_auto-sync-update = {
+    config,
+    lib,
+    options,
+    pkgs,
+    ...
+  }: let
     cfg = config.services.autoSyncUpdate;
     hasLaunchd = options ? launchd;
     hasSystemd = options ? systemd;
@@ -410,4 +410,5 @@ _:
         };
       }
     );
+  };
 }
