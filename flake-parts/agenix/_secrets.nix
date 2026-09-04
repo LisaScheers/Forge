@@ -1,5 +1,5 @@
 let
-  keys = import ./pubkeys.nix;
+  keys = import ./_pubkeys.nix;
   all = [
     keys.users.lisa
     keys.hosts.atlas
