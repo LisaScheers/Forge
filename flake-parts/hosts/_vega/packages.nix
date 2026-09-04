@@ -1,4 +1,4 @@
-{ pkgs, ... }: {
+{pkgs, ...}: {
   environment.systemPackages = with pkgs; [
     just
     sops
@@ -20,6 +20,5 @@
     the-unarchiver
     oxfmt
     oxlint
-    flake-parts-builder
   ];
 }

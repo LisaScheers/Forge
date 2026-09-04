@@ -1,6 +1,6 @@
 ---
 name: html-communication
-description: Use when the user explicitly asks for HTML or invokes $html-communication to present a plan, report, comparison, or mockup. Create a local artifact; use postplan only when publication is authorized.
+description: Use when the user explicitly asks for HTML or invokes $html-communication to present a plan, report, comparison, or mockup. Create a local artifact; always publish plans through PostPlan, while other documents require publication authorization.
 ---
 
 # HTML Communication
@@ -35,6 +35,8 @@ Match the document to the request. Prefer clear hierarchy, concise prose, and di
 
 Use one stable local file across revisions. Return a clickable link to that file.
 
-Do not upload the document unless the user explicitly asks to publish, host, share, or return a public URL. A repository instruction that requires publication also counts as authorization. When publication is authorized, invoke `postplan` with the finished file.
+For every plan created with this skill, publication through PostPlan is required. Treat the request to create or present a plan with `html-communication` as authorization to publish that plan. Invoke `postplan` with the finished file and return both the local file and the hosted URL. If publication fails, return the local file and the exact upload error.
 
-Return the local file in every case. Return a hosted URL only after `postplan` reports a successful upload. Do not open the hosted page unless the user asks.
+For reports, comparisons, mocks, and other non-plan documents, do not upload unless the user explicitly asks to publish, host, share, or return a public URL. A repository instruction that requires publication also counts as authorization.
+
+Return a hosted URL only after `postplan` reports a successful upload. Do not open the hosted page unless the user asks.

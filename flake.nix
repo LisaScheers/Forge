@@ -16,8 +16,6 @@
       "zed.cachix.org-1:/pHQ6dpMsAZk2DiP4WCL0p9YDNKWj2Q5FL20bNmw1cU="
       "zed.cachix.org-1:/pHQ6dpMsAZk2DiP4WCL0p9YDNKWj2Q5FL20bNmw1cU="
     ];
-    extraSubstituters = [ ];
-    extraTrustedPublicKeys = [ ];
   };
 
   inputs = {
@@ -53,10 +51,6 @@
     disko.url = "github:nix-community/disko";
     flake-file.url = "github:denful/flake-file";
     flake-parts.url = "github:hercules-ci/flake-parts";
-    flake-parts-builder = {
-      url = "github:tsandrini/flake-parts-builder";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     home-manager = {
       url = "github:LisaScheers/home-manager/agent/nushell-session-environment";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -69,6 +63,7 @@
       url = "github:homebrew/homebrew-core";
       flake = false;
     };
+    import-tree.url = "github:denful/import-tree";
     lix = {
       url = "https://git.lix.systems/lix-project/lix/archive/main.tar.gz";
       flake = false;

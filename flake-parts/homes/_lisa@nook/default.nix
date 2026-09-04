@@ -10,6 +10,6 @@
         && lib.hasSuffix ".nix" name)
       (builtins.attrNames entries));
 in {
-  imports = [../lisa] ++ modules;
+  imports = modules;
   home.homeDirectory = "/home/lisa";
 }
