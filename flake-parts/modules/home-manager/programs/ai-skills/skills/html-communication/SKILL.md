@@ -30,11 +30,12 @@ Match the document to the request. Prefer clear hierarchy, concise prose, and di
 
 - create several genuinely different options;
 - label them `A`, `B`, `C`, and so on for easy selection;
+- give example prompts for each option, so the user can see how they would be used in practice;
 - place them where they can be compared directly;
 - keep explanation secondary to the mocks.
 
 Use one stable local file across revisions. Return a clickable link to that file.
 
-Do not upload the document unless the user explicitly asks to publish, host, share, or return a public URL. A repository instruction that requires publication also counts as authorization. When publication is authorized, invoke `postplan` with the finished file.
+all plans created by this skill must be uploade to `postplan` for the user to review and approve before working on the actual implementation. The user may ask for a hosted URL, but do not provide one until `postplan` reports a successful upload. Do not open the hosted page unless the user asks.
 
 Return the local file in every case. Return a hosted URL only after `postplan` reports a successful upload. Do not open the hosted page unless the user asks.
