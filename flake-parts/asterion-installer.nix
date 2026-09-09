@@ -1,5 +1,26 @@
-{inputs, ...}: let
-  common = {pkgs, ...}: {
+{
+  config,
+  inputs,
+  ...
+}: let
+  installer = inputs.nixpkgs.lib.nixosSystem {
+    system = "aarch64-linux";
+    modules = [
+      inputs.nixos-apple-silicon.nixosModules.apple-silicon-installer
+      config.forge.modules.nixos.asterion-installer-common
+    ];
+  };
+  tether = inputs.nixpkgs.lib.nixosSystem {
+    system = "aarch64-linux";
+    modules = [
+      inputs.nixos-apple-silicon.nixosModules.apple-silicon-support
+      config.forge.modules.nixos.asterion-installer-common
+      config.forge.modules.nixos.asterion-tether
+    ];
+  };
+  inherit (tether) pkgs;
+in {
+  forge.modules.nixos.asterion-installer-common = {pkgs, ...}: {
     nixpkgs.hostPlatform = "aarch64-linux";
     nixpkgs.buildPlatform = "aarch64-linux";
     # nixpkgs' 0.8.0 parser rejects newer Apple Wi-Fi firmware filenames.
@@ -22,23 +43,7 @@
     systemd.sleep.settings.Sleep.AllowSuspend = false;
     services.logind.settings.Login.HandleLidSwitch = "ignore";
   };
-  installer = inputs.nixpkgs.lib.nixosSystem {
-    system = "aarch64-linux";
-    modules = [
-      inputs.nixos-apple-silicon.nixosModules.apple-silicon-installer
-      common
-    ];
-  };
-  tether = inputs.nixpkgs.lib.nixosSystem {
-    system = "aarch64-linux";
-    modules = [
-      inputs.nixos-apple-silicon.nixosModules.apple-silicon-support
-      common
-      ./_asterion-tether.nix
-    ];
-  };
-  inherit (tether) pkgs;
-in {
+
   flake.packages.aarch64-linux.asterion-installer = installer.config.system.build.isoImage;
   flake.packages.aarch64-linux.asterion-tethered-installer =
     pkgs.runCommand "asterion-tethered-installer" {

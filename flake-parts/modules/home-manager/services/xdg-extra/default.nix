@@ -1,5 +1,5 @@
 {...}: {
-  flake.modules.homeManager.xdg-extra = {
+  forge.modules.homeManager.xdg-extra = {
     config,
     lib,
     ...

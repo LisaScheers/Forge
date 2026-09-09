@@ -3,15 +3,24 @@
   inputs,
   ...
 }: let
-  lisaHome = config.flake.modules.homeManager."lisa@vega";
+  lisaHome = config.forge.modules.homeManager."lisa@vega";
 in {
-  flake.modules.darwin.vega = {pkgs, ...}: {
+  forge.hosts.vega = {
+    class = "darwin";
+    system = "aarch64-darwin";
+    module = config.forge.modules.darwin.vega;
+  };
+  flake.checks.aarch64-darwin.vega = config.flake.darwinConfigurations.vega.system;
+  forge.modules.darwin.vega = {
     imports = [
-      ./_vega
-      (import ./_vega/homebrew.nix {inherit inputs;})
-      (import ./_vega/comicCodeNerdFont.nix {inherit inputs pkgs;})
+      inputs.home-manager.darwinModules.home-manager
+      inputs.lix-module.darwinModules.default
     ];
-
+    home-manager = {
+      backupFileExtension = "before-nix-home-manager";
+      useGlobalPkgs = true;
+      useUserPackages = true;
+    };
     users.users.lisa.home = "/Users/lisa";
     home-manager.users.lisa.imports = [lisaHome];
   };
@@ -30,18 +39,6 @@ in {
       url = "https://git.lix.systems/lix-project/nixos-module/archive/main.tar.gz";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.lix.follows = "lix";
-    };
-    homebrew-cask = {
-      url = "github:homebrew/homebrew-cask";
-      flake = false;
-    };
-    homebrew-core = {
-      url = "github:homebrew/homebrew-core";
-      flake = false;
-    };
-    comic-code-fonts = {
-      url = "github:LisaScheers/comic-code-fonts";
-      flake = false;
     };
   };
 }

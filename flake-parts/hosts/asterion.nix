@@ -3,11 +3,23 @@
   inputs,
   ...
 }: {
-  flake.modules.nixos.asterion = {
-    imports = [./_asterion];
-
+  forge.hosts.asterion = {
+    class = "nixos";
+    system = "aarch64-linux";
+    module = config.forge.modules.nixos.asterion;
+  };
+  forge.modules.nixos.asterion = {
+    imports = [
+      inputs.nixos-apple-silicon.nixosModules.default
+      inputs.home-manager.nixosModules.home-manager
+    ];
+    home-manager = {
+      backupFileExtension = "before-nix-home-manager";
+      useGlobalPkgs = true;
+      useUserPackages = true;
+    };
     home-manager.users.lisa.imports = [
-      config.flake.modules.homeManager."lisa@asterion"
+      config.forge.modules.homeManager."lisa@asterion"
     ];
   };
 

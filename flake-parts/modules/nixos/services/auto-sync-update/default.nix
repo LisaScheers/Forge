@@ -1,5 +1,5 @@
 {...}: {
-  flake.modules.nixos.services_auto-sync-update = {
+  forge.modules.nixos.services_auto-sync-update = {
     config,
     lib,
     options,
@@ -306,7 +306,7 @@
     };
   in {
     options.services.autoSyncUpdate = {
-      enable = lib.mkEnableOption "automatic repository sync and host rebuild";
+      enable = (lib.mkEnableOption "automatic repository sync and host rebuild") // {default = true;};
 
       flakeHost = lib.mkOption {
         type = lib.types.str;

@@ -15,13 +15,15 @@
   in {
     imports = [agenixModule];
 
-    options.forge.security.agenix.enable = lib.mkEnableOption ''
-      agenix secret management
+    options.forge.security.agenix.enable =
+      lib.mkEnableOption ''
+        agenix secret management
 
-      References:
-      - https://github.com/ryantm/agenix
-      - https://nixos.wiki/wiki/Agenix
-    '';
+        References:
+        - https://github.com/ryantm/agenix
+        - https://nixos.wiki/wiki/Agenix
+      ''
+      // {default = true;};
 
     config = lib.mkIf cfg.enable {
       environment.systemPackages = [
@@ -45,12 +47,6 @@ in {
       description = "Public keys used throughout the flake.";
     };
 
-    pubkeysFile = lib.mkOption {
-      type = path;
-      default = ./_pubkeys.nix;
-      description = "File used to construct the secrets.pubkeys option.";
-    };
-
     extraPubkeys = lib.mkOption {
       type = attrsOf (attrsOf anything);
       default = {};
@@ -59,9 +55,9 @@ in {
   };
 
   config = {
-    secrets.pubkeys = (import config.secrets.pubkeysFile) // config.secrets.extraPubkeys;
+    secrets.pubkeys = config.secrets.extraPubkeys;
 
-    flake.modules = {
+    forge.modules = {
       nixos.security_agenix = mkSystemModule inputs.agenix.nixosModules.default;
       darwin.security_agenix = mkSystemModule inputs.agenix.darwinModules.default;
       homeManager.security_agenix = {
@@ -73,7 +69,7 @@ in {
       in {
         imports = [inputs.agenix.homeManagerModules.default];
 
-        options.forge.hm.security.agenix.enable = lib.mkEnableOption "agenix secret management";
+        options.forge.hm.security.agenix.enable = (lib.mkEnableOption "agenix secret management") // {default = true;};
 
         config = lib.mkIf cfg.enable {
           age.identityPaths = ["${config.home.homeDirectory}/.ssh/id_ed25519"];

@@ -1,5 +1,5 @@
 {...}: {
-  flake.modules.nixos.services_authentik = {
+  forge.modules.nixos.services_authentik = {
     config,
     lib,
     pkgs,
@@ -16,7 +16,7 @@
     ];
   in {
     options.services.authentik = {
-      enable = mkEnableOption "authentik";
+      enable = (mkEnableOption "authentik") // {default = true;};
 
       package = mkOption {
         type = types.package;

@@ -1,5 +1,5 @@
 {...}: {
-  flake.modules.homeManager.ai-environment = {
+  forge.modules.homeManager.ai-environment = {
     config,
     lib,
     pkgs,
@@ -25,7 +25,7 @@
       // lib.optionalAttrs cfg.enablePstackSkills pstackSkills;
   in {
     options.forge.ai-skills = {
-      enable = lib.mkEnableOption "the declarative ai skills environment";
+      enable = (lib.mkEnableOption "the declarative ai skills environment") // {default = true;};
 
       agentsFile = lib.mkOption {
         type = lib.types.either lib.types.lines lib.types.path;

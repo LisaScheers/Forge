@@ -16,27 +16,31 @@ vega-bootstrap:
 # Install the home server with nixos-anywhere.
 # WARNING: this repartitions and formats the disk configured in config.nix.
 nixos-install target host="home-server":
-    nix develop --no-pure-eval --command nixos-anywhere --generate-hardware-config nixos-generate-config "./flake-parts/hosts/_{{host}}/_hardware-configuration.nix" --flake .#"{{host}}" --target-host "{{target}}"
+    nix develop --no-pure-eval --command nixos-anywhere --flake .#"{{host}}" --target-host "{{target}}"
 
 # Install using password auth. Set SSHPASS in the environment before running this.
 # WARNING: this repartitions and formats the disk configured in config.nix.
 nixos-install-password target host="home-server":
-    nix develop --no-pure-eval --command nixos-anywhere --env-password --generate-hardware-config nixos-generate-config "./flake-parts/hosts/_{{host}}/_hardware-configuration.nix" --flake .#"{{host}}" --target-host "{{target}}"
+    nix develop --no-pure-eval --command nixos-anywhere --env-password --flake .#"{{host}}" --target-host "{{target}}"
 
 # Install from an already-booted NixOS installer environment, skipping kexec.
 # WARNING: this repartitions and formats the disks configured in config.nix.
 nixos-install-from-installer target host="home-server":
-    nix develop --no-pure-eval --command nixos-anywhere --phases disko,install,reboot --generate-hardware-config nixos-generate-config "./flake-parts/hosts/_{{host}}/_hardware-configuration.nix" --flake .#"{{host}}" --target-host "{{target}}"
+    nix develop --no-pure-eval --command nixos-anywhere --phases disko,install,reboot --flake .#"{{host}}" --target-host "{{target}}"
 
 # Install from an already-booted NixOS installer environment with password auth.
 # WARNING: this repartitions and formats the disks configured in config.nix.
 nixos-install-from-installer-password target host="home-server":
-    nix develop --no-pure-eval --command nixos-anywhere --env-password --phases disko,install,reboot --generate-hardware-config nixos-generate-config "./flake-parts/hosts/_{{host}}/_hardware-configuration.nix" --flake .#"{{host}}" --target-host "{{target}}"
+    nix develop --no-pure-eval --command nixos-anywhere --env-password --phases disko,install,reboot --flake .#"{{host}}" --target-host "{{target}}"
 
 # Install from an already-booted NixOS installer environment with a specific SSH key.
 # WARNING: this repartitions and formats the disks configured in config.nix.
 nixos-install-from-installer-key target identity="/tmp/home-server-installer-ed25519" host="home-server":
-    nix develop --no-pure-eval --command nixos-anywhere -i "{{identity}}" --phases disko,install,reboot --generate-hardware-config nixos-generate-config "./flake-parts/hosts/_{{host}}/_hardware-configuration.nix" --flake .#"{{host}}" --target-host "{{target}}"
+    nix develop --no-pure-eval --command nixos-anywhere -i "{{identity}}" --phases disko,install,reboot --flake .#"{{host}}" --target-host "{{target}}"
+
+# Import a generated hardware module as a top-level Forge feature before installation.
+hardware-config host source:
+    bash scripts/import-hardware-config.sh "{{host}}" "{{source}}"
 
 # Edit or create an agenix secret. Paths are relative to flake-parts/agenix.
 secret-edit file identity="/Users/lisa/.config/sops/age/keys.txt":

@@ -3,16 +3,15 @@
   inputs,
   ...
 }: {
-  flake.modules.homeManager.lisa = {
+  forge.modules.homeManager.lisa = {
     imports = [
+      config.forge.modules.homeManager.lisa-shell
       inputs.onepassword-shell-plugins.hmModules.default
-      config.flake.modules.homeManager.catppuccin
-      config.flake.modules.homeManager.t3-code
-      config.flake.modules.homeManager.security_agenix
-      config.flake.modules.homeManager.ai-environment
-      config.flake.modules.homeManager.cli-proxy-api-plus
-      config.flake.modules.homeManager.xdg-extra
-      ./_lisa
+      config.forge.modules.homeManager.catppuccin
+      config.forge.modules.homeManager.t3-code
+      inputs.agenix.homeManagerModules.default
+      config.forge.modules.homeManager.ai-environment
+      config.forge.modules.homeManager.xdg-extra
     ];
   };
 }

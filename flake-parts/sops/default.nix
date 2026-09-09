@@ -9,7 +9,7 @@
     imports = [sopsModule];
 
     options.forge.security.sops = {
-      enable = lib.mkEnableOption "sops-nix secret management";
+      enable = (lib.mkEnableOption "sops-nix secret management") // {default = true;};
 
       ageSshKeyPaths = lib.mkOption {
         type = lib.types.listOf lib.types.str;
@@ -23,7 +23,7 @@
     };
   };
 in {
-  flake.modules = {
+  forge.modules = {
     nixos.security_sops = mkModule inputs.sops-nix.nixosModules.sops;
     darwin.security_sops = mkModule inputs.sops-nix.darwinModules.sops;
   };

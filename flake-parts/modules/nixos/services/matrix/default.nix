@@ -1,19 +1,14 @@
 {...}: {
-  flake.modules.nixos.services_matrix = {
+  forge.modules.nixos.services_matrix = {
     lib,
     config,
     ...
   }: {
-    imports = [
-      ./_synapse.nix
-      ./_coturn.nix
-      ./_livekit.nix
-    ];
     # configuration options for this module
     options.matrix = with lib; {
       enable = mkOption {
         type = types.bool;
-        default = false;
+        default = true;
         description = "Enable this module";
       };
 

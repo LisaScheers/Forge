@@ -12,11 +12,40 @@ support; the Home Manager desktop configuration is provided for future use.
 
 ## Architecture
 
-Forge uses dendritic flake-parts modules loaded recursively by
-[`import-tree`](https://github.com/denful/import-tree). Ordinary `.nix` files below
-`flake-parts/` are flake-parts modules. Reusable NixOS, nix-darwin, and Home Manager
-aspects are published through `flake.modules`; raw modules and host implementation
-files live below underscore-prefixed paths so the loader ignores them.
+Forge follows the [dendritic pattern](https://github.com/mightyiam/dendritic),
+reviewed against upstream commit `6c76240658cf1c840faad557c0e0726064170a65`.
+Every feature `.nix` file below `flake-parts/` is a top-level flake-parts module,
+loaded automatically by [`import-tree`](https://github.com/denful/import-tree).
+There are no hidden host/home module trees or local lower-level import lists.
+
+`forge.hosts` describes each machine's class, platform, and selected module;
+`forge.homes` describes standalone user environments. Features contribute to
+class-checked deferred modules in `forge.modules`. For example, every Nook feature
+merges into `forge.modules.nixos.nook`, and the four shared shell features merge
+into `forge.modules.homeManager.lisa-shell`. Adding a feature to an existing
+composition requires no import-list edit. Standalone and embedded homes use the
+same composition. `flake.modules` exports those values for external consumers.
+
+Features own their inputs, overlays, and settings. Shared values such as recipient
+keys and Nginx error-page settings are top-level options. Selecting a Forge feature
+activates it by default; compatibility opt-outs and optional sub-features remain
+configurable. Lisa's disabled proxy is an unselected `lisa-proxy` composition.
+Upstream NixOS/Home Manager modules retain their own option contracts.
+
+The documented exceptions are package recipes named `*.pkg.nix` and entry points:
+`flake.nix`, `outputs.nix`, and `flake-parts/agenix/_secrets.nix` for the agenix CLI.
+Package recipes are excluded from automatic loading, as upstream explicitly
+permits. The agenix entry point reads the flake's `agenixRules` output. The
+`dendritic` check rejects hidden feature files and lower-level module roots.
+
+The earlier HTML migration plan is historical and does not define this architecture.
+
+Installation recipes consume the checked-in hardware features. To replace one,
+save the target's `nixos-generate-config --show-hardware-config` output locally,
+then run `just hardware-config nook /path/to/hardware-configuration.nix` and review
+the result before installation. This wraps the generated expression in a top-level
+feature; passing a hardware feature directly to nixos-anywhere's raw configuration
+generator would overwrite its module boundary.
 
 ## Deployment
 

@@ -1,5 +1,5 @@
-{...}: {
-  flake.modules.homeManager.cli-proxy-api-plus = {
+{inputs, ...}: {
+  forge.modules.homeManager.cli-proxy-api-plus = {
     config,
     lib,
     options,
@@ -90,7 +90,7 @@
     };
   in {
     options.services.cli-proxy-api-plus = {
-      enable = lib.mkEnableOption "CLIProxyAPIPlus local API proxy";
+      enable = (lib.mkEnableOption "CLIProxyAPIPlus local API proxy") // {default = true;};
 
       package = lib.mkPackageOption pkgs "cli-proxy-api-plus" {};
 
@@ -398,4 +398,8 @@
       })
     ]);
   };
+  forge.overlays.cli-proxy-api-plus = final: _prev: {
+    cli-proxy-api-plus = final.callPackage ../../../../packages/cli-proxy-api-plus.pkg.nix {};
+  };
+  perSystem = {pkgs, ...}: {packages.cli-proxy-api-plus = pkgs.cli-proxy-api-plus;};
 }
