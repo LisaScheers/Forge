@@ -135,6 +135,14 @@
     };
 in {
   flake.nixosConfigurations = {
+    asterion = withSystem "aarch64-linux" (
+      args:
+        mkHost args "asterion" {
+          withHomeManager = true;
+          extraModules = [inputs.nixos-apple-silicon.nixosModules.default];
+        }
+    );
+
     nook = withSystem "x86_64-linux" (
       args:
         mkHost args "nook" {
@@ -170,6 +178,10 @@ in {
   };
 
   flake-file.inputs = {
+    nixos-apple-silicon = {
+      url = "github:nix-community/nixos-apple-silicon";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     disko = {
       url = "github:nix-community/disko";
     };
