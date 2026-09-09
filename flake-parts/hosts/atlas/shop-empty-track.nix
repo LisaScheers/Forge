@@ -1,5 +1,5 @@
 {...}: {
-  forge.modules.nixos.services_shop-empty-track = {config, ...}: {
+  forge.modules.nixos.atlas = {config, ...}: {
     services.shop-empty-track = {
       enable = true;
       port = 3001;

@@ -46,7 +46,7 @@ hardware-config host source:
 secret-edit file identity="/Users/lisa/.config/sops/age/keys.txt":
     cd flake-parts/agenix && RULES=./_secrets.nix agenix --edit "{{file}}" --identity "{{identity}}"
 
-# Re-encrypt all agenix secrets after changing recipients in _secrets.nix.
+# Re-encrypt all agenix secrets after changing recipients in recipients.nix.
 secret-rekey identity="/Users/lisa/.config/sops/age/keys.txt":
     cd flake-parts/agenix && RULES=./_secrets.nix agenix --rekey --identity "{{identity}}"
 
@@ -210,4 +210,4 @@ age-keygen:
     @mkdir -p ~/.config/sops/age
     @age-keygen -o ~/.config/sops/age/keys.txt
     @echo "Age key generated at ~/.config/sops/age/keys.txt"
-    @echo "Add the public key to flake-parts/agenix/_pubkeys.nix and the relevant rules in flake-parts/agenix/_secrets.nix"
+    @echo "Add the public key to flake-parts/agenix/pubkeys.nix and the relevant rules in flake-parts/agenix/recipients.nix"
