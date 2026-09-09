@@ -349,12 +349,12 @@
   </head>
   <body>
     <header>
-      <p class="kicker">Forge architecture plan · 4 September 2026</p>
+      <p class="kicker">Forge architecture plan · 4 September 2026 · updated 9 September 2026</p>
       <h1>Migrate Forge to dendritic without changing what the machines do.</h1>
       <p class="lede">
         Keep flake-parts and flake-file, replace class-specific registries and host-owned imports with
         typed, feature-owned aspects, then swap the loader only after every loaded Nix file has one
-        meaning. Preserve all five user-facing configurations and every deployment gate throughout.
+        meaning. Preserve all seven user-facing configurations and every deployment gate throughout.
       </p>
       <div class="meta">
         <span>Recommendation: incremental refactor</span>
@@ -376,15 +376,15 @@
 
       <div class="summary" aria-label="Repository snapshot">
         <div class="metric">
-          <span class="value">114</span>
+          <span class="value">117</span>
           <span class="label">Nix files below <code>flake-parts/</code></span>
         </div>
         <div class="metric">
-          <span class="value">3</span>
-          <span class="label">system configurations: Nook, Atlas, Vega</span>
+          <span class="value">4</span>
+          <span class="label">system configurations: Asterion, Nook, Atlas, Vega</span>
         </div>
         <div class="metric">
-          <span class="value">2</span>
+          <span class="value">3</span>
           <span class="label">standalone Home Manager configurations</span>
         </div>
         <div class="metric">
@@ -511,6 +511,7 @@
 ├── configurations/
 │   ├── nook.nix
 │   ├── atlas.nix
+│   ├── asterion.nix
 │   ├── vega.nix
 │   └── lisa-homes.nix
 ├── features/
@@ -520,6 +521,7 @@
 │   ├── secrets/{agenix,sops}.nix
 │   ├── workstation/{shell,editor,ai}.nix
 │   ├── services/{auto-sync-update,authentik,matrix}/
+│   ├── asterion/{asahi,desktop,installer}/
 │   ├── nook/{network,storage,media,observability}/
 │   ├── atlas/{forgejo,postplan,services}/
 │   └── vega/{builders,homebrew,desktop}/
@@ -603,8 +605,14 @@
               <tr>
                 <td><code>homes/lisa/</code></td>
                 <td><code>identity/lisa</code> plus workstation aspects</td>
-                <td>Replace directory scans with named aspects such as <code>lisa-common</code>, <code>lisa-nook</code>, and <code>lisa-vega</code>.</td>
+                <td>Replace directory scans with named aspects such as <code>lisa-common</code>, <code>lisa-asterion</code>, <code>lisa-nook</code>, and <code>lisa-vega</code>.</td>
                 <td>Preserve usernames, home directories, state versions, files, and program settings.</td>
+              </tr>
+              <tr>
+                <td><code>hosts/asterion/</code></td>
+                <td>Asterion Asahi host, desktop home, and installer outputs</td>
+                <td>Keep hardware and Home Manager implementations private while publishing typed Asterion aspects.</td>
+                <td>Preserve the experimental host, standalone home, installer images, and platform-specific build constraints added on <code>main</code>.</td>
               </tr>
               <tr>
                 <td><code>hosts/nook/</code></td>
@@ -670,7 +678,7 @@
             </p>
             <div class="phase-grid">
               <div><h4>Change</h4><p>No configuration behavior. Add only reproducible inspection commands or notes if useful.</p></div>
-              <div><h4>Gate</h4><p>Nook evaluates; Vega and both home configurations are checked on a matching Darwin builder; Atlas has a trustworthy baseline.</p></div>
+              <div><h4>Gate</h4><p>Asterion and Nook evaluate; Vega and all three home configurations are checked on matching builders; Atlas has a trustworthy baseline.</p></div>
               <div><h4>Checkpoint</h4><p>Before/after comparison inputs exist and the worktree has no unrelated changes.</p></div>
             </div>
           </div>
@@ -718,8 +726,8 @@
             <span class="tag">Home Manager</span>
             <h3>Build one reusable Lisa home composition.</h3>
             <p>
-              Convert common shell/editor/AI settings into Home Manager aspects and create two thin
-              selections: <code>lisa-nook</code> and <code>lisa-vega</code>. Both standalone
+              Convert common shell/editor/AI settings into Home Manager aspects and create three thin
+              selections: <code>lisa-asterion</code>, <code>lisa-nook</code>, and <code>lisa-vega</code>. Both standalone
               <code>homeConfigurations</code> and embedded Home Manager users consume those exact modules.
               Replace custom <code>system</code> arguments with <code>pkgs.stdenv.hostPlatform</code>.
             </p>
@@ -815,8 +823,8 @@
           <li><span><strong>Generated manifest.</strong> Run <code>nix run .#write-flake</code> and require a clean second run. Review the input diff; only the planned loader replacement should alter the lock graph.</span></li>
           <li><span><strong>Output surface.</strong> Compare the names under NixOS, Darwin, Home Manager, packages, apps, overlays, deploy, and checks with the Phase 0 snapshot.</span></li>
           <li><span><strong>Typed aspect surface.</strong> List the names under <code>modules.nixos</code>, <code>modules.darwin</code>, and <code>modules.homeManager</code>; ensure each host selects only its intended aspects.</span></li>
-          <li><span><strong>Targeted evaluation.</strong> Evaluate all five configurations and the deploy schema/activation checks. Do this on matching platforms where evaluation realizes platform-specific sources.</span></li>
-          <li><span><strong>Full builds.</strong> Build Nook, Atlas, Vega, both standalone Home Manager activations, published packages, and host-specific deploy-rs gates without activating anything.</span></li>
+          <li><span><strong>Targeted evaluation.</strong> Evaluate all seven configurations and the deploy schema/activation checks. Do this on matching platforms where evaluation realizes platform-specific sources.</span></li>
+          <li><span><strong>Full builds.</strong> Build Asterion, Nook, Atlas, Vega, all three standalone Home Manager activations, installer outputs, published packages, and host-specific deploy-rs gates without activating anything.</span></li>
           <li><span><strong>Closure review.</strong> Use <code>nix store diff-closures</code> (or equivalent recorded store paths) for each before/after system. Classify every difference as structural-only, expected loader metadata, or an unintended behavior change.</span></li>
           <li><span><strong>Full-flake diagnostic.</strong> Run <code>nix flake check --all-systems</code> with matching builders. Existing generated-lock/devenv baseline failures may remain documented, but no new failure is accepted.</span></li>
         </ol>
@@ -889,12 +897,12 @@
           <div class="check">Features publish through <code>flake.modules.nixos</code>, <code>.darwin</code>, or <code>.homeManager</code>.</div>
           <div class="check">No central NixOS/Home Manager module registry or <code>importApply</code> wrapper remains.</div>
           <div class="check">No project-defined <code>specialArgs</code> or <code>extraSpecialArgs</code> are needed to pass <code>inputs</code>, <code>system</code>, host, or home identity.</div>
-          <div class="check">Nook, Atlas, Vega, <code>lisa@nook</code>, and <code>lisa@vega</code> retain their exact flake output names.</div>
+          <div class="check">Asterion, Nook, Atlas, Vega, <code>lisa@asterion</code>, <code>lisa@nook</code>, and <code>lisa@vega</code> retain their exact flake output names.</div>
           <div class="check">Standalone and embedded Home Manager use the same selected Lisa aspects.</div>
           <div class="check">All flake inputs are declared by the feature or core concern that owns them.</div>
           <div class="check"><code>flake.nix</code> is still generated reproducibly by flake-file.</div>
           <div class="check"><code>import-tree</code> is the only tree loader; builder/bootstrap/template glue is gone.</div>
-          <div class="check">All five configurations and their relevant deployment checks build on matching systems.</div>
+          <div class="check">All seven configurations and their relevant deployment checks build on matching systems.</div>
           <div class="check">Before/after closure differences are reviewed and contain no unexplained behavior drift.</div>
           <div class="check">README and Justfile paths describe the new structure without changing deployment semantics.</div>
           <div class="check">No host has been activated or deployed merely by executing this migration plan.</div>
