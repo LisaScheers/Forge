@@ -7,7 +7,6 @@
   ...
 }: let
   mkHost = args: hostName: {
-    nixosLib ? lib,
     extraSpecialArgs ? {},
     extraModules ? [],
     extraOverlays ? [],
@@ -27,7 +26,6 @@
         baseSpecialArgs
         // {
           inherit hostName;
-          lib = nixosLib;
           host.hostName = hostName;
           flakeRevision = inputs.self.rev or inputs.self.dirtyRev or null;
         };
@@ -91,7 +89,7 @@
       specialArgs =
         baseSpecialArgs
         // {
-          inherit lib hostName;
+          inherit hostName;
           host.hostName = hostName;
         };
       modules =
@@ -141,9 +139,6 @@ in {
       args:
         mkHost args "asterion" {
           withHomeManager = true;
-          # Current NixOS modules need the matching nixpkgs library, rather
-          # than flake-parts' independently pinned (potentially older) lib.
-          nixosLib = inputs.nixpkgs.lib;
           extraModules = [inputs.nixos-apple-silicon.nixosModules.default];
         }
     );
