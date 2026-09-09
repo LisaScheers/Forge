@@ -707,11 +707,11 @@
     "homebrew-cask": {
       "flake": false,
       "locked": {
-        "lastModified": 1788891647,
-        "narHash": "sha256-C2QgUtSqWJOqTpdURqW5imngzutOm2BvUhtDRNNm4c0=",
+        "lastModified": 1788917369,
+        "narHash": "sha256-mQiIMYyXZ4rw/ZEogajNr44qKuJ7KP46B4el0V7u/Lo=",
         "owner": "homebrew",
         "repo": "homebrew-cask",
-        "rev": "b0c8d206fd02ecae2203896d64c0ecc0eb560a47",
+        "rev": "fb8e4abd87d89c011e3a885064aa54d823980d6c",
         "type": "github"
       },
       "original": {
@@ -723,11 +723,11 @@
     "homebrew-core": {
       "flake": false,
       "locked": {
-        "lastModified": 1788892202,
-        "narHash": "sha256-4POeOyxNqkk0yvbaV0/UqjZfEJ8DCS7jgqaj4cCkIy4=",
+        "lastModified": 1788916167,
+        "narHash": "sha256-VVHGVk6uQNtxqHE7pdGeNurlOOS68x6f7Q7jYhF5SbY=",
         "owner": "homebrew",
         "repo": "homebrew-core",
-        "rev": "b8eadb6c71e541b1504b1343dd8f85c42266b155",
+        "rev": "9756aa5d45622cd193a2a6ea697992d4c807c28d",
         "type": "github"
       },
       "original": {
@@ -739,11 +739,11 @@
     "lix": {
       "flake": false,
       "locked": {
-        "lastModified": 1788435348,
-        "narHash": "sha256-IAJu2tFq7h4OZ9DFsemBvpQ670M7bX8Ga3CGGJS0/Gs=",
-        "rev": "bce65886b0d094ccbd725a0ba4a8ee0682b0fa67",
+        "lastModified": 1788903053,
+        "narHash": "sha256-rp0pEO8p4PjL40o+sM/YpDTY/nKQlzKpRGNftw9+3fA=",
+        "rev": "e4d74bad335b5754b55da57ac53a86dfb07e4a4d",
         "type": "tarball",
-        "url": "https://git.lix.systems/api/v1/repos/lix-project/lix/archive/bce65886b0d094ccbd725a0ba4a8ee0682b0fa67.tar.gz?rev=bce65886b0d094ccbd725a0ba4a8ee0682b0fa67"
+        "url": "https://git.lix.systems/api/v1/repos/lix-project/lix/archive/e4d74bad335b5754b55da57ac53a86dfb07e4a4d.tar.gz?rev=e4d74bad335b5754b55da57ac53a86dfb07e4a4d"
       },
       "original": {
         "type": "tarball",
@@ -1040,11 +1040,11 @@
     },
     "nixpkgs_3": {
       "locked": {
-        "lastModified": 1788892252,
-        "narHash": "sha256-ds/nGKvmDgi2qus5yB2O/B7lZzi1590YEcPCRs8DEso=",
+        "lastModified": 1788916659,
+        "narHash": "sha256-Ne75PePEQ2uEYg7k5WhrX/fQnyIHmwNnTvI9zMWpV1Q=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "520ce3f46a36165a9a6c60a35d038832e693e4c1",
+        "rev": "ff12945945f0b06b902df7f45a8865c9ec2b4521",
         "type": "github"
       },
       "original": {
@@ -1353,11 +1353,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1788337237,
-        "narHash": "sha256-gkSH8VUtCo6hnysNmb9DbTuDepH2t5pv+QWjP75xKAk=",
+        "lastModified": 1788914643,
+        "narHash": "sha256-4GuMPW90JSxXWDPUB9M+1m7fYbe3H0apOd86/zBQ2Kw=",
         "owner": "Mic92",
         "repo": "sops-nix",
-        "rev": "fbf759290e0cb0a98dfc813a4eb7d53ad1dacb57",
+        "rev": "13616fff713a9f94055c66f15687ebdc17a335df",
         "type": "github"
       },
       "original": {
@@ -1511,11 +1511,11 @@
         "pre-commit-hooks": "pre-commit-hooks_2"
       },
       "locked": {
-        "lastModified": 1788878160,
-        "narHash": "sha256-O4TubrLoqgVNdWn5t/vdBlkuIUwZDdaQTXb4Wc05hxU=",
+        "lastModified": 1788904489,
+        "narHash": "sha256-KB4A9woBdhxyYARnn2Jjfu/BnaGPwuFWtHtcxBqDSFk=",
         "owner": "LisaScheers",
         "repo": "t3-code-nix",
-        "rev": "e430f0dfb82b142c2abeb416f8dba7233f7ce799",
+        "rev": "43c3b6f49f6f555473f995133fc4601f9be9715d",
         "type": "github"
       },
       "original": {
@@ -1592,11 +1592,11 @@
         "rust-overlay": "rust-overlay_3"
       },
       "locked": {
-        "lastModified": 1788880615,
-        "narHash": "sha256-7uzNLSviCHJEDwt6qU7u+D1umycys09+15zkNnKaXLA=",
+        "lastModified": 1788903846,
+        "narHash": "sha256-ORkO9lj0l4mRFuEeSifwP22e3WpeYZqVSrK/mQFrqbE=",
         "owner": "zed-industries",
         "repo": "zed",
-        "rev": "20d3cd1d7981ed2076be5b72c817a1febbba3cb9",
+        "rev": "f29c8eaf13682ef5a4a70a81eb4838b247cf7211",
         "type": "github"
       },
       "original": {
