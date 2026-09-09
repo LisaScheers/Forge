@@ -43,9 +43,9 @@
       esp_uuid=$(tr -d '\0' < /proc/device-tree/chosen/asahi,efi-system-partition)
       test -n "$esp_uuid"
       work=$(mktemp -d /run/asahi-firmware.XXXXXX)
+      trap 'if mountpoint -q "$work/esp"; then umount "$work/esp"; fi; rm -rf "$work"' EXIT
       mkdir -p "$work/esp" "$work/extracted" "$work/unpacked"
       mount -t vfat -o ro,iocharset=iso8859-1 /dev/disk/by-partuuid/"$esp_uuid" "$work/esp"
-      trap 'umount "$work/esp"; rm -rf "$work"' EXIT
       archive="$work/esp/vendorfw/firmware.cpio"
       if ! test -s "$archive"; then
         ${pkgs.asahi-fwextract}/bin/asahi-fwextract "$work/esp/asahi" "$work/extracted"
