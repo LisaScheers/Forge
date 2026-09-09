@@ -4,6 +4,12 @@
 
 This flake manages Nook, Atlas, and Vega. Altair no longer exists and is not a flake output.
 
+[Asterion](docs/asterion.md) is the experimental Asahi configuration for the
+16-inch M3 Pro MacBook Pro, with a dedicated installer image. Installation is
+manual; it is not part of the server deployment or automatic update paths.
+Encrypted console boot is verified. Native niri remains blocked by M3 graphics
+support; the Home Manager desktop configuration is provided for future use.
+
 ## Deployment
 
 Deployments use the locked `deploy-rs` input. Run the server commands from Vega, where the SSH aliases and builders are configured. Every command names one host; there is no fleet-wide deployment recipe.

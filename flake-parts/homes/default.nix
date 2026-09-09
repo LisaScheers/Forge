@@ -44,6 +44,10 @@ in {
   config = {
     # loop over all hosts and check if the user has a configuration for that host, if so, add it to the flake's homeConfigurations
     flake.homeConfigurations = {
+      "lisa@asterion" = withSystem "aarch64-linux" (
+        args:
+          mkHome args "lisa@asterion" {}
+      );
       "lisa@vega" = withSystem "aarch64-darwin" (
         args:
           mkHome args "lisa@vega" {}
@@ -68,6 +72,9 @@ in {
     #};
 
     flake.checks = {
+      "aarch64-linux" = {
+        "home-lisa@asterion" = config.flake.homeConfigurations."lisa@asterion".activationPackage;
+      };
       "aarch64-darwin" = {
         "home-lisa@vega" = config.flake.homeConfigurations."lisa@vega".config.home.path;
       };

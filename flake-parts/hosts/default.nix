@@ -7,6 +7,7 @@
   ...
 }: let
   mkHost = args: hostName: {
+    nixosLib ? lib,
     extraSpecialArgs ? {},
     extraModules ? [],
     extraOverlays ? [],
@@ -25,7 +26,8 @@
       specialArgs =
         baseSpecialArgs
         // {
-          inherit lib hostName;
+          inherit hostName;
+          lib = nixosLib;
           host.hostName = hostName;
           flakeRevision = inputs.self.rev or inputs.self.dirtyRev or null;
         };
@@ -135,6 +137,17 @@
     };
 in {
   flake.nixosConfigurations = {
+    asterion = withSystem "aarch64-linux" (
+      args:
+        mkHost args "asterion" {
+          withHomeManager = true;
+          # Current NixOS modules need the matching nixpkgs library, rather
+          # than flake-parts' independently pinned (potentially older) lib.
+          nixosLib = inputs.nixpkgs.lib;
+          extraModules = [inputs.nixos-apple-silicon.nixosModules.default];
+        }
+    );
+
     nook = withSystem "x86_64-linux" (
       args:
         mkHost args "nook" {
@@ -170,6 +183,10 @@ in {
   };
 
   flake-file.inputs = {
+    nixos-apple-silicon = {
+      url = "github:nix-community/nixos-apple-silicon";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     disko = {
       url = "github:nix-community/disko";
     };
