@@ -5,13 +5,8 @@
     config,
     ...
   }: let
-    inherit (pkgs.stdenv.hostPlatform) isDarwin isLinux;
-    ssh-sock =
-      if isDarwin
-      then "~/.1password/agent.sock"
-      else if isLinux
-      then "~/Library/Group\\ Containers/2BUA8C4S2C.com.1password/t/agent.sock"
-      else "";
+    inherit (pkgs.stdenv.hostPlatform) isDarwin;
+    ssh-sock = "${config.home.homeDirectory}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
     ssh-sign-program =
       if isDarwin
       then "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
