@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.services_authentik = {
     config,
     lib,

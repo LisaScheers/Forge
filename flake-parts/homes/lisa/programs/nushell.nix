@@ -1,4 +1,4 @@
-{inputs, ...}: {
+{
   forge.modules.homeManager."lisa" = {
     pkgs,
     config,

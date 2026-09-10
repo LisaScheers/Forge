@@ -1,0 +1,29 @@
+{
+  "recovery": {
+    "path": "AssetData/payloadv2/basesystem_patches/arm64eBaseSystem.dmg",
+    "start": 4262707030,
+    "length": 565358064,
+    "compression": 0,
+    "size": 565358064,
+    "crc32": 551323824,
+    "hash": "sha256-tE4lZ16y9O65rUctXZUxMK/Yu78pBjbL1znviB87qsY="
+  },
+  "kernel": {
+    "path": "AssetData/boot/kernelcache.release.mac15s",
+    "start": 1105031947,
+    "length": 27759677,
+    "compression": 8,
+    "size": 27790420,
+    "crc32": 63564070,
+    "hash": "sha256-7HNXQOsryfwMfbq8kgqDhEpubjN3RiaeiU8D7vf6FjI="
+  },
+  "multitouch": {
+    "path": "AssetData/boot/Firmware/J516s_Multitouch.im4p",
+    "start": 784527629,
+    "length": 68025,
+    "compression": 8,
+    "size": 111463,
+    "crc32": 3787740697,
+    "hash": "sha256-1d99WbnjrEWot3R3wf+D0Tr6mSIim6c9OrquzpBL8oc="
+  }
+}

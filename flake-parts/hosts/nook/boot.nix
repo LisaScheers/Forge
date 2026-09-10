@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.nook = {
     boot.initrd.systemd.enable = true;
 

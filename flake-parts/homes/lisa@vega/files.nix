@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.homeManager."lisa@vega" = {
     # add all .pub files in the ssh/public-keys directory to the home.file attribute set
     home.file = builtins.listToAttrs (map (key: {

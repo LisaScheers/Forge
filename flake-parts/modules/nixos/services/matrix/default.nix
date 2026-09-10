@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.services_matrix = {
     lib,
     config,

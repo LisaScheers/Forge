@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.asterion-tether =
     # An installer entirely in RAM: m1n1 transfers it over USB, without a boot disk.
     {

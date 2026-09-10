@@ -1,8 +1,6 @@
-{...}: {
+{
   forge.modules.homeManager.lisa = {pkgs, ...}: {
-    programs.zed-editor.userSettings.lsp = let
-      flakePath = "/private/etc/nix-darwin";
-    in {
+    programs.zed-editor.userSettings.lsp = {
       nil = {
         binary = {
           path = pkgs.nil + "/bin/nil";
@@ -30,26 +28,26 @@
       nixd = {
         settings = {
           nixpkgs = {
-            expr = "import (builtins.getFlake \"" + flakePath + "\").inputs.nixpkgs { }   ";
+            expr = "import (builtins.getFlake (builtins.toString ./.)).inputs.nixpkgs { }   ";
           };
           formatting = {
             command = ["nixfmt"];
           };
           options = {
-            nixos = {
-              expr = "(builtins.getFlake \"" + flakePath + "\").nixosConfigurations.atlas.options";
-            };
             home-manager = {
-              expr = "(builtins.getFlake \"" + flakePath + "\").homeConfigurations.\"lisa@vega\".options";
+              expr = "(builtins.getFlake (builtins.toString ./.)).homeConfigurations.\"lisa@vega\".options";
             };
-            nix-darwin = {
-              expr = "(builtins.getFlake \"" + flakePath + "\").darwinConfigurations.vega.options";
+            flake-file = {
+              expr = "(builtins.getFlake (builtins.toString ./.) ).debug.options.flake-file.type.getSubOptions []";
+            };
+            "nixos" = {
+              expr = "(builtins.getFlake (builtins.toString ./.)).nixosConfigurations.atlas.options";
             };
             flake-parts = {
-              expr = "(builtins.getFlake \"" + flakePath + "\").debug.options";
+              expr = "(builtins.getFlake (builtins.toString ./.)).debug.options";
             };
-            flake-parts2 = {
-              expr = "(builtins.getFlake \"" + flakePath + "\").currentSystem.options";
+            devenv = {
+              expr = "{ devenv.shells.default = (builtins.getFlake (builtins.toString ./.)).currentSystem.options.devenv.shells.type.getSubOptions []; }";
             };
           };
         };

@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.darwin.vega = {
     launchd.user.envVariables = {
       PATH = "/Users/lisa/.local/bin:/etc/profiles/per-user/lisa/bin:/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";

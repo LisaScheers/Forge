@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.nook = {config, ...}: {
     # cloudflare-dyndns imports this root-only source through systemd
     # LoadCredential before entering its DynamicUser sandbox.

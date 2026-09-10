@@ -1,8 +1,6 @@
-{...}: {
+{
   forge.modules.nixos.atlas = {
-    config,
     lib,
-    pkgs,
     modulesPath,
     ...
   }: {

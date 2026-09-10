@@ -1,4 +1,4 @@
-{inputs, ...}: {
+{
   forge.modules.homeManager.cli-proxy-api-plus = {
     config,
     lib,

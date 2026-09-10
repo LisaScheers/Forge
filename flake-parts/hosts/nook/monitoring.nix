@@ -104,7 +104,7 @@ in {
             }
           ];
         };
-        unit = unit;
+        inherit unit;
       };
       fieldConfig.overrides = [];
     };
@@ -124,7 +124,7 @@ in {
           showPoints = "never";
           spanNulls = false;
         };
-        unit = unit;
+        inherit unit;
       };
       fieldConfig.overrides = [];
       options = {
@@ -546,327 +546,329 @@ in {
       };
     };
 
-    services.grafana = {
-      enable = true;
-      dataDir = "${storageRoot}/grafana";
-      settings = {
-        analytics.reporting_enabled = false;
-        log.mode = "console";
-        metrics.enabled = true;
-        auth.signout_redirect_url = "https://${authentikDomain}/application/o/${authentikGrafanaApplicationSlug}/end-session/";
-        "auth.generic_oauth" = {
-          enabled = true;
-          name = "authentik";
-          allow_sign_up = true;
-          client_id = authentikGrafanaClientId;
-          client_secret = "$__file{${config.age.secrets.grafana-authentik-client-secret.path}}";
-          scopes = "openid email profile";
-          auth_url = "https://${authentikDomain}/application/o/authorize/";
-          token_url = "https://${authentikDomain}/application/o/token/";
-          api_url = "https://${authentikDomain}/application/o/userinfo/";
-          use_pkce = true;
-          role_attribute_path = "contains(groups, 'Grafana Admins') && 'Admin' || contains(groups, 'Grafana Editors') && 'Editor' || 'Viewer'";
-        };
-        security = {
-          admin_user = "admin";
-          secret_key = "$__file{${storageRoot}/grafana/secret_key}";
-        };
-        server = {
-          domain = grafanaDomain;
-          http_addr = "127.0.0.1";
-          http_port = 3000;
-          root_url = "https://${grafanaDomain}/";
-        };
-      };
-      provision = {
+    services = {
+      grafana = {
         enable = true;
-        dashboards.settings = {
-          apiVersion = 1;
-          providers = [
-            {
-              name = "home-server";
-              type = "file";
-              disableDeletion = false;
-              editable = false;
-              updateIntervalSeconds = 30;
-              options = {
-                path = dashboardPath;
-                foldersFromFilesStructure = false;
-              };
-            }
-          ];
-        };
-        datasources.settings = {
-          apiVersion = 1;
-          prune = true;
-          deleteDatasources = [
-            {
-              name = "Loki";
-              orgId = 1;
-            }
-            {
-              name = "Mimir";
-              orgId = 1;
-            }
-            {
-              name = "Tempo";
-              orgId = 1;
-            }
-            {
-              name = "Pyroscope";
-              orgId = 1;
-            }
-          ];
-          datasources = [
-            {
-              name = "Loki";
-              uid = lokiUid;
-              type = "loki";
-              access = "proxy";
-              url = "http://${lokiAddress}:${toString lokiPort}";
-              jsonData.maxLines = 1000;
-            }
-            {
-              name = "Mimir";
-              uid = mimirUid;
-              type = "prometheus";
-              access = "proxy";
-              url = "http://${mimirAddress}:${toString mimirPort}/prometheus";
-              isDefault = true;
-              jsonData = {
-                httpMethod = "POST";
-              };
-            }
-            {
-              name = "Pyroscope";
-              uid = pyroscopeUid;
-              type = "grafana-pyroscope-datasource";
-              access = "proxy";
-              url = "http://${pyroscopeAddress}:${toString pyroscopePort}";
-              jsonData.minStep = "15s";
-            }
-            {
-              name = "Tempo";
-              uid = tempoUid;
-              type = "tempo";
-              access = "proxy";
-              url = "http://${tempoAddress}:${toString tempoPort}";
-              jsonData = {
-                nodeGraph.enabled = true;
-                serviceMap.datasourceUid = mimirUid;
-                tracesToLogsV2 = {
-                  datasourceUid = lokiUid;
-                  filterByTraceID = true;
-                  filterBySpanID = false;
-                  spanStartTimeShift = "-5m";
-                  spanEndTimeShift = "5m";
-                  tags = [
-                    {
-                      key = "service.name";
-                      value = "service";
-                    }
-                    {
-                      key = "host.name";
-                      value = "instance";
-                    }
-                  ];
-                };
-                tracesToMetrics = {
-                  datasourceUid = mimirUid;
-                  spanStartTimeShift = "-5m";
-                  spanEndTimeShift = "5m";
-                  tags = [
-                    {
-                      key = "service.name";
-                      value = "service";
-                    }
-                    {
-                      key = "host.name";
-                      value = "instance";
-                    }
-                  ];
-                  queries = [
-                    {
-                      name = "Request rate";
-                      query = "sum(rate(traces_spanmetrics_calls_total{$${__tags}}[5m]))";
-                    }
-                    {
-                      name = "Latency p95";
-                      query = "histogram_quantile(0.95, sum(rate(traces_spanmetrics_latency_bucket{$${__tags}}[5m])) by (le))";
-                    }
-                  ];
-                };
-                tracesToProfiles = {
-                  datasourceUid = pyroscopeUid;
-                  profileTypeId = "process_cpu:cpu:nanoseconds:cpu:nanoseconds";
-                  tags = [
-                    {
-                      key = "service.name";
-                      value = "service_name";
-                    }
-                  ];
-                };
-              };
-            }
-          ];
-        };
-      };
-    };
-
-    services.loki = {
-      enable = true;
-      dataDir = "${storageRoot}/loki";
-      configuration = {
-        auth_enabled = false;
-        server = {
-          http_listen_address = lokiAddress;
-          http_listen_port = lokiPort;
-          grpc_listen_address = lokiAddress;
-          grpc_listen_port = 9096;
-        };
-        common = {
-          instance_addr = lokiAddress;
-          path_prefix = "${storageRoot}/loki";
-          replication_factor = 1;
-          ring.kvstore.store = "inmemory";
-          storage.filesystem = {
-            chunks_directory = "${storageRoot}/loki/chunks";
-            rules_directory = "${storageRoot}/loki/rules";
+        dataDir = "${storageRoot}/grafana";
+        settings = {
+          analytics.reporting_enabled = false;
+          log.mode = "console";
+          metrics.enabled = true;
+          auth.signout_redirect_url = "https://${authentikDomain}/application/o/${authentikGrafanaApplicationSlug}/end-session/";
+          "auth.generic_oauth" = {
+            enabled = true;
+            name = "authentik";
+            allow_sign_up = true;
+            client_id = authentikGrafanaClientId;
+            client_secret = "$__file{${config.age.secrets.grafana-authentik-client-secret.path}}";
+            scopes = "openid email profile";
+            auth_url = "https://${authentikDomain}/application/o/authorize/";
+            token_url = "https://${authentikDomain}/application/o/token/";
+            api_url = "https://${authentikDomain}/application/o/userinfo/";
+            use_pkce = true;
+            role_attribute_path = "contains(groups, 'Grafana Admins') && 'Admin' || contains(groups, 'Grafana Editors') && 'Editor' || 'Viewer'";
+          };
+          security = {
+            admin_user = "admin";
+            secret_key = "$__file{${storageRoot}/grafana/secret_key}";
+          };
+          server = {
+            domain = grafanaDomain;
+            http_addr = "127.0.0.1";
+            http_port = 3000;
+            root_url = "https://${grafanaDomain}/";
           };
         };
-        schema_config.configs = [
-          {
-            from = "2024-01-01";
-            store = "tsdb";
-            object_store = "filesystem";
-            schema = "v13";
-            index = {
-              prefix = "index_";
-              period = "24h";
+        provision = {
+          enable = true;
+          dashboards.settings = {
+            apiVersion = 1;
+            providers = [
+              {
+                name = "home-server";
+                type = "file";
+                disableDeletion = false;
+                editable = false;
+                updateIntervalSeconds = 30;
+                options = {
+                  path = dashboardPath;
+                  foldersFromFilesStructure = false;
+                };
+              }
+            ];
+          };
+          datasources.settings = {
+            apiVersion = 1;
+            prune = true;
+            deleteDatasources = [
+              {
+                name = "Loki";
+                orgId = 1;
+              }
+              {
+                name = "Mimir";
+                orgId = 1;
+              }
+              {
+                name = "Tempo";
+                orgId = 1;
+              }
+              {
+                name = "Pyroscope";
+                orgId = 1;
+              }
+            ];
+            datasources = [
+              {
+                name = "Loki";
+                uid = lokiUid;
+                type = "loki";
+                access = "proxy";
+                url = "http://${lokiAddress}:${toString lokiPort}";
+                jsonData.maxLines = 1000;
+              }
+              {
+                name = "Mimir";
+                uid = mimirUid;
+                type = "prometheus";
+                access = "proxy";
+                url = "http://${mimirAddress}:${toString mimirPort}/prometheus";
+                isDefault = true;
+                jsonData = {
+                  httpMethod = "POST";
+                };
+              }
+              {
+                name = "Pyroscope";
+                uid = pyroscopeUid;
+                type = "grafana-pyroscope-datasource";
+                access = "proxy";
+                url = "http://${pyroscopeAddress}:${toString pyroscopePort}";
+                jsonData.minStep = "15s";
+              }
+              {
+                name = "Tempo";
+                uid = tempoUid;
+                type = "tempo";
+                access = "proxy";
+                url = "http://${tempoAddress}:${toString tempoPort}";
+                jsonData = {
+                  nodeGraph.enabled = true;
+                  serviceMap.datasourceUid = mimirUid;
+                  tracesToLogsV2 = {
+                    datasourceUid = lokiUid;
+                    filterByTraceID = true;
+                    filterBySpanID = false;
+                    spanStartTimeShift = "-5m";
+                    spanEndTimeShift = "5m";
+                    tags = [
+                      {
+                        key = "service.name";
+                        value = "service";
+                      }
+                      {
+                        key = "host.name";
+                        value = "instance";
+                      }
+                    ];
+                  };
+                  tracesToMetrics = {
+                    datasourceUid = mimirUid;
+                    spanStartTimeShift = "-5m";
+                    spanEndTimeShift = "5m";
+                    tags = [
+                      {
+                        key = "service.name";
+                        value = "service";
+                      }
+                      {
+                        key = "host.name";
+                        value = "instance";
+                      }
+                    ];
+                    queries = [
+                      {
+                        name = "Request rate";
+                        query = "sum(rate(traces_spanmetrics_calls_total{$${__tags}}[5m]))";
+                      }
+                      {
+                        name = "Latency p95";
+                        query = "histogram_quantile(0.95, sum(rate(traces_spanmetrics_latency_bucket{$${__tags}}[5m])) by (le))";
+                      }
+                    ];
+                  };
+                  tracesToProfiles = {
+                    datasourceUid = pyroscopeUid;
+                    profileTypeId = "process_cpu:cpu:nanoseconds:cpu:nanoseconds";
+                    tags = [
+                      {
+                        key = "service.name";
+                        value = "service_name";
+                      }
+                    ];
+                  };
+                };
+              }
+            ];
+          };
+        };
+      };
+
+      loki = {
+        enable = true;
+        dataDir = "${storageRoot}/loki";
+        configuration = {
+          auth_enabled = false;
+          server = {
+            http_listen_address = lokiAddress;
+            http_listen_port = lokiPort;
+            grpc_listen_address = lokiAddress;
+            grpc_listen_port = 9096;
+          };
+          common = {
+            instance_addr = lokiAddress;
+            path_prefix = "${storageRoot}/loki";
+            replication_factor = 1;
+            ring.kvstore.store = "inmemory";
+            storage.filesystem = {
+              chunks_directory = "${storageRoot}/loki/chunks";
+              rules_directory = "${storageRoot}/loki/rules";
             };
-          }
+          };
+          schema_config.configs = [
+            {
+              from = "2024-01-01";
+              store = "tsdb";
+              object_store = "filesystem";
+              schema = "v13";
+              index = {
+                prefix = "index_";
+                period = "24h";
+              };
+            }
+          ];
+          compactor = {
+            working_directory = "${storageRoot}/loki/compactor";
+            retention_enabled = true;
+            delete_request_store = "filesystem";
+          };
+          limits_config = {
+            retention_period = "30d";
+            allow_structured_metadata = true;
+          };
+        };
+      };
+
+      mimir = {
+        enable = true;
+        extraFlags = ["-target=all"];
+        configuration = {
+          multitenancy_enabled = false;
+          server = {
+            http_listen_address = mimirAddress;
+            http_listen_port = mimirPort;
+            grpc_listen_address = "0.0.0.0";
+            grpc_listen_port = 9095;
+            log_level = "warn";
+          };
+          blocks_storage = {
+            backend = "filesystem";
+            bucket_store.sync_dir = "${storageRoot}/mimir/tsdb-sync";
+            filesystem.dir = "${storageRoot}/mimir/data/tsdb";
+            tsdb.dir = "${storageRoot}/mimir/tsdb";
+          };
+          compactor = {
+            data_dir = "${storageRoot}/mimir/compactor";
+            sharding_ring.kvstore.store = "memberlist";
+          };
+          limits.max_label_names_per_series = 60;
+          distributor.ring = {
+            instance_addr = mimirAddress;
+            kvstore.store = "memberlist";
+          };
+          ingester.ring = {
+            instance_addr = mimirAddress;
+            kvstore.store = "memberlist";
+            replication_factor = 1;
+          };
+          memberlist = {
+            bind_addr = [mimirAddress];
+            bind_port = 7946;
+            advertise_addr = mimirAddress;
+            advertise_port = 7946;
+          };
+          ruler_storage = {
+            backend = "filesystem";
+            filesystem.dir = "${storageRoot}/mimir/rules";
+          };
+          store_gateway.sharding_ring.replication_factor = 1;
+          usage_stats.enabled = false;
+        };
+      };
+
+      tempo = {
+        enable = true;
+        extraFlags = ["-target=all"];
+        settings = {
+          auth_enabled = false;
+          server = {
+            http_listen_address = tempoAddress;
+            http_listen_port = tempoPort;
+            grpc_listen_address = tempoAddress;
+            grpc_listen_port = 9097;
+          };
+          distributor.receivers.otlp.protocols = {
+            grpc.endpoint = "${tempoAddress}:${toString tempoOtlpGrpcPort}";
+            http.endpoint = "${tempoAddress}:${toString tempoOtlpHttpPort}";
+          };
+          storage.trace = {
+            backend = "local";
+            local.path = "${storageRoot}/tempo/traces";
+            wal.path = "${storageRoot}/tempo/wal";
+          };
+        };
+      };
+
+      pyroscope = {
+        enable = true;
+        extraFlags = ["-target=all"];
+        settings = {
+          analytics.reporting_enabled = false;
+          server = {
+            http_listen_address = "0.0.0.0";
+            http_listen_port = pyroscopePort;
+            grpc_listen_address = "0.0.0.0";
+            grpc_listen_port = pyroscopeGrpcPort;
+          };
+          memberlist = {
+            bind_addr = [pyroscopeAddress];
+            bind_port = pyroscopeMemberlistPort;
+            advertise_addr = pyroscopeAddress;
+            advertise_port = pyroscopeMemberlistPort;
+          };
+          storage = {
+            backend = "filesystem";
+            filesystem.dir = "${storageRoot}/pyroscope/data";
+          };
+        };
+      };
+
+      alloy = {
+        enable = true;
+        extraFlags = [
+          "--server.http.listen-addr=${alloyAddress}:${toString alloyPort}"
+          "--disable-reporting"
         ];
-        compactor = {
-          working_directory = "${storageRoot}/loki/compactor";
-          retention_enabled = true;
-          delete_request_store = "filesystem";
-        };
-        limits_config = {
-          retention_period = "30d";
-          allow_structured_metadata = true;
-        };
       };
-    };
 
-    services.mimir = {
-      enable = true;
-      extraFlags = ["-target=all"];
-      configuration = {
-        multitenancy_enabled = false;
-        server = {
-          http_listen_address = mimirAddress;
-          http_listen_port = mimirPort;
-          grpc_listen_address = "0.0.0.0";
-          grpc_listen_port = 9095;
-          log_level = "warn";
-        };
-        blocks_storage = {
-          backend = "filesystem";
-          bucket_store.sync_dir = "${storageRoot}/mimir/tsdb-sync";
-          filesystem.dir = "${storageRoot}/mimir/data/tsdb";
-          tsdb.dir = "${storageRoot}/mimir/tsdb";
-        };
-        compactor = {
-          data_dir = "${storageRoot}/mimir/compactor";
-          sharding_ring.kvstore.store = "memberlist";
-        };
-        limits.max_label_names_per_series = 60;
-        distributor.ring = {
-          instance_addr = mimirAddress;
-          kvstore.store = "memberlist";
-        };
-        ingester.ring = {
-          instance_addr = mimirAddress;
-          kvstore.store = "memberlist";
-          replication_factor = 1;
-        };
-        memberlist = {
-          bind_addr = [mimirAddress];
-          bind_port = 7946;
-          advertise_addr = mimirAddress;
-          advertise_port = 7946;
-        };
-        ruler_storage = {
-          backend = "filesystem";
-          filesystem.dir = "${storageRoot}/mimir/rules";
-        };
-        store_gateway.sharding_ring.replication_factor = 1;
-        usage_stats.enabled = false;
+      nginx.statusPage = true;
+
+      prometheus.exporters.nginx = {
+        enable = true;
+        listenAddress = nginxExporterAddress;
+        port = nginxExporterPort;
+        scrapeUri = "http://127.0.0.1/nginx_status";
       };
-    };
-
-    services.tempo = {
-      enable = true;
-      extraFlags = ["-target=all"];
-      settings = {
-        auth_enabled = false;
-        server = {
-          http_listen_address = tempoAddress;
-          http_listen_port = tempoPort;
-          grpc_listen_address = tempoAddress;
-          grpc_listen_port = 9097;
-        };
-        distributor.receivers.otlp.protocols = {
-          grpc.endpoint = "${tempoAddress}:${toString tempoOtlpGrpcPort}";
-          http.endpoint = "${tempoAddress}:${toString tempoOtlpHttpPort}";
-        };
-        storage.trace = {
-          backend = "local";
-          local.path = "${storageRoot}/tempo/traces";
-          wal.path = "${storageRoot}/tempo/wal";
-        };
-      };
-    };
-
-    services.pyroscope = {
-      enable = true;
-      extraFlags = ["-target=all"];
-      settings = {
-        analytics.reporting_enabled = false;
-        server = {
-          http_listen_address = "0.0.0.0";
-          http_listen_port = pyroscopePort;
-          grpc_listen_address = "0.0.0.0";
-          grpc_listen_port = pyroscopeGrpcPort;
-        };
-        memberlist = {
-          bind_addr = [pyroscopeAddress];
-          bind_port = pyroscopeMemberlistPort;
-          advertise_addr = pyroscopeAddress;
-          advertise_port = pyroscopeMemberlistPort;
-        };
-        storage = {
-          backend = "filesystem";
-          filesystem.dir = "${storageRoot}/pyroscope/data";
-        };
-      };
-    };
-
-    services.alloy = {
-      enable = true;
-      extraFlags = [
-        "--server.http.listen-addr=${alloyAddress}:${toString alloyPort}"
-        "--disable-reporting"
-      ];
-    };
-
-    services.nginx.statusPage = true;
-
-    services.prometheus.exporters.nginx = {
-      enable = true;
-      listenAddress = nginxExporterAddress;
-      port = nginxExporterPort;
-      scrapeUri = "http://127.0.0.1/nginx_status";
     };
 
     systemd.services.prometheus-squid-exporter = {

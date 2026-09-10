@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.services_matrix = {
     config,
     lib,
@@ -9,7 +9,7 @@
     keyFile = "/run/livekit.key";
     fqdn = "${cfg.subDomain}.${cfg.rootDomain}";
   in {
-    services = lib.mkIf (cfg.enable) {
+    services = lib.mkIf cfg.enable {
       livekit = {
         enable = true;
         openFirewall = true;
@@ -44,7 +44,7 @@
       };
     };
     # generate the key when needed
-    systemd = lib.mkIf (cfg.enable) {
+    systemd = lib.mkIf cfg.enable {
       services.livekit-key = {
         before = ["lk-jwt-service.service" "livekit.service"];
         wantedBy = ["multi-user.target"];

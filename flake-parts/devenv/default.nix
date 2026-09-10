@@ -9,7 +9,6 @@
   perSystem = {
     config,
     pkgs,
-    system,
     ...
   }: {
     devenv.shells.dev = let

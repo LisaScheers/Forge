@@ -1,9 +1,5 @@
-{...}: {
-  forge.modules.nixos.atlas = {
-    pkgs,
-    config,
-    ...
-  }: let
+{
+  forge.modules.nixos.atlas = {pkgs, ...}: let
     atm10Root = "/var/minecraft/atm10-8.0";
     atm11Root = "/var/minecraft/atm11-0.2.0";
     allTheMonsRoot = "/var/minecraft/allthemons-1.0.0-rc.6";

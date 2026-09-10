@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.nook = {
     services.openssh = {
       enable = true;

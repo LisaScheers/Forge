@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.nook = let
     mediaVlanInterface = "enp7s0.200";
     mediaRoutingTable = 200;

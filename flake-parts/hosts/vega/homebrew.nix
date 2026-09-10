@@ -1,5 +1,5 @@
 {inputs, ...}: {
-  forge.modules.darwin.vega = {...}: let
+  forge.modules.darwin.vega = let
     homebrewTaps = {
       "homebrew/core" = inputs.homebrew-core;
       "homebrew/cask" = inputs.homebrew-cask;

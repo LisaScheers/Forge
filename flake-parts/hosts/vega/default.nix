@@ -1,5 +1,5 @@
-{...}: {
-  forge.modules.darwin.vega = {...}: {
+{
+  forge.modules.darwin.vega = {
     system.stateVersion = 7;
     documentation.doc.enable = false;
     services.openssh = {

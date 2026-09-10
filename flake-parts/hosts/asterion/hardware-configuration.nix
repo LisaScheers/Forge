@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.asterion = {
     nixpkgs.hostPlatform = "aarch64-linux";
 

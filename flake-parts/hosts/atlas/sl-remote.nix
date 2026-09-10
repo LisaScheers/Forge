@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.atlas = {config, ...}: let
     hostName = "sl-remote.bylisa.dev";
   in {

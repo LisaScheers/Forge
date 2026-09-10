@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.homeManager."lisa@vega" = {
     home.username = "lisa";
     home.homeDirectory = "/Users/lisa";

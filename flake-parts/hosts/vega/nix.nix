@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.darwin.vega = {config, ...}: let
     nookBuilderKeyPath = config.age.secrets.nook-builder-ssh-key.path;
     nixGithubAccessTokenSystemPath = "/etc/nix/github-access-token.conf";

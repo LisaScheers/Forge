@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.homeManager."lisa@asterion" = {
     lib,
     pkgs,
@@ -103,7 +103,7 @@
         }
       ];
       events = {
-        lock = lock;
+        inherit lock;
         before-sleep = lock;
       };
       # No suspend or monitor-power timeout: M3's framebuffer cannot resume yet.

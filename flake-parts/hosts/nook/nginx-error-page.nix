@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.nginxErrorPage = {pkgs}: let
     badGatewayPage = pkgs.writeTextDir "502.html" ''
       <!doctype html>

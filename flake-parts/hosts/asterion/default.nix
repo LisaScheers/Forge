@@ -1,8 +1,11 @@
-{...}: {
+{
   forge.modules.nixos.asterion = {pkgs, ...}: {
-    hardware.asahi.enable = true;
-    # Upstream discovers firmware on /boot or /mnt/boot. Build with --impure
-    # on this Mac; Apple's non-redistributable firmware stays out of Git.
+    hardware.asahi = {
+      enable = true;
+
+      peripheralFirmwareDirectory = pkgs.asahi-firmware-j516s;
+    };
+    # Firmware is fetched from pinned Apple archive ranges; no /boot impurity.
 
     boot.loader.systemd-boot = {
       enable = true;

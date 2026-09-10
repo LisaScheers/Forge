@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.homeManager.ai-environment = {
     config,
     lib,
@@ -6,7 +6,6 @@
     ...
   }: let
     cfg = config.forge.ai-skills;
-    tomlFormat = pkgs.formats.toml {};
     skillType = lib.types.either lib.types.lines lib.types.path;
     # scan the skills directory for all skills, and make them available to the user
     bundledSkills = builtins.listToAttrs (map (skill: {
@@ -57,18 +56,20 @@
       home.packages = [pkgs.postplan-selfhosted];
       home.sessionVariables.POSTPLAN_API_URL = "https://plans.bylisa.dev";
 
-      programs.codex = {
-        context = cfg.agentsFile;
-        skills = effectiveCodexSkills;
-      };
+      programs = {
+        codex = {
+          context = cfg.agentsFile;
+          skills = effectiveCodexSkills;
+        };
 
-      programs.antigravity-cli = {
-        skills = effectiveSkills;
-      };
+        antigravity-cli = {
+          skills = effectiveSkills;
+        };
 
-      programs.github-copilot-cli = {
-        context = cfg.agentsFile;
-        skills = effectiveSkills;
+        github-copilot-cli = {
+          context = cfg.agentsFile;
+          skills = effectiveSkills;
+        };
       };
     };
   };

@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.homeManager."lisa@asterion" = {
     home = {
       username = "lisa";

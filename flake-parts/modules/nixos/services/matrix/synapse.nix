@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.services_matrix = {
     pkgs,
     lib,
@@ -28,14 +28,14 @@
       return 200 '${builtins.toJSON data}';
     '';
   in {
-    networking = lib.mkIf (cfg.enable) {
+    networking = lib.mkIf cfg.enable {
       firewall.allowedTCPPorts = [
         80
         443
       ];
     };
 
-    services.postgresql = lib.mkIf (cfg.enable) {
+    services.postgresql = lib.mkIf cfg.enable {
       enable = true;
       ensureUsers = [
         {
@@ -59,7 +59,7 @@
       ];
     };
 
-    services.nginx = lib.mkIf (cfg.enable) {
+    services.nginx = lib.mkIf cfg.enable {
       enable = true;
       recommendedTlsSettings = true;
       recommendedOptimisation = true;
@@ -130,7 +130,7 @@
       };
     };
 
-    services.matrix-synapse = lib.mkIf (cfg.enable) {
+    services.matrix-synapse = lib.mkIf cfg.enable {
       enable = true;
       settings.server_name = config.networking.domain;
       # The public base URL value must match the `base_url` value set in `clientConfig` above.

@@ -1,5 +1,5 @@
-{...}: {
-  forge.modules.darwin.vega = {...}: {
+{
+  forge.modules.darwin.vega = {
     system.activationScripts.postActivation.text = ''
       echo "configuring internal.bylisa.dev host records..." >&2
 

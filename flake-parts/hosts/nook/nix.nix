@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.nook = {
     nix.settings = {
       experimental-features = ["nix-command" "flakes"];

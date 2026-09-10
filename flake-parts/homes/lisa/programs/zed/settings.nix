@@ -1,5 +1,5 @@
-{...}: {
-  forge.modules.homeManager.lisa = {pkgs, ...}: {
+{
+  forge.modules.homeManager.lisa = {
     programs.zed-editor.userSettings = {
       buffer_font_family = "ComicCodeLigatures Nerd Font";
       project_panel = {
@@ -9,7 +9,7 @@
         sidebar_side = "right";
         default_model = {
           provider = "codex";
-          model = "gpt-5.6-sol";
+          model = "gpt-6-astra";
         };
       };
       vim_mode = false;

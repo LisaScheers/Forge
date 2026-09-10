@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.homeManager."lisa@vega" = {config, ...}: let
     homeDirectory = config.home.homeDirectory;
   in {

@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.homeManager."lisa" = {pkgs, ...}: let
     inherit (pkgs.stdenv.hostPlatform) isDarwin;
   in {

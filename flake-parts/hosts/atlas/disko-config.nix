@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.atlas = {lib, ...}: {
     disko.devices = {
       disk = {

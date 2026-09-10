@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.atlas = {config, ...}: let
     domain = "git.bylisa.dev";
     httpPort = 3002;

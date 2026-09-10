@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.atlas = {config, ...}: {
     services.shop-empty-track = {
       enable = true;

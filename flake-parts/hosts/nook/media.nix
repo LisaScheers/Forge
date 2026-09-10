@@ -135,16 +135,18 @@ in {
       reloadServices = ["nginx.service"];
     };
 
-    users.groups.media = {};
-    users.users.jellyfin.extraGroups = [
-      "render"
-      "video"
-    ];
+    users = {
+      groups.media = {};
+      users.jellyfin.extraGroups = [
+        "render"
+        "video"
+      ];
 
-    users.users.prowlarr = {
-      isSystemUser = true;
-      group = "media";
-      home = "${mediaRoot}/prowlarr";
+      users.prowlarr = {
+        isSystemUser = true;
+        group = "media";
+        home = "${mediaRoot}/prowlarr";
+      };
     };
 
     systemd.tmpfiles.rules = [
@@ -171,90 +173,92 @@ in {
       "d ${mediaRoot}/transmission/.config/transmission-daemon 0750 transmission media -"
     ];
 
-    services.jellyfin = {
-      enable = true;
-      openFirewall = true;
-      group = "media";
-      cacheDir = "${mediaRoot}/jellyfin/cache";
-      configDir = "${mediaRoot}/jellyfin/config";
-      dataDir = "${mediaRoot}/jellyfin/data";
-      logDir = "${mediaRoot}/jellyfin/log";
-    };
+    services = {
+      jellyfin = {
+        enable = true;
+        openFirewall = true;
+        group = "media";
+        cacheDir = "${mediaRoot}/jellyfin/cache";
+        configDir = "${mediaRoot}/jellyfin/config";
+        dataDir = "${mediaRoot}/jellyfin/data";
+        logDir = "${mediaRoot}/jellyfin/log";
+      };
 
-    services.radarr = {
-      enable = true;
-      openFirewall = false;
-      group = "media";
-      dataDir = "${mediaRoot}/radarr";
-      settings = {
-        update.mechanism = "external";
-        server = {
-          bindaddress = "127.0.0.1";
-          port = 7878;
+      radarr = {
+        enable = true;
+        openFirewall = false;
+        group = "media";
+        dataDir = "${mediaRoot}/radarr";
+        settings = {
+          update.mechanism = "external";
+          server = {
+            bindaddress = "127.0.0.1";
+            port = 7878;
+          };
         };
       };
-    };
 
-    services.sonarr = {
-      enable = true;
-      openFirewall = false;
-      group = "media";
-      dataDir = "${mediaRoot}/sonarr";
-      settings = {
-        update.mechanism = "external";
-        server = {
-          bindaddress = "127.0.0.1";
-          port = 8989;
+      sonarr = {
+        enable = true;
+        openFirewall = false;
+        group = "media";
+        dataDir = "${mediaRoot}/sonarr";
+        settings = {
+          update.mechanism = "external";
+          server = {
+            bindaddress = "127.0.0.1";
+            port = 8989;
+          };
         };
       };
-    };
 
-    services.prowlarr = {
-      enable = true;
-      openFirewall = false;
-      dataDir = "${mediaRoot}/prowlarr";
-      settings = {
-        update.mechanism = "external";
-        server = {
-          bindaddress = "127.0.0.1";
-          port = 9696;
+      prowlarr = {
+        enable = true;
+        openFirewall = false;
+        dataDir = "${mediaRoot}/prowlarr";
+        settings = {
+          update.mechanism = "external";
+          server = {
+            bindaddress = "127.0.0.1";
+            port = 9696;
+          };
         };
       };
-    };
 
-    services.transmission = {
-      enable = true;
-      group = "media";
-      home = "${mediaRoot}/transmission";
-      openPeerPorts = true;
-      openRPCPort = true;
-      downloadDirPermissions = "775";
-      settings = {
-        download-dir = "${downloadsRoot}/complete";
-        incomplete-dir = "${downloadsRoot}/incomplete";
-        incomplete-dir-enabled = true;
-        peer-port = 51413;
-        rpc-bind-address = "0.0.0.0";
-        rpc-port = 9091;
-        rpc-whitelist = "127.0.0.1,192.168.*.*,100.*.*.*";
-        rpc-whitelist-enabled = true;
-        umask = 2;
-        watch-dir = "${downloadsRoot}/watch";
-        watch-dir-enabled = true;
+      transmission = {
+        enable = true;
+        group = "media";
+        home = "${mediaRoot}/transmission";
+        openPeerPorts = true;
+        openRPCPort = true;
+        downloadDirPermissions = "775";
+        settings = {
+          download-dir = "${downloadsRoot}/complete";
+          incomplete-dir = "${downloadsRoot}/incomplete";
+          incomplete-dir-enabled = true;
+          peer-port = 51413;
+          rpc-bind-address = "0.0.0.0";
+          rpc-port = 9091;
+          rpc-whitelist = "127.0.0.1,192.168.*.*,100.*.*.*";
+          rpc-whitelist-enabled = true;
+          umask = 2;
+          watch-dir = "${downloadsRoot}/watch";
+          watch-dir-enabled = true;
+        };
       };
-    };
 
-    services.nginx = {
-      enable = true;
-      recommendedProxySettings = true;
-      recommendedTlsSettings = true;
-      virtualHosts = {
-        ${certificateDomain} = proxyHost 8096;
-        ${jellyfinDomain} = proxyHost 8096;
-        ${prowlarrDomain} = proxyHost 9696;
-        ${radarrDomain} = proxyHost 7878;
-        ${sonarrDomain} = proxyHost 8989;
-        ${transmissionDomain} = proxyHost 9091;
+      nginx = {
+        enable = true;
+        recommendedProxySettings = true;
+        recommendedTlsSettings = true;
+        virtualHosts = {
+          ${certificateDomain} = proxyHost 8096;
+          ${jellyfinDomain} = proxyHost 8096;
+          ${prowlarrDomain} = proxyHost 9696;
+          ${radarrDomain} = proxyHost 7878;
+          ${sonarrDomain} = proxyHost 8989;
+          ${transmissionDomain} = proxyHost 9091;
+        };
       };
     };
 

@@ -1,4 +1,4 @@
-{...}: {
+{
   secrets.pubkeys = {
     users = {
       lisa = "age12pj207m3u8f5ql70rccf8pm9h4xuhcgeec94gfnum7583ys9dv2qwc38tv";

@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.darwin.vega = {pkgs, ...}: {
     environment.systemPackages = with pkgs; [
       just

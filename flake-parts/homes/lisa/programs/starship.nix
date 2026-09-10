@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.homeManager."lisa" = {
     programs.starship = {
       enable = true;

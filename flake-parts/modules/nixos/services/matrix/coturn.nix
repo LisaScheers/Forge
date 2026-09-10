@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.services_matrix = {
     config,
     lib,
@@ -7,7 +7,7 @@
     cfg = config.matrix;
   in {
     # enable coturn
-    services = lib.mkIf (cfg.enable) {
+    services = lib.mkIf cfg.enable {
       coturn = rec {
         enable = true;
         no-cli = true;
@@ -65,7 +65,7 @@
       };
     };
     # open the firewall
-    networking = lib.mkIf (cfg.enable) {
+    networking = lib.mkIf cfg.enable {
       firewall = let
         range = with config.services.coturn; [
           {
@@ -83,7 +83,7 @@
       };
     };
     # get a certificate
-    security = lib.mkIf (cfg.enable) {
+    security = lib.mkIf cfg.enable {
       acme.certs.${config.services.coturn.realm} = {
         # insert here the right configuration to obtain a certificate
         postRun = "systemctl restart coturn.service";

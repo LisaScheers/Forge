@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.homeManager.xdg-extra = {
     config,
     lib,

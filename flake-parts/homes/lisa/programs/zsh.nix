@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.homeManager.lisa-shell = {config, ...}: {
     programs.zsh = {
       enable = true;

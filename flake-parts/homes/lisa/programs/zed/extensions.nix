@@ -1,5 +1,5 @@
-{...}: {
-  forge.modules.homeManager.lisa = {pkgs, ...}: {
+{
+  forge.modules.homeManager.lisa = {
     programs.zed-editor.extensions = [
       "nix"
       "toml"

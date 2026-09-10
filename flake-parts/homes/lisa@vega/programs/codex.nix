@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.homeManager."lisa@vega" = let
     trustedProjects = [
       "/private/etc/nix-darwin"

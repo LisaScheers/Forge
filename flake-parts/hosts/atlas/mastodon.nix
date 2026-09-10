@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.atlas = {
     services.mastodon = {
       enable = false;

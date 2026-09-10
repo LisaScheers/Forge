@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.services_auto-sync-update = {
     config,
     lib,

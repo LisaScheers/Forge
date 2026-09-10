@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.homeManager.lisa-shell = {pkgs, ...}: let
     signingKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHM77QyWYhDIEUzvyv57MoXgtO8zokNcIM0q442WUX61";
   in {

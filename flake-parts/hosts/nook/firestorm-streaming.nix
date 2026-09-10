@@ -1,4 +1,4 @@
-{...}: {
+{
   forge.modules.nixos.nook = {pkgs, ...}: let
     lanAddress = "192.168.111.2";
     lanInterface = "enp7s0";
