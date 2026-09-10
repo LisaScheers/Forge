@@ -2,7 +2,6 @@
   forge.modules.nixos.asterion = {pkgs, ...}: {
     hardware.asahi = {
       enable = true;
-
       peripheralFirmwareDirectory = pkgs.asahi-firmware-j516s;
     };
     # Firmware is fetched from pinned Apple archive ranges; no /boot impurity.
