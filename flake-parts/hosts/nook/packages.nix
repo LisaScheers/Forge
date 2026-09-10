@@ -1,12 +1,14 @@
 {
-  lib,
-  pkgs,
-  ...
-}: {
-  environment.systemPackages = with pkgs;
-    map lib.lowPrio [
-      git
-      nano
-      ripgrep
-    ];
+  forge.modules.nixos.nook = {
+    lib,
+    pkgs,
+    ...
+  }: {
+    environment.systemPackages = with pkgs;
+      map lib.lowPrio [
+        git
+        nano
+        ripgrep
+      ];
+  };
 }

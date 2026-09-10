@@ -1,24 +1,19 @@
-{
-  pkgs,
-  lib,
-  system,
-  ...
-}: let
-  isDarwin = (lib.systems.elaborate system).isDarwin;
-
-  extentions = import ./zed/extensions.nix;
-  terminal = import ./zed/terminal.nix;
-  lsp = import ./zed/lsp.nix {inherit pkgs;};
-  settings = import ./zed/settings.nix;
-in {
-  programs.zed-editor = {
-    enable = isDarwin;
-    extensions = extentions;
-    userSettings =
-      settings
-      // {
-        terminal = terminal;
-        lsp = lsp;
-      };
+{inputs, ...}: {
+  forge.modules.homeManager."lisa" = {pkgs, ...}: {
+    programs.zed-editor.enable = pkgs.stdenv.hostPlatform.isDarwin;
   };
+  forge.overlays.zed = final: _prev: {
+    zed-editor = inputs.zed.packages.${final.stdenv.hostPlatform.system}.default.override {
+      # Zed pins cargo-about to 0.8.2, which does not have the inherited `cli` feature.
+      cargo-about = final.cargo-about.overrideAttrs (_old: {
+        cargoBuildFeatures = [];
+        cargoCheckFeatures = [];
+      });
+    };
+  };
+  flake-file.inputs.zed = {
+    url = "github:zed-industries/zed";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+  perSystem = {pkgs, ...}: {packages.zed-editor = pkgs.zed-editor;};
 }

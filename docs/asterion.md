@@ -359,10 +359,50 @@ fi
 test -s /mnt/boot/vendorfw/firmware.cpio
 ```
 
-This archive contains Apple's non-redistributable firmware. Keep it on the Mac;
-do not commit it, upload it, or publish a system closure containing it. Asahi's
-NixOS module discovers it at `/mnt/boot/vendorfw` during installation and
-`/boot/vendorfw` afterwards. `--impure` allows this local path discovery.
+Keep the ESP archive for the RAM installer and the Mac's factory calibration.
+The installed Asterion configuration uses `pkgs.asahi-firmware-j516s` for
+`hardware.asahi.peripheralFirmwareDirectory`, so its firmware build no longer
+requires local `/boot` discovery or `--impure`.
+
+### Build peripheral firmware from Apple archive ranges
+
+```sh
+nix build path:.#asahi-firmware-j516s
+```
+
+This produces `result/firmware.cpio` and `result/manifest.txt`. The derivation
+fetches three compressed ZIP entry payloads from the exact macOS 14.8.3
+(23J220) OTA archive selected by Asahi for J516s:
+
+| Entry | Download bytes |
+| --- | ---: |
+| Recovery BaseSystem | 565,358,064 |
+| M3 Pro kernel | 27,759,677 |
+| J516s multitouch | 68,025 |
+| **Total** | **593,185,766** |
+
+That is 565.7 MiB, or 4.35% of the 13,637,436,385-byte archive. The recovery
+entry is still needed in full: the Wi-Fi, Bluetooth, and camera files are
+inside its compressed disk image. The derivation downloads no other ZIP
+entries or central directory; `ranges.json` pins the byte offsets, lengths,
+ZIP checksums, and SHA-256 hashes for these exact Apple archive bytes.
+
+Each fixed-output fetch requires HTTP 206 with the expected `Content-Range`
+and size. A size limit prevents a server that ignores Range from downloading
+the full archive. Extraction verifies ZIP CRCs and the recovery container's
+embedded checksum, then uses 7-Zip without mounting the image and the pinned
+Asahi collectors. The final CPIO must match the SHA-256 of the independently
+verified full-archive extraction: 445 entries, including the J516s trackpad.
+
+The package deliberately lacks `apple/aop-als-cal.bin` and `apple/HmCA*`
+ambient-light sensor calibration: those must come from the target Mac and
+cannot be downloaded from Apple. This does not replace Asahi's boot chain or
+provide driver support missing from the selected kernel. The ISO and RAM
+installer firmware paths remain based on the ESP.
+
+Apple firmware is non-redistributable. Do not commit the generated blobs or
+publish a binary cache/system closure containing them. Only the extraction
+code, byte-range metadata, and hashes belong in Git.
 
 ### Install Forge and create the login password
 
@@ -374,7 +414,7 @@ fetch fails, arrange Git access before proceeding; don't remove the lock file.
 ```sh
 cd /mnt/etc/nixos/forge
 nix --extra-experimental-features 'nix-command flakes' build \
-  --impure path:.#nixosConfigurations.asterion.config.system.build.toplevel \
+  path:.#nixosConfigurations.asterion.config.system.build.toplevel \
   --store /mnt --extra-substituters 'auto?trusted=1' \
   --out-link /mnt/asterion-system -L
 nixos-install --system "$(readlink /mnt/asterion-system)" --no-root-passwd
@@ -404,8 +444,8 @@ Use Apple's boot picker to choose macOS or Asterion.
 On Asterion, from `/etc/nixos/forge`:
 
 ```sh
-sudo nixos-rebuild build --impure --flake path:.#asterion
-sudo nixos-rebuild boot --impure --flake path:.#asterion
+sudo nixos-rebuild build --flake path:.#asterion
+sudo nixos-rebuild boot --flake path:.#asterion
 sudo reboot
 ```
 
@@ -502,7 +542,10 @@ If the built-in display is named differently from `eDP-1`, update the output
 stanza using the name from `niri msg outputs`. Kernel/input/audio support and
 real screen-lock behavior still need to be tested on the physical Mac.
 
-To refresh vendor firmware, run Asahi's installer from macOS and choose its
-firmware rebuild operation, then rebuild NixOS. To update NixOS Asahi support,
+The installed system's firmware is pinned in
+`flake-parts/packages/asahi-firmware-j516s/`. Updating it requires a deliberate
+change to the Apple source, entry ranges/hashes, and expected CPIO hash after
+checking Asahi's firmware target. Running Asahi's firmware rebuild operation
+only updates the ESP archive used by the installers. To update NixOS Asahi support,
 update the `nixos-apple-silicon` input intentionally and recheck the M3/niri
 limitations before enabling a graphical login.

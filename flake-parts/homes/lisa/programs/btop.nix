@@ -1,5 +1,7 @@
 {
-  programs.btop = {
-    enable = true;
+  forge.modules.homeManager."lisa" = {
+    programs.btop = {
+      enable = true;
+    };
   };
 }

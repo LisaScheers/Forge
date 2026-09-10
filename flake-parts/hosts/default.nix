@@ -1,249 +1,30 @@
-# --- flake-parts/hosts/default.nix
 {
-  lib,
-  inputs,
-  withSystem,
   config,
+  inputs,
   ...
-}: let
-  mkHost = args: hostName: {
-    extraSpecialArgs ? {},
-    extraModules ? [],
-    extraOverlays ? [],
-    withHomeManager ? false,
-    ...
-  }: let
-    baseSpecialArgs =
-      {
-        inherit (args) system;
-        inherit inputs hostName;
-      }
-      // extraSpecialArgs;
-  in
-    inputs.nixpkgs.lib.nixosSystem {
-      inherit (args) system;
-      specialArgs =
-        baseSpecialArgs
-        // {
-          inherit hostName;
-          host.hostName = hostName;
-          flakeRevision = inputs.self.rev or inputs.self.dirtyRev or null;
-        };
-      modules =
-        [
-          {
-            forge.security.agenix.enable = true;
-            forge.security.sops.enable = true;
-            nixpkgs.overlays = [config.flake.overlays.default] ++ extraOverlays;
-            nixpkgs.config.allowUnfree = true;
-            networking.hostName = hostName;
-          }
-          ./_nixos-networking.nix
-          inputs.disko.nixosModules.disko
-          config.flake.nixosModules.security_sops
-          config.flake.nixosModules.security_agenix
-          ./${hostName}
-        ]
-        ++ extraModules
-        # NOTE You can also load all of your defined modules in the
-        # following manner
-        #
-        # ++ (lib.attrValues config.flake.nixosModules)
-        ++ (
-          if (withHomeManager && (lib.hasAttr "home-manager" inputs))
-          then [
-            inputs.home-manager.nixosModules.home-manager
-            {
-              home-manager = {
-                backupFileExtension = "before-nix-home-manager";
-                useGlobalPkgs = true;
-                useUserPackages = true;
-                extraSpecialArgs = baseSpecialArgs;
-
-                # NOTE You can also load all of your defined modules in the
-                # following manner
-                #
-                sharedModules = lib.attrValues config.flake.homeModules;
-              };
-            }
-          ]
-          else []
-        );
+}: {
+  forge.modules = {
+    nixos.base = {
+      imports = [
+        inputs.disko.nixosModules.disko
+        config.forge.modules.nixos.networking
+        config.forge.modules.nixos.security_agenix
+        config.forge.modules.nixos.security_sops
+      ];
+      nixpkgs.config.allowUnfree = true;
+      nixpkgs.overlays = [config.flake.overlays.default];
     };
-  mkDarwinHost = args: hostName: {
-    extraSpecialArgs ? {},
-    extraModules ? [],
-    extraOverlays ? [],
-    withHomeManager ? false,
-    ...
-  }: let
-    baseSpecialArgs =
-      {
-        inherit (args) system;
-        inherit inputs hostName;
-      }
-      // extraSpecialArgs;
-  in
-    inputs.nix-darwin.lib.darwinSystem {
-      inherit (args) system;
-      specialArgs =
-        baseSpecialArgs
-        // {
-          inherit hostName;
-          host.hostName = hostName;
-        };
-      modules =
-        [
-          {
-            forge.security.agenix.enable = true;
-            forge.security.sops.enable = true;
-            nixpkgs.overlays = [config.flake.overlays.default] ++ extraOverlays;
-            nixpkgs.config.allowUnfree = true;
-            networking.hostName = hostName;
-          }
-          ./_darwin-tailscale.nix
-          inputs.nix-homebrew.darwinModules.nix-homebrew
-          config.flake.darwinModules.security_sops
-          config.flake.darwinModules.security_agenix
-
-          ./${hostName}
-        ]
-        ++ extraModules
-        # NOTE You can also load all of your defined modules in the
-        # following manner
-        # ++ (lib.attrValues config.flake.darwinModules)
-        ++ (
-          if (withHomeManager && (lib.hasAttr "home-manager" inputs))
-          then [
-            inputs.home-manager.darwinModules.home-manager
-            {
-              home-manager = {
-                backupFileExtension = "before-nix-home-manager";
-                useGlobalPkgs = true;
-                useUserPackages = true;
-                extraSpecialArgs = baseSpecialArgs;
-
-                # NOTE You can also load all of your defined modules in the
-                # following manner
-                #
-                sharedModules = lib.attrValues config.flake.homeModules;
-              };
-            }
-          ]
-          else []
-        );
-    };
-in {
-  flake.nixosConfigurations = {
-    asterion = withSystem "aarch64-linux" (
-      args:
-        mkHost args "asterion" {
-          withHomeManager = true;
-          extraModules = [inputs.nixos-apple-silicon.nixosModules.default];
-        }
-    );
-
-    nook = withSystem "x86_64-linux" (
-      args:
-        mkHost args "nook" {
-          withHomeManager = true;
-        }
-    );
-
-    atlas = withSystem "x86_64-linux" (
-      args:
-        mkHost args "atlas" {
-          withHomeManager = false;
-          extraModules = [
-            config.flake.nixosModules.services_auto-sync-update
-            config.flake.nixosModules.services_authentik
-            config.flake.nixosModules.services_matrix
-            inputs.shop-empty-track.nixosModules.default
-            inputs.sl-remote.nixosModules.default
-          ];
-        }
-    );
-  };
-
-  flake.darwinConfigurations = {
-    vega = withSystem "aarch64-darwin" (
-      args:
-        mkDarwinHost args "vega" {
-          withHomeManager = true;
-          extraModules = [
-            inputs.lix-module.darwinModules.default
-          ];
-        }
-    );
-  };
-
-  flake-file.inputs = {
-    nixos-apple-silicon = {
-      url = "github:nix-community/nixos-apple-silicon";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    disko = {
-      url = "github:nix-community/disko";
-    };
-    pony-tack = {
-      flake = false;
-      url = "git+ssh://git@ssh.github.com:443/LisaScheers/sl-pony-tack.git?ref=main";
-    };
-    shop-empty-track = {
-      inputs.nixpkgs.follows = "nixpkgs";
-      url = "github:LisaScheers/shop-empty-track/main";
-    };
-    sl-remote = {
-      inputs.nixpkgs.follows = "nixpkgs";
-      url = "github:LisaScheers/sl-remote/main";
-    };
-
-    nix-darwin = {
-      inputs.nixpkgs.follows = "nixpkgs";
-      url = "https://flakehub.com/f/nix-darwin/nix-darwin/0.1.*";
-    };
-    nix-homebrew.url = "github:zhaofengli/nix-homebrew";
-    lix = {
-      url = "https://git.lix.systems/lix-project/lix/archive/main.tar.gz";
-      flake = false;
-    };
-
-    lix-module = {
-      url = "https://git.lix.systems/lix-project/nixos-module/archive/main.tar.gz";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.lix.follows = "lix";
-    };
-    homebrew-cask = {
-      flake = false;
-      url = "github:homebrew/homebrew-cask";
-    };
-    homebrew-core = {
-      flake = false;
-      url = "github:homebrew/homebrew-core";
-    };
-    comic-code-fonts = {
-      url = "github:LisaScheers/comic-code-fonts";
-      flake = false;
+    darwin.base = {
+      imports = [
+        inputs.nix-homebrew.darwinModules.nix-homebrew
+        config.forge.modules.darwin.networking
+        config.forge.modules.darwin.security_agenix
+        config.forge.modules.darwin.security_sops
+      ];
+      nixpkgs.config.allowUnfree = true;
+      nixpkgs.overlays = [config.flake.overlays.default];
     };
   };
 
-  flake.checks.aarch64-darwin = {
-    vega = config.flake.darwinConfigurations.vega.system;
-  };
-  flake.checks.x86_64-linux = {
-    nook = config.flake.nixosConfigurations.nook.config.system.build.toplevel;
-    atlas = config.flake.nixosConfigurations.atlas.config.system.build.toplevel;
-  };
-
-  # myExampleHost = withSystem "x86_64-linux" (
-  #   args:
-  #   mkHost args "myExampleHost" {
-  #     withHomeManager = true;
-  #     extraOverlays = with inputs; [
-  #       neovim-nightly-overlay.overlays.default
-  #       (final: _prev: { nur = import inputs.nur { pkgs = final; }; })
-  #     ];
-  #   }
-  # );
-  #};
+  flake-file.inputs.disko.url = "github:nix-community/disko";
 }

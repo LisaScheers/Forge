@@ -1,3 +1,5 @@
 {
-  forge.ai-skills.enable = true;
+  forge.modules.homeManager."lisa" = {
+    forge.ai-skills.enable = true;
+  };
 }

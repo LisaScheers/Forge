@@ -1,4 +1,4 @@
 interface:
   display_name: "HTML Communication"
-  short_description: "Create readable local HTML documents and UI mocks"
-  default_prompt: "Use $html-communication to present this as a readable local HTML document."
+  short_description: "Create HTML documents and publish every plan"
+  default_prompt: "Use $html-communication to present this as readable HTML and publish it through PostPlan if it is a plan."
