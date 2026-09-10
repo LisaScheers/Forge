@@ -1,4 +1,4 @@
 interface:
   display_name: "Nix Dependencies"
-  short_description: "Run missing packages in a temporary Nix shell"
-  default_prompt: "Use $nix-dependencies to find the missing package and rerun this command in a temporary Nix environment."
+  short_description: "Run helpers with temporary Nix dependencies"
+  default_prompt: "Use $nix-dependencies to select a complete temporary runtime and run this standalone helper."
