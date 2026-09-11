@@ -1,8 +1,4 @@
-{
-  config,
-  inputs,
-  ...
-}: {
+{config, ...}: {
   forge.hosts.atlas = {
     class = "nixos";
     system = "x86_64-linux";
@@ -14,8 +10,6 @@
       config.forge.modules.nixos.services_auto-sync-update
       config.forge.modules.nixos.services_authentik
       config.forge.modules.nixos.services_matrix
-      inputs.shop-empty-track.nixosModules.default
-      inputs.sl-remote.nixosModules.default
     ];
   };
 }

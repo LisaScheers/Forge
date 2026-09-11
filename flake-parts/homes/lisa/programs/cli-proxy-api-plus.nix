@@ -5,16 +5,12 @@ in {
   forge.modules.homeManager.lisa-proxy = {config, ...}: {
     imports = [proxy];
     services.cli-proxy-api-plus = {
-      integrations.enable = true;
+      enable = true;
+      integrations.enable = false;
       openrouter = {
         enable = true;
         apiKeyFile = "${config.xdg.configHome}/cli-proxy-api-plus/openrouter-api-key";
         models = [
-          {
-            name = "openrouter/auto";
-            alias = "auto";
-            display-name = "OpenRouter Auto";
-          }
           {
             name = "z-ai/glm-5.3-flash";
             alias = "glm-5.3-flash";
@@ -22,7 +18,7 @@ in {
           }
         ];
       };
-      integrations.models = ["gpt-5.6-sol" "openrouter/auto" "openrouter/glm-5.3-flash"];
+      integrations.models = ["openrouter/glm-5.3-flash"];
     };
   };
 }

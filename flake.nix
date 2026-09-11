@@ -78,6 +78,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nix-homebrew.url = "github:zhaofengli/nix-homebrew";
+    nix-output-monitor.url = "github:maralorn/nix-output-monitor";
     nixos-apple-silicon = {
       url = "github:nix-community/nixos-apple-silicon";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -85,18 +86,6 @@
     nixpkgs.url = "github:NixOS/nixpkgs/master";
     onepassword-shell-plugins = {
       url = "github:1Password/shell-plugins";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    pony-tack = {
-      url = "git+ssh://git@ssh.github.com:443/LisaScheers/sl-pony-tack.git?ref=main";
-      flake = false;
-    };
-    shop-empty-track = {
-      url = "github:LisaScheers/shop-empty-track/main";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    sl-remote = {
-      url = "github:LisaScheers/sl-remote/main";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     sops-nix = {
