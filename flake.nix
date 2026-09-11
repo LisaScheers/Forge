@@ -92,6 +92,7 @@
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    spotaui.url = "github:LargeModGames/spotatui";
     systems.url = "github:nix-systems/default";
     t3-code-nix = {
       url = "github:LisaScheers/t3-code-nix";

@@ -7,6 +7,7 @@
   forge.modules.homeManager."lisa@vega" = {
     imports = [
       config.forge.modules.homeManager.lisa
+      config.forge.modules.homeManager.spotaui
     ];
   };
 }
