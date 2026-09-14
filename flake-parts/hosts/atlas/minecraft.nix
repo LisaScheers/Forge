@@ -1,6 +1,16 @@
 {
   forge.modules.nixos.atlas = {pkgs, ...}: let
+    # Keep the existing data directory and service name across pack upgrades.
     atm10Root = "/var/minecraft/atm10-8.0";
+    atm10Version = "8.1";
+    atm10Archive = pkgs.fetchurl {
+      url = "https://mediafilez.forgecdn.net/files/8764/245/ServerFiles-8.1.zip";
+      sha256 = "sha256-JZ5KmIiO5t7QtDkRPBmsPHn26Q7qsaLEZaHABdDV88Q=";
+    };
+    atm10ServerFiles = pkgs.runCommand "atm10-server-${atm10Version}" {nativeBuildInputs = [pkgs.unzip];} ''
+      mkdir -p "$out"
+      unzip -q ${atm10Archive} -d "$out"
+    '';
     atm11Root = "/var/minecraft/atm11-0.2.0";
     allTheMonsRoot = "/var/minecraft/allthemons-1.0.0-rc.6";
     minecraftJvmArgs = pkgs.writeText "minecraft-user_jvm_args.txt" ''
@@ -49,12 +59,12 @@
       sha256 = "0x6j5bws68y1ry25lc22h6r28i83lpfhph2j9wvjqvzmy5f26byp";
     };
     cynosureJar = pkgs.fetchurl {
-      url = "https://cdn.modrinth.com/data/4JVfdODB/versions/xnZQiuZu/cynosure-1.0.0-neoforge-1.21.1.jar";
-      sha256 = "sha256-WsMOiwhWpoOpcAkusivRrUELIY6RkXP2q80DkwFxLtI=";
+      url = "https://cdn.modrinth.com/data/4JVfdODB/versions/8BIOFCX6/cynosure-1.0.2-neoforge-1.21.1.jar";
+      sha256 = "sha256-kuzHF4VyiDsigoWwIgjgLOkp+EBeT66AzFaFTj7qFRQ=";
     };
     estrogenJar = pkgs.fetchurl {
-      url = "https://mediafilez.forgecdn.net/files/8757/560/estrogen-6.0.3%2B1.21.1-neoforge.jar";
-      sha256 = "sha256-38Q4uROc15Q0xI6Pt6KI2CHDn7b+7oxchD/M1Xm3ZPY=";
+      url = "https://cdn.modrinth.com/data/HhIJW8n1/versions/sB9ZotMl/estrogen-6.0.8%2B1.21.1-neoforge.jar";
+      sha256 = "sha256-77wKi+PjEHC5NIWrWV7Pgu7EC8oK3C5TzOYmFySL9K0=";
     };
     createEstrogenJar = pkgs.fetchurl {
       url = "https://mediafilez.forgecdn.net/files/8746/613/createestrogen-2.0.0%2B1.21.1.jar";
@@ -125,7 +135,7 @@
 
     systemd.services.atm10-8-0 = {
       enable = true;
-      description = "All The Mods 10 8.0 Minecraft server";
+      description = "All The Mods 10 ${atm10Version} Minecraft server";
       wantedBy = ["multi-user.target"];
       unitConfig.Conflicts = [
         "atm-10-tts.service"
@@ -138,7 +148,9 @@
         coreutils
         curl
         gawk
+        gnutar
         jdk21_headless
+        rsync
         wget
       ];
       environment = {
@@ -147,8 +159,38 @@
       };
       preStart = ''
         if [ ! -f ${atm10Root}/startserver.sh ]; then
-          echo "Missing ${atm10Root}/startserver.sh. Extract ServerFiles-8.0.zip into ${atm10Root} before starting this service."
+          echo "Missing existing ATM10 installation at ${atm10Root}; refusing to create a new world."
           exit 1
+        fi
+
+        if [ "$(cat ${atm10Root}/.atm10-version 2>/dev/null || true)" != "${atm10Version}" ]; then
+          # preStart runs after the old server stops. Back up all state before
+          # replacing pack files; never sync or delete the server root itself.
+          backup=/var/minecraft/backups/atm10-before-${atm10Version}.tar
+          mkdir -p /var/minecraft/backups
+          # Keep the original snapshot if an interrupted upgrade is retried.
+          if [ ! -f "$backup" ]; then
+            tar -cpf "$backup.tmp" -C ${atm10Root} .
+            mv "$backup.tmp" "$backup"
+          fi
+
+          for directory in mods kubejs defaultconfigs datapacks; do
+            rsync -rlt --chmod=Du+w,Fu+w --delete ${atm10ServerFiles}/"$directory"/ ${atm10Root}/"$directory"/
+          done
+          # Retain server-specific settings and local state absent from the pack.
+          for directory in config local; do
+            rsync -rlt --chmod=Du+w,Fu+w ${atm10ServerFiles}/"$directory"/ ${atm10Root}/"$directory"/
+          done
+          install -m 0755 ${atm10ServerFiles}/startserver.sh ${atm10Root}/startserver.sh
+          install -m 0644 ${atm10ServerFiles}/server-icon.png ${atm10Root}/server-icon.png
+          install -m 0644 ${atm10ServerFiles}/neoforge-21.1.249-installer.jar ${atm10Root}/neoforge-21.1.249-installer.jar
+          # The upstream launcher only checks whether libraries/ exists, which
+          # does not detect an older NeoForge installation during upgrades.
+          (
+            cd ${atm10Root}
+            java -jar neoforge-21.1.249-installer.jar -installServer
+          )
+          printf '%s\n' '${atm10Version}' > ${atm10Root}/.atm10-version
         fi
 
         install -m 0644 ${minecraftJvmArgs} ${atm10Root}/user_jvm_args.txt
@@ -188,9 +230,9 @@
         fi
 
         install -D -m 0644 ${bluemapJar} ${atm10Root}/mods/bluemap-5.7-neoforge.jar
-        install -D -m 0644 ${cynosureJar} ${atm10Root}/mods/cynosure-1.0.0-neoforge-1.21.1.jar
-        rm -f ${atm10Root}/mods/estrogen-6.0.0+1.21.1-neoforge.jar
-        install -D -m 0644 ${estrogenJar} ${atm10Root}/mods/estrogen-6.0.3+1.21.1-neoforge.jar
+        rm -f ${atm10Root}/mods/cynosure-*.jar ${atm10Root}/mods/estrogen-*.jar
+        install -D -m 0644 ${cynosureJar} ${atm10Root}/mods/cynosure-1.0.2-neoforge-1.21.1.jar
+        install -D -m 0644 ${estrogenJar} ${atm10Root}/mods/estrogen-6.0.8+1.21.1-neoforge.jar
         install -D -m 0644 ${createEstrogenJar} ${atm10Root}/mods/createestrogen-2.0.0+1.21.1.jar
         install -D -m 0644 ${bluemapCoreConfig} ${atm10Root}/config/bluemap/core.conf
         install -D -m 0644 ${bluemapWebappConfig} ${atm10Root}/config/bluemap/webapp.conf
@@ -206,6 +248,7 @@
         RestartSec = "30s";
         KillSignal = "SIGINT";
         TimeoutStopSec = "120s";
+        TimeoutStartSec = "30min";
         MemoryHigh = "14G";
         MemoryMax = "16G";
       };
