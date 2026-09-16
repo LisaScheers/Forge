@@ -38,3 +38,9 @@ For a non-trivial web interface, web layout, or website copy change with several
 ## Pull requests
 
 Use `file-pr` when asked to open a pull request. Use `babysit-pr` when asked to monitor one. Those skills own pull request conventions and merge boundaries.
+
+## Information about me and my life
+
+All information about me and my life can be found at `~/projects/scheers/Life` on Vega.
+When you discover someting personal about me store it there.
+If information is not yet available do not hezitate to ask.
