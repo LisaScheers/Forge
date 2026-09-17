@@ -9,6 +9,7 @@ in {
   }: let
     certificateDomain = "media.local.bylisa.dev";
     jellyfinDomain = "jellyfin.local.bylisa.dev";
+    publicJellyfinDomain = "jellyfin.bylisa.dev";
     prowlarrDomain = "prowlarr.local.bylisa.dev";
     radarrDomain = "radarr.local.bylisa.dev";
     sonarrDomain = "sonarr.local.bylisa.dev";
@@ -114,6 +115,8 @@ in {
         }
       ];
   in {
+    services.cloudflare-dyndns.domains = [publicJellyfinDomain];
+
     hardware.graphics = {
       enable = true;
       extraPackages = [pkgs.mesa];
@@ -122,6 +125,7 @@ in {
     security.acme.certs.${certificateDomain} = {
       extraDomainNames = [
         jellyfinDomain
+        publicJellyfinDomain
         prowlarrDomain
         radarrDomain
         sonarrDomain
@@ -254,6 +258,14 @@ in {
         virtualHosts = {
           ${certificateDomain} = proxyHost 8096;
           ${jellyfinDomain} = proxyHost 8096;
+          ${publicJellyfinDomain} = lib.mkMerge [
+            (proxyHost 8096)
+            {
+              # Jellyfin URLs can contain API keys; avoid recording them.
+              extraConfig = "access_log off;";
+              locations."/".extraConfig = "proxy_buffering off;";
+            }
+          ];
           ${prowlarrDomain} = proxyHost 9696;
           ${radarrDomain} = proxyHost 7878;
           ${sonarrDomain} = proxyHost 8989;
@@ -315,7 +327,20 @@ in {
           ExecStop = "${mediaEgressRules}/bin/media-egress-routing-rules stop";
         };
       };
-      jellyfin.unitConfig.RequiresMountsFor = mediaRoot;
+      jellyfin = {
+        unitConfig.RequiresMountsFor = mediaRoot;
+        # Trust the local nginx proxy so remote-user restrictions see client IPs.
+        preStart = let
+          networkConfig = "${config.services.jellyfin.configDir}/network.xml";
+        in ''
+          if [ -f ${lib.escapeShellArg networkConfig} ]; then
+            ${pkgs.xmlstarlet}/bin/xmlstarlet ed --inplace \
+              -s '/NetworkConfiguration[not(KnownProxies)]' -t elem -n KnownProxies -v "" \
+              -s '/NetworkConfiguration/KnownProxies[not(string = "127.0.0.1")]' -t elem -n string -v '127.0.0.1' \
+              ${lib.escapeShellArg networkConfig}
+          fi
+        '';
+      };
       radarr = {
         after = ["network-online.target"];
         wants = ["network-online.target"];
