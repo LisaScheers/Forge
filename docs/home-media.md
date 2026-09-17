@@ -7,13 +7,13 @@ HTTPS virtual host in `flake-parts/hosts/nook/media.nix`.
 
 The UniFi gateway already forwards public TCP ports 80 and 443 to
 `192.168.111.2`. The public route was verified from Atlas on 2026-09-17 using
-the local Jellyfin hostname and the gateway's public IPv4 address. The new
-public hostname still needs deployment and end-to-end verification.
-The existing DNS updater publishes both A and AAAA records. Atlas has no IPv6
-route, so external IPv6 access was not verified. Before rollout, review the
-UniFi `http/s ipv6` rule: its destination observed on 2026-09-17 was
-`2a02:1810:515:c680:9140:eac1:12:572c`, whereas Nook currently uses
-`2a02:1810:515:c680:f22f:74ff:fe1d:7b9b`.
+the local Jellyfin hostname and the gateway's public IPv4 address.
+The DNS updater publishes both A and AAAA records. Nook disables temporary
+IPv6 addresses on its uplink so the updater uses the stable server address.
+UniFi's `http/s ipv6` rule was corrected with Lisa's approval on 2026-09-17:
+external clients may reach TCP destination ports 80 and 443 at
+`2a02:1810:515:c680:f22f:74ff:fe1d:7b9b`. The external IPv6 path was verified
+from the mail server. Update the gateway rule if the ISP changes the prefix.
 
 Friends use separate Jellyfin accounts with remote access and the intended
 libraries enabled. No VPN client is required. Account creation and playback

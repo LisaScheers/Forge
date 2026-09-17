@@ -34,6 +34,8 @@
           networkConfig = {
             DHCP = "no";
             IPv6AcceptRA = true;
+            # Public DNS must use the stable address allowed by the gateway.
+            IPv6PrivacyExtensions = false;
             LinkLocalAddressing = "ipv6";
             VLAN = [mediaVlanInterface];
           };
