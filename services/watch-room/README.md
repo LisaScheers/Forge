@@ -1,0 +1,55 @@
+# Synchronized screening
+
+One fullscreen web page per viewer, backed by an authoritative room clock.
+The host chooses a local movie; one FFmpeg process makes shared 720p H.264/AAC
+HLS segments. Guests poll position/play/pause state each second. Small drift
+uses a 3% playback-rate correction; drift over 1.2 seconds seeks back into sync.
+This is approximate synchronization, not frame-accurate broadcast playback.
+On lost backend contact, the player pauses until it reconnects.
+
+The movie library is read-only. No Jellyfin account or API key is needed.
+The guest URL has a random 256-bit token, permits only the current screening,
+expires after 12 hours, and is revoked on stop, replacement, or service restart.
+Anyone with that URL can watch and download the active screening. It is not DRM.
+Tokens are excluded from application and nginx access logs. No external scripts
+or analytics are loaded by guests; HLS.js is pinned and served locally.
+
+## Host controls
+
+After approved deployment, open an SSH tunnel from Vega:
+
+```sh
+ssh -N -L 8099:127.0.0.1:8099 nook
+```
+
+Read the host key locally with `ssh nook sudo cat /var/lib/watch-room/host-key`,
+then open `http://127.0.0.1:8099/#KEY` in your browser. The fragment is removed
+from the address bar and retained only in session storage for this browser tab.
+The private API listens only on loopback, requires the host key for every API
+request, and is not routed by nginx. Do not share the host key.
+
+Choose a movie and Start screening. Paste the guest URL into the Second Life
+screen's web media URL. Guests may need to click Join screening once to enable
+playback/audio. Play, Pause, and seeking on the host page affect everyone.
+Seeking rebuilds the stream from the selected position and briefly buffers.
+Mute and fullscreen on the guest page are local controls only.
+
+Transcoding runs at approximately playback speed with a 20-second initial
+buffer. Segments are retained until seeking, stopping, expiration, or restart;
+allow roughly 9 GB free space for a maximum six-hour movie. There is one
+screening per server. Encoding stops if free space falls below 256 MB.
+Each guest consumes up to about 3.2 Mbps of home upload.
+First audio track only; subtitle selection and HDR tone mapping are not provided.
+Second Life embedded-browser playback still requires an in-world acceptance test.
+
+## Verification
+
+```sh
+nix-shell -p 'python3.withPackages (ps: [ ps.aiohttp ])' ffmpeg nodejs --run \
+  'cd services/watch-room && python3 -m unittest -v && node --check player.js && node --check host.js'
+```
+
+Tests use a generated clip and cover the shared clock, pause, late joins,
+authorization, expiry, revocation, path boundaries, real HLS encoding, and seek.
+The Nix module exposes only `/watch/` through the existing Jellyfin HTTPS host;
+no DNS, certificate, or router changes are required.
