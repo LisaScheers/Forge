@@ -132,7 +132,7 @@ in {
         transmissionDomain
       ];
       extraLegoFlags = [
-        "--dns.propagation-wait"
+        "--dns.propagation.wait"
         "30s"
       ];
       group = "nginx";
