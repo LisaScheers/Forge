@@ -16,17 +16,17 @@ or analytics are loaded by guests; HLS.js is pinned and served locally.
 
 ## Host controls
 
-After approved deployment, open an SSH tunnel from Vega:
+Open `https://watch.local.bylisa.dev/` on the home network or Tailscale with
+local DNS available. nginx allows only the management LAN, main LAN, and
+Tailscale address ranges; external clients are denied even with a forced DNS
+override. A dedicated ACME certificate covers this exact local hostname.
 
-```sh
-ssh -N -L 8099:127.0.0.1:8099 nook
-```
-
-Read the host key locally with `ssh nook sudo cat /var/lib/watch-room/host-key`,
-then open `http://127.0.0.1:8099/#KEY` in your browser. The fragment is removed
+For a browser's first session, read the host key with
+`ssh nook sudo cat /var/lib/watch-room/host-key`, then open
+`https://watch.local.bylisa.dev/#KEY`. The fragment is removed
 from the address bar and retained only in session storage for this browser tab.
 The private API listens only on loopback, requires the host key for every API
-request, and is not routed by nginx. Do not share the host key.
+request, and is proxied only by the restricted local host. Do not share the host key.
 
 Choose a movie and Start screening. Paste the guest URL into the Second Life
 screen's web media URL. Guests may need to click Join screening once to enable
@@ -51,5 +51,5 @@ nix-shell -p 'python3.withPackages (ps: [ ps.aiohttp ])' ffmpeg nodejs --run \
 
 Tests use a generated clip and cover the shared clock, pause, late joins,
 authorization, expiry, revocation, path boundaries, real HLS encoding, and seek.
-The Nix module exposes only `/watch/` through the existing Jellyfin HTTPS host;
-no DNS, certificate, or router changes are required.
+The public player uses `/watch/` on the existing Jellyfin HTTPS host. The host
+console uses its own local DNS record and certificate; no router changes are needed.

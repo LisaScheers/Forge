@@ -25,6 +25,7 @@
       "sl-cache.local.bylisa.dev."
       "sonarr.local.bylisa.dev."
       "transmission.local.bylisa.dev."
+      "watch.local.bylisa.dev."
     ];
     localRecords =
       map (record: ''"${record}"'')
