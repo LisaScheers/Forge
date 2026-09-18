@@ -826,6 +826,11 @@ in {
             local.path = "${storageRoot}/tempo/traces";
             wal.path = "${storageRoot}/tempo/wal";
           };
+          # Tempo 3's live store has separate paths from storage.trace.
+          live_store = {
+            wal.path = "${storageRoot}/tempo/live-store/traces";
+            shutdown_marker_dir = "${storageRoot}/tempo/live-store/shutdown-marker";
+          };
         };
       };
 
@@ -834,6 +839,9 @@ in {
         extraFlags = ["-target=all"];
         settings = {
           analytics.reporting_enabled = false;
+          # Internal clients otherwise use 9095, which belongs to Mimir.
+          metastore.address = "${pyroscopeAddress}:${toString pyroscopeGrpcPort}";
+          query_backend.address = "${pyroscopeAddress}:${toString pyroscopeGrpcPort}";
           server = {
             http_listen_address = "0.0.0.0";
             http_listen_port = pyroscopePort;
