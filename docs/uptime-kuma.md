@@ -23,13 +23,14 @@ Each host's push tokens are encrypted in its `uptime-kuma-probes.age` secret.
   a report within 180 seconds.
 - A successful Forgejo PostgreSQL backup reports through `ExecStartPost`.
   Its monitor expects completion within 26 hours.
-- Successful Atlas and Nook automatic update jobs also report through
-  `ExecStartPost`. Their monitors allow two hours for builds and updates.
+- Atlas's automatic update job also reports through `ExecStartPost`. Its
+  monitor allows two hours for builds and updates. Nook has no scheduled
+  auto-update job, so its completion monitor is paused as not applicable.
 - Reporting failures do not fail backup or update jobs. Missing reports are
   detected by Kuma's push deadlines.
 
-The 12 push monitors were created paused pending the first deployment. After
-the configuration reaches `origin/main` and rolls out, resume them in Kuma,
+The 11 applicable push monitors are enabled following deployment. When
+restoring this setup, deploy from `origin/main`, resume those monitors in Kuma,
 start `uptime-kuma-probes.service` on both hosts, and verify the results.
 Backup and update completion checks receive their first reports after those
 jobs finish successfully; do not send synthetic success reports.

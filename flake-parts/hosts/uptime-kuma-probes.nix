@@ -80,9 +80,11 @@
 
     # ExecStartPost runs only after successful oneshot completion. Reporting
     # failure must not turn a successful update or backup into a failed job.
-    systemd.services.nix-auto-sync-update.serviceConfig.ExecStartPost = [
-      "-${lib.getExe report} auto-update"
-    ];
+    systemd.services.nix-auto-sync-update = lib.mkIf (config.services.autoSyncUpdate.enable or false) {
+      serviceConfig.ExecStartPost = [
+        "-${lib.getExe report} auto-update"
+      ];
+    };
     systemd.services.postgresqlBackup-forgejo = lib.mkIf (host == "atlas") {
       serviceConfig.ExecStartPost = [
         "-+${lib.getExe report} postgresql-backup"
