@@ -1,6 +1,6 @@
 # Forge Tab Bridge
 
-A Chrome Manifest V3 extension and local `chrome-tab` CLI. Click the extension
+A Manifest V3 extension for Chrome and Helium and local `chrome-tab` CLI. Click the extension
 in an HTTP(S) tab to connect it. The badge reads `ON`, and Chrome displays its
 debugging banner. Click again, close the tab, dismiss the banner, or run
 `chrome-tab detach TAB_ID` to disconnect.
@@ -22,15 +22,17 @@ and configure:
    ```
 
 1. Apply the configuration through your normal approved deployment workflow.
-   It installs the CLI, the extension files and Chrome's native messaging manifest.
-2. In `chrome://extensions`, enable Developer mode and choose **Load unpacked**.
+   It installs the CLI, the extension files and native messaging manifests for
+   Chrome and Helium.
+2. In the browser you want to use, open `chrome://extensions`, enable Developer
+   mode and choose **Load unpacked**.
    Select `~/.local/share/chrome-tab/extension` (expand `~` in the file picker).
 3. Click the extension in a normal web tab and run `chrome-tab tabs`.
 
 The manifest includes a public key that fixes the extension ID to
 `fjgenihlcmobdjmfnmnhmglpemfkklle`, independent of its load path. Home Manager
 allows that ID by default. No private key is distributed or required for loading
-the unpacked extension. Reload the extension in Chrome after updating its files.
+the unpacked extension. Reload the extension in your browser after updating its files.
 If you previously loaded the version without a public key, remove that entry
 and load the updated extension. A custom build using a different key must also
 override `forge.chrome-tab.extensionId` to match.

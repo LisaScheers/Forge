@@ -1,4 +1,9 @@
-{
+{inputs, ...}: {
+  flake-file.inputs.authentik-nix = {
+    # 2026.8.3 packaging; return to the default branch once upstream PR #193 is merged.
+    url = "github:nix-community/authentik-nix/a22b8f03bff0e04e9cee3221114fae1d0f1bec50";
+  };
+
   forge.modules.nixos.services_authentik = {
     config,
     lib,
@@ -9,7 +14,6 @@
 
     cfg = config.services.authentik;
     settingsFormat = pkgs.formats.yaml {};
-    authentikServer = "${cfg.package.proxy}/bin/authentik";
     acmeCredentials = lib.optionals (cfg.nginx.enable && cfg.nginx.enableACME) [
       "${cfg.nginx.host}.pem:${config.security.acme.certs.${cfg.nginx.host}.directory}/fullchain.pem"
       "${cfg.nginx.host}.key:${config.security.acme.certs.${cfg.nginx.host}.directory}/key.pem"
@@ -18,10 +22,20 @@
     options.services.authentik = {
       enable = (mkEnableOption "authentik") // {default = true;};
 
-      package = mkOption {
-        type = types.package;
-        default = pkgs.authentik;
-        defaultText = "inputs.nixpkgs-authentik.legacyPackages.\${pkgs.stdenv.hostPlatform.system}.authentik";
+      authentikComponents = mkOption {
+        type = types.attrsOf types.package;
+        # Keep upstream's tested Python and native dependency versions together.
+        default = {
+          inherit
+            (inputs.authentik-nix.packages.${pkgs.stdenv.hostPlatform.system})
+            rust
+            pythonEnv
+            staticWorkdirDeps
+            migrate
+            manage
+            ;
+        };
+        description = "Native Authentik components from authentik-nix.";
       };
 
       settings = mkOption {
@@ -77,6 +91,7 @@
           host = mkDefault "";
         };
         cert_discovery_dir = mkIf (cfg.nginx.enable && cfg.nginx.enableACME) "env://CREDENTIALS_DIRECTORY";
+        blueprints_dir = mkDefault "${cfg.authentikComponents.staticWorkdirDeps}/blueprints";
         storage.media = {
           backend = mkDefault "file";
           file.path = mkDefault "/var/lib/authentik/media";
@@ -89,7 +104,7 @@
 
       environment.systemPackages = [
         (pkgs.writeShellScriptBin "ak" ''
-          exec ${cfg.package}/bin/ak "$@"
+          exec ${cfg.authentikComponents.manage}/bin/manage.py "$@"
         '')
       ];
 
@@ -111,48 +126,28 @@
 
       systemd.services = let
         authentikRuntimeEnvironment = ''
-          eval "$(${pkgs.gnused}/bin/sed '/^exec /,$d' ${cfg.package}/bin/ak)"
-
-          site_packages="$(python -c 'import pathlib, manage; print(pathlib.Path(manage.__file__).parent)')"
-
-          cd "$site_packages"
+          export PATH="${cfg.authentikComponents.pythonEnv}/bin:$PATH"
+          export PYTHONPATH="${cfg.authentikComponents.staticWorkdirDeps}"
+          export PYTHONDONTWRITEBYTECODE=1
+          export PYTHONUNBUFFERED=1
+          cd ${cfg.authentikComponents.staticWorkdirDeps}
         '';
 
         migrateScript = pkgs.writeShellScript "authentik-migrate" ''
           ${authentikRuntimeEnvironment}
-          exec python -m lifecycle.migrate
+          exec ${cfg.authentikComponents.migrate}/bin/migrate.py
         '';
 
         serverScript = pkgs.writeShellScript "authentik-server" ''
           ${authentikRuntimeEnvironment}
-          exec ${authentikServer}
+          exec ${cfg.authentikComponents.rust}/bin/authentik server
         '';
 
         workerScript = pkgs.writeShellScript "authentik-worker" ''
           ${authentikRuntimeEnvironment}
 
-          child=
-          stop_worker() {
-            if [ -n "$child" ]; then
-              kill -TERM "$child" 2>/dev/null || true
-              wait "$child" 2>/dev/null || true
-            fi
-            exit 0
-          }
-
-          trap stop_worker TERM INT QUIT HUP
-          trap ':' USR2
-
-          python -m lifecycle.worker_process 1000 "$TMPDIR/authentik-worker-1000.sock" &
-          child="$!"
-          while true; do
-            wait "$child"
-            status="$?"
-            if [ "$status" = 140 ] && kill -0 "$child" 2>/dev/null; then
-              continue
-            fi
-            exit "$status"
-          done
+          # The supervisor owns worker registration, health checks and child processes.
+          exec ${cfg.authentikComponents.rust}/bin/authentik worker
         '';
 
         serviceDefaults = {
@@ -180,6 +175,8 @@
               Type = "oneshot";
               RemainAfterExit = true;
               StateDirectory = "authentik";
+              RuntimeDirectory = "authentik-migrate";
+              Environment = ["TMPDIR=%t/authentik-migrate"];
               WorkingDirectory = "%S/authentik";
               ExecStart = migrateScript;
             }
@@ -200,6 +197,8 @@
             serviceDefaults
             {
               StateDirectory = "authentik";
+              RuntimeDirectory = "authentik-worker";
+              Environment = ["TMPDIR=%t/authentik-worker"];
               WorkingDirectory = "%S/authentik";
               ExecStart = workerScript;
               Restart = "on-failure";
@@ -221,6 +220,8 @@
             serviceDefaults
             {
               StateDirectory = "authentik";
+              RuntimeDirectory = "authentik-server";
+              Environment = ["TMPDIR=%t/authentik-server"];
               UMask = "0027";
               WorkingDirectory = "%S/authentik";
               ExecStart = serverScript;

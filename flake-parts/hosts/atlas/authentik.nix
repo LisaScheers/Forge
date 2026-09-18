@@ -143,6 +143,7 @@
       environmentFile = authentikEnvironmentFile;
 
       settings = {
+        base_url = "https://auth.bylisa.dev";
         email = {
           host = "m.scheers.tech";
           port = 587;
@@ -180,7 +181,7 @@
 
     virtualisation.oci-containers.backend = "docker";
     virtualisation.oci-containers.containers.authentik-ldap-outpost = {
-      image = "ghcr.io/goauthentik/ldap:2025.12.4";
+      image = "ghcr.io/goauthentik/ldap:${config.services.authentik.authentikComponents.rust.version}";
       autoStart = true;
       environment = {
         AUTHENTIK_HOST = "https://auth.bylisa.dev";
@@ -213,7 +214,7 @@
         ExecStartPre = [
           "${pkgs.coreutils}/bin/install -D -m 0600 ${grafanaBlueprint} %S/authentik/blueprints/grafana.yaml"
         ];
-        ExecStart = "${config.services.authentik.package}/bin/ak apply_blueprint grafana.yaml";
+        ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint grafana.yaml";
       };
       restartTriggers = [../../agenix/secrets/atlas/authentik-env.age];
     };
@@ -237,7 +238,7 @@
         ExecStartPre = [
           "${pkgs.coreutils}/bin/install -D -m 0600 ${postplanBlueprint} %S/authentik/blueprints/postplan.yaml"
         ];
-        ExecStart = "${config.services.authentik.package}/bin/ak apply_blueprint postplan.yaml";
+        ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint postplan.yaml";
       };
       restartTriggers = [
         ../../agenix/secrets/atlas/authentik-env.age
@@ -269,7 +270,7 @@
         ExecStartPre = [
           "${pkgs.coreutils}/bin/install -D -m 0600 ${awsIdentityCenterBlueprint} %S/authentik/blueprints/aws-iam-identity-center.yaml"
         ];
-        ExecStart = "${config.services.authentik.package}/bin/ak apply_blueprint aws-iam-identity-center.yaml";
+        ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint aws-iam-identity-center.yaml";
       };
       restartTriggers = [../../agenix/secrets/atlas/authentik-env.age];
     };

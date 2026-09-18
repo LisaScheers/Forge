@@ -21,6 +21,7 @@
       url = "github:selfhost-it/antigravity-cli-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    authentik-nix.url = "github:nix-community/authentik-nix/a22b8f03bff0e04e9cee3221114fae1d0f1bec50";
     catppuccin = {
       url = "github:catppuccin/nix";
       inputs.nixpkgs.follows = "nixpkgs";
