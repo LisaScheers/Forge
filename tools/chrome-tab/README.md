@@ -13,32 +13,27 @@ Build the package without activating a system:
 nix build 'path:.#chrome-tab'
 ```
 
-Load the extension from a stable path so its unpacked extension ID stays stable:
-
-1. In `chrome://extensions`, enable Developer mode and choose **Load unpacked**.
-   Select this repository's `tools/chrome-tab/extension` directory.
-2. Copy its 32-character extension ID.
-3. Import `config.forge.modules.homeManager.chrome-tab` in the desired Forge
-   Home Manager composition, then configure:
+Vega's Home Manager configuration enables the bridge. For another host, import
+`config.forge.modules.homeManager.chrome-tab` in its Home Manager composition
+and configure:
 
    ```nix
-   forge.chrome-tab = {
-     enable = true;
-     extensionId = "<ID from chrome://extensions>";
-   };
+   forge.chrome-tab.enable = true;
    ```
 
-4. Apply that configuration through your normal approved deployment workflow.
-   It installs the CLI and Chrome native messaging manifest on macOS or Linux.
-5. Click the extension in a normal web tab and run `chrome-tab tabs`.
+1. Apply the configuration through your normal approved deployment workflow.
+   It installs the CLI, the extension files and Chrome's native messaging manifest.
+2. In `chrome://extensions`, enable Developer mode and choose **Load unpacked**.
+   Select `~/.local/share/chrome-tab/extension` (expand `~` in the file picker).
+3. Click the extension in a normal web tab and run `chrome-tab tabs`.
 
-Home Manager also provides the extension at
-`~/.local/share/chrome-tab/extension`. To load from that location instead,
-remove the original unpacked extension, load that directory, and update
-`extensionId` to match. Keep using the same load path across upgrades; reload
-the extension in Chrome after updating its files.
-
-This module is opt-in; it is not enabled on any host by this change.
+The manifest includes a public key that fixes the extension ID to
+`fjgenihlcmobdjmfnmnhmglpemfkklle`, independent of its load path. Home Manager
+allows that ID by default. No private key is distributed or required for loading
+the unpacked extension. Reload the extension in Chrome after updating its files.
+If you previously loaded the version without a public key, remove that entry
+and load the updated extension. A custom build using a different key must also
+override `forge.chrome-tab.extensionId` to match.
 
 ## Use
 

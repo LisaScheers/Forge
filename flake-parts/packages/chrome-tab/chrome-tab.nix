@@ -23,7 +23,8 @@
       enable = lib.mkEnableOption "the Chrome tab JavaScript bridge";
       extensionId = lib.mkOption {
         type = lib.types.strMatching "[a-p]{32}";
-        description = "ID shown in chrome://extensions for the unpacked Forge Tab Bridge extension.";
+        default = pkgs.chrome-tab.extensionId;
+        description = "Extension ID allowed to connect to the native host; defaults to the bundled extension's public key identity.";
       };
     };
     config = lib.mkIf cfg.enable {
