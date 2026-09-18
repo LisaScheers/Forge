@@ -18,12 +18,12 @@ class WatchTests(unittest.IsolatedAsyncioTestCase):
         self.library = self.root / 'movies'
         self.library.mkdir()
         self.room = Room(self.library, self.root / 'cache')
-        public, private = applications(self.room, 'host-secret', 'https://example.test', self.root / 'hls.js')
+        public, private = applications(self.room, 'lisa', 'https://example.test', self.root / 'hls.js')
         self.guest = TestClient(TestServer(public))
         self.host = TestClient(TestServer(private))
         await self.guest.start_server()
         await self.host.start_server()
-        self.auth = {'Authorization': 'Bearer host-secret'}
+        self.auth = {'X-Watch-User': 'lisa', 'Origin': 'https://watch.local.bylisa.dev'}
 
     async def asyncTearDown(self):
         await self.room.stop()
@@ -72,6 +72,22 @@ class WatchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.room.catalog(), {})
         for data in ({'action': 'start', 'id': '../../etc/passwd'}, [], {'action': 'unknown'}):
             self.assertEqual((await self.host.post('/api', json=data, headers=self.auth)).status, 400)
+
+    async def test_authentik_identity_and_csrf(self):
+        for headers in ({}, {'Authorization': 'Bearer host-secret'}, {'X-Watch-User': 'rose'}):
+            self.assertEqual((await self.host.get('/api', headers=headers)).status, 401)
+            self.assertEqual((await self.host.get('/', headers=headers)).status, 401)
+        self.assertEqual((await self.host.get('/api', headers=self.auth)).status, 200)
+        for origin in (None, 'https://evil.example', 'https://jellyfin.bylisa.dev'):
+            headers = {'X-Watch-User': 'lisa'}
+            if origin:
+                headers['Origin'] = origin
+            response = await self.host.post('/api', json={'action': 'stop'}, headers=headers)
+            self.assertEqual(response.status, 403)
+        response = await self.host.post('/api', data='{"action":"stop"}', headers=self.auth)
+        self.assertEqual(response.status, 403)
+        response = await self.host.post('/api', json={'action': 'stop'}, headers=self.auth)
+        self.assertEqual(response.status, 200)
 
     async def test_actual_encoder_seek_and_segments(self):
         # Use a synthetic clip, not anything from the user's movie library.

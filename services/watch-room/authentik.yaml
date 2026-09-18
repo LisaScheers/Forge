@@ -1,0 +1,30 @@
+version: 1
+metadata:
+  name: Watch room host console
+entries:
+  - model: authentik_providers_proxy.proxyprovider
+    identifiers:
+      name: Watch room host
+    id: watch-provider
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      external_host: https://watch.local.bylisa.dev
+      mode: forward_single
+      intercept_header_auth: false
+      access_token_validity: minutes=5
+  - model: authentik_core.application
+    identifiers:
+      slug: watch-room
+    id: watch-application
+    attrs:
+      name: Movie night host
+      provider: !KeyOf watch-provider
+      meta_launch_url: https://watch.local.bylisa.dev/
+      policy_engine_mode: all
+  - model: authentik_policies.policybinding
+    identifiers:
+      target: !KeyOf watch-application
+      order: 0
+    attrs:
+      user: !Find [authentik_core.user, [username, lisa]]

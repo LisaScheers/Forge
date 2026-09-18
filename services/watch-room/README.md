@@ -21,12 +21,21 @@ local DNS available. nginx allows only the management LAN, main LAN, and
 Tailscale address ranges; external clients are denied even with a forced DNS
 override. A dedicated ACME certificate covers this exact local hostname.
 
-For a browser's first session, read the host key with
-`ssh nook sudo cat /var/lib/watch-room/host-key`, then open
-`https://watch.local.bylisa.dev/#KEY`. The fragment is removed
-from the address bar and retained only in session storage for this browser tab.
-The private API listens only on loopback, requires the host key for every API
-request, and is proxied only by the restricted local host. Do not share the host key.
+Sign in with Authentik as `lisa`. The Authentik application policy and backend
+both restrict host access to that account. No host key is needed; old host keys
+are no longer accepted. Existing guest links still require no sign-in.
+
+nginx checks every host request with Authentik's embedded outpost over verified
+HTTPS, replaces the identity header with that response, and connects to a Unix
+socket accessible only to the service and nginx. There is no host TCP listener.
+Commands require the exact console Origin and JSON content type to prevent CSRF.
+An expired session redirects the host back to Authentik. Authentik unavailability
+fails closed. The guest endpoint does not use Authentik.
+
+The Atlas blueprint defines the proxy provider, application, and Lisa-only user
+binding. Its service adds the provider to the embedded outpost without replacing
+the existing provider list. Deploy Atlas before Nook for this authentication
+migration. Use `/outpost.goauthentik.io/sign_out` on the console to sign out.
 
 Choose a movie and Start screening. Paste the guest URL into the Second Life
 screen's web media URL. Guests may need to click Join screening once to enable
@@ -50,6 +59,7 @@ nix-shell -p 'python3.withPackages (ps: [ ps.aiohttp ])' ffmpeg nodejs --run \
 ```
 
 Tests use a generated clip and cover the shared clock, pause, late joins,
-authorization, expiry, revocation, path boundaries, real HLS encoding, and seek.
+authorization, identity restrictions, CSRF, expiry, revocation, path boundaries,
+real HLS encoding, and seek.
 The public player uses `/watch/` on the existing Jellyfin HTTPS host. The host
 console uses its own local DNS record and certificate; no router changes are needed.

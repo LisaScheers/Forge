@@ -171,7 +171,7 @@ async def headers(request, handler):
     return response
 
 
-def applications(room, host_key, public_url, hls_js):
+def applications(room, host_user, public_url, hls_js, host_origin='https://watch.local.bylisa.dev'):
     async def guest(request):
         if (not room.token or time.monotonic() >= room.expires
                 or not secrets.compare_digest(request.match_info['token'], room.token)):
@@ -196,11 +196,13 @@ def applications(room, host_key, public_url, hls_js):
         raise web.HTTPNotFound()
 
     async def host(request):
+        # This app is exposed only through a nginx-owned Unix socket. nginx
+        # replaces this header with the authenticated outpost response.
+        if not host_user or request.headers.get('X-Watch-User') != host_user:
+            raise web.HTTPUnauthorized()
         name = request.match_info['name']
         if request.method == 'GET' and name in ('', 'host.js', 'style.css'):
             return web.FileResponse(ASSETS / (name or 'host.html'))
-        if not secrets.compare_digest(request.headers.get('Authorization', ''), 'Bearer ' + host_key):
-            raise web.HTTPUnauthorized()
         if request.method == 'GET' and name == 'api':
             catalog = await asyncio.to_thread(room.catalog)
             return web.json_response(dict(
@@ -209,6 +211,10 @@ def applications(room, host_key, public_url, hls_js):
                 url=f'{public_url}/watch/{room.token}/' if room.token else None))
         if request.method != 'POST' or name != 'api':
             raise web.HTTPNotFound()
+        # Authentication now uses cookies: reject cross-origin commands,
+        # including requests from sibling subdomains with same-site cookies.
+        if request.headers.get('Origin') != host_origin or request.content_type != 'application/json':
+            raise web.HTTPForbidden(text='Playback commands must come from the host console.')
         try:
             data = await request.json()
             if not isinstance(data, dict):
@@ -248,23 +254,24 @@ def applications(room, host_key, public_url, hls_js):
 async def main():
     state = Path(os.environ.get('STATE_DIRECTORY', '/var/lib/watch-room'))
     state.mkdir(parents=True, exist_ok=True)
-    key_file = state / 'host-key'
-    if not key_file.exists():
-        fd = os.open(key_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(fd, 'w') as stream:
-            stream.write(secrets.token_urlsafe(32))
     room = Room(os.environ['WATCH_LIBRARY'], state / 'stream')
     await room.stop()  # Restart always revokes the previous screening.
-    apps = applications(room, key_file.read_text().strip(), os.environ['WATCH_PUBLIC_URL'],
-                        Path(os.environ['WATCH_HLS_JS']))
+    apps = applications(room, os.environ['WATCH_HOST_USER'], os.environ['WATCH_PUBLIC_URL'],
+                        Path(os.environ['WATCH_HLS_JS']), os.environ['WATCH_HOST_ORIGIN'])
     runners = []
     task = asyncio.create_task(room.maintain())
     try:
-        for app, port in zip(apps, (8098, 8099)):
+        for index, app in enumerate(apps):
             runner = web.AppRunner(app, access_log=None)
             await runner.setup()
             runners.append(runner)
-            await web.TCPSite(runner, '127.0.0.1', port).start()
+            if index == 0:
+                await web.TCPSite(runner, '127.0.0.1', 8098).start()
+            else:
+                socket = Path(os.environ['RUNTIME_DIRECTORY']) / 'host.sock'
+                socket.unlink(missing_ok=True)
+                await web.UnixSite(runner, str(socket)).start()
+                socket.chmod(0o660)
         await asyncio.Event().wait()
     finally:
         task.cancel()

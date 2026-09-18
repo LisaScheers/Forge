@@ -1,16 +1,19 @@
 'use strict';
-const key = location.hash.slice(1) || sessionStorage.getItem('watch-host-key');
-if (key) sessionStorage.setItem('watch-host-key', key);
+sessionStorage.removeItem('watch-host-key');
 history.replaceState(null, '', location.pathname);
 const movie = document.querySelector('#movie'), message = document.querySelector('#message');
 let busy = false, initialized = false, dragging = false;
 async function api(command) {
   const response = await fetch('api', {
     method: command ? 'POST' : 'GET',
-    headers: {'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json'},
+    headers: {'Content-Type': 'application/json'},
     body: command ? JSON.stringify(command) : undefined,
     signal: AbortSignal.timeout(30000)
   });
+  if (response.status === 401) {
+    location.replace('/');
+    throw new Error('Redirecting to sign in…');
+  }
   if (!response.ok) throw new Error(await response.text());
   return response.json();
 }
