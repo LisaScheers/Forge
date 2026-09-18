@@ -38,6 +38,7 @@ in {
     "secrets/atlas/matrix-registration-secret.age".publicKeys = all;
     "secrets/atlas/matrix-turn-secret.age".publicKeys = all;
     "secrets/atlas/monitoring-otlp-env.age".publicKeys = all;
+    "secrets/atlas/uptime-kuma-probes.age".publicKeys = [keys.users.lisa keys.hosts.atlas];
     "secrets/atlas/pony-tack-deploy-key.age".publicKeys = ponyTack;
     "secrets/atlas/pony-tack-env.age".publicKeys = ponyTack;
     "secrets/atlas/shop-empty-track-env.age".publicKeys = all;
@@ -47,6 +48,7 @@ in {
     "secrets/nook/gotify-env.age".publicKeys = all;
     "secrets/nook/grafana-authentik-client-secret.age".publicKeys = nook;
     "secrets/nook/monitoring-otlp-htpasswd.age".publicKeys = nook;
+    "secrets/nook/uptime-kuma-probes.age".publicKeys = nook;
     "secrets/nook/onepassword-connect-credentials.age".publicKeys = nook;
     "secrets/nook/vaultwarden-admin-token-env.age".publicKeys = all;
     "secrets/nook/vaultwarden-env.age".publicKeys = all;
