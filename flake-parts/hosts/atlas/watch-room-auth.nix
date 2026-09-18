@@ -32,9 +32,9 @@
         EnvironmentFile = [config.age.secrets.authentik-env.path];
         Environment = ["AUTHENTIK_CONFIG=/etc/authentik/config.yml"];
         ExecStartPre = "${pkgs.coreutils}/bin/install -D -m 0600 ${../../../services/watch-room/authentik.yaml} %S/authentik/blueprints/watch-room.yaml";
-        ExecStart = "${config.services.authentik.package}/bin/ak apply_blueprint watch-room.yaml";
+        ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint watch-room.yaml";
         # Attach additively: preserve every existing embedded-outpost provider.
-        ExecStartPost = ''${config.services.authentik.package}/bin/ak shell -c "from authentik.outposts.models import Outpost; from authentik.providers.proxy.models import ProxyProvider; outpost = Outpost.objects.get(managed='goauthentik.io/outposts/embedded'); outpost.providers.add(ProxyProvider.objects.get(name='Watch room host')); outpost.save()"'';
+        ExecStartPost = ''${config.services.authentik.authentikComponents.manage}/bin/manage.py shell -c "from authentik.outposts.models import Outpost; from authentik.providers.proxy.models import ProxyProvider; outpost = Outpost.objects.get(managed='goauthentik.io/outposts/embedded'); outpost.providers.add(ProxyProvider.objects.get(name='Watch room host')); outpost.save()"'';
       };
       restartTriggers = [../../agenix/secrets/atlas/authentik-env.age];
     };
