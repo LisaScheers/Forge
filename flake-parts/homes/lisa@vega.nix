@@ -8,6 +8,8 @@
     imports = [
       config.forge.modules.homeManager.lisa
       config.forge.modules.homeManager.spotaui
+      config.forge.modules.homeManager.chrome-tab
     ];
+    forge.chrome-tab.enable = true;
   };
 }

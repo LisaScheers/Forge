@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Forge Tab Bridge",
+  "version": "0.1.0",
+  "description": "Connect a tab to the local chrome-tab CLI by clicking the toolbar button.",
+  "minimum_chrome_version": "118",
+  "permissions": [
+    "activeTab",
+    "debugger",
+    "nativeMessaging"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Connect this tab to chrome-tab"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvbry71Oy4y5gJzOz4+EYRO4rx6z+VYHAGwohD729GVi+AlqC2IX6epD6R8E7eAaoZ8QquLQppehlTjCRI8LrFUswX3RmSj9Z/hmqjrJUKgwZgakI1EKLHn5I1tM8pbJg8PeKJ8Dt/OMRxfrm1EKWJpMGvcQsxPTzIkxCo5PPdhSv7O64TU0AA8d4pb9hOKwfTQevo8Wt95dcovk+qY53sadQNkjgUqdF5KpBEiJsqTDtN8GK0WM97kq4KpcPuPg/VduhF4n2iHeyWb7iYDtdRxfn6Kc1EArMquLSC0alz9kd2e7g7QwylU1nAXC78aiC7J4XRzUXvFUJ3eNOCdaaCwIDAQAB"
+}
