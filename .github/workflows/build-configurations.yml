@@ -51,6 +51,13 @@ jobs:
         with:
           extra_nix_config: |
             accept-flake-config = true
+      - name: Enable namespaces for Lix sandbox tests
+        if: runner.os == 'Linux'
+        run: |
+          # Ubuntu's AppArmor restriction prevents nested sandbox tests in Lix.
+          # Change only the disposable CI VM; keep Nix sandboxing and tests enabled.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          unshare --user --map-root-user --mount true
       - name: Build configuration without activation
         env:
           TARGET: ${{ matrix.target }}
