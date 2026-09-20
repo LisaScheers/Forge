@@ -1,21 +1,28 @@
-{config, ...}: let
-  flake = config.flake;
+{
+  config,
+  lib,
+  ...
+}: let
   runners = {
     x86_64-linux = "ubuntu-24.04";
     aarch64-linux = "ubuntu-24.04-arm";
     aarch64-darwin = "macos-15";
     x86_64-darwin = "macos-15-intel";
   };
-  configurations = output: suffix:
+  # Reading evaluated configurations can trigger platform-specific builds (IFD).
+  # Use the same declarations as configurations.nix to discover native runners.
+  configurations = output: suffix: declarations:
     map (name: {
       target = "${output}.${builtins.toJSON name}.${suffix}";
-      runner = runners.${flake.${output}.${name}.pkgs.stdenv.hostPlatform.system};
-    }) (builtins.attrNames flake.${output});
+      runner = runners.${declarations.${name}.system};
+    }) (builtins.attrNames declarations);
 in {
   flake.ciMatrix.include =
     configurations "nixosConfigurations" "config.system.build.toplevel"
+    (lib.filterAttrs (_: host: host.class == "nixos") config.forge.hosts)
     ++ configurations "darwinConfigurations" "system"
-    ++ configurations "homeConfigurations" "activationPackage"
+    (lib.filterAttrs (_: host: host.class == "darwin") config.forge.hosts)
+    ++ configurations "homeConfigurations" "activationPackage" config.forge.homes
     ++ map (name: {
       target = "packages.aarch64-linux.${name}";
       runner = runners.aarch64-linux;

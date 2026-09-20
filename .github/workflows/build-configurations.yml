@@ -32,7 +32,7 @@ jobs:
       - name: Discover configurations and their native runners
         id: matrix
         run: |
-          matrix=$(nix eval --json --no-write-lock-file .#ciMatrix)
+          matrix=$(nix eval --json --no-write-lock-file --option allow-import-from-derivation false .#ciMatrix)
           echo "configurations=$matrix" >> "$GITHUB_OUTPUT"
 
   build:
