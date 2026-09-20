@@ -5,6 +5,7 @@
       "toml"
       "catppuccin"
       "catppuccin-icons"
+      "discord-presence"
       "oxc"
       "nu"
     ];

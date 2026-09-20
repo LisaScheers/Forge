@@ -1,6 +1,11 @@
 {
   forge.modules.homeManager.lisa = {pkgs, ...}: {
     programs.zed-editor.userSettings.lsp = {
+      discord_presence.initialization_options = {
+        application_id = "1263505205522337886";
+        state = "Working on {filename}";
+        details = "In {workspace}";
+      };
       nil = {
         binary = {
           path = pkgs.nil + "/bin/nil";
