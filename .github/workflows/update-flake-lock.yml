@@ -27,6 +27,7 @@ jobs:
 
       - uses: cachix/install-nix-action@v31
         with:
+          github_access_token: ${{ secrets.FLAKE_INPUTS_TOKEN || github.token }}
           extra_nix_config: |
             accept-flake-config = true
 
@@ -61,5 +62,7 @@ jobs:
     needs: update-flake-lock
     if: needs.update-flake-lock.outputs.revision != ''
     uses: ./.github/workflows/build-configurations.yml
+    secrets:
+      FLAKE_INPUTS_TOKEN: ${{ secrets.FLAKE_INPUTS_TOKEN }}
     with:
       revision: ${{ needs.update-flake-lock.outputs.revision }}

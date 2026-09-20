@@ -6,6 +6,10 @@ on:
     branches: [main]
   workflow_dispatch:
   workflow_call:
+    secrets:
+      FLAKE_INPUTS_TOKEN:
+        description: GitHub credential with read access to private flake inputs
+        required: false
     inputs:
       revision:
         description: Exact commit to build
@@ -49,6 +53,7 @@ jobs:
           persist-credentials: false
       - uses: cachix/install-nix-action@v31
         with:
+          github_access_token: ${{ secrets.FLAKE_INPUTS_TOKEN || github.token }}
           extra_nix_config: |
             accept-flake-config = true
       - name: Enable namespaces for Lix sandbox tests

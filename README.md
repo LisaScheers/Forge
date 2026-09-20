@@ -87,6 +87,10 @@ GitHub Actions updates `flake.lock` daily at 00:00 UTC and opens or refreshes an
 update PR. The repository must allow GitHub Actions to create pull requests
 (Settings → Actions → General → Workflow permissions).
 
+The `FLAKE_INPUTS_TOKEN` Actions secret supplies Nix with GitHub read access to
+the private `LisaScheers/comic-code-fonts` input for builds and lock updates.
+Fork pull requests do not receive this secret and cannot build the private input.
+
 The update workflow builds the PR's exact commit directly, because PRs created
 with `GITHUB_TOKEN` do not trigger other workflows. Its PR body links to the build
 results. The same build workflow runs for ordinary PRs, pushes to `main`, and
