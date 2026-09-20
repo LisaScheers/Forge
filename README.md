@@ -81,7 +81,21 @@ Do not use deploy-rs dry, test, or boot modes for Vega. The nix-darwin activator
 
 Keep console access available for the first deploy-rs activation on every host. The generation installed before deploy-rs does not contain its rollback wrapper. Later activations use automatic and connection-confirmed rollback with a 10-minute activation timeout and a 60-second confirmation timeout.
 
-GitHub Actions is deferred. When added, it may deploy Nook and Atlas. Vega stays manual.
+## Continuous integration
+
+GitHub Actions updates `flake.lock` daily at 00:00 UTC and opens or refreshes an
+update PR. The repository must allow GitHub Actions to create pull requests
+(Settings → Actions → General → Workflow permissions).
+
+The update workflow builds the PR's exact commit directly, because PRs created
+with `GITHUB_TOKEN` do not trigger other workflows. Its PR body links to the build
+results. The same build workflow runs for ordinary PRs, pushes to `main`, and
+manual runs.
+
+The build matrix discovers every NixOS, nix-darwin, and standalone Home Manager
+configuration from the flake and builds it on a native Linux or macOS runner.
+It also builds both Asterion installer packages. These are full builds, with
+lock-file changes disabled. CI does not activate configurations or deploy hosts.
 
 ## References
 

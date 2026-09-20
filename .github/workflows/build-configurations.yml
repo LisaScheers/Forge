@@ -1,0 +1,57 @@
+name: build-configurations
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      revision:
+        description: Exact commit to build
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    outputs:
+      configurations: ${{ steps.matrix.outputs.configurations }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.revision || github.sha }}
+          persist-credentials: false
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+      - name: Discover configurations and their native runners
+        id: matrix
+        run: |
+          matrix=$(nix eval --json --no-write-lock-file .#ciMatrix)
+          echo "configurations=$matrix" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: matrix
+    name: Build ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.configurations) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.revision || github.sha }}
+          persist-credentials: false
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            accept-flake-config = true
+      - name: Build configuration without activation
+        env:
+          TARGET: ${{ matrix.target }}
+        run: nix build --no-link --no-write-lock-file --print-build-logs ".#$TARGET"
