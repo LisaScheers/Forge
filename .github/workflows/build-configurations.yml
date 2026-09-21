@@ -66,4 +66,4 @@ jobs:
       - name: Build configuration without activation
         env:
           TARGET: ${{ matrix.target }}
-        run: nix build --no-link --no-write-lock-file --print-build-logs ".#$TARGET"
+        run: bash .github/scripts/build-configuration.sh
