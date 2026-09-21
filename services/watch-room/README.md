@@ -48,7 +48,11 @@ buffer. Segments are retained until seeking, stopping, expiration, or restart;
 allow roughly 9 GB free space for a maximum six-hour movie. There is one
 screening per server. Encoding stops if free space falls below 256 MB.
 Each guest consumes up to about 3.2 Mbps of home upload.
-First audio track only; subtitle selection and HDR tone mapping are not provided.
+The host can select embedded audio and subtitle tracks after starting a screening.
+Apply tracks changes them for everyone, preserving position and play/pause state
+while the stream rebuilds. Subtitles default to Off and are burned into the video;
+text and bitmap subtitle tracks are supported. External subtitle files and HDR
+tone mapping are not provided.
 Second Life embedded-browser playback still requires an in-world acceptance test.
 
 ## Verification

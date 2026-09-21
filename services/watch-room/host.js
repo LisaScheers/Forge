@@ -2,6 +2,7 @@
 sessionStorage.removeItem('watch-host-key');
 history.replaceState(null, '', location.pathname);
 const movie = document.querySelector('#movie'), message = document.querySelector('#message');
+let trackSignature = '';
 let busy = false, initialized = false, dragging = false;
 async function api(command) {
   const response = await fetch('api', {
@@ -26,6 +27,20 @@ async function refresh() {
       movie.replaceChildren(...data.movies.map(item => new Option(item.title, item.id)));
       initialized = true;
     }
+    const signature = JSON.stringify([data.tracks, data.audio, data.subtitle, Boolean(data.url)]);
+    if (signature !== trackSignature) {
+      trackSignature = signature;
+      for (const kind of ['audio', 'subtitle']) {
+        const select = document.querySelector(`#${kind}`);
+        const options = data.tracks[kind].map(track => new Option(track.label, track.id));
+        if (kind === 'subtitle') options.unshift(new Option('Off', ''));
+        if (kind === 'audio' && !options.length) options.push(new Option('No audio', ''));
+        select.replaceChildren(...options);
+        select.value = data[kind] === null ? '' : String(data[kind]);
+        select.disabled = !data.url || !data.tracks[kind].length;
+      }
+    }
+    document.querySelector('#tracks').disabled = !data.url;
     const guest = document.querySelector('#guest');
     guest.textContent = data.url || ''; guest.href = data.url || '#';
     const seek = document.querySelector('#seek');
@@ -46,6 +61,12 @@ async function command(action, extra = {}) {
   }
   await refresh();
 }
+document.querySelector('#tracks').onclick = () => command('tracks', Object.fromEntries(
+  ['audio', 'subtitle'].map(kind => {
+    const value = document.querySelector(`#${kind}`).value;
+    return [kind, value === '' ? null : Number(value)];
+  })
+));
 for (const action of ['play', 'pause', 'stop']) document.querySelector(`#${action}`).onclick = () => command(action);
 document.querySelector('#start').onclick = () => command('start', {id: movie.value});
 document.querySelector('#seek').addEventListener('input', () => { dragging = true; });

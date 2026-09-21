@@ -20,7 +20,7 @@ VIDEO_EXTENSIONS = {'.mkv', '.mp4', '.m4v', '.avi', '.mov', '.webm'}
 class Room:
     def __init__(self, library, cache, ffmpeg='ffmpeg', ffprobe='ffprobe'):
         self.library = Path(library).resolve()
-        self.cache = Path(cache)
+        self.cache = Path(cache).resolve()
         self.cache.mkdir(parents=True, exist_ok=True)
         self.ffmpeg, self.ffprobe = ffmpeg, ffprobe
         self.token = None
@@ -32,6 +32,8 @@ class Room:
         self.preparing = False
         self.error = None
         self.title = ''
+        self.tracks = {'audio': [], 'subtitle': []}
+        self.audio = self.subtitle = None
         self.expires = 0.0
         self.lock = asyncio.Lock()
 
@@ -78,12 +80,13 @@ class Room:
             raise web.HTTPBadRequest(text='Choose a movie from the library.')
         path, title = catalog[item]
         probe = await asyncio.create_subprocess_exec(
-            self.ffprobe, '-v', 'error', '-show_entries', 'format=duration',
+            self.ffprobe, '-v', 'error', '-show_entries', 'format=duration:stream=index,codec_type,codec_name:stream_tags=language,title:stream_disposition=default,forced',
             '-of', 'json', str(path), stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL)
         try:
             output, _ = await asyncio.wait_for(probe.communicate(), 20)
-            duration = float(json.loads(output)['format']['duration'])
+            metadata = json.loads(output)
+            duration = float(metadata['format']['duration'])
             if probe.returncode or not math.isfinite(duration) or not 0 < duration <= 21600:
                 raise ValueError()
         except (TimeoutError, ValueError, KeyError):
@@ -93,9 +96,38 @@ class Room:
             raise web.HTTPBadRequest(text='Cannot read this movie (maximum length: 6 hours).')
         await self.stop()
         self.path, self.title, self.duration = path, title, duration
+        self.tracks = {'audio': [], 'subtitle': []}
+        for stream in metadata.get('streams', []):
+            kind = stream.get('codec_type')
+            if kind not in self.tracks:
+                continue
+            tags = stream.get('tags', {})
+            flags = stream.get('disposition', {})
+            label = ' · '.join(str(value) for value in (
+                tags.get('language', 'Unknown language'), tags.get('title'),
+                stream.get('codec_name'), 'forced' if flags.get('forced') else None
+            ) if value)
+            self.tracks[kind].append(dict(id=stream['index'], label=label,
+                                          codec=stream.get('codec_name'),
+                                          default=bool(flags.get('default'))))
+        audio = self.tracks['audio']
+        self.audio = next((t['id'] for t in audio if t['default']), audio[0]['id'] if audio else None)
+        self.subtitle = None
         self.token = secrets.token_urlsafe(32)
         self.expires = time.monotonic() + 12 * 3600
         await self.seek(0, True)
+
+    async def change_tracks(self, audio, subtitle):
+        for kind, selected in (('audio', audio), ('subtitle', subtitle)):
+            if selected is None and (kind == 'subtitle' or not self.tracks[kind]):
+                continue
+            if type(selected) is not int or selected not in [t['id'] for t in self.tracks[kind]]:
+                raise web.HTTPBadRequest(text='Choose a track from this movie.')
+        if (audio, subtitle) == (self.audio, self.subtitle):
+            return
+        current = self.snapshot()
+        self.audio, self.subtitle = audio, subtitle
+        await self.seek(min(current['position'], max(0, self.duration - .1)), current['playing'])
 
     async def seek(self, position, playing):
         if shutil.disk_usage(self.cache).free < 512 * 1024 * 1024:
@@ -112,12 +144,25 @@ class Room:
         self.updated = self.preparation_started = time.monotonic()
         # One shared H.264/AAC rendition. Event HLS keeps earlier segments so
         # guests can recover from buffering without advancing the room clock.
+        scale = 'scale=w=1280:h=720:force_original_aspect_ratio=decrease:force_divisible_by=2'
+        video_filter = f'[0:v:0]{scale}[video]'
+        if self.subtitle is not None:
+            selected = next(t for t in self.tracks['subtitle'] if t['id'] == self.subtitle)
+            if selected['codec'] in ('hdmv_pgs_subtitle', 'dvd_subtitle', 'dvb_subtitle', 'xsub'):
+                video_filter = f'[0:v:0][0:{self.subtitle}]overlay,{scale}[video]'
+            else:
+                # A fixed relative symlink avoids interpreting library filenames
+                # as FFmpeg filter syntax. Text subtitle times refer to the full movie.
+                (directory / 'source').symlink_to(self.path)
+                ordinal = next(i for i, t in enumerate(self.tracks['subtitle']) if t['id'] == self.subtitle)
+                video_filter = (f'[0:v:0]setpts=PTS+{position}/TB,'
+                                f'subtitles=source:si={ordinal},setpts=PTS-STARTPTS,{scale}[video]')
+        audio_map = ['-map', f'0:{self.audio}'] if self.audio is not None else ['-an']
         self.process = await asyncio.create_subprocess_exec(
             self.ffmpeg, '-hide_banner', '-loglevel', 'error', '-nostdin',
             '-readrate', '1', '-readrate_initial_burst', '20', '-ss', str(position),
-            '-i', str(self.path), '-map', '0:v:0', '-map', '0:a:0?',
+            '-i', str(self.path), '-filter_complex', video_filter, '-map', '[video]', *audio_map,
             '-sn', '-dn', '-map_metadata', '-1', '-threads', '4',
-            '-vf', 'scale=w=1280:h=720:force_original_aspect_ratio=decrease:force_divisible_by=2',
             '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p',
             '-b:v', '2500k', '-maxrate', '3000k', '-bufsize', '6000k',
             '-force_key_frames', 'expr:gte(t,n_forced*2)', '-sc_threshold', '0',
@@ -126,7 +171,7 @@ class Room:
             '-hls_segment_type', 'fmp4', '-hls_flags', 'independent_segments+temp_file',
             '-hls_segment_filename', str(directory / 'segment%06d.m4s'),
             str(directory / 'index.m3u8'),
-            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
+            cwd=directory, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
 
     async def maintain(self):
         while True:
@@ -208,6 +253,8 @@ def applications(room, host_user, public_url, hls_js, host_origin='https://watch
             return web.json_response(dict(
                 movies=[dict(id=k, title=v[1]) for k, v in sorted(catalog.items(), key=lambda kv: kv[1][1])],
                 state=room.snapshot(),
+                tracks=room.tracks if room.token else {'audio': [], 'subtitle': []},
+                audio=room.audio, subtitle=room.subtitle,
                 url=f'{public_url}/watch/{room.token}/' if room.token else None))
         if request.method != 'POST' or name != 'api':
             raise web.HTTPNotFound()
@@ -220,7 +267,7 @@ def applications(room, host_user, public_url, hls_js, host_origin='https://watch
             if not isinstance(data, dict):
                 raise ValueError()
             action = data.get('action')
-            if action not in ('start', 'stop', 'play', 'pause', 'seek'):
+            if action not in ('start', 'stop', 'play', 'pause', 'seek', 'tracks'):
                 raise ValueError()
             async with room.lock:
                 if action == 'start':
@@ -231,6 +278,8 @@ def applications(room, host_user, public_url, hls_js, host_origin='https://watch
                     await room.stop()
                 elif not room.token:
                     raise web.HTTPConflict(text='Start a screening first.')
+                elif action == 'tracks':
+                    await room.change_tracks(data['audio'], data['subtitle'])
                 elif action == 'seek':
                     position = float(data['position'])
                     if not math.isfinite(position) or not 0 <= position < room.duration:

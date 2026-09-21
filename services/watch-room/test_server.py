@@ -1,4 +1,5 @@
 import asyncio
+from array import array
 import contextlib
 import json
 from pathlib import Path
@@ -91,11 +92,17 @@ class WatchTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_actual_encoder_seek_and_segments(self):
         # Use a synthetic clip, not anything from the user's movie library.
-        movie = self.library / 'test.mp4'
+        movie = self.library / "test's [tracks].mkv"
+        subtitles = self.root / 'test.srt'
+        subtitles.write_text('1\n00:00:00,000 --> 00:00:07,000\nTrack selection test\n')
         process = await asyncio.create_subprocess_exec(
             'ffmpeg', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=24',
-            '-f', 'lavfi', '-i', 'sine=frequency=440', '-t', '8', '-c:v', 'libx264',
-            '-c:a', 'aac', str(movie))
+            '-f', 'lavfi', '-i', 'sine=frequency=440',
+            '-f', 'lavfi', '-i', 'sine=frequency=880', '-i', str(subtitles),
+            '-map', '0:v', '-map', '1:a', '-map', '2:a', '-map', '3:s',
+            '-metadata:s:a:0', 'language=eng', '-metadata:s:a:1', 'language=nld',
+            '-metadata:s:s:0', 'language=eng', '-t', '8', '-c:v', 'libx264',
+            '-c:a', 'aac', '-c:s', 'srt', str(movie))
         self.assertEqual(await process.wait(), 0)
         task = asyncio.create_task(self.room.maintain())
         try:
@@ -121,6 +128,51 @@ class WatchTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(self.room.generation, 2)
             self.assertEqual(self.room.base, 3)
             self.assertEqual((await self.guest.get(f'/watch/{token}/1/index.m3u8')).status, 404)
+            info = await (await self.host.get('/api', headers=self.auth)).json()
+            self.assertEqual(len(info['tracks']['audio']), 2)
+            self.assertEqual(len(info['tracks']['subtitle']), 1)
+            self.assertIn('nld', info['tracks']['audio'][1]['label'])
+            await self.host.post('/api', json={'action': 'pause'}, headers=self.auth)
+            before = self.room.snapshot()['position']
+            for invalid in (999, True, '2', None):
+                result = await self.host.post('/api', json={
+                    'action': 'tracks', 'audio': invalid, 'subtitle': None}, headers=self.auth)
+                self.assertEqual(result.status, 400)
+            result = await self.host.post('/api', json={
+                'action': 'tracks', 'audio': info['tracks']['audio'][1]['id'],
+                'subtitle': info['tracks']['subtitle'][0]['id']}, headers=self.auth)
+            self.assertEqual(result.status, 200, await result.text())
+            self.assertEqual(self.room.token, token)
+            self.assertEqual(self.room.base, before)
+            self.assertFalse(self.room.playing)
+            for _ in range(100):
+                if not self.room.preparing:
+                    break
+                await asyncio.sleep(.1)
+            self.assertFalse(self.room.preparing)
+            self.assertIsNone(self.room.error)
+            self.assertEqual((await self.guest.get(f'/watch/{token}/3/index.m3u8')).status, 200)
+            self.assertEqual((await self.guest.get(f'/watch/{token}/3/source')).status, 404)
+            # Decode the actual rendition and distinguish the selected 880 Hz
+            # track from the original 440 Hz track by counting zero crossings.
+            decode = await asyncio.create_subprocess_exec(
+                'ffmpeg', '-v', 'error', '-i', str(self.room.cache / '3/index.m3u8'),
+                '-t', '1', '-vn', '-ac', '1', '-ar', '8000', '-f', 's16le', '-',
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+            pcm, _ = await decode.communicate()
+            self.assertEqual(decode.returncode, 0)
+            samples = array('h', pcm)
+            crossings = sum(a < 0 <= b for a, b in zip(samples, samples[1:]))
+            self.assertAlmostEqual(crossings / (len(samples) / 8000), 880, delta=30)
+            invalid = await self.host.post('/api', json={
+                'action': 'tracks', 'audio': self.room.audio, 'subtitle': 999}, headers=self.auth)
+            self.assertEqual(invalid.status, 400)
+            self.assertEqual(self.room.generation, 3)
+            result = await self.host.post('/api', json={
+                'action': 'tracks', 'audio': self.room.audio, 'subtitle': None}, headers=self.auth)
+            self.assertEqual(result.status, 200)
+            self.assertIsNone(self.room.subtitle)
+
         finally:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
