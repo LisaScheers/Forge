@@ -68,7 +68,24 @@ Atlas needs one bootstrap from its existing auto-updater after this change reach
 ssh atlas 'nix config show trusted-users'
 ```
 
-Vega remains local and manual. Its deploy node points to `localhost` and uses interactive sudo. Bootstrap its SSH configuration once through the existing local activation path, then build and deploy it normally:
+Vega remains local and manual. From Zed's terminal, run:
+
+```sh
+just switch
+```
+
+This opens Apple Terminal and switches Vega using this checkout. Enter your sudo
+password or use Touch ID there. The command in Zed returns when Terminal opens;
+the activation result appears in Terminal. No prior rebuild is needed to use it.
+
+If prompted, enable **Terminal** in **System Settings → Privacy & Security →
+App Management**, then rerun `just switch`. Nix-built Zed Nightly can change its
+code-signing identity after updates, invalidating its macOS permissions. Running
+activation in Apple's signed Terminal keeps that permission independent of Zed.
+Directly running `sudo darwin-rebuild switch` inside Zed still uses Zed's permission.
+
+Vega's optional deploy-rs node points to `localhost` and uses interactive sudo.
+Bootstrap its SSH configuration once, then build and deploy it:
 
 ```sh
 just vega-bootstrap
@@ -76,6 +93,11 @@ ssh -o BatchMode=yes localhost true
 just deploy-build vega
 just deploy vega
 ```
+
+`just vega-bootstrap` opens the same Terminal switch command. The deploy-rs path
+uses SSH instead; nix-darwin requires **Allow full disk access for remote users**
+under **System Settings → General → Sharing → Remote Login** for app updates over
+SSH. `just switch` uses the local graphical session and needs no SSH setup.
 
 Do not use deploy-rs dry, test, or boot modes for Vega. The nix-darwin activator in the pinned deploy-rs revision does not implement those modes as real activations.
 

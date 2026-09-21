@@ -8,10 +8,14 @@ default:
 fmt:
     nix fmt
 
+# Switch Vega in Apple Terminal, whose permissions survive Zed rebuilds.
+# This returns after opening Terminal; activation progress/results appear there.
+switch:
+    /usr/bin/open -b com.apple.Terminal "{{justfile_directory()}}/scripts/switch-vega.command"
+
 # Apply Vega once before its first deploy-rs activation.
 # This enables localhost SSH and installs the deployment key.
-vega-bootstrap:
-    sudo darwin-rebuild switch --flake .#vega
+vega-bootstrap: switch
 
 # Install the home server with nixos-anywhere.
 # WARNING: this repartitions and formats the disk configured in config.nix.
