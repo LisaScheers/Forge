@@ -18,11 +18,12 @@ VIDEO_EXTENSIONS = {'.mkv', '.mp4', '.m4v', '.avi', '.mov', '.webm'}
 
 
 class Room:
-    def __init__(self, library, cache, ffmpeg='ffmpeg', ffprobe='ffprobe'):
+    def __init__(self, library, cache, ffmpeg='ffmpeg', ffprobe='ffprobe', vaapi_device=None):
         self.library = Path(library).resolve()
         self.cache = Path(cache).resolve()
         self.cache.mkdir(parents=True, exist_ok=True)
         self.ffmpeg, self.ffprobe = ffmpeg, ffprobe
+        self.vaapi_device = vaapi_device
         self.token = None
         self.process = None
         self.generation = 0
@@ -157,21 +158,33 @@ class Room:
                 ordinal = next(i for i, t in enumerate(self.tracks['subtitle']) if t['id'] == self.subtitle)
                 video_filter = (f'[0:v:0]setpts=PTS+{position}/TB,'
                                 f'subtitles=source:si={ordinal},setpts=PTS-STARTPTS,{scale}[video]')
+        device_args = []
+        encoder_args = ['-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p',
+                        '-sc_threshold', '0']
+        if self.vaapi_device:
+            device_args = ['-init_hw_device', f'vaapi=watch:{self.vaapi_device}',
+                           '-filter_hw_device', 'watch']
+            # Keep decoding and subtitle filters on the CPU: the AMD decoder
+            # crashes on the library's hybrid Dolby Vision HEVC source.
+            # Upload the composited frame for hardware H.264 encoding.
+            video_filter = video_filter.replace('[video]', ',format=nv12,hwupload[video]')
+            encoder_args = ['-c:v', 'h264_vaapi']
         audio_map = ['-map', f'0:{self.audio}'] if self.audio is not None else ['-an']
         self.process = await asyncio.create_subprocess_exec(
             self.ffmpeg, '-hide_banner', '-loglevel', 'error', '-nostdin',
+            *device_args, '-threads', '4',
             '-readrate', '1', '-readrate_initial_burst', '20', '-ss', str(position),
             '-i', str(self.path), '-filter_complex', video_filter, '-map', '[video]', *audio_map,
             '-sn', '-dn', '-map_metadata', '-1', '-threads', '4',
-            '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p',
+            *encoder_args,
             '-b:v', '2500k', '-maxrate', '3000k', '-bufsize', '6000k',
-            '-force_key_frames', 'expr:gte(t,n_forced*2)', '-sc_threshold', '0',
+            '-force_key_frames', 'expr:gte(t,n_forced*2)',
             '-c:a', 'aac', '-ac', '2', '-b:a', '128k',
             '-f', 'hls', '-hls_time', '2', '-hls_playlist_type', 'event',
             '-hls_segment_type', 'fmp4', '-hls_flags', 'independent_segments+temp_file',
             '-hls_segment_filename', str(directory / 'segment%06d.m4s'),
             str(directory / 'index.m3u8'),
-            cwd=directory, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
+            cwd=directory, stdout=asyncio.subprocess.DEVNULL)
 
     async def maintain(self):
         while True:
@@ -193,7 +206,13 @@ class Room:
                     self.position = self.snapshot()['position']
                     self.playing = self.preparing = False
                     self.error = 'The movie could not be encoded. Ask the host to restart it.'
-                elif self.preparing and manifest.exists():
+                elif self.preparing and manifest.exists() and (
+                    sum(float(value) for value in re.findall(
+                        r'#EXTINF:([0-9.]+)', manifest.read_text())) >= 6
+                    or self.process.returncode == 0
+                ):
+                    # Start the shared clock with enough video prepared to
+                    # absorb short transfer stalls, including after a seek.
                     self.preparing = False
                     self.updated = time.monotonic()
                 elif self.preparing and time.monotonic() - self.preparation_started > 90:
@@ -303,7 +322,8 @@ def applications(room, host_user, public_url, hls_js, host_origin='https://watch
 async def main():
     state = Path(os.environ.get('STATE_DIRECTORY', '/var/lib/watch-room'))
     state.mkdir(parents=True, exist_ok=True)
-    room = Room(os.environ['WATCH_LIBRARY'], state / 'stream')
+    room = Room(os.environ['WATCH_LIBRARY'], state / 'stream',
+                vaapi_device=os.environ.get('WATCH_VAAPI_DEVICE'))
     await room.stop()  # Restart always revokes the previous screening.
     apps = applications(room, os.environ['WATCH_HOST_USER'], os.environ['WATCH_PUBLIC_URL'],
                         Path(os.environ['WATCH_HLS_JS']), os.environ['WATCH_HOST_ORIGIN'])

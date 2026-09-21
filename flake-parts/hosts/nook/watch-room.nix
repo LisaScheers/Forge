@@ -89,13 +89,14 @@
         WATCH_PUBLIC_URL = "https://jellyfin.bylisa.dev";
         WATCH_HLS_JS = "${hls}";
         WATCH_HOST_USER = "lisa";
+        WATCH_VAAPI_DEVICE = "/dev/dri/renderD128";
         WATCH_HOST_ORIGIN = "https://watch.local.bylisa.dev";
       };
       serviceConfig = {
         ExecStart = "${python}/bin/python3 ${source}/server.py";
         DynamicUser = true;
         Group = "nginx";
-        SupplementaryGroups = ["media"];
+        SupplementaryGroups = ["media" "render"];
         RuntimeDirectory = "watch-room";
         RuntimeDirectoryMode = "0750";
         StateDirectory = "watch-room";
@@ -105,7 +106,10 @@
         RestartSec = 3;
         NoNewPrivileges = true;
         PrivateTmp = true;
-        PrivateDevices = true;
+        # Expose only the render node needed by VAAPI.
+        PrivateDevices = false;
+        DevicePolicy = "closed";
+        DeviceAllow = ["/dev/dri/renderD128 rw"];
         ProtectSystem = "strict";
         ProtectHome = true;
         ProtectKernelTunables = true;

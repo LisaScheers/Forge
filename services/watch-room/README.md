@@ -2,7 +2,11 @@
 
 One fullscreen web page per viewer, backed by an authoritative room clock.
 The host chooses a local movie; one FFmpeg process makes shared 720p H.264/AAC
-HLS segments. Guests poll position/play/pause state each second. Small drift
+HLS segments. Nook uses VAAPI hardware H.264 encoding through its AMD render
+node. Decoding and subtitle composition stay on the CPU: hardware decoding
+crashes on the hybrid Dolby Vision HEVC source tested on this driver.
+`WATCH_VAAPI_DEVICE` enables hardware encoding; unset it for software encoding
+in local tests. Encoder errors go to the service journal. Guests poll position/play/pause state each second. Small drift
 uses a 3% playback-rate correction; drift over 1.2 seconds seeks back into sync.
 This is approximate synchronization, not frame-accurate broadcast playback.
 On lost backend contact, the player pauses until it reconnects.
@@ -48,6 +52,8 @@ buffer. Segments are retained until seeking, stopping, expiration, or restart;
 allow roughly 9 GB free space for a maximum six-hour movie. There is one
 screening per server. Encoding stops if free space falls below 256 MB.
 Each guest consumes up to about 3.2 Mbps of home upload.
+Playback waits for six seconds of encoded video (or the end of a shorter clip)
+before starting the shared clock.
 The host can select embedded audio and subtitle tracks after starting a screening.
 Apply tracks changes them for everyone, preserving position and play/pause state
 while the stream rebuilds. Subtitles default to Off and are burned into the video;

@@ -2,6 +2,8 @@ import asyncio
 from array import array
 import contextlib
 import json
+import os
+import re
 from pathlib import Path
 import tempfile
 import time
@@ -18,7 +20,8 @@ class WatchTests(unittest.IsolatedAsyncioTestCase):
         self.root = Path(self.temp.name)
         self.library = self.root / 'movies'
         self.library.mkdir()
-        self.room = Room(self.library, self.root / 'cache')
+        self.room = Room(self.library, self.root / 'cache',
+                         vaapi_device=os.environ.get('WATCH_TEST_VAAPI_DEVICE'))
         public, private = applications(self.room, 'lisa', 'https://example.test', self.root / 'hls.js')
         self.guest = TestClient(TestServer(public))
         self.host = TestClient(TestServer(private))
@@ -118,7 +121,18 @@ class WatchTests(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(self.room.error)
             manifest = await self.guest.get(f'/watch/{token}/1/index.m3u8')
             self.assertEqual(manifest.status, 200)
-            self.assertIn('#EXTM3U', await manifest.text())
+            playlist = await manifest.text()
+            self.assertIn('#EXTM3U', playlist)
+            prepared = sum(float(value) for value in re.findall(r'#EXTINF:([0-9.]+)', playlist))
+            self.assertGreaterEqual(prepared, 6)
+            probe = await asyncio.create_subprocess_exec(
+                'ffprobe', '-v', 'error', '-show_entries', 'stream=width,height',
+                '-select_streams', 'v:0', '-of', 'json',
+                str(self.room.cache / '1/index.m3u8'), stdout=asyncio.subprocess.PIPE)
+            output, _ = await probe.communicate()
+            self.assertEqual(probe.returncode, 0)
+            dimensions = json.loads(output)['streams'][0]
+            self.assertEqual((dimensions['width'], dimensions['height']), (1280, 720))
             self.assertEqual((await self.guest.get(f'/watch/{token}/1/init.mp4')).status, 200)
             for value in (-1, 'NaN', 99999):
                 result = await self.host.post('/api', json={'action': 'seek', 'position': value}, headers=self.auth)
