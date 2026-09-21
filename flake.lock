@@ -1560,11 +1560,11 @@
         "treefmt-nix": "treefmt-nix_3"
       },
       "locked": {
-        "lastModified": 1789947231,
-        "narHash": "sha256-ueovILaywZXBtuZ5iQ1k4fi06TReBzlAlF6uhckLI1o=",
+        "lastModified": 1789958564,
+        "narHash": "sha256-J/qlyDbE1+7NYQYlDH5Y+fJLX69UgKvu6hiR2L0u860=",
         "owner": "LisaScheers",
         "repo": "me",
-        "rev": "a3636f5e81b50acd9efb1f93777275c4dacf138e",
+        "rev": "9d5dce504141b6e4b08a42115aa3c191344682f7",
         "type": "github"
       },
       "original": {
