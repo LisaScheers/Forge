@@ -1,0 +1,15 @@
+diff --git a/tests/functional2/store/test_export.py b/tests/functional2/store/test_export.py
+--- a/tests/functional2/store/test_export.py
++++ b/tests/functional2/store/test_export.py
+@@ -53,8 +53,6 @@ def test_bad_fd(nix: Nix, command: Callable[[list[str]], Command]):
+     out_path = nix.nix_build(["dependencies.nix", "--no-out-link"]).run().ok().stdout_plain
+     # HACK(rootile, 2026-06): we can't pipe things into files from within our framework
+-    cmd = command(["bash", "-c", 'nix-store --export "$1" > /dev/full', "nix-store", out_path])
++    # A read-only stdout exercises the write error on both Linux and Darwin.
++    cmd = command(["bash", "-c", 'nix-store --export "$1" 1< /dev/null', "nix-store", out_path])
+     res = cmd.run().expect(1)
+-    assert (
+-        "error: writing to file:" in res.stderr_plain
+-        or "Operation not permitted" in res.stderr_plain
+-    )
++    assert "error: writing to file:" in res.stderr_plain
