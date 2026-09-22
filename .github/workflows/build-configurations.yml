@@ -63,6 +63,19 @@ jobs:
           # Change only the disposable CI VM; keep Nix sandboxing and tests enabled.
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           unshare --user --map-root-user --mount true
+      - name: Free macOS build space
+        if: runner.os == 'macOS'
+        run: |
+          # Zed's source build needs space occupied by unused runner toolchains.
+          # Retain the selected Xcode and its SDKs for native builds.
+          selected_xcode=$(cd "$(xcode-select -p)/../.." && pwd -P)
+          for xcode_app in /Applications/Xcode*.app; do
+            if [[ -d "$xcode_app" && ! -L "$xcode_app" && "$xcode_app" != "$selected_xcode" ]]; then
+              sudo rm -rf "$xcode_app"
+            fi
+          done
+          sudo rm -rf /Library/Developer/CoreSimulator
+          df -h / /nix
       - name: Build configuration without activation
         env:
           TARGET: ${{ matrix.target }}
