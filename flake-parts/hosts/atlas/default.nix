@@ -17,6 +17,14 @@
 
     networking.domain = "bylisa.dev";
 
+    # Leave a buffer for memory spikes from Minecraft and the shared services.
+    swapDevices = [
+      {
+        device = "/var/swapfile";
+        size = 8 * 1024;
+      }
+    ];
+
     boot.loader.grub = {
       enable = true;
       efiSupport = true;
