@@ -10,6 +10,7 @@ in {
     certificateDomain = "media.local.bylisa.dev";
     jellyfinDomain = "jellyfin.local.bylisa.dev";
     publicJellyfinDomain = "jellyfin.bylisa.dev";
+    seerrDomain = "seerr.bylisa.dev";
     prowlarrDomain = "prowlarr.local.bylisa.dev";
     radarrDomain = "radarr.local.bylisa.dev";
     sonarrDomain = "sonarr.local.bylisa.dev";
@@ -115,7 +116,7 @@ in {
         }
       ];
   in {
-    services.cloudflare-dyndns.domains = [publicJellyfinDomain];
+    services.cloudflare-dyndns.domains = [publicJellyfinDomain seerrDomain];
 
     hardware.graphics = {
       enable = true;
@@ -126,6 +127,7 @@ in {
       extraDomainNames = [
         jellyfinDomain
         publicJellyfinDomain
+        seerrDomain
         prowlarrDomain
         radarrDomain
         sonarrDomain
@@ -178,6 +180,13 @@ in {
     ];
 
     services = {
+      seerr = {
+        enable = true;
+        stateRevision = 1;
+        port = 5055;
+        openFirewall = false;
+      };
+
       jellyfin = {
         enable = true;
         openFirewall = true;
@@ -267,6 +276,7 @@ in {
             }
           ];
           ${prowlarrDomain} = proxyHost 9696;
+          ${seerrDomain} = proxyHost config.services.seerr.port;
           ${radarrDomain} = proxyHost 7878;
           ${sonarrDomain} = proxyHost 8989;
           ${transmissionDomain} = proxyHost 9091;
@@ -309,6 +319,8 @@ in {
     };
 
     systemd.services = {
+      seerr.environment.HOST = "127.0.0.1";
+
       media-egress-routing-rules = {
         description = "Policy routing rules for media service VLAN egress";
         after = ["network-online.target"];
