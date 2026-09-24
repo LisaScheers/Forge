@@ -25,22 +25,19 @@ Nook builds the pinned Authentik plugin alongside Gotify, using Gotify's Go
 toolchain and vendored dependencies. The build runs the plugin's tests and starts
 an isolated Gotify instance to check that the plugin loads successfully.
 
-After deploying the configuration:
+The Atlas blueprint configures a generic webhook transport and a Notice rule for
+`authentik Admins`, with event matchers for login, login failure, and logout.
+Authentik evaluates notification matchers with Any semantics. `send_once` avoids
+duplicate webhook deliveries when the group has several members.
 
-1. Sign in to https://gotify.bylisa.dev as the user who should receive the alerts.
-   Enable **Authentik Plugin** under Plugins. Optionally set `friendly_name` to
-   `auth.bylisa.dev`.
-2. Copy the webhook URL shown by the plugin. Treat it as a secret: it contains
-   the token for that user's plugin instance.
-3. In Authentik, create a notification transport with mode **Webhook (generic)**,
-   that URL, no webhook mapping, and **Send once** enabled.
-4. Create a notification rule for the **authentik Admins** group, select that
-   transport and severity **Notice**.
-5. Bind three event matcher policies: **Login**, **Login Failed**, and **Logout**.
-   Set the rule's policy engine mode to **Any** so any one of the events matches.
+The destination is Lisa's enabled Gotify plugin instance. Its secret URL is stored
+as `GOTIFY_WEBHOOK_URL` in `secrets/atlas/gotify-webhook-env.age`, readable only by
+Lisa and Atlas. No custom payload mapping is needed.
 
-Plugin enablement and the generated webhook token are per-user Gotify database
-state. The Nix configuration installs the plugin; the steps above activate
-delivery. No production state is changed by the build check.
+Plugin enablement and its token remain per-user Gotify database state. If the
+plugin instance is recreated or its token changes, update the encrypted URL and
+redeploy Atlas. On first deployment, start `authentik-gotify-blueprint.service`
+explicitly if Authentik was already running; subsequent boots apply it before
+Authentik starts. The isolated build check does not change production state.
 
 Upstream: https://github.com/ckocyigit/gotify-authentik-plugin

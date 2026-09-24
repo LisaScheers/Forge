@@ -49,8 +49,77 @@
             order: 0
           attrs:
             enabled: true
+
+        - model: authentik_events.notificationtransport
+          id: gotify-transport
+          identifiers:
+            name: Gotify
+          attrs:
+            mode: webhook
+            webhook_url: !Env GOTIFY_WEBHOOK_URL
+            send_once: true
+            webhook_mapping_body: null
+            webhook_mapping_headers: null
+
+        - model: authentik_events.notificationrule
+          id: gotify-events
+          identifiers:
+            name: Gotify authentication events
+          attrs:
+            severity: notice
+            destination_group: !Find [authentik_core.group, [name, "authentik Admins"]]
+            destination_event_user: false
+            transports:
+              - !KeyOf gotify-transport
+
+        - model: authentik_policies_event_matcher.eventmatcherpolicy
+          id: gotify-login
+          identifiers:
+            name: Gotify login
+          attrs:
+            action: login
+        - model: authentik_policies_event_matcher.eventmatcherpolicy
+          id: gotify-login-failed
+          identifiers:
+            name: Gotify login failed
+          attrs:
+            action: login_failed
+        - model: authentik_policies_event_matcher.eventmatcherpolicy
+          id: gotify-logout
+          identifiers:
+            name: Gotify logout
+          attrs:
+            action: logout
+
+        - model: authentik_policies.policybinding
+          identifiers:
+            target: !KeyOf gotify-events
+            policy: !KeyOf gotify-login
+            order: 0
+          attrs:
+            enabled: true
+        - model: authentik_policies.policybinding
+          identifiers:
+            target: !KeyOf gotify-events
+            policy: !KeyOf gotify-login-failed
+            order: 1
+          attrs:
+            enabled: true
+        - model: authentik_policies.policybinding
+          identifiers:
+            target: !KeyOf gotify-events
+            policy: !KeyOf gotify-logout
+            order: 2
+          attrs:
+            enabled: true
     '';
   in {
+    age.secrets.gotify-webhook-env = {
+      file = ../../agenix/secrets/atlas/gotify-webhook-env.age;
+      owner = "root";
+      group = "root";
+      mode = "0400";
+    };
     age.secrets.gotify-oidc-env = {
       file = ../../agenix/secrets/shared/gotify-oidc-env.age;
       owner = "root";
@@ -59,7 +128,7 @@
     };
 
     systemd.services.authentik-gotify-blueprint = {
-      description = "Apply Gotify Authentik OAuth2/OIDC blueprint";
+      description = "Apply Gotify Authentik OIDC and notification blueprint";
       requiredBy = ["authentik.service"];
       before = ["authentik.service"];
       after = ["authentik-migrate.service"];
@@ -73,6 +142,7 @@
         EnvironmentFile = [
           config.age.secrets.authentik-env.path
           config.age.secrets.gotify-oidc-env.path
+          config.age.secrets.gotify-webhook-env.path
         ];
         Environment = ["AUTHENTIK_CONFIG=/etc/authentik/config.yml"];
         ExecStartPre = "${pkgs.coreutils}/bin/install -D -m 0600 ${blueprint} %S/authentik/blueprints/gotify.yaml";
@@ -81,6 +151,7 @@
       restartTriggers = [
         ../../agenix/secrets/atlas/authentik-env.age
         ../../agenix/secrets/shared/gotify-oidc-env.age
+        ../../agenix/secrets/atlas/gotify-webhook-env.age
       ];
     };
   };

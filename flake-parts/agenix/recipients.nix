@@ -29,6 +29,7 @@
 in {
   flake.agenixRules = {
     "secrets/atlas/authentik-env.age".publicKeys = all;
+    "secrets/atlas/gotify-webhook-env.age".publicKeys = [keys.users.lisa keys.hosts.atlas];
     "secrets/atlas/authentik-ldap-outpost-env.age".publicKeys = all;
     "secrets/atlas/auto-sync-update-env.age".publicKeys = all;
     "secrets/atlas/bluesky-pds-env.age".publicKeys = all;
