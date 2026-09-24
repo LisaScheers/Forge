@@ -92,6 +92,8 @@
       full-update-interval: 1440
     '';
   in {
+    services.cloudflare-dyndns.domains = ["mc.bylisa.dev"];
+
     systemd.services.atm-10-tts = {
       enable = false;
       wantedBy = ["multi-user.target"];
