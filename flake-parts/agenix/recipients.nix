@@ -35,6 +35,7 @@ in {
     "secrets/atlas/bluesky-pds-env.age".publicKeys = all;
     "secrets/atlas/cf-api-token.age".publicKeys = all;
     "secrets/atlas/forgejo-mailer-password.age".publicKeys = forgejo;
+    "secrets/atlas/forgejo-oidc-env.age".publicKeys = forgejo;
     "secrets/atlas/forgejo-runner-token.age".publicKeys = all;
     "secrets/atlas/matrix-registration-secret.age".publicKeys = all;
     "secrets/atlas/matrix-turn-secret.age".publicKeys = all;
