@@ -102,6 +102,11 @@
         set -o pipefail
         source "$CREDENTIALS_DIRECTORY/forgejo-oidc-env"
         : "''${FORGEJO_CLIENT_SECRET:?Missing Forgejo OIDC client secret}"
+        # Authentik's process starts before its discovery endpoint is ready.
+        # Wait here so a transient 503 does not fail system activation.
+        ${pkgs.curl}/bin/curl --fail --silent --show-error \
+          --retry 30 --retry-all-errors --retry-delay 1 --retry-max-time 60 --max-time 5 \
+          https://auth.bylisa.dev/application/o/forgejo/.well-known/openid-configuration > /dev/null
         source_id="$(${lib.getExe config.services.forgejo.package} admin auth list | ${pkgs.gawk}/bin/awk '$2 == "authentik" { print $1 }')"
         auth_command=(add-oauth)
         if [[ -n "$source_id" ]]; then
