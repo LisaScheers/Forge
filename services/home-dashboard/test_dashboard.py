@@ -6,6 +6,7 @@ import socket
 import sqlite3
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import patch
 
@@ -62,6 +63,18 @@ class StatusTests(unittest.TestCase):
         self.assertEqual(collect.aggregate([{"status": "up"}, {"status": "down"}]), "down")
         self.assertEqual(collect.aggregate([{"status": "up"}, {"status": "unknown"}]), "unknown")
         self.assertEqual(collect.aggregate([]), "unknown")
+
+    def test_remote_listener_stale_or_invalid_snapshot_cannot_be_healthy(self):
+        service = {"name": "Listener", "probe": {"url": "http://localhost/status", "snapshot": True}}
+        for body, expected in (({"generated": time.time() - 300, "status": "up"}, "unknown"),
+                               ({"generated": time.time(), "status": "up"}, "up"),
+                               ({"generated": time.time(), "status": "down"}, "down"),
+                               ({"generated": time.time()}, "unknown")):
+            with patch("collect.http.client.HTTPConnection") as connection:
+                response = connection.return_value.getresponse.return_value
+                response.status = 200
+                response.read.return_value = json.dumps(body).encode()
+                self.assertEqual(collect.http_check(service)["status"], expected)
 
 
 class ApiTests(unittest.TestCase):

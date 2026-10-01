@@ -61,10 +61,10 @@ def http_check(service):
             local = json.loads(response.read(4096))
             result["kind"] = "TCP listener"
             result["checked"] = local["generated"]
-            result["status"] = local["status"] if time.time() - local["generated"] <= 120 else "unknown"
+            result["status"] = local["status"] if local["status"] in ("up", "down") and 0 <= time.time() - local["generated"] <= 120 else "unknown"
             result["latency"] = None
     except (OSError, http.client.HTTPException, ValueError, KeyError, TypeError):
-        pass
+        result["status"] = "unknown" if probe.get("snapshot") else "down"
     finally:
         if connection:
             connection.close()
