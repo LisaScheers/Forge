@@ -122,7 +122,7 @@ function render() {
   }
   if (!filtered.length) {
     const empty = node("div", "empty");
-    empty.append(node("h2", "", query ? "No services found" : "All clear."), node("p", "", query ? "Try another name or category." : "Every visible service is healthy."));
+    empty.append(node("h2", "", !services.length ? "Services unavailable" : query ? "No services found" : "All clear."), node("p", "", !services.length ? "Waiting for the dashboard to reconnect." : query ? "Try another name or category." : "Every visible service is healthy."));
     fragment.append(empty);
   }
   container.replaceChildren(fragment);

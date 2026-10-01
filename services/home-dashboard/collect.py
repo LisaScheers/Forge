@@ -37,7 +37,7 @@ def http_check(service):
     probe = service["probe"]
     parsed = urllib.parse.urlsplit(probe["url"])
     result = {"name": service["name"], "status": "down", "checked": time.time(),
-              "latency": None, "kind": "HTTP reachability"}
+              "latency": None, "kind": "TCP listener" if probe.get("snapshot") else "HTTP reachability"}
     connection = None
     started = time.monotonic()
     try:
@@ -58,12 +58,13 @@ def http_check(service):
         accepted = probe.get("codes", [200, 301, 302, 303, 307, 308])
         result["status"] = "up" if response.status in accepted else "down"
         result["latency"] = round((time.monotonic() - started) * 1000)
-        if probe.get("snapshot") and response.status == 200:
-            local = json.loads(response.read(4096))
-            result["kind"] = "TCP listener"
-            result["checked"] = local["generated"]
-            result["status"] = local["status"] if local["status"] in ("up", "down") and 0 <= time.time() - local["generated"] <= 120 else "unknown"
+        if probe.get("snapshot"):
+            result["status"] = "unknown"
             result["latency"] = None
+            if response.status == 200:
+                local = json.loads(response.read(4096))
+                result["checked"] = local["generated"]
+                result["status"] = local["status"] if local["status"] in ("up", "down") and 0 <= time.time() - local["generated"] <= 120 else "unknown"
     except (OSError, http.client.HTTPException, ValueError, KeyError, TypeError):
         result["status"] = "unknown" if probe.get("snapshot") else "down"
     finally:

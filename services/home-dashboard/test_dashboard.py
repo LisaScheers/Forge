@@ -76,6 +76,9 @@ class StatusTests(unittest.TestCase):
                 response.status = 200
                 response.read.return_value = json.dumps(body).encode()
                 self.assertEqual(collect.http_check(service)["status"], expected)
+        with patch("collect.http.client.HTTPConnection") as connection:
+            connection.return_value.getresponse.return_value.status = 503
+            self.assertEqual(collect.http_check(service)["status"], "unknown")
 
 
 class ApiTests(unittest.TestCase):
