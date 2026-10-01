@@ -86,6 +86,7 @@
 
     systemd.services.authentik-home-dashboard-blueprint = {
       description = "Apply the dashboard Authentik provider";
+      wantedBy = ["multi-user.target"];
       requiredBy = ["authentik.service"];
       before = ["authentik.service"];
       after = ["authentik-migrate.service"];
