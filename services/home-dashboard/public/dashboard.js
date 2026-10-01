@@ -22,6 +22,7 @@ const icons = {
   flame: '<path d="M12 2c2 6 7 7 7 13a7 7 0 0 1-14 0c0-3 1-5 3-7 0 4 2 4 2 4s4-4 2-10Z"/>',
   mail: '<rect x="2" y="4" width="20" height="16" rx="3"/><path d="m3 6 9 7 9-7"/>',
   game: '<path d="M6 7h12c4 0 6 13 2 13l-5-4H9l-5 4C0 20 2 7 6 7Z"/><path d="M6 10v6m-3-3h6M16 11h.01M19 14h.01"/>',
+  sun: '<circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M1 12h2m18 0h2M4 4l2 2m12 12 2 2M4 20l2-2M18 6l2-2"/>',
   server: '<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01M12 6.5h5m-5 11h5"/>'
 };
 const labels = {up: "Healthy", down: "Unavailable", pending: "Retrying", unknown: "Unknown", maintenance: "Maintenance", paused: "Paused"};
@@ -84,7 +85,7 @@ function card(service) {
     element.append(copy);
   }
   const bottom = node("div", "card-bottom");
-  bottom.append(status(service.status), node("span", "access", service.local ? "Home / Tailscale" : service.public ? "Public" : "Private"));
+  bottom.append(status(service.status), node("span", "access", service.network || (service.local ? "Home / Tailscale" : service.public ? "Public" : "Private")));
   element.append(bottom);
   if (service.checks.length) {
     const details = node("details", "check-details");

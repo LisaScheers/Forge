@@ -17,7 +17,7 @@ def read_view(private):
     except (OSError, ValueError):
         catalog = json.loads((ROOT / "catalog.json").read_text())
         snapshot = {"generated": None, "services": [
-            {key: entry[key] for key in ("id", "name", "description", "group", "icon", "url", "connection", "local", "public") if key in entry}
+            {key: entry[key] for key in ("id", "name", "description", "group", "icon", "url", "connection", "local", "network", "public") if key in entry}
             for entry in catalog if private or entry.get("public", False)]}
         for service in snapshot["services"]:
             service.update(status="unknown", checks=[])

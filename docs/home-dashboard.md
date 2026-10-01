@@ -5,7 +5,7 @@ icons, service cards, search, an issues filter, and expandable check details.
 
 Anonymous visitors see the personal site and publicly browsable Forgejo.
 Authentik users also see media, home automation, identity, monitoring, mail,
-Minecraft, and every remaining non-group Uptime Kuma check. Application-specific
+Minecraft, Sunshine, and every remaining non-group Uptime Kuma check. Application-specific
 permissions still apply when opening a service. Home-only links are labeled
 “Home / Tailscale”. Minecraft offers a copyable server address.
 
@@ -31,7 +31,9 @@ Infrastructure privately. Kuma remains the alerting source for its own monitors.
 Additional HTTP reachability checks cover the site, Element, Seerr, Uptime Kuma,
 the movie-night console, and Transmission. Nook's local HTTPS hosts are reached
 over Tailscale while verifying certificates against their original names.
-Authenticated HTTP responses and Transmission's expected 409 establish
+Sunshine's TCP listener is checked on Nook, with a reduced status file served
+only to Atlas over Tailscale. Its control panel remains LAN-only. Authenticated
+HTTP responses and Transmission's expected 409 establish
 reachability, not successful login or full user workflows. Check details label
 the measurement type. Dashboard-only probes do not configure Kuma alerts.
 
@@ -43,7 +45,7 @@ every 30 seconds and on returning to the tab. Failed session checks clear privat
 data from the current view.
 
 Deploy through `just deploy atlas` from clean `origin/main`, as documented in
-the repository README. No Nook deployment is required.
+the repository README. Deploy Nook's Sunshine listener check with `just deploy nook`.
 
 Run the narrow status tests with a Nix Python runtime:
 

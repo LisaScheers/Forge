@@ -57,7 +57,13 @@ def http_check(service):
         accepted = probe.get("codes", [200, 301, 302, 303, 307, 308])
         result["status"] = "up" if response.status in accepted else "down"
         result["latency"] = round((time.monotonic() - started) * 1000)
-    except (OSError, http.client.HTTPException):
+        if probe.get("snapshot") and response.status == 200:
+            local = json.loads(response.read(4096))
+            result["kind"] = "TCP listener"
+            result["checked"] = local["generated"]
+            result["status"] = local["status"] if time.time() - local["generated"] <= 120 else "unknown"
+            result["latency"] = None
+    except (OSError, http.client.HTTPException, ValueError, KeyError, TypeError):
         pass
     finally:
         if connection:
@@ -83,7 +89,7 @@ def build_snapshot(catalog, monitors, probes, now):
                                      "latency": None, "kind": "Monitor check"}) for name in names]
         if "probe" in entry:
             checks.append(probes[entry["id"]])
-        service = {key: entry[key] for key in ("id", "name", "description", "group", "icon", "url", "connection", "local", "public") if key in entry}
+        service = {key: entry[key] for key in ("id", "name", "description", "group", "icon", "url", "connection", "local", "network", "public") if key in entry}
         service.update(status=aggregate(checks), checks=checks)
         services.append(service)
     # Every remaining Kuma check appears privately, without monitor URLs or messages.
