@@ -51,6 +51,12 @@ class StatusTests(unittest.TestCase):
             self.assertNotIn("Secret error URL", json.dumps(private))
             self.assertTrue(any(service["name"] == "Secret private monitor" for service in private["services"]))
             self.assertTrue(all("probe" not in service for service in private["services"]))
+            with patch("collect.http_check", return_value=fake_probe):
+                collect.collect(root / "missing-database", root / "status")
+            outage = json.loads((root / "status/private.json").read_text())
+            cached = next(service for service in outage["services"] if service["name"] == "Secret private monitor")
+            self.assertEqual(cached["status"], "unknown")
+            self.assertNotIn("Secret private monitor", (root / "status/public.json").read_text())
 
     def test_stale_export_and_missing_export_fail_unknown(self):
         with tempfile.TemporaryDirectory() as temporary, patch.object(server, "STATUS", Path(temporary)):

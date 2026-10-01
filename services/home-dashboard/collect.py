@@ -120,6 +120,14 @@ def collect(database, output):
     except sqlite3.Error:
         # An unreadable database must not preserve a previous green result.
         print("Kuma status unavailable", flush=True)
+        try:
+            previous = json.loads((output / "private.json").read_text())
+            for service in previous["services"]:
+                if service["group"] == "Infrastructure":
+                    for check in service["checks"]:
+                        monitors[check["name"]] = check | {"status": "unknown"}
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
     with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
         entries = [entry for entry in catalog if "probe" in entry]
         probes = dict(zip((entry["id"] for entry in entries), pool.map(http_check, entries)))
