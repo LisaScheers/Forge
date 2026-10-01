@@ -1,4 +1,5 @@
 import datetime
+from contextlib import closing
 import json
 import http.client
 from pathlib import Path
@@ -31,7 +32,7 @@ class StatusTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             database = root / "kuma.db"
-            with sqlite3.connect(database) as db:
+            with closing(sqlite3.connect(database)) as db, db:
                 db.executescript("""
                   CREATE TABLE monitor(id INTEGER,name TEXT,active INTEGER,interval INTEGER,
                     retry_interval INTEGER,maxretries INTEGER,type TEXT,push_token TEXT);

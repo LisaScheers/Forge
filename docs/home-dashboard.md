@@ -5,7 +5,7 @@ icons, service cards, search, an issues filter, and expandable check details.
 
 Anonymous visitors see the personal site and publicly browsable Forgejo.
 Authentik users also see media, home automation, identity, monitoring, mail,
-Minecraft, Sunshine, and every remaining non-group Uptime Kuma check. Application-specific
+Minecraft, Sunshine, T3 Code, and every remaining non-group Uptime Kuma check. Application-specific
 permissions still apply when opening a service. Home-only links are labeled
 “Home / Tailscale”. Minecraft offers a copyable server address.
 
@@ -29,7 +29,7 @@ Existing Kuma monitor names map checks to cards; remaining checks appear under
 Infrastructure privately. Kuma remains the alerting source for its own monitors.
 
 Additional HTTP reachability checks cover the site, Element, Seerr, Uptime Kuma,
-the movie-night console, and Transmission. Nook's local HTTPS hosts are reached
+the movie-night console, Transmission, and T3 Code. Nook's local HTTPS hosts are reached
 over Tailscale while verifying certificates against their original names.
 Sunshine's TCP listener is checked on Nook, with a reduced status file served
 only to Atlas over Tailscale. Its control panel remains LAN-only. Authenticated

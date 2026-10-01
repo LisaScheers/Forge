@@ -19,5 +19,6 @@
   {"id":"pyroscope","name":"Pyroscope","description":"Continuous profiling","group":"Tools & monitoring","icon":"flame","url":"http://nook:4040/","local":true,"monitors":["Nook · Pyroscope readiness"]},
   {"id":"mail","name":"Webmail","description":"Mail & administration","group":"Tools & monitoring","icon":"mail","url":"https://m.scheers.tech/","monitors":["Mail · Webmail and administration"]},
   {"id":"minecraft","name":"Minecraft","description":"Join the home server","group":"Games","icon":"game","connection":"bylisa.dev:25565","monitors":["Atlas · Minecraft ATM10"]},
-  {"id":"sunshine","name":"Sunshine","description":"Firestorm & desktop streaming","group":"Games","icon":"sun","url":"https://192.168.111.2:47990/","local":true,"network":"Home network","probe":{"url":"https://jellyfin.bylisa.dev/.dashboard/sunshine.json","address":"100.106.233.104","snapshot":true}}
+  {"id":"sunshine","name":"Sunshine","description":"Firestorm & desktop streaming","group":"Games","icon":"sun","url":"https://192.168.111.2:47990/","local":true,"network":"Home network","probe":{"url":"https://jellyfin.bylisa.dev/.dashboard/sunshine.json","address":"100.106.233.104","snapshot":true}},
+  {"id":"t3-code","name":"T3 Code","description":"Coding agents & project workspaces","group":"Tools & monitoring","icon":"code","url":"http://nook:3773/","local":true,"probe":{"url":"http://100.106.233.104:3773/"}}
 ]

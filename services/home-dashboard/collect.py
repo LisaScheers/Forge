@@ -1,5 +1,6 @@
 """Export only display fields from Kuma, using its SQLite database read-only."""
 import concurrent.futures
+from contextlib import closing
 import datetime
 import http.client
 import json
@@ -105,7 +106,7 @@ def collect(database, output):
     now = time.time()
     monitors = {}
     try:
-        with sqlite3.connect(f"file:{database}?mode=ro", uri=True, timeout=3) as db:
+        with closing(sqlite3.connect(f"file:{database}?mode=ro", uri=True, timeout=3)) as db:
             db.row_factory = sqlite3.Row
             # Never select credentials, push tokens, URLs, messages, or saved responses.
             rows = db.execute("""

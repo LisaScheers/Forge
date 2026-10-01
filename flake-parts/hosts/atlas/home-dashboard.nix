@@ -6,6 +6,11 @@
   }: let
     source = ../../../services/home-dashboard;
     upstream = "http://unix:/run/home-dashboard/api.sock:";
+    securityHeaders = ''
+      add_header X-Content-Type-Options nosniff always;
+      add_header Referrer-Policy same-origin always;
+      add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" always;
+    '';
     protectedProxy = {
       proxyPass = upstream;
       recommendedProxySettings = false;
@@ -17,6 +22,7 @@
         add_header Cache-Control "private, no-store" always;
         proxy_set_header X-Dashboard-User $dash_user;
         proxy_set_header Authorization "";
+        ${securityHeaders}
       '';
     };
   in {
@@ -106,9 +112,7 @@
       extraConfig = ''
         proxy_buffers 8 16k;
         proxy_buffer_size 32k;
-        add_header X-Content-Type-Options nosniff always;
-        add_header Referrer-Policy same-origin always;
-        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" always;
+        ${securityHeaders}
       '';
       locations."/".extraConfig = ''
         try_files $uri $uri/ =404;
@@ -120,6 +124,7 @@
           proxy_set_header X-Dashboard-User "";
           proxy_set_header Authorization "";
           add_header Cache-Control "no-store" always;
+          ${securityHeaders}
         '';
       };
       locations."= /api/private" = protectedProxy;
@@ -135,6 +140,7 @@
       locations."@dash_signin".extraConfig = ''
         internal;
         add_header Set-Cookie $dash_cookie always;
+        ${securityHeaders}
         return 302 /outpost.goauthentik.io/start?rd=https://dash.bylisa.dev/login;
       '';
       locations."^~ /outpost.goauthentik.io/" = {
