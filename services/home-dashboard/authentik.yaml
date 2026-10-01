@@ -1,0 +1,23 @@
+version: 1
+metadata:
+  name: Home dashboard
+entries:
+  - model: authentik_providers_proxy.proxyprovider
+    identifiers:
+      name: Home dashboard
+    id: dash-provider
+    attrs:
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      external_host: https://dash.bylisa.dev
+      mode: forward_single
+      intercept_header_auth: false
+      access_token_validity: minutes=5
+  - model: authentik_core.application
+    identifiers:
+      slug: home-dashboard
+    attrs:
+      name: Home dashboard
+      provider: !KeyOf dash-provider
+      meta_launch_url: https://dash.bylisa.dev/login
+      policy_engine_mode: all

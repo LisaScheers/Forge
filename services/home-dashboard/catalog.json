@@ -1,0 +1,22 @@
+[
+  {"id":"site","name":"Lisa","description":"My corner of the internet","group":"Social & publishing","icon":"spark","url":"https://bylisa.dev/","public":true,"probe":{"url":"https://bylisa.dev/"}},
+  {"id":"forgejo","name":"Forgejo","description":"Code, projects & repositories","group":"Social & publishing","icon":"code","url":"https://git.bylisa.dev/","public":true,"monitors":["Atlas · Forgejo"]},
+  {"id":"bluesky","name":"Bluesky PDS","description":"Personal data server","group":"Social & publishing","icon":"butterfly","url":"https://bylisa.dev/xrpc/_health","monitors":["Atlas · Bluesky PDS"]},
+  {"id":"element","name":"Element","description":"Messages, rooms & calls","group":"Social & publishing","icon":"chat","url":"https://element.bylisa.dev/","monitors":["Atlas · Matrix","Atlas · Matrix LiveKit","Atlas · Matrix TURN"],"probe":{"url":"https://element.bylisa.dev/"}},
+  {"id":"jellyfin","name":"Jellyfin","description":"Your films, shows & music","group":"Home & media","icon":"play","url":"https://jellyfin.bylisa.dev/","monitors":["Nook · Jellyfin"]},
+  {"id":"seerr","name":"Seerr","description":"Discover & request something to watch","group":"Home & media","icon":"ticket","url":"https://seerr.bylisa.dev/","probe":{"url":"https://seerr.bylisa.dev/api/v1/status"}},
+  {"id":"home-assistant","name":"Home Assistant","description":"Lights, devices & automations","group":"Home & media","icon":"home","url":"https://ha.bylisa.dev/","monitors":["Nook · Home Assistant"]},
+  {"id":"watch-room","name":"Movie night","description":"Host a synchronized screening","group":"Home & media","icon":"popcorn","url":"https://watch.local.bylisa.dev/","local":true,"probe":{"url":"https://watch.local.bylisa.dev/api","address":"100.106.233.104","codes":[200,401,403]}},
+  {"id":"sonarr","name":"Sonarr","description":"Series library","group":"Home & media","icon":"radar","url":"https://sonarr.local.bylisa.dev/","local":true,"monitors":["Nook · Sonarr local health"]},
+  {"id":"radarr","name":"Radarr","description":"Film library","group":"Home & media","icon":"film","url":"https://radarr.local.bylisa.dev/","local":true,"monitors":["Nook · Radarr local health"]},
+  {"id":"prowlarr","name":"Prowlarr","description":"Search & indexers","group":"Home & media","icon":"search","url":"https://prowlarr.local.bylisa.dev/","local":true,"monitors":["Nook · Prowlarr local health"]},
+  {"id":"transmission","name":"Transmission","description":"Downloads & transfers","group":"Home & media","icon":"download","url":"https://transmission.local.bylisa.dev/","local":true,"probe":{"url":"https://transmission.local.bylisa.dev/transmission/rpc","address":"100.106.233.104","codes":[409]}},
+  {"id":"authentik","name":"Authentik","description":"Accounts & single sign-on","group":"Tools & monitoring","icon":"shield","url":"https://auth.bylisa.dev/","monitors":["Atlas · Authentik","Atlas · Authentik worker","Atlas · Authentik Redis","Atlas · Authentik LDAPS"]},
+  {"id":"postplan","name":"PostPlan","description":"Publish & share HTML documents","group":"Tools & monitoring","icon":"document","url":"https://plans.bylisa.dev/","monitors":["Atlas · PostPlan"]},
+  {"id":"gotify","name":"Gotify","description":"Notifications in one place","group":"Tools & monitoring","icon":"bell","url":"https://gotify.bylisa.dev/","monitors":["Nook · Gotify"]},
+  {"id":"grafana","name":"Grafana","description":"Metrics, logs & traces","group":"Tools & monitoring","icon":"chart","url":"https://grafana.bylisa.dev/","monitors":["Nook · Grafana"]},
+  {"id":"uptime-kuma","name":"Uptime Kuma","description":"Checks, incidents & uptime","group":"Tools & monitoring","icon":"heart","url":"https://uptime.bylisa.dev/","probe":{"url":"http://127.0.0.1:3001/"}},
+  {"id":"pyroscope","name":"Pyroscope","description":"Continuous profiling","group":"Tools & monitoring","icon":"flame","url":"http://nook:4040/","local":true,"monitors":["Nook · Pyroscope readiness"]},
+  {"id":"mail","name":"Webmail","description":"Mail & administration","group":"Tools & monitoring","icon":"mail","url":"https://m.scheers.tech/","monitors":["Mail · Webmail and administration"]},
+  {"id":"minecraft","name":"Minecraft","description":"Join the home server","group":"Games","icon":"game","connection":"bylisa.dev:25565","monitors":["Atlas · Minecraft ATM10"]}
+]
