@@ -1,7 +1,8 @@
 {
   forge.modules.nixos.nook = {pkgs, ...}: let
-    # Keep the existing data directory and service name across pack upgrades.
-    atm10Root = "/var/minecraft/atm10-8.0";
+    minecraftRoot = "/srv/disks/western-digital-hdd/minecraft";
+    # Keep the directory basename and service name across pack upgrades.
+    atm10Root = "${minecraftRoot}/atm10-8.0";
     atm10Version = "8.1";
     atm10Archive = pkgs.fetchurl {
       url = "https://mediafilez.forgecdn.net/files/8764/245/ServerFiles-8.1.zip";
@@ -11,8 +12,8 @@
       mkdir -p "$out"
       unzip -q ${atm10Archive} -d "$out"
     '';
-    atm11Root = "/var/minecraft/atm11-0.2.0";
-    allTheMonsRoot = "/var/minecraft/allthemons-1.0.0-rc.6";
+    atm11Root = "${minecraftRoot}/atm11-0.2.0";
+    allTheMonsRoot = "${minecraftRoot}/allthemons-1.0.0-rc.6";
     minecraftJvmArgs = pkgs.writeText "minecraft-user_jvm_args.txt" ''
       -Xms8G
       -Xmx15G
@@ -96,10 +97,11 @@
 
     systemd.services.atm-10-tts = {
       enable = false;
+      unitConfig.RequiresMountsFor = minecraftRoot;
       wantedBy = ["multi-user.target"];
       path = with pkgs; [jdk21_headless];
       script = ''
-        cd /var/minecraft/atm-10-tts
+        cd ${minecraftRoot}/atm-10-tts
         ./run.sh
       '';
       # onFailure = "restart";
@@ -113,10 +115,11 @@
 
     systemd.services.cutie-craft = {
       enable = false;
+      unitConfig.RequiresMountsFor = minecraftRoot;
       wantedBy = ["multi-user.target"];
       path = with pkgs; [jdk21_headless];
       script = ''
-        cd /var/minecraft/cutie-craft
+        cd ${minecraftRoot}/cutie-craft
         ./run.sh
       '';
       # onFailure = "restart";
@@ -124,10 +127,11 @@
 
     systemd.services.cus2 = {
       enable = false;
+      unitConfig.RequiresMountsFor = minecraftRoot;
       wantedBy = ["multi-user.target"];
       path = with pkgs; [jdk21_headless gawk wget];
       script = ''
-        cd /var/minecraft/cus2
+        cd ${minecraftRoot}/cus2
         ./start.sh
       '';
       # onFailure = "restart";
@@ -137,6 +141,7 @@
 
     systemd.services.atm10-8-0 = {
       enable = true;
+      unitConfig.RequiresMountsFor = minecraftRoot;
       description = "All The Mods 10 ${atm10Version} Minecraft server";
       wantedBy = ["multi-user.target"];
       unitConfig.Conflicts = [
@@ -168,8 +173,8 @@
         if [ "$(cat ${atm10Root}/.atm10-version 2>/dev/null || true)" != "${atm10Version}" ]; then
           # preStart runs after the old server stops. Back up all state before
           # replacing pack files; never sync or delete the server root itself.
-          backup=/var/minecraft/backups/atm10-before-${atm10Version}.tar
-          mkdir -p /var/minecraft/backups
+          backup=${minecraftRoot}/backups/atm10-before-${atm10Version}.tar
+          mkdir -p ${minecraftRoot}/backups
           # Keep the original snapshot if an interrupted upgrade is retried.
           if [ ! -f "$backup" ]; then
             tar -cpf "$backup.tmp" -C ${atm10Root} .
@@ -259,6 +264,7 @@
 
     systemd.services.atm11-0-2-0 = {
       enable = false;
+      unitConfig.RequiresMountsFor = minecraftRoot;
       description = "All The Mods 11 0.2.0 Minecraft server";
       wantedBy = ["multi-user.target"];
       unitConfig.Conflicts = [
@@ -346,6 +352,7 @@
 
     systemd.services.allthemons-1-0-0-rc-6 = {
       enable = false;
+      unitConfig.RequiresMountsFor = minecraftRoot;
       description = "All the Mons 1.0.0-rc.6 Minecraft server";
       wantedBy = ["multi-user.target"];
       unitConfig.Conflicts = [
