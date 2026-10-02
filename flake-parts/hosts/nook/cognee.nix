@@ -27,6 +27,10 @@
     backendEnvironment = config.age.secrets.cognee-backend-env.path;
     oidcEnvironment = config.age.secrets.cognee-oidc-env.path;
     mcpKeyFile = "${storageRoot}/credentials/mcp.env";
+    d3 = pkgs.fetchurl {
+      url = "https://d3js.org/d3.v7.min.js";
+      hash = "sha256-8glLv2FBs1lyLE/kVOtsSw8OQswQzHr5IfwVj864ZTk=";
+    };
     containerOptions = [
       "--network=host"
       "--cap-drop=ALL"
@@ -243,6 +247,38 @@
       };
     };
 
+    systemd.services.cognee-graph = {
+      description = "Private Cognee graph viewer";
+      wantedBy = ["multi-user.target"];
+      requires = ["cognee-bootstrap.service"];
+      after = ["cognee-bootstrap.service"];
+      environment.COGNEE_GRAPH_D3 = "${d3}";
+      serviceConfig = {
+        ExecStart = "${python}/bin/python3 ${source}/graph.py";
+        EnvironmentFile = mcpKeyFile;
+        DynamicUser = true;
+        Group = "nginx";
+        RuntimeDirectory = "cognee-graph";
+        RuntimeDirectoryMode = "0750";
+        UMask = "0007";
+        Restart = "on-failure";
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        PrivateDevices = true;
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        RestrictSUIDSGID = true;
+        RestrictAddressFamilies = ["AF_UNIX" "AF_INET"];
+        IPAddressDeny = "any";
+        IPAddressAllow = "localhost";
+        MemoryMax = "256M";
+        TasksMax = 32;
+      };
+    };
+
     security.acme.certs.${domain} = {
       extraLegoFlags = ["--dns.propagation.wait" "30s"];
       group = "nginx";
@@ -263,7 +299,49 @@
         deny all;
         access_log off;
         client_max_body_size 20m;
+        proxy_buffers 8 16k;
+        proxy_buffer_size 32k;
       '';
+      locations."= /graph".extraConfig = "return 302 /graph/;";
+      locations."^~ /graph/" = {
+        proxyPass = "http://unix:/run/cognee-graph/http.sock:";
+        extraConfig = ''
+          auth_request /outpost.goauthentik.io/auth/nginx;
+          auth_request_set $graph_cookie $upstream_http_set_cookie;
+          add_header Set-Cookie $graph_cookie always;
+          error_page 401 = @graph_signin;
+          proxy_set_header Authorization "";
+          proxy_set_header X-Api-Key "";
+          proxy_set_header Cookie "";
+          proxy_read_timeout 180s;
+          proxy_buffering off;
+        '';
+      };
+      locations."@graph_signin".extraConfig = ''
+        internal;
+        add_header Set-Cookie $graph_cookie always;
+        return 302 /outpost.goauthentik.io/start?rd=https://${domain}/graph/;
+      '';
+      locations."^~ /outpost.goauthentik.io/" = {
+        proxyPass = "https://auth.bylisa.dev";
+        recommendedProxySettings = false;
+        extraConfig = ''
+          proxy_ssl_server_name on;
+          proxy_ssl_name auth.bylisa.dev;
+          proxy_ssl_verify on;
+          proxy_ssl_verify_depth 3;
+          proxy_ssl_trusted_certificate ${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt;
+          proxy_set_header Host auth.bylisa.dev;
+          proxy_set_header X-Forwarded-Host ${domain};
+          proxy_set_header X-Forwarded-Proto https;
+          proxy_set_header X-Original-URL https://${domain}$request_uri;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $remote_addr;
+          proxy_set_header Authorization "";
+          proxy_pass_request_body off;
+          proxy_set_header Content-Length "";
+        '';
+      };
       locations."/" = {
         proxyPass = "http://127.0.0.1:8322";
         extraConfig = ''

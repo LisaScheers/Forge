@@ -38,6 +38,7 @@ Both containers share the host network but bind only to loopback:
 | `127.0.0.1:8322` | Cognee MCP with Authentik OAuth |
 | `https://cognee.local.bylisa.dev/mcp` | Codex MCP endpoint |
 | `https://cognee.local.bylisa.dev/api/v1/…` | REST endpoint for other AI workloads |
+| `https://cognee.local.bylisa.dev/graph/` | Authentik-protected, read-only graph viewer |
 
 Nginx allows the existing home LAN ranges and Tailscale ranges, requires TLS, and
 disables access logs. Nook's Unbound publishes the name locally. An off-LAN client
@@ -47,6 +48,30 @@ also needs a route and DNS resolution to Nook (for example tailnet split DNS for
 No separate UI container, PostgreSQL, Neo4j, Redis, or vector service is needed.
 Extraction gets at most two CPUs and 6 GiB; MCP gets two CPUs and 2 GiB. The
 adapter is limited to 256 MiB. Nook had about 14 GiB available at inspection.
+
+## Graph viewer
+
+Open `https://cognee.local.bylisa.dev/graph/` and sign in through Authentik.
+The same `authentik Admins` group allowed to use MCP can open the viewer. It
+defaults to the ingested `life` dataset and uses Cognee's own renderer, including
+Story, Flow and Force layouts, node search, node/edge details, zoom and the
+schema/memory tabs. Dark mode is the default; the native toggle saves your choice.
+
+The default view is a bounded 2,000-node neighborhood. Use `?max_nodes=5000`
+for a larger neighborhood, or `?full=true` for the whole dataset (which can be
+slow for large datasets). Select another readable dataset with `?dataset_id=UUID`.
+Reload the page to fetch newly ingested memory. These controls affect graph
+display; they do not run inference or change stored memory.
+
+`cognee-graph` serves a private Unix socket through nginx's Authentik forward
+auth, with a separate declarative proxy provider on Atlas. It requests only
+Cognee's visualization GET using the existing ordinary account's server-side key;
+it does not expose a general API proxy or send that key to the browser. Browser
+requests cannot upload or delete memory. The API and MCP keep their existing
+authentication. D3 is hash-pinned and served locally; external fonts are removed,
+and the page's CSP restricts assets and connections to this origin. Responses
+are not cached and graph request URLs are not logged. This viewer adds no new
+persistent data store or frontend container.
 
 ## Models and subscription access
 
