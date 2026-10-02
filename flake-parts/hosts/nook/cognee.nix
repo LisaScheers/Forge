@@ -155,6 +155,9 @@
           "127.0.0.1"
           "--port"
           "8322"
+          # Avoid journaling OAuth callback codes and request URLs.
+          "--log-level"
+          "warning"
           "--api-url"
           "http://127.0.0.1:8321"
           "--api-auth-scheme"
