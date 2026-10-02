@@ -229,7 +229,7 @@
     };
 
     security.acme.certs.${domain} = {
-      extraLegoFlags = ["--dns.propagation-wait" "30s"];
+      extraLegoFlags = ["--dns.propagation.wait" "30s"];
       group = "nginx";
       reloadServices = ["nginx.service"];
     };
