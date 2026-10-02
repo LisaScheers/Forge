@@ -47,6 +47,7 @@ in {
     "secrets/atlas/sl-remote-credentials.age".publicKeys = all;
 
     "secrets/nook/cloudflare-dns-api-token.age".publicKeys = nook;
+    "secrets/nook/cognee-backend-env.age".publicKeys = nook;
     "secrets/nook/gotify-env.age".publicKeys = all;
     "secrets/nook/grafana-authentik-client-secret.age".publicKeys = nook;
     "secrets/nook/monitoring-otlp-htpasswd.age".publicKeys = nook;
@@ -61,6 +62,7 @@ in {
     "secrets/vega/nix-github-access-token-conf.age".publicKeys = vega;
 
     "secrets/shared/github-env.age".publicKeys = all;
+    "secrets/shared/cognee-oidc-env.age".publicKeys = [keys.users.lisa keys.hosts.atlas keys.hosts.nook];
     "secrets/shared/gotify-oidc-env.age".publicKeys = [keys.users.lisa keys.hosts.atlas keys.hosts.nook];
     "secrets/shared/postplan-env.age".publicKeys = postplan;
   };

@@ -13,6 +13,12 @@
         ${lib.escapeShellArg config.home.homeDirectory}/.codex/config.toml \
         ${config.home.file.".codex/config.toml".source}
     '';
+    home.activation.syncCogneeConfig = lib.hm.dag.entryAfter ["seedCodexConfig"] ''
+      run ${pkgs.python3.withPackages (ps: [ps.tomlkit])}/bin/python3 \
+        ${./sync-cognee-config.py} \
+        ${lib.escapeShellArg config.home.homeDirectory}/.codex/config.toml \
+        ${config.home.file.".codex/config.toml".source}
+    '';
 
     programs = {
       codex = {
@@ -35,6 +41,13 @@
           memories = {
             generate_memories = false;
             use_memories = false;
+          };
+
+          mcp_servers.cognee = {
+            url = "https://cognee.local.bylisa.dev/mcp";
+            startup_timeout_sec = 30;
+            tool_timeout_sec = 600;
+            tools.forget.approval_mode = "prompt";
           };
         };
       };
