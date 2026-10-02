@@ -50,6 +50,12 @@
       };
     };
 
-    systemd.services.cloudflare-dyndns.restartTriggers = [../../agenix/secrets/nook/cloudflare-dns-api-token.age];
+    systemd.services.cloudflare-dyndns = {
+      # Activation stops Unbound before restarting the updater. Wait for the
+      # local resolver so IP discovery does not fail during a system switch.
+      after = ["unbound.service"];
+      wants = ["unbound.service"];
+      restartTriggers = [../../agenix/secrets/nook/cloudflare-dns-api-token.age];
+    };
   };
 }
