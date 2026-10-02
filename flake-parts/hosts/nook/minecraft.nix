@@ -1,5 +1,9 @@
 {
-  forge.modules.nixos.nook = {pkgs, ...}: let
+  forge.modules.nixos.nook = {
+    lib,
+    pkgs,
+    ...
+  }: let
     minecraftRoot = "/srv/disks/western-digital-hdd/minecraft";
     # Keep the directory basename and service name across pack upgrades.
     atm10Root = "${minecraftRoot}/atm10-8.0";
@@ -14,6 +18,14 @@
     '';
     atm11Root = "${minecraftRoot}/atm11-0.2.0";
     allTheMonsRoot = "${minecraftRoot}/allthemons-1.0.0-rc.6";
+    minecraftServices = {
+      atm-10-tts = "${minecraftRoot}/atm-10-tts";
+      cutie-craft = "${minecraftRoot}/cutie-craft";
+      cus2 = "${minecraftRoot}/cus2";
+      atm10-8-0 = atm10Root;
+      atm11-0-2-0 = atm11Root;
+      allthemons-1-0-0-rc-6 = allTheMonsRoot;
+    };
     minecraftJvmArgs = pkgs.writeText "minecraft-user_jvm_args.txt" ''
       -Xms8G
       -Xmx15G
@@ -93,19 +105,16 @@
       full-update-interval: 1440
     '';
   in {
-    services.cloudflare-dyndns.domains = ["mc.bylisa.dev"];
+    users.groups = lib.mapAttrs (_: _: {}) minecraftServices;
+    users.users =
+      lib.mapAttrs (name: directory: {
+        isSystemUser = true;
+        group = name;
+        home = directory;
+      })
+      minecraftServices;
 
-    systemd.services.atm-10-tts = {
-      enable = false;
-      unitConfig.RequiresMountsFor = minecraftRoot;
-      wantedBy = ["multi-user.target"];
-      path = with pkgs; [jdk21_headless];
-      script = ''
-        cd ${minecraftRoot}/atm-10-tts
-        ./run.sh
-      '';
-      # onFailure = "restart";
-    };
+    services.cloudflare-dyndns.domains = ["mc.bylisa.dev"];
 
     networking.firewall.allowedTCPPorts = [
       25565
@@ -113,302 +122,342 @@
     ];
     # rcon only allow from 84.198.125.249
 
-    systemd.services.cutie-craft = {
-      enable = false;
-      unitConfig.RequiresMountsFor = minecraftRoot;
-      wantedBy = ["multi-user.target"];
-      path = with pkgs; [jdk21_headless];
-      script = ''
-        cd ${minecraftRoot}/cutie-craft
-        ./run.sh
-      '';
-      # onFailure = "restart";
-    };
+    systemd.services = lib.mkMerge [
+      (lib.mapAttrs (name: directory: {
+          serviceConfig = {
+            User = name;
+            Group = name;
+            NoNewPrivileges = true;
+            # Only ownership migration needs root; pack launchers and preStart
+            # (including downloaded installers) run as the service's own user.
+            ExecStartPre = lib.mkBefore [
+              "+${pkgs.writeShellScript "${name}-ownership" ''
+                if [ -d ${lib.escapeShellArg directory} ]; then
+                  ${pkgs.coreutils}/bin/chown -R --no-dereference ${name}:${name} ${lib.escapeShellArg directory}
+                fi
+                ${lib.optionalString (name == "atm10-8-0") ''
+                  ${pkgs.coreutils}/bin/install -d -m 0700 -o ${name} -g ${name} ${minecraftRoot}/backups/${name}
+                ''}
+              ''}"
+            ];
+          };
+        })
+        minecraftServices)
+      {
+        atm-10-tts = {
+          enable = false;
+          unitConfig.RequiresMountsFor = minecraftRoot;
+          wantedBy = ["multi-user.target"];
+          path = with pkgs; [jdk21_headless];
+          script = ''
+            cd ${minecraftRoot}/atm-10-tts
+            ./run.sh
+          '';
+          # onFailure = "restart";
+        };
 
-    systemd.services.cus2 = {
-      enable = false;
-      unitConfig.RequiresMountsFor = minecraftRoot;
-      wantedBy = ["multi-user.target"];
-      path = with pkgs; [jdk21_headless gawk wget];
-      script = ''
-        cd ${minecraftRoot}/cus2
-        ./start.sh
-      '';
-      # onFailure = "restart";
-    };
+        cutie-craft = {
+          enable = false;
+          unitConfig.RequiresMountsFor = minecraftRoot;
+          wantedBy = ["multi-user.target"];
+          path = with pkgs; [jdk21_headless];
+          script = ''
+            cd ${minecraftRoot}/cutie-craft
+            ./run.sh
+          '';
+          # onFailure = "restart";
+        };
 
-    systemd.services.atm10-6-6.enable = false;
+        cus2 = {
+          enable = false;
+          unitConfig.RequiresMountsFor = minecraftRoot;
+          wantedBy = ["multi-user.target"];
+          path = with pkgs; [jdk21_headless gawk wget];
+          script = ''
+            cd ${minecraftRoot}/cus2
+            ./start.sh
+          '';
+          # onFailure = "restart";
+        };
 
-    systemd.services.atm10-8-0 = {
-      enable = true;
-      unitConfig.RequiresMountsFor = minecraftRoot;
-      description = "All The Mods 10 ${atm10Version} Minecraft server";
-      wantedBy = ["multi-user.target"];
-      unitConfig.Conflicts = [
-        "atm-10-tts.service"
-        "atm10-6-6.service"
-        "atm11-0-2-0.service"
-        "cutie-craft.service"
-        "cus2.service"
-      ];
-      path = with pkgs; [
-        coreutils
-        curl
-        gawk
-        gnutar
-        jdk21_headless
-        rsync
-        wget
-      ];
-      environment = {
-        ATM10_JAVA = "${pkgs.jdk21_headless}/bin/java";
-        ATM10_RESTART = "false";
-      };
-      preStart = ''
-        if [ ! -f ${atm10Root}/startserver.sh ]; then
-          echo "Missing existing ATM10 installation at ${atm10Root}; refusing to create a new world."
-          exit 1
-        fi
+        atm10-6-6.enable = false;
 
-        if [ "$(cat ${atm10Root}/.atm10-version 2>/dev/null || true)" != "${atm10Version}" ]; then
-          # preStart runs after the old server stops. Back up all state before
-          # replacing pack files; never sync or delete the server root itself.
-          backup=${minecraftRoot}/backups/atm10-before-${atm10Version}.tar
-          mkdir -p ${minecraftRoot}/backups
-          # Keep the original snapshot if an interrupted upgrade is retried.
-          if [ ! -f "$backup" ]; then
-            tar -cpf "$backup.tmp" -C ${atm10Root} .
-            mv "$backup.tmp" "$backup"
-          fi
+        atm10-8-0 = {
+          enable = true;
+          unitConfig.RequiresMountsFor = minecraftRoot;
+          description = "All The Mods 10 ${atm10Version} Minecraft server";
+          wantedBy = ["multi-user.target"];
+          unitConfig.Conflicts = [
+            "atm-10-tts.service"
+            "atm10-6-6.service"
+            "atm11-0-2-0.service"
+            "cutie-craft.service"
+            "cus2.service"
+          ];
+          path = with pkgs; [
+            coreutils
+            curl
+            gawk
+            gnutar
+            jdk21_headless
+            rsync
+            wget
+          ];
+          environment = {
+            ATM10_JAVA = "${pkgs.jdk21_headless}/bin/java";
+            ATM10_RESTART = "false";
+          };
+          preStart = ''
+            if [ ! -f ${atm10Root}/startserver.sh ]; then
+              echo "Missing existing ATM10 installation at ${atm10Root}; refusing to create a new world."
+              exit 1
+            fi
 
-          for directory in mods kubejs defaultconfigs datapacks; do
-            rsync -rlt --chmod=Du+w,Fu+w --delete ${atm10ServerFiles}/"$directory"/ ${atm10Root}/"$directory"/
-          done
-          # Retain server-specific settings and local state absent from the pack.
-          for directory in config local; do
-            rsync -rlt --chmod=Du+w,Fu+w ${atm10ServerFiles}/"$directory"/ ${atm10Root}/"$directory"/
-          done
-          install -m 0755 ${atm10ServerFiles}/startserver.sh ${atm10Root}/startserver.sh
-          install -m 0644 ${atm10ServerFiles}/server-icon.png ${atm10Root}/server-icon.png
-          install -m 0644 ${atm10ServerFiles}/neoforge-21.1.249-installer.jar ${atm10Root}/neoforge-21.1.249-installer.jar
-          # The upstream launcher only checks whether libraries/ exists, which
-          # does not detect an older NeoForge installation during upgrades.
-          (
+            if [ "$(cat ${atm10Root}/.atm10-version 2>/dev/null || true)" != "${atm10Version}" ]; then
+              # preStart runs after the old server stops. Back up all state before
+              # replacing pack files; never sync or delete the server root itself.
+              backup=${minecraftRoot}/backups/atm10-8-0/atm10-before-${atm10Version}.tar
+              # Keep the original snapshot if an interrupted upgrade is retried.
+              if [ ! -f "$backup" ]; then
+                tar -cpf "$backup.tmp" -C ${atm10Root} .
+                mv "$backup.tmp" "$backup"
+              fi
+
+              for directory in mods kubejs defaultconfigs datapacks; do
+                rsync -rlt --chmod=Du+w,Fu+w --delete ${atm10ServerFiles}/"$directory"/ ${atm10Root}/"$directory"/
+              done
+              # Retain server-specific settings and local state absent from the pack.
+              for directory in config local; do
+                rsync -rlt --chmod=Du+w,Fu+w ${atm10ServerFiles}/"$directory"/ ${atm10Root}/"$directory"/
+              done
+              install -m 0755 ${atm10ServerFiles}/startserver.sh ${atm10Root}/startserver.sh
+              install -m 0644 ${atm10ServerFiles}/server-icon.png ${atm10Root}/server-icon.png
+              install -m 0644 ${atm10ServerFiles}/neoforge-21.1.249-installer.jar ${atm10Root}/neoforge-21.1.249-installer.jar
+              # The upstream launcher only checks whether libraries/ exists, which
+              # does not detect an older NeoForge installation during upgrades.
+              (
+                cd ${atm10Root}
+                java -jar neoforge-21.1.249-installer.jar -installServer
+              )
+              printf '%s\n' '${atm10Version}' > ${atm10Root}/.atm10-version
+            fi
+
+            install -m 0644 ${minecraftJvmArgs} ${atm10Root}/user_jvm_args.txt
+            install -m 0644 ${minecraftOps} ${atm10Root}/ops.json
+            printf 'eula=true\n' > ${atm10Root}/eula.txt
+            chmod +x ${atm10Root}/startserver.sh
+
+            touch ${atm10Root}/server.properties
+            set_property() {
+              key="$1"
+              value="$2"
+              properties=${atm10Root}/server.properties
+              if grep -q "^$key=" ${atm10Root}/server.properties; then
+                awk -v key="$key" -v value="$value" '
+                  $0 ~ "^" key "=" {
+                    print key "=" value
+                    next
+                  }
+                  { print }
+                ' "$properties" > "$properties.tmp"
+                mv "$properties.tmp" "$properties"
+              else
+                printf '%s=%s\n' "$key" "$value" >> ${atm10Root}/server.properties
+              fi
+            }
+
+            set_property allow-flight true
+            set_property motd "All the Mods 10"
+            set_property max-tick-time 180000
+            set_property simulation-distance 5
+            set_property view-distance 12
+            set_property online-mode true
+            if [ -s "$CREDENTIALS_DIRECTORY/rcon" ]; then
+              set_property enable-rcon true
+              set_property rcon.port 25575
+              set_property rcon.password "$(cat "$CREDENTIALS_DIRECTORY/rcon")"
+            fi
+
+            install -D -m 0644 ${bluemapJar} ${atm10Root}/mods/bluemap-5.7-neoforge.jar
+            rm -f ${atm10Root}/mods/cynosure-*.jar ${atm10Root}/mods/estrogen-*.jar
+            install -D -m 0644 ${cynosureJar} ${atm10Root}/mods/cynosure-1.0.2-neoforge-1.21.1.jar
+            install -D -m 0644 ${estrogenJar} ${atm10Root}/mods/estrogen-6.0.8+1.21.1-neoforge.jar
+            install -D -m 0644 ${createEstrogenJar} ${atm10Root}/mods/createestrogen-2.0.0+1.21.1.jar
+            install -D -m 0644 ${bluemapCoreConfig} ${atm10Root}/config/bluemap/core.conf
+            install -D -m 0644 ${bluemapWebappConfig} ${atm10Root}/config/bluemap/webapp.conf
+            install -D -m 0644 ${bluemapWebserverConfig} ${atm10Root}/config/bluemap/webserver.conf
+            install -D -m 0644 ${bluemapPluginConfig} ${atm10Root}/config/bluemap/plugin.conf
+          '';
+          script = ''
             cd ${atm10Root}
-            java -jar neoforge-21.1.249-installer.jar -installServer
-          )
-          printf '%s\n' '${atm10Version}' > ${atm10Root}/.atm10-version
-        fi
+            exec ./startserver.sh
+          '';
+          serviceConfig = {
+            LoadCredential = ["rcon:/root/allthemons-rcon.password"];
+            # Preserve optional RCON: an absent source falls back to an empty value.
+            SetCredential = ["rcon:"];
+            Restart = "always";
+            RestartSec = "30s";
+            KillSignal = "SIGINT";
+            TimeoutStopSec = "120s";
+            TimeoutStartSec = "30min";
+            # The Java heap excludes native memory, threads, and mapped files.
+            MemoryHigh = "18G";
+            MemoryMax = "20G";
+          };
+        };
 
-        install -m 0644 ${minecraftJvmArgs} ${atm10Root}/user_jvm_args.txt
-        install -m 0644 ${minecraftOps} ${atm10Root}/ops.json
-        printf 'eula=true\n' > ${atm10Root}/eula.txt
-        chmod +x ${atm10Root}/startserver.sh
+        atm11-0-2-0 = {
+          enable = false;
+          unitConfig.RequiresMountsFor = minecraftRoot;
+          description = "All The Mods 11 0.2.0 Minecraft server";
+          wantedBy = ["multi-user.target"];
+          unitConfig.Conflicts = [
+            "atm-10-tts.service"
+            "atm10-6-6.service"
+            "atm10-8-0.service"
+            "allthemons-1-0-0-rc-6.service"
+            "cutie-craft.service"
+            "cus2.service"
+          ];
+          path = with pkgs; [
+            coreutils
+            curl
+            gawk
+            jdk25_headless
+            wget
+          ];
+          environment = {
+            ATM11_JAVA = "${pkgs.jdk25_headless}/bin/java";
+            ATM11_RESTART = "false";
+          };
+          preStart = ''
+            if [ ! -f ${atm11Root}/startserver.sh ]; then
+              echo "Missing ${atm11Root}/startserver.sh. Extract ServerFiles-0.2.0.zip into ${atm11Root} before starting this service."
+              exit 1
+            fi
 
-        touch ${atm10Root}/server.properties
-        set_property() {
-          key="$1"
-          value="$2"
-          properties=${atm10Root}/server.properties
-          if grep -q "^$key=" ${atm10Root}/server.properties; then
-            awk -v key="$key" -v value="$value" '
-              $0 ~ "^" key "=" {
-                print key "=" value
-                next
-              }
-              { print }
-            ' "$properties" > "$properties.tmp"
-            mv "$properties.tmp" "$properties"
-          else
-            printf '%s=%s\n' "$key" "$value" >> ${atm10Root}/server.properties
-          fi
-        }
+            install -m 0644 ${minecraftJvmArgs} ${atm11Root}/user_jvm_args.txt
+            install -m 0644 ${minecraftOps} ${atm11Root}/ops.json
+            printf 'eula=true\n' > ${atm11Root}/eula.txt
+            chmod +x ${atm11Root}/startserver.sh
 
-        set_property allow-flight true
-        set_property motd "All the Mods 10"
-        set_property max-tick-time 180000
-        set_property simulation-distance 5
-        set_property view-distance 12
-        set_property online-mode true
-        if [ -f /root/allthemons-rcon.password ]; then
-          set_property enable-rcon true
-          set_property rcon.port 25575
-          set_property rcon.password "$(cat /root/allthemons-rcon.password)"
-        fi
+            touch ${atm11Root}/server.properties
+            set_property() {
+              key="$1"
+              value="$2"
+              properties=${atm11Root}/server.properties
+              if grep -q "^$key=" ${atm11Root}/server.properties; then
+                awk -v key="$key" -v value="$value" '
+                  $0 ~ "^" key "=" {
+                    print key "=" value
+                    next
+                  }
+                  { print }
+                ' "$properties" > "$properties.tmp"
+                mv "$properties.tmp" "$properties"
+              else
+                printf '%s=%s\n' "$key" "$value" >> ${atm11Root}/server.properties
+              fi
+            }
 
-        install -D -m 0644 ${bluemapJar} ${atm10Root}/mods/bluemap-5.7-neoforge.jar
-        rm -f ${atm10Root}/mods/cynosure-*.jar ${atm10Root}/mods/estrogen-*.jar
-        install -D -m 0644 ${cynosureJar} ${atm10Root}/mods/cynosure-1.0.2-neoforge-1.21.1.jar
-        install -D -m 0644 ${estrogenJar} ${atm10Root}/mods/estrogen-6.0.8+1.21.1-neoforge.jar
-        install -D -m 0644 ${createEstrogenJar} ${atm10Root}/mods/createestrogen-2.0.0+1.21.1.jar
-        install -D -m 0644 ${bluemapCoreConfig} ${atm10Root}/config/bluemap/core.conf
-        install -D -m 0644 ${bluemapWebappConfig} ${atm10Root}/config/bluemap/webapp.conf
-        install -D -m 0644 ${bluemapWebserverConfig} ${atm10Root}/config/bluemap/webserver.conf
-        install -D -m 0644 ${bluemapPluginConfig} ${atm10Root}/config/bluemap/plugin.conf
-      '';
-      script = ''
-        cd ${atm10Root}
-        exec ./startserver.sh
-      '';
-      serviceConfig = {
-        Restart = "always";
-        RestartSec = "30s";
-        KillSignal = "SIGINT";
-        TimeoutStopSec = "120s";
-        TimeoutStartSec = "30min";
-        # The Java heap excludes native memory, threads, and mapped files.
-        MemoryHigh = "18G";
-        MemoryMax = "20G";
-      };
-    };
+            set_property allow-flight true
+            set_property motd "All the Mods 11"
+            set_property max-tick-time 180000
+            set_property max-players 20
+            set_property op-permission-level 4
+            set_property simulation-distance 5
+            set_property view-distance 8
+            set_property online-mode true
+            set_property use-native-transport true
+            if [ -s "$CREDENTIALS_DIRECTORY/rcon" ]; then
+              set_property enable-rcon true
+              set_property rcon.port 25575
+              set_property rcon.password "$(cat "$CREDENTIALS_DIRECTORY/rcon")"
+            fi
 
-    systemd.services.atm11-0-2-0 = {
-      enable = false;
-      unitConfig.RequiresMountsFor = minecraftRoot;
-      description = "All The Mods 11 0.2.0 Minecraft server";
-      wantedBy = ["multi-user.target"];
-      unitConfig.Conflicts = [
-        "atm-10-tts.service"
-        "atm10-6-6.service"
-        "atm10-8-0.service"
-        "allthemons-1-0-0-rc-6.service"
-        "cutie-craft.service"
-        "cus2.service"
-      ];
-      path = with pkgs; [
-        coreutils
-        curl
-        gawk
-        jdk25_headless
-        wget
-      ];
-      environment = {
-        ATM11_JAVA = "${pkgs.jdk25_headless}/bin/java";
-        ATM11_RESTART = "false";
-      };
-      preStart = ''
-        if [ ! -f ${atm11Root}/startserver.sh ]; then
-          echo "Missing ${atm11Root}/startserver.sh. Extract ServerFiles-0.2.0.zip into ${atm11Root} before starting this service."
-          exit 1
-        fi
+            # BlueMap 5.7 crashes ATM 11 / NeoForge 26 module scanning. Keep the
+            # managed jar out of this server root until a compatible build is pinned.
+            rm -f ${atm11Root}/mods/bluemap-5.7-neoforge.jar
+          '';
+          script = ''
+            cd ${atm11Root}
+            exec ./startserver.sh
+          '';
+          serviceConfig = {
+            LoadCredential = ["rcon:/root/allthemons-rcon.password"];
+            SetCredential = ["rcon:"];
+            Restart = "always";
+            RestartSec = "30s";
+            KillSignal = "SIGINT";
+            TimeoutStopSec = "180s";
+            MemoryHigh = "14G";
+            MemoryMax = "15G";
+            LimitNOFILE = 1048576;
+          };
+        };
 
-        install -m 0644 ${minecraftJvmArgs} ${atm11Root}/user_jvm_args.txt
-        install -m 0644 ${minecraftOps} ${atm11Root}/ops.json
-        printf 'eula=true\n' > ${atm11Root}/eula.txt
-        chmod +x ${atm11Root}/startserver.sh
+        allthemons-1-0-0-rc-6 = {
+          enable = false;
+          unitConfig.RequiresMountsFor = minecraftRoot;
+          description = "All the Mons 1.0.0-rc.6 Minecraft server";
+          wantedBy = ["multi-user.target"];
+          unitConfig.Conflicts = [
+            "atm-10-tts.service"
+            "atm10-6-6.service"
+            "atm10-8-0.service"
+            "atm11-0-2-0.service"
+            "allthemons-1-0-0-rc-5.service"
+            "cutie-craft.service"
+            "cus2.service"
+          ];
+          path = with pkgs; [
+            coreutils
+            curl
+            gawk
+            jdk21_headless
+            wget
+          ];
+          environment = {
+            ATM10_JAVA = "${pkgs.jdk21_headless}/bin/java";
+            ATM10_RESTART = "false";
+          };
+          preStart = ''
+            if [ ! -f ${allTheMonsRoot}/startserver.sh ]; then
+              echo "Missing ${allTheMonsRoot}/startserver.sh. Extract ServerFiles-1.0.0-rc.6.zip into ${allTheMonsRoot} before starting this service."
+              exit 1
+            fi
 
-        touch ${atm11Root}/server.properties
-        set_property() {
-          key="$1"
-          value="$2"
-          properties=${atm11Root}/server.properties
-          if grep -q "^$key=" ${atm11Root}/server.properties; then
-            awk -v key="$key" -v value="$value" '
-              $0 ~ "^" key "=" {
-                print key "=" value
-                next
-              }
-              { print }
-            ' "$properties" > "$properties.tmp"
-            mv "$properties.tmp" "$properties"
-          else
-            printf '%s=%s\n' "$key" "$value" >> ${atm11Root}/server.properties
-          fi
-        }
+            install -m 0644 ${minecraftJvmArgs} ${allTheMonsRoot}/user_jvm_args.txt
+            printf 'eula=true\n' > ${allTheMonsRoot}/eula.txt
+            if grep -q '^view-distance=' ${allTheMonsRoot}/server.properties; then
+              sed -i 's/^view-distance=.*/view-distance=12/' ${allTheMonsRoot}/server.properties
+            else
+              printf 'view-distance=12\n' >> ${allTheMonsRoot}/server.properties
+            fi
+            chmod +x ${allTheMonsRoot}/startserver.sh
 
-        set_property allow-flight true
-        set_property motd "All the Mods 11"
-        set_property max-tick-time 180000
-        set_property max-players 20
-        set_property op-permission-level 4
-        set_property simulation-distance 5
-        set_property view-distance 8
-        set_property online-mode true
-        set_property use-native-transport true
-        if [ -f /root/allthemons-rcon.password ]; then
-          set_property enable-rcon true
-          set_property rcon.port 25575
-          set_property rcon.password "$(cat /root/allthemons-rcon.password)"
-        fi
-
-        # BlueMap 5.7 crashes ATM 11 / NeoForge 26 module scanning. Keep the
-        # managed jar out of this server root until a compatible build is pinned.
-        rm -f ${atm11Root}/mods/bluemap-5.7-neoforge.jar
-      '';
-      script = ''
-        cd ${atm11Root}
-        exec ./startserver.sh
-      '';
-      serviceConfig = {
-        Restart = "always";
-        RestartSec = "30s";
-        KillSignal = "SIGINT";
-        TimeoutStopSec = "180s";
-        MemoryHigh = "14G";
-        MemoryMax = "15G";
-        LimitNOFILE = 1048576;
-      };
-    };
-
-    systemd.services.allthemons-1-0-0-rc-6 = {
-      enable = false;
-      unitConfig.RequiresMountsFor = minecraftRoot;
-      description = "All the Mons 1.0.0-rc.6 Minecraft server";
-      wantedBy = ["multi-user.target"];
-      unitConfig.Conflicts = [
-        "atm-10-tts.service"
-        "atm10-6-6.service"
-        "atm10-8-0.service"
-        "atm11-0-2-0.service"
-        "allthemons-1-0-0-rc-5.service"
-        "cutie-craft.service"
-        "cus2.service"
-      ];
-      path = with pkgs; [
-        coreutils
-        curl
-        gawk
-        jdk21_headless
-        wget
-      ];
-      environment = {
-        ATM10_JAVA = "${pkgs.jdk21_headless}/bin/java";
-        ATM10_RESTART = "false";
-      };
-      preStart = ''
-        if [ ! -f ${allTheMonsRoot}/startserver.sh ]; then
-          echo "Missing ${allTheMonsRoot}/startserver.sh. Extract ServerFiles-1.0.0-rc.6.zip into ${allTheMonsRoot} before starting this service."
-          exit 1
-        fi
-
-        install -m 0644 ${minecraftJvmArgs} ${allTheMonsRoot}/user_jvm_args.txt
-        printf 'eula=true\n' > ${allTheMonsRoot}/eula.txt
-        if grep -q '^view-distance=' ${allTheMonsRoot}/server.properties; then
-          sed -i 's/^view-distance=.*/view-distance=12/' ${allTheMonsRoot}/server.properties
-        else
-          printf 'view-distance=12\n' >> ${allTheMonsRoot}/server.properties
-        fi
-        chmod +x ${allTheMonsRoot}/startserver.sh
-
-        install -D -m 0644 ${bluemapJar} ${allTheMonsRoot}/mods/bluemap-5.7-neoforge.jar
-        install -D -m 0644 ${chunkyJar} ${allTheMonsRoot}/mods/Chunky-NeoForge-1.4.23.jar
-        install -D -m 0644 ${bluemapCoreConfig} ${allTheMonsRoot}/config/bluemap/core.conf
-        install -D -m 0644 ${bluemapWebappConfig} ${allTheMonsRoot}/config/bluemap/webapp.conf
-        install -D -m 0644 ${bluemapWebserverConfig} ${allTheMonsRoot}/config/bluemap/webserver.conf
-        install -D -m 0644 ${bluemapPluginConfig} ${allTheMonsRoot}/config/bluemap/plugin.conf
-      '';
-      script = ''
-        cd ${allTheMonsRoot}
-        exec ./startserver.sh
-      '';
-      serviceConfig = {
-        Restart = "always";
-        RestartSec = "30s";
-        KillSignal = "SIGINT";
-        TimeoutStopSec = "120s";
-        MemoryHigh = "14G";
-        MemoryMax = "16G";
-      };
-    };
+            install -D -m 0644 ${bluemapJar} ${allTheMonsRoot}/mods/bluemap-5.7-neoforge.jar
+            install -D -m 0644 ${chunkyJar} ${allTheMonsRoot}/mods/Chunky-NeoForge-1.4.23.jar
+            install -D -m 0644 ${bluemapCoreConfig} ${allTheMonsRoot}/config/bluemap/core.conf
+            install -D -m 0644 ${bluemapWebappConfig} ${allTheMonsRoot}/config/bluemap/webapp.conf
+            install -D -m 0644 ${bluemapWebserverConfig} ${allTheMonsRoot}/config/bluemap/webserver.conf
+            install -D -m 0644 ${bluemapPluginConfig} ${allTheMonsRoot}/config/bluemap/plugin.conf
+          '';
+          script = ''
+            cd ${allTheMonsRoot}
+            exec ./startserver.sh
+          '';
+          serviceConfig = {
+            Restart = "always";
+            RestartSec = "30s";
+            KillSignal = "SIGINT";
+            TimeoutStopSec = "120s";
+            MemoryHigh = "14G";
+            MemoryMax = "16G";
+          };
+        };
+      }
+    ];
   };
 }

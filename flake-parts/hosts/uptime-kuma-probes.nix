@@ -1,12 +1,16 @@
 {lib, ...}: let
   # Private services report outward; no extra listening ports are needed.
-  mkProbes = host: {config, pkgs, ...}: let
+  mkProbes = host: {
+    config,
+    pkgs,
+    ...
+  }: let
     secret = config.age.secrets.uptime-kuma-probes.path;
     report = pkgs.writeShellApplication {
       name = "uptime-kuma-report";
       runtimeInputs = [pkgs.curl pkgs.jq];
       text = ''
-        token=$(jq -er --arg key "$1" '.[$key] | select(type == "string" and length > 0)' ${lib.escapeShellArg secret})
+        token=$(jq -er --arg key "$1" '.[$key] | select(type == "string" and length > 0)' "''${UPTIME_KUMA_TOKENS_FILE:-${secret}}")
         # Keep the push token out of command arguments and journal messages.
         printf 'url = "https://uptime.bylisa.dev/api/push/%s"\n' "$token" |
           curl --config - --silent --fail --max-time 10 --get \
@@ -44,12 +48,13 @@
         }
       ];
     probeScript = pkgs.writeShellScript "uptime-kuma-probes" (lib.concatMapStringsSep "\n" (probe: ''
-      if ${probe.command} >/dev/null 2>&1; then
-        ${lib.getExe report} ${lib.escapeShellArg probe.key} up "Local check passed" || true
-      else
-        ${lib.getExe report} ${lib.escapeShellArg probe.key} down "Local check failed" || true
-      fi
-    '') probes);
+        if ${probe.command} >/dev/null 2>&1; then
+          ${lib.getExe report} ${lib.escapeShellArg probe.key} up "Local check passed" || true
+        else
+          ${lib.getExe report} ${lib.escapeShellArg probe.key} down "Local check failed" || true
+        fi
+      '')
+      probes);
   in {
     age.secrets.uptime-kuma-probes = {
       file = ../agenix/secrets/${host}/uptime-kuma-probes.age;
@@ -60,14 +65,20 @@
       description = "Report private service health to Uptime Kuma";
       wants = ["network-online.target"];
       after = ["network-online.target"];
-      serviceConfig = {
-        Type = "oneshot";
-        ExecStart = probeScript;
-        TimeoutStartSec = 180;
-        ProtectSystem = "strict";
-        ProtectHome = true;
-        PrivateTmp = true;
-      };
+      serviceConfig =
+        {
+          Type = "oneshot";
+          ExecStart = probeScript;
+          TimeoutStartSec = 180;
+          ProtectSystem = "strict";
+          ProtectHome = true;
+          PrivateTmp = true;
+        }
+        // lib.optionalAttrs (host == "nook") {
+          DynamicUser = true;
+          LoadCredential = ["tokens:${secret}"];
+          Environment = ["UPTIME_KUMA_TOKENS_FILE=%d/tokens"];
+        };
     };
     systemd.timers.uptime-kuma-probes = {
       wantedBy = ["timers.target"];

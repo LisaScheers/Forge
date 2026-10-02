@@ -28,6 +28,7 @@
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${sunshineCheck}/bin/home-dashboard-sunshine-check";
+        DynamicUser = true;
         Group = "nginx";
         StateDirectory = "home-dashboard-checks";
         StateDirectoryMode = "0750";

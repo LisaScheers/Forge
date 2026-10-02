@@ -148,7 +148,7 @@
         http_access deny all
 
         http_port ${listenAddress}:${toString listenPort}
-        pid_filename /run/squid.pid
+        pid_filename /run/squid/squid.pid
         cache_effective_user squid squid
 
         cache_log stdio:/var/log/squid/cache.log
@@ -187,9 +187,17 @@
       after = ["network-online.target"];
       wants = ["network-online.target"];
       preStart = lib.mkBefore ''
-        install -d -m 0750 -o squid -g squid ${cacheRoot}
+        install -d -m 0750 ${cacheRoot}
       '';
       unitConfig.RequiresMountsFor = cacheRoot;
+      serviceConfig = {
+        User = "squid";
+        Group = "squid";
+        RuntimeDirectory = "squid";
+        RuntimeDirectoryMode = "0750";
+        LogsDirectory = "squid";
+        PIDFile = lib.mkForce "/run/squid/squid.pid";
+      };
     };
 
     systemd.tmpfiles.rules = [

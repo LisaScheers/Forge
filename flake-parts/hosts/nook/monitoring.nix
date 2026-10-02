@@ -885,9 +885,9 @@ in {
       after = ["squid.service"];
       requires = ["squid.service"];
       serviceConfig = {
-        User = "squid";
-        Group = "squid";
-        ExecStart = "${pkgs.prometheus-squid-exporter}/bin/squid-exporter -listen ${squidExporterAddress}:${toString squidExporterPort} -squid-hostname ${squidAddress} -squid-port ${toString squidPort} -squid-pidfile /run/squid.pid";
+        DynamicUser = true;
+        SupplementaryGroups = ["squid"];
+        ExecStart = "${pkgs.prometheus-squid-exporter}/bin/squid-exporter -listen ${squidExporterAddress}:${toString squidExporterPort} -squid-hostname ${squidAddress} -squid-port ${toString squidPort} -squid-pidfile /run/squid/squid.pid";
         Restart = "always";
         RestartSec = "5s";
         ProtectSystem = "strict";

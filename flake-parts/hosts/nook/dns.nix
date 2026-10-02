@@ -116,8 +116,8 @@
       after = ["unbound.service"];
       requires = ["unbound.service"];
       serviceConfig = {
-        User = "unbound";
-        Group = "unbound";
+        DynamicUser = true;
+        SupplementaryGroups = ["unbound"];
         ExecStart = "${pkgs.prometheus-unbound-exporter}/bin/unbound_exporter -web.listen-address=127.0.0.1:9167 -unbound.host=unix:///run/unbound/unbound.ctl";
         Restart = "always";
         RestartSec = "5s";
