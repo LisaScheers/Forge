@@ -15,6 +15,11 @@
       '';
     };
   in {
+    users.users.home-dashboard-sunshine-check = {
+      isSystemUser = true;
+      group = "nginx";
+    };
+
     # Only Atlas can read this status file, over the existing Tailscale path.
     services.nginx.virtualHosts."jellyfin.bylisa.dev".locations."= /.dashboard/sunshine.json".extraConfig = ''
       allow 100.87.26.75;
@@ -28,7 +33,8 @@
       serviceConfig = {
         Type = "oneshot";
         ExecStart = "${sunshineCheck}/bin/home-dashboard-sunshine-check";
-        DynamicUser = true;
+        # nginx reads this state directory outside the service's sandbox.
+        User = "home-dashboard-sunshine-check";
         Group = "nginx";
         StateDirectory = "home-dashboard-checks";
         StateDirectoryMode = "0750";
