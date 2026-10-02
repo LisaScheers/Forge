@@ -6,7 +6,8 @@
   }: let
     minecraftRoot = "/srv/disks/western-digital-hdd/minecraft";
     # Keep the directory basename and service name across pack upgrades.
-    atm10Root = "${minecraftRoot}/atm10-8.0";
+    # Active world on the SSD; inactive packs and upgrade backups stay on the HDD.
+    atm10Root = "/srv/disks/second-life-cache/minecraft/atm10-8.0";
     atm10Version = "8.1";
     atm10Archive = pkgs.fetchurl {
       url = "https://mediafilez.forgecdn.net/files/8764/245/ServerFiles-8.1.zip";
@@ -184,7 +185,7 @@
 
         atm10-8-0 = {
           enable = true;
-          unitConfig.RequiresMountsFor = minecraftRoot;
+          unitConfig.RequiresMountsFor = [atm10Root minecraftRoot];
           description = "All The Mods 10 ${atm10Version} Minecraft server";
           wantedBy = ["multi-user.target"];
           unitConfig.Conflicts = [

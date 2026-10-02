@@ -1,23 +1,26 @@
 # Minecraft
 
 ATM 10 runs on Nook as `atm10-8-0.service`, using
-`/srv/disks/western-digital-hdd/minecraft/atm10-8.0`. Its Java heap is 8–15 GiB; the service allows
+`/srv/disks/second-life-cache/minecraft/atm10-8.0` on the Kingston SSD. Its Java heap is 8–15 GiB; the service allows
 additional memory for Java's native allocations.
 
-All configured Nook Minecraft packs and upgrade backups use that HDD's
-`minecraft` directory. Their units require the disk mount before starting.
+Inactive Nook Minecraft packs and upgrade backups use the HDD's
+`/srv/disks/western-digital-hdd/minecraft` directory. ATM 10 requires both mounts
+before starting; the other packs require the HDD.
 ATM 10 refuses to start without its existing installation, preventing an
 empty world from being created before data is migrated.
 
-For the initial HDD migration, after rollout is approved, pause Nook's automatic
-update timer and stop `atm10-8-0.service`. Confirm the HDD is mounted, then copy
-`/var/minecraft/` to `/srv/disks/western-digital-hdd/minecraft/` with
+For the SSD migration, pause Nook's automatic update timer and stop
+`atm10-8-0.service`. Confirm the SSD is mounted, then copy the existing
+`/srv/disks/western-digital-hdd/minecraft/atm10-8.0/` installation to
+`/srv/disks/second-life-cache/minecraft/atm10-8.0/` with
 `rsync -aHAX --numeric-ids` as root. With the server still stopped, verify the
 copy with `rsync -aHAXnc --numeric-ids --delete --itemize-changes` (no output),
 then deploy the approved revision from `origin/main` using the README recipe.
-Confirm the server starts from the HDD and players can join before resuming
-automatic updates. Retain `/var/minecraft` as a stopped rollback copy until
-separately approved for deletion; it becomes stale once players resume.
+Confirm the server starts from the SSD and players can join before resuming
+automatic updates. Retain the HDD installation and the older `/var/minecraft`
+copy for rollback until separately approved for deletion. They become stale
+once players resume; copy the current world back before using either one.
 
 Players can connect directly through `mc.bylisa.dev:25565`. Nook's Cloudflare
 DDNS updater maintains DNS-only A and AAAA records. UniFi forwards WAN1 TCP
