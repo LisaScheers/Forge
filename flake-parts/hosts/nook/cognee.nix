@@ -31,6 +31,21 @@
       url = "https://d3js.org/d3.v7.min.js";
       hash = "sha256-8glLv2FBs1lyLE/kVOtsSw8OQswQzHr5IfwVj864ZTk=";
     };
+    # The image's Ladybug 0.19 corrupts WAL records larger than 4 KiB.
+    # 0.21 fixes both writer and reader: LadybugDB/ladybug#959.
+    ladybugWheel = pkgs.fetchurl {
+      url = "https://files.pythonhosted.org/packages/20/b6/50046dcdd7774b830b4572d79215cda11f6024d9b2815e5a1b68220edaee/ladybug-0.21.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl";
+      sha256 = "27a85426bbb6ec082716d1225c9d02ddc37da45a135ddc9cb518c242ad56d280";
+    };
+    ladybugJson = pkgs.fetchurl {
+      url = "https://extension.ladybugdb.com/v0.21.0/linux_amd64/json/libjson.lbug_extension";
+      sha256 = "a5240f112f05c15f87108be3d03dea7a296b0f8bd66fc95229c987f0cc73a9dc";
+    };
+    ladybug = pkgs.runCommand "cognee-ladybug-0.21.0" {nativeBuildInputs = [pkgs.unzip];} ''
+      mkdir -p "$out/json/linux_amd64"
+      unzip -q ${ladybugWheel} -d "$out"
+      cp ${ladybugJson} "$out/json/linux_amd64/libjson.lbug_extension"
+    '';
     containerOptions = [
       "--network=host"
       "--cap-drop=ALL"
@@ -98,6 +113,7 @@
           DB_PROVIDER = "sqlite";
           VECTOR_DB_PROVIDER = "lancedb";
           GRAPH_DATABASE_PROVIDER = "kuzu";
+          PYTHONPATH = "/etc/cognee-python";
           LLM_PROVIDER = "custom";
           LLM_MODEL = "openai/gpt-6-luna";
           LLM_ENDPOINT = "http://127.0.0.1:8320/v1";
@@ -109,6 +125,8 @@
           EMBEDDING_MAX_COMPLETION_TOKENS = "256";
           # Match graph queries and numeric layouts to the container CPU quota.
           KUZU_NUM_THREADS = "2";
+          # Cognee defaults to a 32 GiB pool, exceeding this 6 GiB container.
+          KUZU_BUFFER_POOL_SIZE = "1073741824";
           OMP_NUM_THREADS = "2";
           OPENBLAS_NUM_THREADS = "2";
           MKL_NUM_THREADS = "2";
@@ -127,6 +145,8 @@
           "${storageRoot}/data:/cognee-storage/data"
           "${storageRoot}/cache:/cognee-cache"
           "${source}/api.py:/etc/cognee-api.py:ro"
+          "${ladybug}:/etc/cognee-python:ro"
+          "${ladybug}/json:/app/cognee_db_workers/ladybug_extensions/v0.21.0:ro"
         ];
         cmd = ["/etc/cognee-api.py"];
         extraOptions =
