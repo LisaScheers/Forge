@@ -228,7 +228,6 @@
       restartTriggers = [../../agenix/secrets/nook/cognee-backend-env.age];
       serviceConfig = {
         ExecStartPost = "${python}/bin/python3 ${source}/wait_health.py 8321";
-        TimeoutStartSec = 300;
       };
     };
     systemd.services.podman-cognee-mcp = {
@@ -238,7 +237,6 @@
       restartTriggers = [../../agenix/secrets/shared/cognee-oidc-env.age];
       serviceConfig = {
         ExecStartPost = "${python}/bin/python3 ${source}/wait_health.py 8322";
-        TimeoutStartSec = 300;
       };
     };
 
