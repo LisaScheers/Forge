@@ -162,7 +162,7 @@ class PlanClient:
                 save_credentials(self.credentials, record)
             return record["access_token"]
 
-    async def complete(self, body):
+    async def complete(self, body, max_output_tokens=None):
         token = await self.access_token()
         async with self.session.post(f"{RESOURCE}/responses", json=body,
                                      headers={"Authorization": f"Bearer {token}",
@@ -172,11 +172,12 @@ class PlanClient:
                 if response.status == 429:
                     raise web.HTTPTooManyRequests(text="ChatGPT plan usage limit reached.")
                 raise web.HTTPBadGateway(text="OpenAI rejected Cognee inference; check plan access.")
-            return await completed_response(response.content)
+            return await completed_response(response.content, max_output_tokens)
 
 
-async def completed_response(content):
+async def completed_response(content, max_output_tokens=None):
     data_lines = []
+    final_items = {}
     async for raw_line in content:
         line = raw_line.decode("utf-8").rstrip("\r\n")
         if line.startswith("data:"):
@@ -187,10 +188,18 @@ async def completed_response(content):
             if payload == "[DONE]":
                 continue
             event = json.loads(payload)
+            if event.get("type") == "response.output_item.done":
+                final_items[event["output_index"]] = event["item"]
             if event.get("type") == "response.completed":
                 response = event["response"]
                 if response.get("status") != "completed":
                     raise web.HTTPBadGateway(text="OpenAI response did not complete.")
+                if max_output_tokens is not None and response.get("usage", {}).get("output_tokens", 0) > max_output_tokens:
+                    raise web.HTTPBadGateway(text="OpenAI output exceeded Cognee's requested token budget.")
+                # Plan streams finalize each item separately; response.completed
+                # may carry an empty output list. Never release items before it.
+                if not response.get("output"):
+                    response = {**response, "output": [final_items[index] for index in sorted(final_items)]}
                 return response
             if event.get("type") in {"response.failed", "response.incomplete", "error"}:
                 code = (event.get("response", {}).get("error") or event).get("code")
@@ -223,8 +232,10 @@ def responses_request(body):
     else:
         raise web.HTTPBadRequest(text="Unsupported structured output format.")
     maximum = body.get("max_completion_tokens", body.get("max_tokens"))
-    if maximum is not None:
-        request["max_output_tokens"] = maximum
+    if maximum is not None and (isinstance(maximum, bool) or not isinstance(maximum, int) or maximum <= 0):
+        raise web.HTTPBadRequest(text="The output token budget must be a positive integer.")
+    # The subscription endpoint rejects max_output_tokens. Check the completed
+    # usage against Cognee's budget instead; this cannot cap provider consumption.
     return request
 
 
@@ -260,20 +271,15 @@ def application(credentials, api_key, session):
             raise web.HTTPBadRequest(text="Invalid request or credential record.") from None
 
     async def complete(request):
-        body = responses_request(await request.json())
-        return web.json_response(chat_response(await client.complete(body)))
+        body = await request.json()
+        inference = responses_request(body)
+        maximum = body.get("max_completion_tokens", body.get("max_tokens"))
+        return web.json_response(chat_response(await client.complete(inference, maximum)))
 
     async def models(request):
-        token = await client.access_token()
-        async with session.get(f"{RESOURCE}/models", headers={"Authorization": f"Bearer {token}"},
-                               allow_redirects=False) as response:
-            if response.status != 200:
-                raise web.HTTPBadGateway(text="Unable to verify the ChatGPT model catalog.")
-            catalog = await response.json()
-        available = any(model.get("slug", model.get("id")) == MODEL
-                        for model in catalog.get("models", catalog.get("data", [])))
-        if not available:
-            raise web.HTTPServiceUnavailable(text=f"{MODEL} is unavailable for this account.")
+        await client.access_token()
+        # Report the adapter's configured model. The plan catalog can omit a
+        # working model; a completed inference is the actual entitlement check.
         return web.json_response({"object": "list", "data": [{"id": MODEL, "object": "model", "owned_by": "openai"}]})
 
     app = web.Application(middlewares=[authenticate], client_max_size=4 * 1024 * 1024)

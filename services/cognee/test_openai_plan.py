@@ -35,6 +35,24 @@ class StreamTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(web.HTTPBadGateway):
             await completed_response(stream({"type": "response.output_text.delta", "delta": "partial"}))
 
+    async def test_final_items_survive_empty_terminal_output(self):
+        item = {"type": "message", "content": [{"type": "output_text", "text": '{"ok":true}'}]}
+        response = await completed_response(stream(
+            {"type": "response.output_item.done", "output_index": 0, "item": item},
+            {"type": "response.completed", "response": {"id": "resp_1", "status": "completed", "output": []}},
+        ))
+        self.assertEqual(chat_response(response)["choices"][0]["message"]["content"], '{"ok":true}')
+
+    async def test_final_item_without_terminal_completion_is_rejected(self):
+        with self.assertRaises(web.HTTPBadGateway):
+            await completed_response(stream({"type": "response.output_item.done", "output_index": 0,
+                                             "item": {"type": "message", "content": []}}))
+
+    async def test_completed_output_over_budget_is_rejected(self):
+        with self.assertRaises(web.HTTPBadGateway):
+            await completed_response(stream({"type": "response.completed", "response": {
+                "status": "completed", "usage": {"output_tokens": 3000}}}), max_output_tokens=2048)
+
     async def test_usage_limit_after_streaming_is_reported(self):
         with self.assertRaises(web.HTTPTooManyRequests):
             await completed_response(stream({"type": "response.failed", "response": {
@@ -90,13 +108,13 @@ class TranslationTests(unittest.TestCase):
         with self.assertRaises(web.HTTPBadRequest):
             responses_request([])
 
-    def test_schema_and_token_limit_are_preserved(self):
+    def test_schema_preserved_and_unsupported_token_limit_omitted(self):
         schema = {"name": "graph", "strict": True, "schema": {"type": "object", "properties": {}}}
         request = responses_request({"model": MODEL, "messages": [{"role": "system", "content": "extract"}],
                                      "response_format": {"type": "json_schema", "json_schema": schema},
                                      "max_completion_tokens": 2048})
         self.assertEqual(request["text"]["format"], {"type": "json_schema", **schema})
-        self.assertEqual(request["max_output_tokens"], 2048)
+        self.assertNotIn("max_output_tokens", request)
         self.assertIs(request["store"], False)
         self.assertIs(request["stream"], True)
 

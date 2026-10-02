@@ -50,7 +50,7 @@ adapter is limited to 256 MiB. Nook had about 14 GiB available at inspection.
 ## Models and subscription access
 
 Extraction and reasoning use `gpt-6-luna`, with low reasoning effort and a 16,384
-output-token ceiling. Local Fastembed runs `sentence-transformers/all-MiniLM-L6-v2`
+output-token budget. Local Fastembed runs `sentence-transformers/all-MiniLM-L6-v2`
 with 384 dimensions. Its weights and tokenizer cache persist on the NVMe; first
 use requires a model download. Input chunk sizing is capped at 256 embedding
 tokens. Cognee's LLM rate limiter is set to ten requests per minute.
@@ -62,7 +62,10 @@ to Cognee alone does not make Cognee's background extraction use Codex's plan.
 `services/cognee/openai_plan.py` translates Cognee's text Chat Completions calls
 to OpenAI's documented subscription flow at `https://api.openai.com/v1/responses`.
 It preserves structured-output schemas, uses `store=false` and `stream=true`, and
-accepts output only after `response.completed`. Partial streams, refusals,
+collects finalized output items but releases them only after `response.completed`.
+The subscription endpoint rejects `max_output_tokens`; the adapter rejects a
+completed response exceeding Cognee's budget, but cannot cap provider consumption.
+Partial streams, refusals,
 incomplete responses and plan-limit failures fail rather than ingesting partial
 results. It supports text extraction/reasoning only; audio transcription and
 image captioning require an additional provider before those workloads are used.
@@ -73,8 +76,10 @@ PKCE, the ID-token signature, issuer, audience, expiry, nonce and account identi
 Scope `chatgpt.tokens.use.direct` must be granted. Credentials are written
 atomically with mode 0600. One adapter process serializes rotating refreshes.
 
-**Availability remains account-dependent.** The adapter checks the account's
-model catalog, but a completed inference is the entitlement check. Subscription
+**Availability remains account-dependent.** A completed inference is the
+entitlement check. On 2026-10-02 the account catalog omitted GPT-6 Luna, but the
+model completed a real subscription request successfully. The adapter's `/models`
+route therefore reports its configured model rather than filtering by that catalog. Subscription
 usage shares the account's applicable limits. Login consent and any app-specific
 usage/credit allowance remain Lisa's choices. No credits or API spending have been
 authorized by preparing this configuration.
@@ -178,10 +183,10 @@ then Nook. Avoid activation from an off-main revision.
 
 Preparation checks passed on 2026-10-02: Nook and Atlas system derivation
 evaluation, Vega Home Manager evaluation, the packaged login helper's build and
-help command, and 15 adapter tests. An offline compatibility check against
+help command, and 18 adapter tests. An offline compatibility check against
 FastMCP 3.4.7 verified anonymous MCP rejection, HTTPS OAuth discovery and
 Host/Origin rejection with mocked Authentik discovery. The pinned containers,
-live Authentik login and OpenAI model entitlement remain untested until rollout.
+live Authentik login and Cognee memory round trip remain untested until rollout.
 
 ```sh
 just deploy-build atlas
@@ -197,7 +202,7 @@ After authorization and credential transfer, verify:
    `cognee-openai-plan` are healthy. The API logs authentication enabled.
 3. Anonymous REST calls return 401; anonymous MCP initialization returns an OAuth
    challenge. An Authentik account outside the allowed group cannot authorize.
-4. The account catalog contains Luna and a structured extraction completes. Check
+4. A Luna structured extraction completes. The account catalog is not definitive. Check
    ChatGPT Settings → Usage for the app's plan allowance.
 5. In a disposable dataset, remember a short fact and recall it in a fresh Codex
    chat. Check pipeline completion, then restart the services and repeat recall to
