@@ -35,6 +35,9 @@
       "--cpus=2"
       "--log-driver=journald"
       "--stop-timeout=30"
+      # Podman creates failed transient units for expected startup checks,
+      # which triggers deploy-rs rollback. ExecStartPost gates readiness instead.
+      "--health-interval=disable"
     ];
   in {
     age.secrets = {
@@ -78,7 +81,7 @@
         user = "970:970";
         environmentFiles = [backendEnvironment];
         environment = {
-          ENV = "production";
+          ENV = "prod";
           BIND_ADDRESS = "127.0.0.1";
           HTTP_PORT = "8321";
           HOME = "/cognee-cache";
@@ -114,11 +117,14 @@
           "${storageRoot}/system:/cognee-storage/system"
           "${storageRoot}/data:/cognee-storage/data"
           "${storageRoot}/cache:/cognee-cache"
+          "${source}/api.py:/etc/cognee-api.py:ro"
         ];
+        cmd = ["/etc/cognee-api.py"];
         extraOptions =
           containerOptions
           ++ [
             "--memory=6g"
+            "--entrypoint=/app/.venv/bin/python"
             "--health-cmd=python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8321/health', timeout=5)\""
             "--health-start-period=120s"
           ];
@@ -220,12 +226,20 @@
       after = ["cognee-openai-plan.service" "systemd-tmpfiles-setup.service"];
       unitConfig.RequiresMountsFor = storageRoot;
       restartTriggers = [../../agenix/secrets/nook/cognee-backend-env.age];
+      serviceConfig = {
+        ExecStartPost = "${python}/bin/python3 ${source}/wait_health.py 8321";
+        TimeoutStartSec = 300;
+      };
     };
     systemd.services.podman-cognee-mcp = {
       requires = ["cognee-bootstrap.service"];
       after = ["cognee-bootstrap.service"];
       unitConfig.RequiresMountsFor = storageRoot;
       restartTriggers = [../../agenix/secrets/shared/cognee-oidc-env.age];
+      serviceConfig = {
+        ExecStartPost = "${python}/bin/python3 ${source}/wait_health.py 8322";
+        TimeoutStartSec = 300;
+      };
     };
 
     security.acme.certs.${domain} = {
