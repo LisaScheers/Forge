@@ -74,7 +74,7 @@ in {
 
     security.acme.certs.${domain} = {
       extraLegoFlags = [
-        "--dns.propagation-wait"
+        "--dns.propagation.wait"
         "30s"
       ];
       group = "nginx";

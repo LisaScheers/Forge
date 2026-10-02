@@ -28,7 +28,7 @@
       certs."grafana.bylisa.dev" = {
         extraDomainNames = ["grafana.local.bylisa.dev"];
         extraLegoFlags = [
-          "--dns.propagation-wait"
+          "--dns.propagation.wait"
           "30s"
         ];
         group = "nginx";
@@ -37,7 +37,7 @@
       certs."ha.bylisa.dev" = {
         extraDomainNames = ["ha.local.bylisa.dev"];
         extraLegoFlags = [
-          "--dns.propagation-wait"
+          "--dns.propagation.wait"
           "30s"
         ];
         group = "nginx";
