@@ -79,12 +79,14 @@
     };
     systemd.services.authentik-cognee-blueprint = {
       description = "Apply Cognee Authentik OAuth2/OIDC blueprint";
+      wantedBy = ["multi-user.target"];
       requiredBy = ["authentik.service"];
       before = ["authentik.service"];
       after = ["authentik-migrate.service"];
       requires = ["authentik-migrate.service"];
       serviceConfig = {
         Type = "oneshot";
+        RemainAfterExit = true;
         DynamicUser = true;
         User = "authentik";
         StateDirectory = "authentik";
