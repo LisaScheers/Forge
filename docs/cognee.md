@@ -51,6 +51,10 @@ adapter is limited to 256 MiB. Nook had about 14 GiB available at inspection.
 
 ## Graph viewer
 
+Deployed and verified in Helium on 2026-10-02, including Story/Flow/Force,
+node search and the existing Authentik session. Anonymous requests redirect to
+sign-in; the REST API and MCP still reject anonymous requests.
+
 Open `https://cognee.local.bylisa.dev/graph/` and sign in through Authentik.
 The same `authentik Admins` group allowed to use MCP can open the viewer. It
 defaults to the ingested `life` dataset and uses Cognee's own renderer, including
@@ -61,7 +65,10 @@ The default view is a bounded 500-node neighborhood. Use `?max_nodes=2000` or `?
 for a larger neighborhood, or `?full=true` for the whole dataset (which can be
 slow for large datasets). Select another readable dataset with `?dataset_id=UUID`.
 Reload the page to fetch newly ingested memory. These controls affect graph
-display; they do not run inference or change stored memory.
+display; they do not call GPT-6 Luna or change stored memory. The semantic
+projection can use local embeddings. Graph/database and numeric-library threads
+are limited to two to match the container CPU quota. The first 500-node view
+loaded in about 29 seconds after a backend restart; larger views can take longer.
 
 `cognee-graph` serves a private Unix socket through nginx's Authentik forward
 auth, with a separate declarative proxy provider on Atlas. It requests only
