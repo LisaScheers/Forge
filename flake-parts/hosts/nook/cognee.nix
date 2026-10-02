@@ -264,7 +264,6 @@
       locations."/" = {
         proxyPass = "http://127.0.0.1:8322";
         extraConfig = ''
-          proxy_set_header Host ${domain};
           proxy_buffering off;
           proxy_read_timeout 600s;
         '';
