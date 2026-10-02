@@ -107,6 +107,11 @@
           EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2";
           EMBEDDING_DIMENSIONS = "384";
           EMBEDDING_MAX_COMPLETION_TOKENS = "256";
+          # Match graph queries and numeric layouts to the container CPU quota.
+          KUZU_NUM_THREADS = "2";
+          OMP_NUM_THREADS = "2";
+          OPENBLAS_NUM_THREADS = "2";
+          MKL_NUM_THREADS = "2";
           LLM_RATE_LIMIT_REQUESTS = "10";
           ENABLE_BACKEND_ACCESS_CONTROL = "true";
           REQUIRE_AUTHENTICATION = "true";

@@ -49,7 +49,7 @@ def create_app(api_key: str, d3_file: Path, backend: str = "http://127.0.0.1:832
     async def graph(request):
         try:
             dataset = str(UUID(request.query.get("dataset_id", DEFAULT_DATASET)))
-            max_nodes = int(request.query.get("max_nodes", "2000"))
+            max_nodes = int(request.query.get("max_nodes", "500"))
             full = request.query.get("full", "false")
             if not 1 <= max_nodes <= 5000 or full not in {"true", "false"}:
                 raise ValueError

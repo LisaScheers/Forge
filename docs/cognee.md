@@ -57,7 +57,7 @@ defaults to the ingested `life` dataset and uses Cognee's own renderer, includin
 Story, Flow and Force layouts, node search, node/edge details, zoom and the
 schema/memory tabs. Dark mode is the default; the native toggle saves your choice.
 
-The default view is a bounded 2,000-node neighborhood. Use `?max_nodes=5000`
+The default view is a bounded 500-node neighborhood. Use `?max_nodes=2000` or `?max_nodes=5000`
 for a larger neighborhood, or `?full=true` for the whole dataset (which can be
 slow for large datasets). Select another readable dataset with `?dataset_id=UUID`.
 Reload the page to fetch newly ingested memory. These controls affect graph
