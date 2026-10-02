@@ -4,6 +4,8 @@ Status: deployed and verified on 2026-10-02. GPT-6 Luna completed structured
 extraction using Lisa's ChatGPT subscription. Lisa's Vega Codex and Nook's `codex`
 account are signed in through Authentik; a fresh Codex chat recalled a synthetic
 fact after the API and MCP restarted. No OpenAI API billing fallback is enabled.
+Graph storage was recovered and the viewer and MCP recall verified again on
+2026-10-03; the deployed graph library and buffer limits are described below.
 
 ## Storage and services
 
@@ -48,6 +50,42 @@ also needs a route and DNS resolution to Nook (for example tailnet split DNS for
 No separate UI container, PostgreSQL, Neo4j, Redis, or vector service is needed.
 Extraction gets at most two CPUs and 6 GiB; MCP gets two CPUs and 2 GiB. The
 adapter is limited to 256 MiB. Nook had about 14 GiB available at inspection.
+The graph buffer pool is explicitly limited to 1 GiB: Cognee's 32 GiB default
+exceeds the container's memory limit and caused a graph-worker OOM on 2026-10-02.
+The API image's Ladybug 0.19.0 is overridden with hash-pinned 0.21.0 and its
+matching JSON extension. This fixes the [large-record WAL checksum bug](https://github.com/LadybugDB/ladybug/pull/959).
+Both artifacts are read-only Nix mounts; no runtime package installation is used.
+
+## Graph storage recovery
+
+On 2026-10-03 the viewer returned "Cognee could not render this graph" because
+the graph could not replay its corrupted `.wal.checkpoint`. The graph worker had
+also exceeded the 6 GiB container limit. All writers were stopped before copying
+`system` and `data` into `/srv/disks/projects/cognee/recovery/20261003`, private to
+root. The original database and checkpoint log remain in that snapshot.
+
+Recovery was tested on a separate copy with Ladybug 0.21.0. Its native recovery
+mode replayed valid committed records and discarded the unreadable tail, then a
+strict reopen succeeded with 21,362 nodes and 52,029 relationships. All 59 source
+items marked fully processed were represented by document nodes. All 99 uploaded
+source files were present; the other 40 items had not completed graph processing
+before recovery. This does not certify every edge of an interrupted transaction
+or mark pending uploads as processed. SQLite, vectors, and source files were not
+replaced with an older snapshot.
+
+A separate 5 KiB string-record test reproduced WAL replay failure on 0.19.0 and
+passed on 0.21.0 after abrupt process exit. The matching JSON extension also
+loaded without network access.
+The live viewer then rendered its default 500-node neighborhood (726 edges) in
+Helium, and MCP `recall` returned a result from `life`. Anonymous REST and MCP
+requests still returned 401. The API container remained below 3 GiB during that
+render with no cgroup OOM events. Large graphs still incur vector reads and
+semantic layout work; this is not an instant-render guarantee.
+
+Keep the upgraded library and matching JSON extension together. Ladybug can
+upgrade the database's storage format when opening it; a rollback to the image's
+0.19 library alone is not a safe database rollback. Retain the original snapshot
+and stop all writers before any further recovery or restore.
 
 ## Graph viewer
 
