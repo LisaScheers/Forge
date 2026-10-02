@@ -13,6 +13,11 @@ fmt:
 switch:
     /usr/bin/open -b com.apple.Terminal "{{justfile_directory()}}/scripts/switch-vega.command"
 
+# Collect garbage in Apple Terminal so macOS app permissions survive editor updates.
+# Deletes old profile generations; results appear in Terminal.
+clean:
+    /usr/bin/open -b com.apple.Terminal "{{justfile_directory()}}/scripts/clean-vega.command"
+
 # Apply Vega once before its first deploy-rs activation.
 # This enables localhost SSH and installs the deployment key.
 vega-bootstrap: switch

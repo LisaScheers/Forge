@@ -84,6 +84,17 @@ code-signing identity after updates, invalidating its macOS permissions. Running
 activation in Apple's signed Terminal keeps that permission independent of Zed.
 Directly running `sudo darwin-rebuild switch` inside Zed still uses Zed's permission.
 
+For Nix cleanup on Vega, run `just clean`. This opens Apple Terminal and runs
+`sudo nix-collect-garbage --store local -d`, deleting old profile generations and
+collecting unused store paths. Enter your sudo password or use Touch ID there;
+the cleanup result appears in Terminal. No rebuild is needed to use this command.
+If cleanup fails with `chmod '…app': Operation not permitted`, enable Terminal
+under **System Settings → Privacy & Security → App Management** and rerun it.
+The explicit local store keeps cleanup under Terminal's app permission rather
+than forwarding it to the background Nix daemon. Vega's Lix defaults to the
+daemon even under sudo, so the original `sudo nix-collect-garbage -d` can fail
+on protected app bundles even inside Terminal with App Management enabled.
+
 Vega's optional deploy-rs node points to `localhost` and uses interactive sudo.
 Bootstrap its SSH configuration once, then build and deploy it:
 
