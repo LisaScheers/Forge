@@ -1,9 +1,11 @@
 # Cognee on Nook
 
-Status: deployed and verified on 2026-10-02. GPT-6 Luna completed structured
-extraction using Lisa's ChatGPT subscription. Lisa's Vega Codex and Nook's `codex`
+Status: GLM 5.3 Flash through OpenRouter is configured on 2026-10-03 after
+Lisa approved replacing GPT-6 Luna. A real JSON-schema request passed with the
+saved OpenRouter key. GPT-6 Luna previously completed extraction through Lisa's
+ChatGPT subscription, but subsequent ingestion hit its plan limit. Lisa's Vega Codex and Nook's `codex`
 account are signed in through Authentik; a fresh Codex chat recalled a synthetic
-fact after the API and MCP restarted. No OpenAI API billing fallback is enabled.
+fact after the API and MCP restarted. OpenRouter usage is billed to Lisa's existing OpenRouter account.
 Graph storage was recovered and the viewer and MCP recall verified again on
 2026-10-03; the deployed graph library and buffer limits are described below.
 
@@ -35,7 +37,6 @@ Both containers share the host network but bind only to loopback:
 
 | Listener | Purpose |
 | --- | --- |
-| `127.0.0.1:8320` | ChatGPT plan adapter, authenticated with a private local key |
 | `127.0.0.1:8321` | Cognee REST API |
 | `127.0.0.1:8322` | Cognee MCP with Authentik OAuth |
 | `https://cognee.local.bylisa.dev/mcp` | Codex MCP endpoint |
@@ -49,7 +50,8 @@ also needs a route and DNS resolution to Nook (for example tailnet split DNS for
 
 No separate UI container, PostgreSQL, Neo4j, Redis, or vector service is needed.
 Extraction gets at most two CPUs and 6 GiB; MCP gets two CPUs and 2 GiB. The
-adapter is limited to 256 MiB. Nook had about 14 GiB available at inspection.
+retired ChatGPT adapter is no longer a running service. Nook had about 14 GiB
+available at inspection.
 The graph buffer pool is explicitly limited to 1 GiB: Cognee's 32 GiB default
 exceeds the container's memory limit and caused a graph-worker OOM on 2026-10-02.
 The API image's Ladybug 0.19.0 is overridden with hash-pinned 0.21.0 and its
@@ -103,7 +105,7 @@ The default view is a bounded 500-node neighborhood. Use `?max_nodes=2000` or `?
 for a larger neighborhood, or `?full=true` for the whole dataset (which can be
 slow for large datasets). Select another readable dataset with `?dataset_id=UUID`.
 Reload the page to fetch newly ingested memory. These controls affect graph
-display; they do not call GPT-6 Luna or change stored memory. The semantic
+display; they do not call the LLM or change stored memory. The semantic
 projection can use local embeddings. Graph/database and numeric-library threads
 are limited to two to match the container CPU quota. The first 500-node view
 loaded in about 29 seconds after a backend restart; larger views can take longer.
@@ -118,71 +120,27 @@ and the page's CSP restricts assets and connections to this origin. Responses
 are not cached and graph request URLs are not logged. This viewer adds no new
 persistent data store or frontend container.
 
-## Models and subscription access
+## Models
 
-Extraction and reasoning use `gpt-6-luna`, with low reasoning effort and a 16,384
-output-token budget. Local Fastembed runs `sentence-transformers/all-MiniLM-L6-v2`
-with 384 dimensions. Its weights and tokenizer cache persist on the NVMe; first
-use requires a model download. Input chunk sizing is capped at 256 embedding
-tokens. Cognee's LLM rate limiter is set to ten requests per minute.
+Extraction and reasoning use `openrouter/z-ai/glm-5.3-flash` with
+`LLM_PROVIDER=custom`, `LLM_ENDPOINT=https://openrouter.ai/api/v1` and a 16,384
+output-token budget. The existing OpenRouter key is stored as `LLM_API_KEY` in
+the encrypted `cognee-backend-env.age` secret, readable by Lisa and Nook. No key
+is stored in Nix settings or plaintext staging files. OpenRouter usage consumes
+Lisa's OpenRouter credits. The exact model slug and structured output were
+verified with a real request before changing the secret.
 
-Cognee does not document a native ChatGPT plan provider. Its MCP sampling option
-requires support from the client and does not cover embeddings. Connecting Codex
-to Cognee alone does not make Cognee's background extraction use Codex's plan.
+Local Fastembed runs `sentence-transformers/all-MiniLM-L6-v2` with 384 dimensions.
+Its weights and tokenizer cache persist on the NVMe; first use requires a model
+download. Input chunk sizing is capped at 256 embedding tokens. Cognee's LLM
+rate limiter is set to ten requests per minute.
 
-`services/cognee/openai_plan.py` translates Cognee's text Chat Completions calls
-to OpenAI's documented subscription flow at `https://api.openai.com/v1/responses`.
-It preserves structured-output schemas, uses `store=false` and `stream=true`, and
-collects finalized output items but releases them only after `response.completed`.
-The subscription endpoint rejects `max_output_tokens`; the adapter rejects a
-completed response exceeding Cognee's budget, but cannot cap provider consumption.
-Partial streams, refusals,
-incomplete responses and plan-limit failures fail rather than ingesting partial
-results. It supports text extraction/reasoning only; audio transcription and
-image captioning require an additional provider before those workloads are used.
-
-The adapter uses its own registration, not `~/.codex/auth.json`. The stable Nook
-host ID is `urn:uuid:128b7566-1f4a-4f61-9df0-94a3d04f2389`. Sign-in validates state,
-PKCE, the ID-token signature, issuer, audience, expiry, nonce and account identity.
-Scope `chatgpt.tokens.use.direct` must be granted. Credentials are written
-atomically with mode 0600. One adapter process serializes rotating refreshes.
-
-**Availability remains account-dependent.** A completed inference is the
-entitlement check. On 2026-10-02 the account catalog omitted GPT-6 Luna, but the
-model completed a real subscription request successfully. The adapter's `/models`
-route therefore reports its configured model rather than filtering by that catalog. Subscription
-usage shares the account's applicable limits. Login consent and any app-specific
-usage allowance remain Lisa's choices. The deployed service uses the authorized
-subscription connection; it has no API billing credentials.
-
-Authorize on Vega, where the browser and loopback callback are on the same machine:
-
-```sh
-nix run .#cognee-openai-login
-```
-
-Open the printed **Continue with ChatGPT** URL and approve the dedicated Forge
-Cognee registration. The result is saved at
-`~/.local/state/forge-cognee/nook-openai.json`, without printing tokens. Re-running
-reauthorizes the same registration and rejects a different account identity.
-
-For reauthorization, stop the adapter before replacing credentials. Securely
-transfer the new record over SSH stdin, without a plaintext staging file on Nook:
-
-```sh
-ssh nook 'sudo systemctl stop cognee-openai-plan'
-ssh nook "sudo sh -c 'umask 077; cat > /srv/disks/projects/cognee/openai/credentials.json'" \
-  < ~/.local/state/forge-cognee/nook-openai.json
-ssh nook 'sudo systemctl start cognee-openai-plan'
-```
-
-Nook owns subsequent refreshes. Do not run a second adapter or another refresh
-process using the same copied registration. Stop using the local copy after
-transfer. The initial rollout verified the transferred file hash and removed
-access, refresh and ID tokens from the local record, retaining only registration
-metadata for future authorization. To revoke access, disconnect Forge Cognee in ChatGPT Settings; stop the
-adapter before removing its runtime credentials. Missing credentials produce a
-503 and do not trigger a billed API fallback.
+The earlier GPT-6 Luna subscription adapter and login helper remain in the
+repository for reference, but the adapter service and its dependency were
+removed. Its dedicated OAuth record remains private under `openai`; it is not
+used for active inference. Switching to OpenRouter does not revoke that earlier
+ChatGPT authorization. See [Cognee's OpenRouter configuration](https://docs.cognee.ai/setup-configuration/llm-providers)
+and [GLM 5.3 Flash](https://openrouter.ai/z-ai/glm-5.3-flash).
 
 ## Authentication and permissions
 
@@ -241,8 +199,8 @@ chat reconnects automatically. See the [FastMCP token lifetime guidance](https:/
 `remember(background=true)` queues processing; it does not prove that a fact is
 searchable yet. Check `cognify_status` and retrieve the fact before reporting a
 completed graph write. In this release a permanent remember processes pending
-items in the same dataset, including earlier uploads. A GPT-6 Luna plan limit
-can therefore delay a small correction behind pending email ingestion.
+items in the same dataset, including earlier uploads. A large or failed
+email batch can therefore delay a small correction behind pending ingestion.
 
 The managed Vega entry was applied without rebuilding the daily driver, preserving
 Lisa's selected Codex model. Both account logins and live tool discovery passed.

@@ -115,8 +115,8 @@
           GRAPH_DATABASE_PROVIDER = "kuzu";
           PYTHONPATH = "/etc/cognee-python";
           LLM_PROVIDER = "custom";
-          LLM_MODEL = "openai/gpt-6-luna";
-          LLM_ENDPOINT = "http://127.0.0.1:8320/v1";
+          LLM_MODEL = "openrouter/z-ai/glm-5.3-flash";
+          LLM_ENDPOINT = "https://openrouter.ai/api/v1";
           LLM_MAX_COMPLETION_TOKENS = "16384";
           STRUCTURED_OUTPUT_FRAMEWORK = "litellm_native";
           EMBEDDING_PROVIDER = "fastembed";
@@ -206,34 +206,6 @@
       };
     };
 
-    systemd.services.cognee-openai-plan = {
-      description = "Cognee ChatGPT plan adapter (GPT-6 Luna)";
-      wantedBy = ["multi-user.target"];
-      after = ["network-online.target"];
-      wants = ["network-online.target"];
-      unitConfig.RequiresMountsFor = storageRoot;
-      serviceConfig = {
-        ExecStart = "${python}/bin/python3 ${source}/openai_plan.py serve --credentials ${storageRoot}/openai/credentials.json";
-        EnvironmentFile = backendEnvironment;
-        Restart = "on-failure";
-        RestartSec = 5;
-        UMask = "0077";
-        NoNewPrivileges = true;
-        PrivateTmp = true;
-        PrivateDevices = true;
-        ProtectHome = true;
-        ProtectSystem = "strict";
-        ReadWritePaths = ["${storageRoot}/openai"];
-        ProtectKernelTunables = true;
-        ProtectKernelModules = true;
-        ProtectControlGroups = true;
-        RestrictSUIDSGID = true;
-        RestrictAddressFamilies = ["AF_UNIX" "AF_INET" "AF_INET6"];
-        MemoryMax = "256M";
-      };
-      restartTriggers = [../../agenix/secrets/nook/cognee-backend-env.age];
-    };
-
     systemd.services.cognee-bootstrap = {
       description = "Provision Cognee's private MCP account";
       requires = ["podman-cognee.service"];
@@ -254,8 +226,7 @@
       };
     };
     systemd.services.podman-cognee = {
-      requires = ["cognee-openai-plan.service"];
-      after = ["cognee-openai-plan.service" "systemd-tmpfiles-setup.service"];
+      after = ["systemd-tmpfiles-setup.service"];
       unitConfig.RequiresMountsFor = storageRoot;
       restartTriggers = [../../agenix/secrets/nook/cognee-backend-env.age];
       serviceConfig = {
