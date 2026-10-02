@@ -231,6 +231,19 @@ that entry in the mutable `~/.codex/config.toml`, preserving the model and other
 MCP settings. Nook's `codex` daemon also receives the same entry. MCP operations
 have a 600-second timeout; deleting memory through `forget` requires confirmation.
 
+The OAuth proxy issues client access tokens for 24 hours and renews the underlying
+Authentik token on the server, using FastMCP's shared refresh lock. This reduces
+refresh-token rotation races between Codex chats; every request still validates
+the upstream token. An already rejected refresh token requires a new login.
+This is a mitigation for the client-side race, not a guarantee that every old
+chat reconnects automatically. See the [FastMCP token lifetime guidance](https://gofastmcp.com/servers/auth/oauth-proxy).
+
+`remember(background=true)` queues processing; it does not prove that a fact is
+searchable yet. Check `cognify_status` and retrieve the fact before reporting a
+completed graph write. In this release a permanent remember processes pending
+items in the same dataset, including earlier uploads. A GPT-6 Luna plan limit
+can therefore delay a small correction behind pending email ingestion.
+
 The managed Vega entry was applied without rebuilding the daily driver, preserving
 Lisa's selected Codex model. Both account logins and live tool discovery passed.
 New Codex chats load this connection. For subsequent sign-in on Vega:

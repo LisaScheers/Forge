@@ -22,6 +22,11 @@ server.mcp.auth = OIDCProxy(
     required_scopes=["openid", "email", "profile", "offline_access"],
     allowed_client_redirect_uris=["http://127.0.0.1:*/callback*", "http://localhost:*/callback*"],
     require_authorization_consent=True,
+    # Codex chats can retain different copies of a rotating refresh token.
+    # Let the proxy renew Authentik tokens under its shared lock, while it
+    # still validates the upstream token on every request.
+    fastmcp_access_token_expiry_seconds=24 * 60 * 60,
+    token_expiry_threshold_seconds=60,
 )
 
 # Upstream derives only http:// origins from MCP_ALLOWED_HOSTS. The actual
