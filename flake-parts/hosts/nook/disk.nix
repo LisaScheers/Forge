@@ -92,6 +92,15 @@
       options = commonMountOptions ++ ["X-fstrim.notrim"];
     };
 
+    # Add agent access without changing project ownership or granting wheel.
+    # X adds traversal for directories and preserves executable-file access.
+    systemd.tmpfiles.rules = [
+      "a+ /srv/disks/projects - - - - u:codex:rwx,d:u:codex:rwx"
+      "A+ /srv/disks/projects/projects - - - - u:codex:rwX,d:u:codex:rwx"
+    ];
+    # The disk uses nofail, so local-fs.target alone does not order this mount.
+    systemd.services.systemd-tmpfiles-setup.after = ["srv-disks-projects.mount"];
+
     services.lvm.boot.vdo.enable = true;
   };
 }

@@ -1,5 +1,5 @@
 {
-  forge.modules.nixos.nook = let
+  forge.modules.nixos.nook = {pkgs, ...}: let
     nixRemoteBuilderPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFrYvuVU6UgbonZOq1DPLNVGzrXGnVMppeLFFjcB6k9g nix-remote-builder home-server";
   in {
     users.users = {
@@ -11,6 +11,17 @@
         extraGroups = ["wheel"];
         linger = true;
         openssh.authorizedKeys.keys = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ25EnARSLbWqw6UhR/6GyO2MsxMqE23W9VM495A2xQu"];
+      };
+
+      codex = {
+        isNormalUser = true;
+        description = "Codex daemon and agents";
+        home = "/home/codex";
+        createHome = true;
+        hashedPassword = "!";
+        # Keep background user services running without an interactive login.
+        linger = true;
+        packages = [pkgs.codex];
       };
 
       nix-remote-builder = {
