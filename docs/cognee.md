@@ -171,9 +171,11 @@ already-completed graph material remains. Raw upload pending counts therefore
 also include these intentionally archived inputs.
 
 Labeled cleaned uploads (`forge-email-index-v1`) in `life` use
-`services/cognee/email_index.py`: source/date-bearing document chunks, explicit
-sender/recipient relationships, local MiniLM embeddings and normal Cognee graph
-storage. This indexes source text rather than synthesizing personal facts. The
+`services/cognee/email_index.py`: source/date-bearing document chunks and local
+MiniLM embeddings in Cognee's native LanceDB collection. This indexes source text
+rather than synthesizing personal facts. Per-chunk graph and provenance writes
+were the main pilot bottleneck and are omitted for this searchable archive;
+existing graph memory remains available. The
 authenticated `POST /api/v1/email-index` endpoint requires write permission on
 the dataset and accepts only IDs of labeled uploads in that dataset. It starts
 the pipeline with LLM and embedding connection probes disabled; actual storage
@@ -183,7 +185,10 @@ appear under Cognee's `cognify_pipeline`; a queued request is not completion.
 
 Use MCP `recall` with `datasets="life"` and `search_type="CHUNKS"` for semantic
 email retrieval without an LLM call. `CHUNKS_LEXICAL` is useful for exact names
-and identifiers. Results retain original message links or mbox ordinal references;
+and identifiers; its BM25 corpus reads the dataset's native LanceDB chunk payloads.
+The MCP formatter exposes dates and original source links on every email hit,
+including later chunks. Oversized unbroken strings are split without dropping
+characters before embedding. Results retain original message links or mbox ordinal references;
 attachment contents were never included in the source export.
 
 ## Authentication and permissions

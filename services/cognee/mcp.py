@@ -9,6 +9,17 @@ import os
 
 from fastmcp.server.auth.oidc_proxy import OIDCProxy
 from src import server
+from email_recall import email_sources
+
+
+original_recall_formatter = server.format_recall_results
+
+
+def format_recall_results(results, **kwargs):
+    return original_recall_formatter(email_sources(results), **kwargs)
+
+
+server.format_recall_results = format_recall_results
 
 
 server.mcp.auth = OIDCProxy(

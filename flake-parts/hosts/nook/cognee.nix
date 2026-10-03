@@ -179,10 +179,10 @@
         };
         volumes = [
           "${storageRoot}/mcp:/cognee-mcp"
-          "${source}/mcp.py:/etc/cognee-mcp.py:ro"
+          "${source}:/etc/cognee-service:ro"
         ];
         cmd = [
-          "/etc/cognee-mcp.py"
+          "/etc/cognee-service/mcp.py"
           "--transport"
           "http"
           "--host"
