@@ -147,6 +147,7 @@ def install(app):
     # Upstream BM25 reads graph chunks. This archive's native chunk payloads
     # live in LanceDB, alongside the normally indexed graph documents.
     from cognee.modules.retrieval.lexical_retriever import LexicalRetriever
+    from cognee.infrastructure.databases.vector.lancedb.subprocess.proxy import RemoteQuery
 
     original_lexical_initialize = LexicalRetriever.initialize
 
@@ -159,7 +160,14 @@ def install(app):
                 return
             collection = await vector.get_collection('DocumentChunk_text')
             count = await collection.count_rows()
-            rows = await collection.query().where(source_filter).select(['id', 'payload']).limit(count).to_list() if count else []
+            query = collection.query().where(source_filter)
+            if isinstance(query, RemoteQuery):
+                # Cognee 1.6.2's query proxy omits select/limit, but its worker
+                # supports those native builder steps through the same RPC.
+                query = query._add('select', ['id', 'payload'])._add('limit', count)
+            else:
+                query = query.select(['id', 'payload']).limit(count)
+            rows = await query.to_list() if count else []
             for row in rows:
                 payload = row['payload']
                 context = payload['text']
