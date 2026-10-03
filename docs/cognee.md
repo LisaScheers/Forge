@@ -3,8 +3,9 @@
 Status: GLM 5.3 Flash through OpenRouter was deployed and verified on 2026-10-03
 after Lisa approved replacing GPT-6 Luna. JSON-schema inference and a full MCP
 write, graph build and retrieval passed in the `forge_operations` dataset.
-Existing `life` memory remains readable. Later email uploads in `life` still
-need processing; that bulk import was not restarted for this verification.
+Existing `life` memory remains readable. Lisa subsequently chose local searchable
+email indexing with a maximum $10 OpenRouter import budget. The paid bulk run was
+stopped, and cleaned emails use a deterministic pipeline with local embeddings.
 Lisa's Vega Codex and Nook's `codex` account use Authentik. OpenRouter usage is
 billed to Lisa's existing OpenRouter account.
 Graph storage was recovered and the viewer and MCP recall verified again on
@@ -144,6 +145,46 @@ removed. Its dedicated OAuth record remains private under `openai`; it is not
 used for active inference. Switching to OpenRouter does not revoke that earlier
 ChatGPT authorization. See [Cognee's OpenRouter configuration](https://docs.cognee.ai/setup-configuration/llm-providers)
 and [GLM 5.3 Flash](https://openrouter.ai/z-ai/glm-5.3-flash).
+
+## Local email import
+
+Lisa selected a local searchable email index on 2026-10-03. Importing these
+emails makes no OpenRouter calls. GLM remains available for ordinary memory
+writes and question answering; those are separate from the local import.
+
+`services/cognee/email_filter.py` reads the preserved Apple Mail exports and
+produces private cleaned JSONL, exclusion records and a source-hash report on
+Nook. The coverage check includes the personal export's optional original-date
+header. The first full pass covered 32,930 records across 37 uploaded exports:
+219 duplicates, 18,461 marketing/broadcast messages, 48 test messages, 186
+expired authentication notices and nine unsubscribe requests were excluded.
+14,007 messages remain, with 31,431,596 bytes of cleaned bodies. The source
+communications remain dated evidence; missing senders or dates stay unknown.
+Invoices, useful attachment references, human replies and employee-benefit
+newsletters are retained. Original source files are not deleted or edited.
+
+The report and exclusions live under
+`/srv/disks/projects/cognee/email-import/20261003-filter-v2`, private to root.
+`archive-source-ids.json` registers original corpus IDs, excluding those dumps
+from later paid cognify runs without marking them as graph-processed. Their
+already-completed graph material remains. Raw upload pending counts therefore
+also include these intentionally archived inputs.
+
+Labeled cleaned uploads (`forge-email-index-v1`) in `life` use
+`services/cognee/email_index.py`: source/date-bearing document chunks, explicit
+sender/recipient relationships, local MiniLM embeddings and normal Cognee graph
+storage. This indexes source text rather than synthesizing personal facts. The
+authenticated `POST /api/v1/email-index` endpoint requires write permission on
+the dataset and accepts only IDs of labeled uploads in that dataset. It starts
+the pipeline with LLM and embedding connection probes disabled; actual storage
+uses the configured local Fastembed engine. Normal cognify retries also route
+these labeled items through the local task list. Import completion and failures
+appear under Cognee's `cognify_pipeline`; a queued request is not completion.
+
+Use MCP `recall` with `datasets="life"` and `search_type="CHUNKS"` for semantic
+email retrieval without an LLM call. `CHUNKS_LEXICAL` is useful for exact names
+and identifiers. Results retain original message links or mbox ordinal references;
+attachment contents were never included in the source export.
 
 ## Authentication and permissions
 

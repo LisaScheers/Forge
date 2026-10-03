@@ -15,6 +15,11 @@ from gunicorn.app.wsgiapp import WSGIApplication
 loader = importlib.import_module("cognee.tasks.ingestion.data_item_to_text_file")
 loader.settings.accept_local_file_path = True
 
+from cognee.api.client import app
+from email_index import install
+
+install(app)
+
 if __name__ == "__main__":
     sys.argv = [
         "gunicorn", "--workers", "1", "--worker-class", "uvicorn.workers.UvicornWorker",

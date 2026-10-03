@@ -86,6 +86,7 @@
       "d ${storageRoot}/mcp 0700 cognee cognee - -"
       "d ${storageRoot}/credentials 0700 root root - -"
       "d ${storageRoot}/openai 0700 root root - -"
+      "d ${storageRoot}/email-import 0700 cognee cognee - -"
       "d ${storageRoot}/containers 0700 root root - -"
     ];
 
@@ -137,6 +138,9 @@
           ACCEPT_LOCAL_FILE_PATH = "false";
           COGNEE_ALLOWED_LOCAL_FILE_ROOTS = "/cognee-storage/data";
           ALLOW_HTTP_REQUESTS = "false";
+          # Original email dumps remain available, but only their cleaned local
+          # index is processed. Never send the archive through paid extraction.
+          COGNEE_EMAIL_ARCHIVE_IDS = "/cognee-email/archive-source-ids.json";
           CORS_ALLOWED_ORIGINS = "https://${domain}";
           TELEMETRY_DISABLED = "1";
         };
@@ -144,11 +148,12 @@
           "${storageRoot}/system:/cognee-storage/system"
           "${storageRoot}/data:/cognee-storage/data"
           "${storageRoot}/cache:/cognee-cache"
-          "${source}/api.py:/etc/cognee-api.py:ro"
+          "${source}:/etc/cognee-service:ro"
+          "${storageRoot}/email-import:/cognee-email:ro"
           "${ladybug}:/etc/cognee-python:ro"
           "${ladybug}/json:/app/cognee_db_workers/ladybug_extensions/v0.21.0:ro"
         ];
-        cmd = ["/etc/cognee-api.py"];
+        cmd = ["/etc/cognee-service/api.py"];
         extraOptions =
           containerOptions
           ++ [
