@@ -54,7 +54,7 @@ async def email_chunks(data_items):
                     id=uuid5(NAMESPACE_URL, 'forge-email:' + identity),
                     name=message['subject'] or '(no subject)',
                     raw_data_location=message['source'],
-                    external_metadata=json.dumps({'source_uri': message['source'], 'sent_date': message['sent'], 'scope': message['scope'], 'source_data_ids': message['source_ids']}),
+                    external_metadata=json.dumps({'source_uri': message['source'], 'sent_date': message['sent'], 'scope': message['scope'], 'source_data_ids': message['source_ids'], 'original_date': message.get('original_date')}),
                 )
                 # Every returned chunk carries the context needed to distinguish
                 # a dated email claim from a confirmed present-day personal fact.
@@ -162,7 +162,16 @@ def install(app):
             rows = await collection.query().where(source_filter).select(['id', 'payload']).limit(count).to_list() if count else []
             for row in rows:
                 payload = row['payload']
-                tokens = self.tokenizer(payload['text'])
+                context = payload['text']
+                try:
+                    metadata = json.loads(payload.get('external_metadata') or '{}')
+                except ValueError:
+                    metadata = {}
+                if isinstance(metadata, dict) and 'source_data_ids' in metadata:
+                    # Date/name lookups also need to find later body chunks.
+                    dates = [metadata.get('sent_date'), metadata.get('original_date')]
+                    context += '\n' + (payload.get('document_name') or '') + '\n' + '\n'.join(date for date in dates if date not in (None, '', 'None'))
+                tokens = self.tokenizer(context)
                 if tokens:
                     self.chunks[row['id']] = tokens
                     self.payloads[row['id']] = payload

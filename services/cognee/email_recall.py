@@ -19,7 +19,11 @@ def email_sources(results):
             except ValueError:
                 metadata = None
         if isinstance(metadata, dict) and metadata.get('source_uri') and 'sent_date' in metadata:
-            context = f"Email: {raw.get('document_name', '(no subject)')}\nSent: {metadata['sent_date']}\nSource: {metadata['source_uri']}\n\n"
+            sent = metadata['sent_date']
+            sent = 'unknown' if sent in (None, '', 'None') else sent
+            original = metadata.get('original_date')
+            original_line = f'Original Date: {original}\n' if original not in (None, '', 'None') else ''
+            context = f"Email: {raw.get('document_name', '(no subject)')}\nSent: {sent}\n{original_line}Source: {metadata['source_uri']}\n\n"
             result = {**result, 'text': context + result.get('text', '')}
         enriched.append(result)
     return enriched

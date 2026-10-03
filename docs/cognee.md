@@ -167,6 +167,9 @@ header. The first full pass covered 32,930 records across 37 uploaded exports:
 expired authentication notices, nine unsubscribe requests and 12 empty notices
 were excluded. 14,008 messages remain, with 31,431,664 bytes of cleaned bodies. The source
 communications remain dated evidence; missing senders or dates stay unknown.
+339 retained messages lack the export's sent-date value; 338 of those still have
+an original mail Date header. Both date fields are retained in chunk metadata
+and exposed by MCP, without inventing a date for the remaining message.
 Invoices, useful attachment references, human replies and employee-benefit
 newsletters are retained. Original source files are not deleted or edited.
 
