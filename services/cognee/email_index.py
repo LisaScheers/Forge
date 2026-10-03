@@ -18,7 +18,8 @@ from cognee.modules.data.methods import get_authorized_existing_datasets
 from cognee.modules.data.methods.get_dataset_data import get_dataset_data
 from cognee.modules.data.processing.document_types import TextDocument
 from cognee.modules.pipelines.tasks.task import Task
-from cognee.modules.run_custom_pipeline import run_custom_pipeline
+from cognee.modules.pipelines import run_pipeline
+from cognee.modules.pipelines.layers.pipeline_execution_mode import run_pipeline_as_background_process
 from cognee.modules.users.methods import get_authenticated_user
 from cognee.modules.users.models import User
 from cognee.tasks.chunks import chunk_by_paragraph
@@ -134,8 +135,9 @@ def install(app):
         items = [item for item in await get_dataset_data(payload.dataset_id) if item.id in requested]
         if len(items) != len(requested) or any(item.label != LABEL for item in items):
             raise HTTPException(400, 'Every requested item must be a labeled email-index upload in this dataset')
-        return await run_custom_pipeline(
-            tasks=email_tasks(), data=items, dataset=payload.dataset_id, user=user,
+        return await run_pipeline_as_background_process(
+            pipeline=run_pipeline,
+            tasks=email_tasks(), data=items, datasets=[payload.dataset_id], user=user,
             pipeline_name='cognify_pipeline', incremental_loading=True, data_cache=True,
-            data_per_batch=1, run_in_background=True, skip_connection_test=True,
+            data_per_batch=1, skip_connection_test=True,
         )
