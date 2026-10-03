@@ -15,6 +15,19 @@ from gunicorn.app.wsgiapp import WSGIApplication
 loader = importlib.import_module("cognee.tasks.ingestion.data_item_to_text_file")
 loader.settings.accept_local_file_path = True
 
+# ONNX otherwise sizes its pools from all host CPUs, then spins against the
+# container quota. Fastembed exposes threads, but Cognee does not pass it.
+embedding = importlib.import_module('cognee.infrastructure.databases.vector.embeddings.FastembedEmbeddingEngine')
+
+
+class LimitedThreadEmbedding(embedding.TextEmbedding):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('threads', int(os.environ['FASTEMBED_THREADS']))
+        super().__init__(*args, **kwargs)
+
+
+embedding.TextEmbedding = LimitedThreadEmbedding
+
 from cognee.api.client import app
 from email_index import install
 

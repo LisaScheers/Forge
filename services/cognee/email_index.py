@@ -119,6 +119,31 @@ def install(app):
 
     pipeline.run_pipeline_per_dataset = route_email_data
 
+    # Hide superseded dump chunks without deleting source files or graph memory.
+    archived_values = sorted({value for item in archived_ids for value in (str(item), item.hex)})
+    excluded = ', '.join(f"'{value}'" for value in archived_values)
+    source_filter = f'(payload.document_id IS NULL OR payload.document_id NOT IN ({excluded}))' if excluded else 'true'
+    from cognee.infrastructure.databases.vector.models.ScoredResult import ScoredResult
+    from cognee.infrastructure.engine.utils import parse_id
+    from cognee.modules.retrieval.chunks_retriever import ChunksRetriever
+
+    original_chunk_retrieval = ChunksRetriever.get_retrieved_objects
+
+    async def retrieve_chunks(self, query):
+        vector = await get_vector_engine_async()
+        if vector.name != 'LanceDB' or self.node_name:
+            found = await original_chunk_retrieval(self, query)
+            return [item for item in found if str((item.payload or {}).get('document_id')) not in archived_values]
+        collection = await vector.get_collection('DocumentChunk_text')
+        limit = self.top_k if self.top_k is not None else await collection.count_rows()
+        if not limit:
+            return []
+        query_vector = (await vector.embedding_engine.embed_text([query]))[0]
+        rows = await collection.vector_search(query_vector).distance_type('cosine').where(source_filter).select(['id', 'payload', '_distance']).limit(limit).to_list()
+        return [ScoredResult(id=parse_id(row['id']), payload=row['payload'], score=row['_distance']) for row in rows]
+
+    ChunksRetriever.get_retrieved_objects = retrieve_chunks
+
     # Upstream BM25 reads graph chunks. This archive's native chunk payloads
     # live in LanceDB, alongside the normally indexed graph documents.
     from cognee.modules.retrieval.lexical_retriever import LexicalRetriever
@@ -134,7 +159,7 @@ def install(app):
                 return
             collection = await vector.get_collection('DocumentChunk_text')
             count = await collection.count_rows()
-            rows = await collection.query().select(['id', 'payload']).limit(count).to_list() if count else []
+            rows = await collection.query().where(source_filter).select(['id', 'payload']).limit(count).to_list() if count else []
             for row in rows:
                 payload = row['payload']
                 tokens = self.tokenizer(payload['text'])

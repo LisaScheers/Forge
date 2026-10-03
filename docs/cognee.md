@@ -135,6 +135,11 @@ verified with a real request before changing the secret.
 Local Fastembed runs `sentence-transformers/all-MiniLM-L6-v2` with 384 dimensions.
 Its weights and tokenizer cache persist on the NVMe; first use requires a model
 download. Input chunk sizing is capped at 256 embedding tokens.
+Fastembed's ONNX thread pools are explicitly limited to two, matching the
+container quota. A 128-item benchmark on Nook took 22.86 seconds with automatic
+host-sized pools and 5.847 seconds with two threads; this prevents CPU-quota
+throttling from idle spinning. `api.py` passes the declarative `FASTEMBED_THREADS`
+setting through Cognee's Fastembed constructor.
 `LLM_RATE_LIMIT_REQUESTS=10` sets the configured RPM budget. The image defaults
 to automatic rate limiting after provider errors, rather than an always-enabled
 proactive cap.
@@ -168,7 +173,9 @@ The report and exclusions live under
 `archive-source-ids.json` registers original corpus IDs, excluding those dumps
 from later paid cognify runs without marking them as graph-processed. Their
 already-completed graph material remains. Raw upload pending counts therefore
-also include these intentionally archived inputs.
+also include these intentionally archived inputs. Chunk searches exclude their
+superseded raw-export payloads before ranking, so previously indexed marketing
+does not compete with the cleaned archive. Source files and graph memory remain.
 
 Labeled cleaned uploads (`forge-email-index-v1`) in `life` use
 `services/cognee/email_index.py`: source/date-bearing document chunks and local

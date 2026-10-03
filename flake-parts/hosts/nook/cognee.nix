@@ -124,6 +124,7 @@
           EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2";
           EMBEDDING_DIMENSIONS = "384";
           EMBEDDING_MAX_COMPLETION_TOKENS = "256";
+          FASTEMBED_THREADS = "2";
           # Match graph queries and numeric layouts to the container CPU quota.
           KUZU_NUM_THREADS = "2";
           # Cognee defaults to a 32 GiB pool, exceeding this 6 GiB container.
