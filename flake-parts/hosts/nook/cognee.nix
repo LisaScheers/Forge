@@ -148,12 +148,13 @@
           "${storageRoot}/system:/cognee-storage/system"
           "${storageRoot}/data:/cognee-storage/data"
           "${storageRoot}/cache:/cognee-cache"
-          "${source}:/etc/cognee-service:ro"
+          "${source}/api.py:/etc/cognee-api.py:ro"
+          "${source}/email_index.py:/etc/email_index.py:ro"
           "${storageRoot}/email-import:/cognee-email:ro"
           "${ladybug}:/etc/cognee-python:ro"
           "${ladybug}/json:/app/cognee_db_workers/ladybug_extensions/v0.21.0:ro"
         ];
-        cmd = ["/etc/cognee-service/api.py"];
+        cmd = ["/etc/cognee-api.py"];
         extraOptions =
           containerOptions
           ++ [
@@ -179,10 +180,11 @@
         };
         volumes = [
           "${storageRoot}/mcp:/cognee-mcp"
-          "${source}:/etc/cognee-service:ro"
+          "${source}/mcp.py:/etc/cognee-mcp.py:ro"
+          "${source}/email_recall.py:/etc/email_recall.py:ro"
         ];
         cmd = [
-          "/etc/cognee-service/mcp.py"
+          "/etc/cognee-mcp.py"
           "--transport"
           "http"
           "--host"
