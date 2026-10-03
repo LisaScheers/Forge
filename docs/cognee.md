@@ -156,15 +156,15 @@ writes and question answering; those are separate from the local import.
 produces private cleaned JSONL, exclusion records and a source-hash report on
 Nook. The coverage check includes the personal export's optional original-date
 header. The first full pass covered 32,930 records across 37 uploaded exports:
-219 duplicates, 18,461 marketing/broadcast messages, 48 test messages, 186
-expired authentication notices and nine unsubscribe requests were excluded.
-14,007 messages remain, with 31,431,596 bytes of cleaned bodies. The source
+219 duplicates, 18,461 marketing/broadcast messages, 35 test messages, 186
+expired authentication notices, nine unsubscribe requests and 12 empty notices
+were excluded. 14,008 messages remain, with 31,431,664 bytes of cleaned bodies. The source
 communications remain dated evidence; missing senders or dates stay unknown.
 Invoices, useful attachment references, human replies and employee-benefit
 newsletters are retained. Original source files are not deleted or edited.
 
 The report and exclusions live under
-`/srv/disks/projects/cognee/email-import/20261003-filter-v2`, private to root.
+`/srv/disks/projects/cognee/email-import/20261003-filter-v3`, private to root.
 `archive-source-ids.json` registers original corpus IDs, excluding those dumps
 from later paid cognify runs without marking them as graph-processed. Their
 already-completed graph material remains. Raw upload pending counts therefore

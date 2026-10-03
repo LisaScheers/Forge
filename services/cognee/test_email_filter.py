@@ -35,6 +35,9 @@ class EmailFilterTests(unittest.TestCase):
     def test_attachment_evidence_is_retained(self):
         self.assertIsNone(exclusion(message(body='[No text body in export; see original email and listed attachments.]', attachments='contract.pdf')))
 
+    def test_blank_body_notice_with_export_whitespace_is_excluded(self):
+        self.assertEqual(exclusion(message(body='\n\n[No text body in export; see original email and listed attachments.]\n')), 'empty_or_attachment_only_notice')
+
     def test_tracking_url_is_unwrapped_without_secrets(self):
         cleaned = clean_body('Read https://example.safelinks.protection.outlook.com/?url=https%3A%2F%2Fexample.com%2Fpolicy%3Ftracking%3Dsecret&data=secret', 'Policy')
         self.assertIn('https://example.com/policy', cleaned)

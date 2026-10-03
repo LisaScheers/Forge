@@ -56,7 +56,7 @@ def clean_body(body, subject):
 
 
 def exclusion(message):
-    subject, body = message['subject'], message['body']
+    subject, body = message['subject'], message['body'].strip()
     attachments = message['attachments']
     meaningful_attachment = attachments not in ('(none)', '', 'None') and not re.fullmatch(r'(?i)(?:[^,]*\.(?:jpg|png|gif|ics|asc)(?:,\s*)?)+', attachments)
     if AUTH_NOTICE.search(subject):
