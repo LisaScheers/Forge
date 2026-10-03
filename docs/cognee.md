@@ -1,11 +1,12 @@
 # Cognee on Nook
 
-Status: GLM 5.3 Flash through OpenRouter is configured on 2026-10-03 after
-Lisa approved replacing GPT-6 Luna. A real JSON-schema request passed with the
-saved OpenRouter key. GPT-6 Luna previously completed extraction through Lisa's
-ChatGPT subscription, but subsequent ingestion hit its plan limit. Lisa's Vega Codex and Nook's `codex`
-account are signed in through Authentik; a fresh Codex chat recalled a synthetic
-fact after the API and MCP restarted. OpenRouter usage is billed to Lisa's existing OpenRouter account.
+Status: GLM 5.3 Flash through OpenRouter was deployed and verified on 2026-10-03
+after Lisa approved replacing GPT-6 Luna. JSON-schema inference and a full MCP
+write, graph build and retrieval passed in the `forge_operations` dataset.
+Existing `life` memory remains readable. Later email uploads in `life` still
+need processing; that bulk import was not restarted for this verification.
+Lisa's Vega Codex and Nook's `codex` account use Authentik. OpenRouter usage is
+billed to Lisa's existing OpenRouter account.
 Graph storage was recovered and the viewer and MCP recall verified again on
 2026-10-03; the deployed graph library and buffer limits are described below.
 
@@ -132,8 +133,10 @@ verified with a real request before changing the secret.
 
 Local Fastembed runs `sentence-transformers/all-MiniLM-L6-v2` with 384 dimensions.
 Its weights and tokenizer cache persist on the NVMe; first use requires a model
-download. Input chunk sizing is capped at 256 embedding tokens. Cognee's LLM
-rate limiter is set to ten requests per minute.
+download. Input chunk sizing is capped at 256 embedding tokens.
+`LLM_RATE_LIMIT_REQUESTS=10` sets the configured RPM budget. The image defaults
+to automatic rate limiting after provider errors, rather than an always-enabled
+proactive cap.
 
 The earlier GPT-6 Luna subscription adapter and login helper remain in the
 repository for reference, but the adapter service and its dependency were
@@ -195,6 +198,13 @@ refresh-token rotation races between Codex chats; every request still validates
 the upstream token. An already rejected refresh token requires a new login.
 This is a mitigation for the client-side race, not a guarantee that every old
 chat reconnects automatically. See the [FastMCP token lifetime guidance](https://gofastmcp.com/servers/auth/oauth-proxy).
+
+On 2026-10-03 the affected Codex chat logged "OAuth authorization required" at
+startup, and Nook repeatedly rejected an already-rotated refresh token. Vega's
+Codex login was renewed in Helium after deploying the lifetime change. MCP reads
+and writes passed afterward, and anonymous MCP requests still returned 401.
+The global agent instructions now require fresh availability checks and
+distinguish queued writes from completed graph ingestion.
 
 `remember(background=true)` queues processing; it does not prove that a fact is
 searchable yet. Check `cognify_status` and retrieve the fact before reporting a
