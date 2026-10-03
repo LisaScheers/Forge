@@ -23,6 +23,13 @@ class EmailRecallTests(unittest.TestCase):
         self.assertIn('Sent: unknown', rendered)
         self.assertIn('Original Date: Tue, 2 Jan 2018 09:00:00 +0100', rendered)
 
+    def test_missing_header_marker_is_not_presented_as_a_date(self):
+        result = {'text': 'Body', 'raw': {'external_metadata': json.dumps({'source_uri': 'message://undated', 'sent_date': '(missing)', 'original_date': '(missing)'})}}
+        rendered = email_sources([result])[0]['text']
+        self.assertIn('Sent: unknown', rendered)
+        self.assertNotIn('Original Date:', rendered)
+        self.assertNotIn('(missing)', rendered)
+
 
 if __name__ == '__main__':
     unittest.main()

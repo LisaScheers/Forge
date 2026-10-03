@@ -167,11 +167,20 @@ header. The first full pass covered 32,930 records across 37 uploaded exports:
 expired authentication notices, nine unsubscribe requests and 12 empty notices
 were excluded. 14,008 messages remain, with 31,431,664 bytes of cleaned bodies. The source
 communications remain dated evidence; missing senders or dates stay unknown.
-339 retained messages lack the export's sent-date value; 338 of those still have
-an original mail Date header. Both date fields are retained in chunk metadata
-and exposed by MCP, without inventing a date for the remaining message.
+339 retained messages have no usable date in either export field. Raw date
+fields remain in chunk metadata; MCP reports unknown dates and omits missing
+header markers rather than presenting them as dates.
 Invoices, useful attachment references, human replies and employee-benefit
 newsletters are retained. Original source files are not deleted or edited.
+
+The import completed on 2026-10-03: all 58 cleaned batches, 14,008 emails and
+78,768 chunks. Full verification matched every expected chunk's text and
+metadata and all uploaded batch hashes, with zero missing chunks. It removed
+64 obsolete derived chunks only after their replacements passed verification.
+The local pipeline recorded zero input/output LLM tokens, and OpenRouter usage
+was unchanged before and after the import: $0 additional import charges.
+The private verification report is in
+`/srv/disks/projects/cognee/email-import/20261003-index-v3/verification.json`.
 
 The report and exclusions live under
 `/srv/disks/projects/cognee/email-import/20261003-filter-v3`, private to root.

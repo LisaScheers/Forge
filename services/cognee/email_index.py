@@ -170,7 +170,7 @@ def install(app):
                 if isinstance(metadata, dict) and 'source_data_ids' in metadata:
                     # Date/name lookups also need to find later body chunks.
                     dates = [metadata.get('sent_date'), metadata.get('original_date')]
-                    context += '\n' + (payload.get('document_name') or '') + '\n' + '\n'.join(date for date in dates if date not in (None, '', 'None'))
+                    context += '\n' + (payload.get('document_name') or '') + '\n' + '\n'.join(date for date in dates if date not in (None, '', 'None', '(missing)'))
                 tokens = self.tokenizer(context)
                 if tokens:
                     self.chunks[row['id']] = tokens
