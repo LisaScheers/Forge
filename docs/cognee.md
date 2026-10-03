@@ -51,7 +51,7 @@ also needs a route and DNS resolution to Nook (for example tailnet split DNS for
 `local.bylisa.dev` through Nook); the configuration does not change tailnet DNS.
 
 No separate UI container, PostgreSQL, Neo4j, Redis, or vector service is needed.
-Extraction gets at most two CPUs and 6 GiB; MCP gets two CPUs and 2 GiB. The
+The API gets at most four CPUs and 6 GiB; MCP gets two CPUs and 2 GiB. The
 retired ChatGPT adapter is no longer a running service. Nook had about 14 GiB
 available at inspection.
 The graph buffer pool is explicitly limited to 1 GiB: Cognee's 32 GiB default
@@ -135,9 +135,11 @@ verified with a real request before changing the secret.
 Local Fastembed runs `sentence-transformers/all-MiniLM-L6-v2` with 384 dimensions.
 Its weights and tokenizer cache persist on the NVMe; first use requires a model
 download. Input chunk sizing is capped at 256 embedding tokens.
-Fastembed's ONNX thread pools are explicitly limited to two, matching the
+Fastembed's ONNX thread pools are explicitly limited to four, matching the
 container quota. A 128-item benchmark on Nook took 22.86 seconds with automatic
-host-sized pools and 5.847 seconds with two threads; this prevents CPU-quota
+host-sized pools against a two-CPU limit, 5.847 seconds with two threads/two CPUs,
+and 4.336 seconds with four threads/four CPUs. Embedding batches are 128 rather
+than the default 36, reducing small LanceDB writes. The thread setting prevents CPU-quota
 throttling from idle spinning. `api.py` passes the declarative `FASTEMBED_THREADS`
 setting through Cognee's Fastembed constructor.
 `LLM_RATE_LIMIT_REQUESTS=10` sets the configured RPM budget. The image defaults

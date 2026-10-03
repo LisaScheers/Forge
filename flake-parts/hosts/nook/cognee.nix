@@ -51,7 +51,6 @@
       "--cap-drop=ALL"
       "--security-opt=no-new-privileges"
       "--pids-limit=256"
-      "--cpus=2"
       "--log-driver=journald"
       "--stop-timeout=30"
       # Podman creates failed transient units for expected startup checks,
@@ -124,8 +123,9 @@
           EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2";
           EMBEDDING_DIMENSIONS = "384";
           EMBEDDING_MAX_COMPLETION_TOKENS = "256";
-          FASTEMBED_THREADS = "2";
-          # Match graph queries and numeric layouts to the container CPU quota.
+          FASTEMBED_THREADS = "4";
+          EMBEDDING_BATCH_SIZE = "128";
+          # Bound graph queries/layouts separately from embedding inference.
           KUZU_NUM_THREADS = "2";
           # Cognee defaults to a 32 GiB pool, exceeding this 6 GiB container.
           KUZU_BUFFER_POOL_SIZE = "1073741824";
@@ -159,6 +159,7 @@
         extraOptions =
           containerOptions
           ++ [
+            "--cpus=4"
             "--memory=6g"
             "--entrypoint=/app/.venv/bin/python"
             "--health-cmd=python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8321/health', timeout=5)\""
@@ -206,6 +207,7 @@
         extraOptions =
           containerOptions
           ++ [
+            "--cpus=2"
             "--memory=2g"
             "--entrypoint=/app/.venv/bin/python"
             "--health-cmd=python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8322/health', timeout=5)\""
