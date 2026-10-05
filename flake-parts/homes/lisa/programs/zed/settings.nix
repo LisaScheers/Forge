@@ -13,7 +13,7 @@
         };
       };
       vim_mode = false;
-      load_direnv = "shell_hook";
+      load_direnv = "direct";
       base_keymap = "VSCode";
       autosave = "on_focus_change";
       format_on_save = "on";
