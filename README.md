@@ -47,6 +47,30 @@ the result before installation. This wraps the generated expression in a top-lev
 feature; passing a hardware feature directly to nixos-anywhere's raw configuration
 generator would overwrite its module boundary.
 
+## Forgejo authentication
+
+Git and `forgejo-api` share the credential helpers configured by Home Manager.
+On macOS, Keychain stores both access and refresh tokens; Linux currently uses
+Git's six-hour memory cache. The OAuth grant includes `write:repository` and
+`write:user`, which is also required to create a repository through `/user/repos`.
+The shared grant uses Forgejo's built-in `tea` public client. Forgejo rejects scope
+changes on an existing grant, so it is separate from the old Git-only grant.
+
+After applying this configuration, authorize the expanded grant once:
+
+```sh
+forgejo-api login
+forgejo-api user
+forgejo-api repos/Lisa/STSTP-Controller
+```
+
+Before activation, use `nix run .#forgejo-api -- login` from this checkout.
+For writes, pass `-X POST` (or another method) and `-d '{"name":"example"}'`;
+`-d -` reads JSON from stdin. The command keeps tokens out of arguments and saves
+refreshed credentials back through Git. Use it for API requests instead of copying
+a token or signing in separately. A permission error does not discard the saved
+credential or automatically open another sign-in window.
+
 ## Deployment
 
 Deployments use the locked `deploy-rs` input. Run the server commands from Vega, where the SSH aliases and builders are configured. Every command names one host; there is no fleet-wide deployment recipe.

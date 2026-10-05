@@ -26,11 +26,13 @@
             )
             (lib.getExe pkgs.git-credential-oauth)
           ];
-          # Forgejo's built-in public client uses browser sign-in via Authentik.
-          oauthClientId = "a4792ccc-144e-407e-86c9-5e7d8d9c3269";
+          # Share Forgejo's built-in API client with forgejo-api.
+          oauthClientId = pkgs.forgejo-api.oauthClientId;
           oauthAuthURL = "/login/oauth/authorize";
           oauthTokenURL = "/login/oauth/access_token";
-          oauthScopes = "write:repository";
+          # Creating a repository uses /user/repos, so repository scope alone
+          # cannot cover the API workflow. Share the grant with forgejo-api.
+          oauthScopes = pkgs.forgejo-api.oauthScopes;
         };
       };
     };
@@ -41,6 +43,7 @@
 
     home.packages = with pkgs; [
       gh
+      forgejo-api
     ];
   };
 }
