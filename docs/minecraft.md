@@ -10,6 +10,12 @@ before starting; the other packs require the HDD.
 ATM 10 refuses to start without its existing installation, preventing an
 empty world from being created before data is migrated.
 
+ATM 10 keeps FTB Chunks' force-loaded chunks ticking when everyone is offline.
+Its startup script sets `force_loading.force_load_mode` to `always` in
+`world/serverconfig/ftbchunks-world.snbt`, preserving the other settings and
+surviving modpack updates. Chunks must still be marked for force-loading in
+FTB Chunks; claiming alone does not keep them loaded.
+
 For the SSD migration, pause Nook's automatic update timer and stop
 `atm10-8-0.service`. Confirm the SSD is mounted, then copy the existing
 `/srv/disks/western-digital-hdd/minecraft/atm10-8.0/` installation to

@@ -279,6 +279,15 @@
               set_property rcon.password "$(cat "$CREDENTIALS_DIRECTORY/rcon")"
             fi
 
+            # Use FTB Chunks' world override so pack updates retain offline loading.
+            ftb_chunks_config=${atm10Root}/world/serverconfig/ftbchunks-world.snbt
+            install -d "$(dirname "$ftb_chunks_config")"
+            if [ ! -f "$ftb_chunks_config" ]; then
+              cp ${atm10Root}/config/ftbchunks-world.snbt "$ftb_chunks_config"
+            fi
+            grep -q '^[[:space:]]*force_load_mode:' "$ftb_chunks_config"
+            ${pkgs.gnused}/bin/sed -i 's/^\([[:space:]]*force_load_mode:\).*/\1 "always"/' "$ftb_chunks_config"
+
             install -D -m 0644 ${bluemapJar} ${atm10Root}/mods/bluemap-5.7-neoforge.jar
             rm -f ${atm10Root}/mods/cynosure-*.jar ${atm10Root}/mods/estrogen-*.jar
             install -D -m 0644 ${cynosureJar} ${atm10Root}/mods/cynosure-1.0.2-neoforge-1.21.1.jar
