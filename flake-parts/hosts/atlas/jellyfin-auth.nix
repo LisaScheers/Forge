@@ -100,6 +100,7 @@
       requires = ["authentik-migrate.service"];
       serviceConfig = {
         Type = "oneshot";
+        RemainAfterExit = true;
         DynamicUser = true;
         User = "authentik";
         StateDirectory = "authentik";
