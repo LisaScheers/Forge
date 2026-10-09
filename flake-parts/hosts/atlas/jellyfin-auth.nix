@@ -78,9 +78,12 @@
       from authentik.core.models import User
       from authentik.outposts.models import Outpost
       from authentik.providers.ldap.models import LDAPProvider
+      from authentik.rbac.models import Role
 
       provider = LDAPProvider.objects.get(name="Jellyfin LDAP")
-      assign_perm("authentik_providers_ldap.search_full_directory", User.objects.get(username="jellyfin-ldap"), provider)
+      role, _ = Role.objects.get_or_create(name="Jellyfin LDAP search")
+      User.objects.get(username="jellyfin-ldap").roles.add(role)
+      assign_perm("authentik_providers_ldap.search_full_directory", role, provider)
       # Preserve the UniFi provider on the existing LDAP outpost.
       outpost = Outpost.objects.get(name="UniFi LDAP", type="ldap")
       outpost.providers.add(provider)
