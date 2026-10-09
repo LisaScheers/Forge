@@ -5,9 +5,14 @@ Username/password login works in the web UI and native clients. This does not
 add a browser SSO button. With the existing Authentik authentication flow, users
 with TOTP may need `password;123456` for LDAP authentication.
 
-Explicit existing-account links: `lisa`, `rose`. IDs are pinned in `link.py`.
-`jade` and `esmee` have no Authentik account as of 2026-10-09; retain local login.
-User creation and LDAP administrator synchronization are disabled. Library
+Explicit existing-account links: `lisa`, `rose`, `jade`, `esmee`. IDs are pinned
+in `link.py`. Lisa approved preparing new Authentik accounts for `jade` and
+`esmee` on 2026-10-09. Atlas creates these only if missing, with random initial
+passwords encrypted in `secrets/atlas/jellyfin-bootstrap-env.age`. Existing
+Authentik accounts and subsequent password changes are preserved. No email
+addresses were supplied; none are invented. Arrange secure password handover or
+set their passwords in Authentik before switching Nook to LDAP authentication.
+Jellyfin account creation and LDAP administrator synchronization are disabled. Library
 permissions, administrator flags, passwords, user IDs, and watch history remain
 in Jellyfin. This integration changes only the selected authentication provider.
 
@@ -26,7 +31,7 @@ LDAP UID links are recorded by the plugin on successful user authentication.
 
 Rollout requires Lisa's deployment approval: Atlas first, confirm the blueprint
 and outpost provider, then Nook. Check `authentik-jellyfin-blueprint.service` on
-Atlas and `jellyfin-auth-link.service` on Nook. Verify real sign-in for both linked
+Atlas and `jellyfin-auth-link.service` on Nook. Verify real sign-in for all linked
 users and an existing native client. Their old local passwords no longer select
 the default authentication provider.
 

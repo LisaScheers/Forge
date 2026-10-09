@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import Mock
 import xml.etree.ElementTree as ET
 
 
@@ -16,6 +17,7 @@ def load_helper(name):
 
 configure = load_helper("configure").configure
 link = load_helper("link")
+bootstrap_users = load_helper("bootstrap").bootstrap_users
 
 
 class AccountLinks(unittest.TestCase):
@@ -29,7 +31,7 @@ class AccountLinks(unittest.TestCase):
                 "IsDisabled": False,
             }} for name, user_id in link.ACCOUNTS.items()
         ]
-        self.users.append({"Id": "f35f8038-8cbe-4f2c-b31f-9dc14b927013", "Name": "jade"})
+        self.users.append({"Id": "c6507cb6-03b1-4aae-8b4a-f2324342dd19", "Name": "unrelated"})
         self.writes = []
         self.missing_ldap = None
 
@@ -48,13 +50,13 @@ class AccountLinks(unittest.TestCase):
     def test_links_only_selected_ids_preserving_all_other_policy_fields(self):
         original = copy.deepcopy(self.users)
         link.link_accounts(self.request)
-        self.assertEqual(len(self.writes), 2)
-        for before, after in zip(original[:2], self.users[:2]):
+        self.assertEqual(len(self.writes), 4)
+        for before, after in zip(original[:4], self.users[:4]):
             expected = {**before["Policy"], "AuthenticationProviderId": link.LDAP_PROVIDER}
             self.assertEqual(after, {**before, "Policy": expected})
-        self.assertEqual(self.users[2], original[2])
+        self.assertEqual(self.users[4], original[4])
         link.link_accounts(self.request)
-        self.assertEqual(len(self.writes), 2)
+        self.assertEqual(len(self.writes), 4)
 
     def test_identity_mismatch_prevents_every_policy_change(self):
         self.users[1]["Name"] = "someone-else"
@@ -63,7 +65,7 @@ class AccountLinks(unittest.TestCase):
         self.assertEqual(self.writes, [])
 
     def test_missing_ldap_identity_prevents_every_policy_change(self):
-        self.missing_ldap = "rose"
+        self.missing_ldap = "esmee"
         with self.assertRaises(ValueError):
             link.link_accounts(self.request)
         self.assertEqual(self.writes, [])
@@ -88,6 +90,18 @@ class Configuration(unittest.TestCase):
             self.assertEqual(root.findtext("SkipSslVerify"), "false")
             self.assertEqual(root.findtext("LdapAdminFilter"), "_disabled_")
             self.assertEqual(config_file.stat().st_mode & 0o777, 0o600)
+
+
+class Bootstrap(unittest.TestCase):
+    def test_creates_missing_accounts_without_resetting_existing_passwords(self):
+        model = Mock()
+        jade, esmee = Mock(), Mock()
+        model.objects.get_or_create.side_effect = [(jade, True), (esmee, False)]
+        bootstrap_users(model, {"JELLYFIN_JADE_INITIAL_PASSWORD": "initial-password"})
+        jade.set_password.assert_called_once_with("initial-password")
+        jade.save.assert_called_once_with()
+        esmee.set_password.assert_not_called()
+        esmee.save.assert_not_called()
 
 
 if __name__ == "__main__":

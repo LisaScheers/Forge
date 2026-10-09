@@ -15,6 +15,8 @@ LOCAL_PROVIDER = "Jellyfin.Server.Implementations.Users.DefaultAuthenticationPro
 ACCOUNTS = {
     "lisa": "466f59ea-0289-49cc-a303-3f222ebec388",
     "rose": "35b31cb4-09f9-4d8a-8803-b8d8b6d8fe5d",
+    "jade": "f35f8038-8cbe-4f2c-b31f-9dc14b927013",
+    "esmee": "f8415972-20d5-4a12-9a55-221108b27637",
 }
 
 

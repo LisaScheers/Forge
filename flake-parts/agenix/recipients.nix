@@ -36,6 +36,7 @@ in {
     "secrets/atlas/cf-api-token.age".publicKeys = all;
     "secrets/atlas/forgejo-mailer-password.age".publicKeys = forgejo;
     "secrets/atlas/forgejo-oidc-env.age".publicKeys = forgejo;
+    "secrets/atlas/jellyfin-bootstrap-env.age".publicKeys = [keys.users.lisa keys.hosts.atlas];
     "secrets/atlas/forgejo-runner-token.age".publicKeys = all;
     "secrets/atlas/matrix-registration-secret.age".publicKeys = all;
     "secrets/atlas/matrix-turn-secret.age".publicKeys = all;
