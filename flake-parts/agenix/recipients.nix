@@ -64,6 +64,7 @@ in {
     "secrets/shared/github-env.age".publicKeys = all;
     "secrets/shared/cognee-oidc-env.age".publicKeys = [keys.users.lisa keys.hosts.atlas keys.hosts.nook];
     "secrets/shared/gotify-oidc-env.age".publicKeys = [keys.users.lisa keys.hosts.atlas keys.hosts.nook];
+    "secrets/shared/jellyfin-ldap-env.age".publicKeys = [keys.users.lisa keys.hosts.atlas keys.hosts.nook];
     "secrets/shared/postplan-env.age".publicKeys = postplan;
   };
 }
