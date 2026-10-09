@@ -60,7 +60,10 @@ def main(database):
 
     def request(method, endpoint, data=None):
         body = None if data is None else json.dumps(data).encode()
-        headers = {"X-Emby-Token": row[0], "Content-Type": "application/json"}
+        headers = {
+            "Authorization": 'MediaBrowser Client="Forge Jellyfin Auth", Device="Nook", DeviceId="forge-jellyfin-auth", Version="1", Token=' + json.dumps(row[0]),
+            "Content-Type": "application/json",
+        }
         with urlopen(Request("http://127.0.0.1:8096" + endpoint, body, headers, method=method), timeout=15) as response:
             content = response.read()
             return json.loads(content) if content else None
