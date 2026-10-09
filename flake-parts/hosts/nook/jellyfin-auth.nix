@@ -40,6 +40,8 @@
         UMask = "0077";
         NoNewPrivileges = true;
         ProtectSystem = "strict";
+        # Read-only SQLite connections still need access to WAL shared memory.
+        ReadWritePaths = ["${dataDir}/data"];
         ProtectHome = true;
         PrivateTmp = true;
       };
