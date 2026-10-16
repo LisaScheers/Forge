@@ -127,6 +127,11 @@ then remove the marker and restart `nix-auto-sync-update.timer` explicitly.
 Atlas's PostgreSQL major and data directory are pinned in
 `modules/services/postgresql/atlas.nix`. Its scheduled `pg_dumpall` backup covers
 all databases and cluster roles, with the existing Uptime Kuma completion probe.
+Atlas uses PostgreSQL 18 at `/var/lib/postgresql/18`. Startup requires its
+`PG_VERSION` and `.forge-upgrade-complete` marker; create the marker only after a
+successful `pg_upgrade` or a verified full restore. Keep the PostgreSQL 16
+directory and its system generation for recovery. Returning to it after new
+writes requires reconciling those writes or restoring a current backup.
 The `nixpkgs-atlas-apps` input holds Forgejo at its deployed 15.0.9 during the
 database migration; advance that application pin separately from PostgreSQL.
 
