@@ -1,222 +1,106 @@
-# Justfile for nix-config automation
+set shell := ["bash", "-euo", "pipefail", "-c"]
+set positional-arguments
 
-# Default recipe - show available commands
+age_identity := home_directory() / ".config/sops/age/keys.txt"
+
 default:
     @just --list
 
-# Format all Nix files using alejandra
+# Format source modules and packages; flake.nix is generated separately.
+[group('flake')]
 fmt:
-    nix fmt
+    nix shell --inputs-from . nixpkgs#alejandra -c alejandra modules packages
 
-# Switch Vega in Apple Terminal, whose permissions survive Zed rebuilds.
-# This returns after opening Terminal; activation progress/results appear there.
-switch:
-    /usr/bin/open -b com.apple.Terminal "{{justfile_directory()}}/scripts/switch-vega.command"
+# Check source formatting without modifying files.
+[group('flake')]
+fmt-check:
+    nix shell --inputs-from . nixpkgs#alejandra -c alejandra --check modules packages
 
-# Collect garbage in Apple Terminal so macOS app permissions survive editor updates.
-# Deletes old profile generations; results appear in Terminal.
-clean:
-    /usr/bin/open -b com.apple.Terminal "{{justfile_directory()}}/scripts/clean-vega.command"
-
-# Apply Vega once before its first deploy-rs activation.
-# This enables localhost SSH and installs the deployment key.
-vega-bootstrap: switch
-
-# Install the home server with nixos-anywhere.
-# WARNING: this repartitions and formats the disk configured in config.nix.
-nixos-install target host="home-server":
-    nix develop --no-pure-eval --command nixos-anywhere --flake .#"{{host}}" --target-host "{{target}}"
-
-# Install using password auth. Set SSHPASS in the environment before running this.
-# WARNING: this repartitions and formats the disk configured in config.nix.
-nixos-install-password target host="home-server":
-    nix develop --no-pure-eval --command nixos-anywhere --env-password --flake .#"{{host}}" --target-host "{{target}}"
-
-# Install from an already-booted NixOS installer environment, skipping kexec.
-# WARNING: this repartitions and formats the disks configured in config.nix.
-nixos-install-from-installer target host="home-server":
-    nix develop --no-pure-eval --command nixos-anywhere --phases disko,install,reboot --flake .#"{{host}}" --target-host "{{target}}"
-
-# Install from an already-booted NixOS installer environment with password auth.
-# WARNING: this repartitions and formats the disks configured in config.nix.
-nixos-install-from-installer-password target host="home-server":
-    nix develop --no-pure-eval --command nixos-anywhere --env-password --phases disko,install,reboot --flake .#"{{host}}" --target-host "{{target}}"
-
-# Install from an already-booted NixOS installer environment with a specific SSH key.
-# WARNING: this repartitions and formats the disks configured in config.nix.
-nixos-install-from-installer-key target identity="/tmp/home-server-installer-ed25519" host="home-server":
-    nix develop --no-pure-eval --command nixos-anywhere -i "{{identity}}" --phases disko,install,reboot --flake .#"{{host}}" --target-host "{{target}}"
-
-# Import a generated hardware module as a top-level Forge feature before installation.
-hardware-config host source:
-    bash scripts/import-hardware-config.sh "{{host}}" "{{source}}"
-
-# Edit or create an agenix secret. Paths are relative to flake-parts/agenix.
-secret-edit file identity="/Users/lisa/.config/sops/age/keys.txt":
-    cd flake-parts/agenix && RULES=./_secrets.nix agenix --edit "{{file}}" --identity "{{identity}}"
-
-# Re-encrypt all agenix secrets after changing recipients in recipients.nix.
-secret-rekey identity="/Users/lisa/.config/sops/age/keys.txt":
-    cd flake-parts/agenix && RULES=./_secrets.nix agenix --rekey --identity "{{identity}}"
-
-# Check flake
+# Run flake checks for the current system.
+[group('flake')]
 check:
     nix flake check
 
-# Check flake on every declared supported system when matching builders are available
+# Run flake checks on all supported systems; requires matching builders.
+[group('flake')]
 check-all:
     nix flake check --all-systems
 
-# Check formatting without modifying files
-fmt-check:
-    nix fmt -- --check
-
-# Update flake inputs
+# Update locked inputs.
+[group('flake')]
 update:
     nix flake update
 
-# Regenerate flake.nix from flake-file declarations
+# Regenerate flake.nix from feature-owned declarations.
+[group('flake')]
 write-flake:
     nix run .#write-flake
 
-# Show flake tree
+# Show flake outputs.
+[group('flake')]
 tree:
     nix flake show
 
-# Enter development shell
+# Enter the development shell.
+[group('flake')]
 dev:
     nix develop --no-pure-eval
 
-# Build one host without activating it.
-# Nix may use the remote builders declared by this flake.
+# Switch Vega in Apple Terminal; activation results appear there.
+[group('system')]
+switch:
+    /usr/bin/open -b com.apple.Terminal "{{ justfile_directory() }}/scripts/switch-vega.command"
+
+# Delete old generations and collect garbage in Apple Terminal.
+[group('system')]
+clean:
+    /usr/bin/open -b com.apple.Terminal "{{ justfile_directory() }}/scripts/clean-vega.command"
+
+# Apply Vega once to enable localhost SSH and its deployment key.
+[group('system')]
+vega-bootstrap: switch
+
+# Build one host without activation; Nix may use configured remote builders.
+[group('system')]
 deploy-build host:
     #!/usr/bin/env bash
     set -euo pipefail
-    case "{{host}}" in
-      nook|atlas)
-        nix build ".#nixosConfigurations.{{host}}.config.system.build.toplevel"
-        ;;
-      vega)
-        nix build ".#darwinConfigurations.vega.system"
-        ;;
-      *)
-        echo "unknown deploy host: {{host}}" >&2
-        exit 2
-        ;;
+    case "$1" in
+      nook|atlas) target_system=x86_64-linux ;;
+      vega) target_system=aarch64-darwin ;;
+      *) echo "unknown deploy host: $1" >&2; exit 2 ;;
     esac
+    nix build ".#checks.$target_system.$1"
 
-# Deploy exactly one host. Modes are switch, dry, and test.
-# Vega supports switch only and always targets localhost.
+# Deploy one host in switch, dry, or test mode; Vega supports switch only.
+[group('system')]
 deploy host mode="switch":
-    #!/usr/bin/env bash
-    set -euo pipefail
+    bash scripts/deploy.sh "$1" "$2"
 
-    host="{{host}}"
-    mode="{{mode}}"
-    case "$host" in
-      nook|atlas|vega) ;;
-      *)
-        echo "unknown deploy host: $host" >&2
-        exit 2
-        ;;
-    esac
+# For an existing installer use --phases disko,install,reboot; for passwords use --env-password.
+# Repartition and install a host. Extra args go to nixos-anywhere.
+[group('install')]
+nixos-install target host *args:
+    nix shell --inputs-from . nixpkgs#nixos-anywhere -c nixos-anywhere --flake ".#$2" --target-host "$1" "${@:3}"
 
-    deploy_args=(--skip-checks)
-    case "$mode" in
-      switch) ;;
-      dry) deploy_args+=(--dry-activate) ;;
-      test) deploy_args+=(--test) ;;
-      *)
-        echo "unknown deploy mode: $mode" >&2
-        exit 2
-        ;;
-    esac
+# Import generated hardware into modules/hardware/<host>.nix before installation.
+[group('install')]
+hardware-config host source:
+    bash scripts/import-hardware-config.sh "$1" "$2"
 
-    if [[ "$host" == "vega" ]]; then
-      if [[ "$mode" != "switch" ]]; then
-        echo "deploy-rs does not provide useful dry or test activation for nix-darwin" >&2
-        exit 2
-      fi
-      if [[ "$(hostname -s)" != "vega" ]]; then
-        echo "Vega can only be deployed manually from Vega" >&2
-        exit 2
-      fi
-    fi
+# Edit or create a secret; file paths are relative to modules/security/agenix.
+[group('secrets')]
+secret-edit file identity=age_identity:
+    cd modules/security/agenix && RULES=./_secrets.nix agenix --edit "$1" --identity "$2"
 
-    if [[ "$host" == "atlas" ]]; then
-      if [[ -n "$(git status --porcelain)" ]]; then
-        echo "Atlas deploys require a clean worktree" >&2
-        exit 1
-      fi
+# Re-encrypt secrets after changing recipients.nix.
+[group('secrets')]
+secret-rekey identity=age_identity:
+    cd modules/security/agenix && RULES=./_secrets.nix agenix --rekey --identity "$1"
 
-      git fetch --quiet origin main
-      if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
-        echo "Atlas deploys require HEAD to match origin/main" >&2
-        exit 1
-      fi
-    fi
-
-    case "$host" in
-      nook|atlas) target_system="x86_64-linux" ;;
-      vega) target_system="aarch64-darwin" ;;
-    esac
-    nix build --no-link \
-      ".#checks.$target_system.deploy-schema-$host" \
-      ".#checks.$target_system.deploy-activate-$host" \
-      ".#checks.$target_system.$host"
-
-    atlas_timer_needs_restart=0
-    atlas_deploy_started=0
-    restart_atlas_timer() {
-      exit_status=$?
-      trap - EXIT
-      if [[ "$atlas_timer_needs_restart" == "1" ]]; then
-        if [[ "$atlas_deploy_started" == "1" && "$exit_status" != "0" ]]; then
-          echo "Atlas deployment failed; its auto-update timer remains stopped" >&2
-          echo "after fixing or reverting main, restart it with:" >&2
-          echo "  ssh atlas sudo systemctl start nix-auto-sync-update.timer" >&2
-        elif ! ssh atlas sudo systemctl start nix-auto-sync-update.timer; then
-          echo "failed to restart Atlas auto-update timer" >&2
-          exit_status=1
-        fi
-      fi
-      exit "$exit_status"
-    }
-    trap restart_atlas_timer EXIT
-
-    if [[ "$host" == "atlas" ]]; then
-      atlas_timer_needs_restart=1
-      ssh atlas sudo systemctl stop nix-auto-sync-update.timer
-      update_state="$(ssh atlas systemctl show --property=ActiveState --value nix-auto-sync-update.service)"
-      if [[ "$update_state" != "inactive" ]]; then
-        echo "Atlas auto-update state is $update_state; it was not deployed" >&2
-        exit 1
-      fi
-      reboot_state="$(ssh atlas systemctl show --property=ActiveState --value nix-auto-sync-update-reboot.timer)"
-      if [[ "$reboot_state" != "inactive" ]]; then
-        echo "Atlas reboot timer state is $reboot_state; it was not deployed" >&2
-        exit 1
-      fi
-
-      # Close the race where main changes while the closures are building.
-      git fetch --quiet origin main
-      if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
-        echo "origin/main changed while building; Atlas was not deployed" >&2
-        exit 1
-      fi
-    fi
-
-    # Forge's full flake check has unrelated baseline failures. The three
-    # target checks above are the deployment gate.
-    if [[ "$host" == "atlas" ]]; then
-      atlas_deploy_started=1
-    fi
-    nix run .#deploy -- "${deploy_args[@]}" ".#$host"
-
-# Generate an age identity for agenix (if needed).
-age-keygen:
-    @echo "Generating age identity for agenix..."
-    @mkdir -p ~/.config/sops/age
-    @age-keygen -o ~/.config/sops/age/keys.txt
-    @echo "Age key generated at ~/.config/sops/age/keys.txt"
-    @echo "Add the public key to flake-parts/agenix/pubkeys.nix and the relevant rules in flake-parts/agenix/recipients.nix"
+# Generate an age identity; age-keygen refuses to overwrite an existing key.
+[group('secrets')]
+age-keygen identity=age_identity:
+    mkdir -p "$(dirname "$1")"
+    age-keygen -o "$1"
+    @echo "Add the public key to modules/security/agenix/pubkeys.nix and its rules to recipients.nix."

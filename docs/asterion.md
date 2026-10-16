@@ -470,7 +470,7 @@ The selected design is **A · Observatory**: black background, a dense top bar,
 white focus ring, three named workspaces and columns that default to one third
 of the screen. Animations are disabled. Home Manager owns niri's KDL, all desktop
 configuration files, and the session services. Edit
-`flake-parts/homes/lisa@asterion/`, then rebuild NixOS; generated files in
+`modules/desktop/asterion/`, then rebuild NixOS; generated files in
 `~/.config` are not the source of truth.
 
 The desktop can be built and validated independently of the Mac's firmware:
@@ -543,7 +543,7 @@ stanza using the name from `niri msg outputs`. Kernel/input/audio support and
 real screen-lock behavior still need to be tested on the physical Mac.
 
 The installed system's firmware is pinned in
-`flake-parts/packages/asahi-firmware-j516s/`. Updating it requires a deliberate
+`packages/asahi-firmware-j516s/`. Updating it requires a deliberate
 change to the Apple source, entry ranges/hashes, and expected CPIO hash after
 checking Asahi's firmware target. Running Asahi's firmware rebuild operation
 only updates the ESP archive used by the installers. To update NixOS Asahi support,

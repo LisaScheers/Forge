@@ -12,40 +12,75 @@ support; the Home Manager desktop configuration is provided for future use.
 
 ## Architecture
 
-Forge follows the [dendritic pattern](https://github.com/mightyiam/dendritic),
-reviewed against upstream commit `6c76240658cf1c840faad557c0e0726064170a65`.
-Every feature `.nix` file below `flake-parts/` is a top-level flake-parts module,
-loaded automatically by [`import-tree`](https://github.com/denful/import-tree).
-There are no hidden host/home module trees or local lower-level import lists.
+Every Nix file under `modules/` is a top-level flake-parts module, loaded by
+[import-tree](https://github.com/denful/import-tree). A feature can contribute
+system settings, home settings, packages, checks, and inputs together.
 
-`forge.hosts` describes each machine's class, platform, and selected module;
-`forge.homes` describes standalone user environments. Features contribute to
-class-checked deferred modules in `forge.modules`. For example, every Nook feature
-merges into `forge.modules.nixos.nook`, and the four shared shell features merge
-into `forge.modules.homeManager.lisa-shell`. Adding a feature to an existing
-composition requires no import-list edit. Standalone and embedded homes use the
-same composition. `flake.modules` exports those values for external consumers.
+`nixos`, `darwin`, and `home` are class-checked deferred-module options.
+Features merge into named profiles such as `nixos.nook`, `darwin.vega`,
+`home.lisa-cli`, and `home.lisa`. The CLI profile supplies shared shell and home
+integration dependencies; Lisa's main profile adds her usual applications.
+Asterion selects the CLI profile and its own desktop settings.
 
-Features own their inputs, overlays, and settings. Shared values such as recipient
-keys and Nginx error-page settings are top-level options. Selecting a Forge feature
-activates it by default; compatibility opt-outs and optional sub-features remain
-configurable. Lisa's disabled proxy is an unselected `lisa-proxy` composition.
-Upstream NixOS/Home Manager modules retain their own option contracts.
+The layout follows the feature-oriented structure in Rose's and Esmee's
+configurations and [Vimjoyer's examples](https://vimjoyer.com/nix/):
 
-The documented exceptions are package recipes named `*.pkg.nix` and entry points:
-`flake.nix`, `outputs.nix`, and `flake-parts/agenix/_secrets.nix` for the agenix CLI.
-Package recipes are excluded from automatic loading, as upstream explicitly
-permits. The agenix entry point reads the flake's `agenixRules` output. The
-`dendritic` check rejects hidden feature files and lower-level module roots.
+| Directory | Contents |
+| --- | --- |
+| `modules/flake/` | Inputs, profile types, package sets, checks, CI, deployment |
+| `modules/hosts/<host>/` | Host output, explicit profile selection, machine settings |
+| `modules/homes/lisa/` | User profiles and standalone Home Manager outputs |
+| `modules/shell/` | Git, Bash, Zsh, Nushell, prompts, direnv, package lookup |
+| `modules/development/` | Editors, AI tools, development shell, local helpers |
+| `modules/desktop/` | Terminal, theme, fonts, desktop settings |
+| `modules/services/<feature>/` | Related server, authentication, proxy, or collector pieces |
+| `modules/security/` | Agenix, SOPS, SSH, GnuPG, 1Password |
+| `modules/hardware/` | Host hardware, disk support, Apple Silicon installers |
+| `packages/` | Raw package recipes and patches; outside automatic loading |
 
-The earlier HTML migration plan is historical and does not define this architecture.
+Each host's `default.nix` constructs its NixOS or Darwin output and visibly
+selects hardware and Home Manager profiles. Home files construct standalone
+outputs using the same home profiles and the shared per-system package set.
+There is no host registry or automatic home registration. For example, Nook's
+host module binds `home-manager.users.lisa = config.home.lisa-nook`.
 
-Installation recipes consume the checked-in hardware features. To replace one,
-save the target's `nixos-generate-config --show-hardware-config` output locally,
-then run `just hardware-config nook /path/to/hardware-configuration.nix` and review
-the result before installation. This wraps the generated expression in a top-level
-feature; passing a hardware feature directly to nixos-anywhere's raw configuration
-generator would overwrite its module boundary.
+Adding settings to an existing profile requires no file import-list edit.
+Distinct reusable profiles are selected explicitly by name. Selecting a feature
+enables it by default; existing opt-outs remain available. The unselected
+`home.lisa-proxy` profile keeps Lisa's local proxy disabled.
+`flake.modules` publishes the named profiles for external consumers.
+
+`flake-file` generates `flake.nix` from feature-owned input declarations.
+Regenerate it with `nix run .#write-flake`. The root entry point imports
+`modules/` directly. `modules/security/agenix/_secrets.nix` is the standalone
+agenix CLI entry point and reads the flake's `agenixRules` output. The underscore
+keeps it out of automatic loading. The `dendritic` and `profiles` checks enforce
+top-level feature boundaries and module-class safety.
+
+CI targets are declared beside their host, home, or installer output. The CI
+module maps those declarations to native runners without evaluating host builds.
+
+Hardware regeneration writes `modules/hardware/<host>.nix`. Save the target's
+`nixos-generate-config --show-hardware-config` output locally, then run
+`just hardware-config nook /path/to/hardware-configuration.nix` and review it.
+The helper wraps the generated configuration in `nixos.<host>-hardware`.
+
+## Package lookup
+
+The shared shell composition installs `nix-locate` and comma (`,`), backed by the
+locked [nix-index-database](https://github.com/nix-community/nix-index-database)
+input. No local database generation is needed. Bash, Zsh, and enabled Nushell
+sessions suggest packages when a command is missing.
+
+```sh
+nix-locate --whole-name bin/dig
+, --print-packages dig
+, dig example.org
+```
+
+The database follows upstream's nixos-unstable package index; a result can differ
+from Forge's pinned Nixpkgs master revision. Update it with
+`nix flake update nix-index-database` and apply the configuration normally.
 
 ## Forgejo authentication
 
@@ -84,7 +119,7 @@ just deploy nook
 
 Use the same commands for Atlas. The Atlas recipe refuses dirty or off-main revisions, aborts when an auto-update or scheduled reboot is active, and pauses `nix-auto-sync-update.timer` while deploy-rs runs. It restarts the timer after a successful deployment or a preflight abort. If deploy-rs itself fails, the timer stays stopped so it cannot retry the same bad `main` revision; the recipe prints the recovery command.
 
-The recipe builds the host closure plus host-specific deploy-rs schema and activation checks before it opens the deployment connection. Nix may still use the remote builders declared by this flake during that build. The recipe then passes `--skip-checks` to deploy-rs because Forge's full-flake check has pre-existing failures in its flake-parts/devenv checks. Do not use `--skip-checks` without those targeted builds.
+The recipe builds the host closure plus host-specific deploy-rs schema and activation checks before it opens the deployment connection. Nix may still use the remote builders declared by this flake during that build. The recipe then passes `--skip-checks` to deploy-rs because Forge's full-flake check has pre-existing development-shell check failures. Do not use `--skip-checks` without those targeted builds.
 
 Atlas needs one bootstrap from its existing auto-updater after this change reaches `main`. That activation adds `lisa` to Nix's trusted users. Confirm it before the first deploy-rs run:
 

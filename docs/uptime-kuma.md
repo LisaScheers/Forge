@@ -12,7 +12,7 @@ end-to-end delivery/relay functionality.
 
 ## Private probes
 
-`flake-parts/hosts/uptime-kuma-probes.nix` defines a local systemd timer on Atlas
+`modules/services/monitoring/probes.nix` defines a local systemd timer on Atlas
 and Nook. The timer reports to push monitors without exposing private services.
 Each host's push tokens are encrypted in its `uptime-kuma-probes.age` secret.
 

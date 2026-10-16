@@ -1,11 +1,11 @@
 # This flake.nix file is auto-generated.
-# The source of truth is merged from flake-parts modules under flake-parts/.
+# The source of truth is merged from flake-parts modules under modules/.
 # Regenerate with: nix run .#write-flake
 # https://flake-file.denful.dev/
 {
   description = "Multi-host Nix configuration for Darwin and NixOS";
 
-  outputs = inputs: import ./outputs.nix inputs;
+  outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./modules);
 
   nixConfig = {
     extra-substituters = [ "https://zed.cachix.org" ];
@@ -79,6 +79,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nix-homebrew.url = "github:zhaofengli/nix-homebrew";
+    nix-index-database = {
+      url = "github:nix-community/nix-index-database";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     nix-output-monitor.url = "github:maralorn/nix-output-monitor";
     nixos-apple-silicon = {
       url = "github:nix-community/nixos-apple-silicon";

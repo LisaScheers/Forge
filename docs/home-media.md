@@ -3,7 +3,7 @@
 Nook serves Jellyfin through nginx. `jellyfin.bylisa.dev` is the public
 hostname; `jellyfin.local.bylisa.dev` and `media.local.bylisa.dev` remain local
 aliases. Nix manages the public Cloudflare DNS record, ACME certificate, and
-HTTPS virtual host in `flake-parts/hosts/nook/media.nix`.
+HTTPS virtual host in `modules/services/media/server.nix`.
 
 The UniFi gateway already forwards public TCP ports 80 and 443 to
 `192.168.111.2`. The public route was verified from Atlas on 2026-09-17 using

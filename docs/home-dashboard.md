@@ -14,7 +14,7 @@ Visibility defaults to private; only entries with `public: true` are exported
 anonymously. Disabled Mastodon is excluded. A public login page alone does not
 make an application's functionality public.
 
-The Nix module in `flake-parts/hosts/atlas/home-dashboard.nix` owns nginx, TLS,
+The Nix module in `modules/services/home-dashboard/server.nix` owns nginx, TLS,
 the Authentik provider, the API, and a 30-second status timer. Authentik's embedded
 outpost authenticates `/api/private` and `/login`. The API listens only on a Unix
 socket; nginx overwrites its identity header. Neither private links nor private

@@ -8,7 +8,7 @@ case "$host" in
 esac
 
 repo_root=$(git rev-parse --show-toplevel)
-destination="$repo_root/flake-parts/hosts/$host/hardware-configuration.nix"
+destination="$repo_root/modules/hardware/$host.nix"
 test -f "$destination" || { echo "No existing hardware feature for $host." >&2; exit 1; }
 nix-instantiate --parse "$source_file" >/dev/null
 
@@ -16,7 +16,7 @@ nix-instantiate --parse "$source_file" >/dev/null
 hardware_tmp=$(mktemp "$destination.XXXXXX")
 trap 'rm -f "$hardware_tmp"' EXIT
 {
-  printf '{...}: {\n  forge.modules.nixos.%s =\n' "$host"
+  printf '{...}: {\n  nixos.%s-hardware =\n' "$host"
   cat "$source_file"
   printf '\n;\n}\n'
 } >"$hardware_tmp"

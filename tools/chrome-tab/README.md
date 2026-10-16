@@ -14,12 +14,8 @@ nix build 'path:.#chrome-tab'
 ```
 
 Vega's Home Manager configuration enables the bridge. For another host, import
-`config.forge.modules.homeManager.chrome-tab` in its Home Manager composition
-and configure:
-
-   ```nix
-   forge.chrome-tab.enable = true;
-   ```
+`config.home.chrome-tab` in its Home Manager composition. Importing the profile
+enables the bridge.
 
 1. Apply the configuration through your normal approved deployment workflow.
    It installs the CLI, the extension files and native messaging manifests for

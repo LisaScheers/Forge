@@ -14,9 +14,9 @@ class HardwareImportTest(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         subprocess.run(["git", "init", "--quiet", str(self.root)], check=True)
-        self.target = self.root / "flake-parts/hosts/nook/hardware-configuration.nix"
+        self.target = self.root / "modules/hardware/nook.nix"
         self.target.parent.mkdir(parents=True)
-        self.target.write_text("{ forge.modules.nixos.nook = {}; }\n")
+        self.target.write_text("{ nixos.nook-hardware = {}; }\n")
         self.source = self.root / "generated.nix"
 
     def run_import(self, host="nook"):
@@ -31,7 +31,7 @@ class HardwareImportTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         value = subprocess.check_output([
             "nix-instantiate", "--eval", "--strict", "--json", "--expr",
-            f'((import {self.target} {{}}).forge.modules.nixos.nook {{}}).networking.hostName',
+            f'((import {self.target} {{}}).nixos.nook-hardware {{}}).networking.hostName',
         ], text=True)
         self.assertEqual(value.strip(), '"fixture"')
         self.assertEqual(list(self.target.parent.glob("*.nix.*")), [])
@@ -51,7 +51,7 @@ class HardwareImportTest(unittest.TestCase):
     def test_unknown_host_is_not_created(self):
         self.source.write_text("{}")
         self.assertNotEqual(self.run_import("new-host").returncode, 0)
-        self.assertFalse((self.root / "flake-parts/hosts/new-host").exists())
+        self.assertFalse((self.root / "modules/hardware/new-host.nix").exists())
 
 
 if __name__ == "__main__":
