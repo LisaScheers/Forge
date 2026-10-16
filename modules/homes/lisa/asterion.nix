@@ -10,7 +10,7 @@
     home = {
       username = "lisa";
       homeDirectory = "/home/lisa";
-      stateVersion = "26.05";
+      stateVersion = "26.11";
     };
     xdg.enable = true;
     programs.home-manager.enable = true;

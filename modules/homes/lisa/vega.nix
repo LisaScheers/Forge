@@ -9,6 +9,7 @@
 
     home.username = "lisa";
     home.homeDirectory = "/Users/lisa";
+    home.stateVersion = "26.11";
 
     xdg.enable = true;
 

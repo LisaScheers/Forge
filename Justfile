@@ -77,6 +77,11 @@ deploy-build host:
 deploy host mode="switch":
     bash scripts/deploy.sh "$1" "$2"
 
+# Deploy Atlas while keeping its updater paused for database maintenance.
+[group('system')]
+deploy-maintenance:
+    bash scripts/deploy.sh atlas switch --maintenance
+
 # For an existing installer use --phases disko,install,reboot; for passwords use --env-password.
 # Repartition and install a host. Extra args go to nixos-anywhere.
 [group('install')]

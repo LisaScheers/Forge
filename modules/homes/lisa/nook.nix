@@ -8,6 +8,7 @@
     imports = [config.home.lisa];
 
     home.homeDirectory = "/home/lisa";
+    home.stateVersion = "26.11";
   };
   flake.homeConfigurations."lisa@nook" = withSystem "x86_64-linux" ({pkgs, ...}:
     inputs.home-manager.lib.homeManagerConfiguration {

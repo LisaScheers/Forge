@@ -1327,6 +1327,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-atlas-apps": {
+      "locked": {
+        "lastModified": 1791532866,
+        "narHash": "sha256-pKZJxUcFoFYBPt3xvneEjas6S/l3mUAFpy4EAX0I8Mg=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "67b5cf9be1c8d2170270509db4ed12e904a768b0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "67b5cf9be1c8d2170270509db4ed12e904a768b0",
+        "type": "github"
+      }
+    },
     "nixpkgs-lib": {
       "locked": {
         "lastModified": 1788057806,
@@ -1643,6 +1659,7 @@
         "nix-output-monitor": "nix-output-monitor",
         "nixos-apple-silicon": "nixos-apple-silicon",
         "nixpkgs": "nixpkgs_5",
+        "nixpkgs-atlas-apps": "nixpkgs-atlas-apps",
         "onepassword-shell-plugins": "onepassword-shell-plugins",
         "personal-website": "personal-website",
         "sops-nix": "sops-nix",

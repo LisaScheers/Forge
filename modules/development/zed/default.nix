@@ -4,6 +4,10 @@
   };
   overlays.zed = final: _prev: {
     zed-editor = inputs.zed.packages.${final.stdenv.hostPlatform.system}.default.override {
+      # Zed's older fork has no tests/common.rs for Nixpkgs' integration-test patch.
+      cargo-bundle = final.cargo-bundle.overrideAttrs {
+        patches = [];
+      };
       # Zed pins cargo-about to 0.8.2, which does not have the inherited `cli` feature.
       cargo-about = final.cargo-about.overrideAttrs (_old: {
         cargoBuildFeatures = [];

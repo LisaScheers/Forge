@@ -35,7 +35,7 @@
       security.polkit.enable = lib.mkForce false;
       console.packages = [pkgs.terminus_font];
       console.font = "ter-v32n";
-      system.stateVersion = "26.05";
+      system.stateVersion = "26.11";
 
       # Same firmware source as the upstream ISO. Mount only the ESP identified by
       # m1n1, read-only; proprietary firmware stays on the target, outside the build.

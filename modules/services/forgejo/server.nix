@@ -96,13 +96,6 @@
 
     systemd.services.forgejo.restartTriggers = [mailSecret];
 
-    services.postgresqlBackup = {
-      enable = true;
-      databases = ["forgejo"];
-      compression = "zstd";
-      startAt = "*-*-* 03:00:00";
-    };
-
     networking.firewall.allowedTCPPorts = [sshPort];
 
     services.nginx.virtualHosts.${domain} = {

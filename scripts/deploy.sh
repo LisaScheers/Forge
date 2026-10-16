@@ -3,6 +3,11 @@ set -euo pipefail
 
 host=$1
 mode=${2:-switch}
+maintenance=${3:-}
+if [[ -n "$maintenance" && ( "$maintenance" != "--maintenance" || "$host" != "atlas" || "$mode" != "switch" ) ]]; then
+  echo "--maintenance requires an Atlas switch deployment" >&2
+  exit 2
+fi
 case "$host" in
   nook|atlas|vega) ;;
   *)
@@ -11,7 +16,12 @@ case "$host" in
     ;;
 esac
 
+ssh_args=()
 deploy_args=(--skip-checks)
+if [[ -n "${FORGE_DEPLOY_SSH_CONTROL:-}" ]]; then
+  ssh_args=(-S "$FORGE_DEPLOY_SSH_CONTROL")
+  deploy_args+=(--ssh-opts "-S $FORGE_DEPLOY_SSH_CONTROL")
+fi
 case "$mode" in
   switch) ;;
   dry) deploy_args+=(--dry-activate) ;;
@@ -61,11 +71,17 @@ restart_atlas_timer() {
   exit_status=$?
   trap - EXIT
   if [[ "$atlas_timer_needs_restart" == "1" ]]; then
-    if [[ "$atlas_deploy_started" == "1" && "$exit_status" != "0" ]]; then
+    if [[ "$maintenance" == "--maintenance" ]]; then
+      if ! ssh "${ssh_args[@]}" atlas sudo systemctl stop nix-auto-sync-update.timer; then
+        echo "failed to hold Atlas auto-update timer after maintenance deployment" >&2
+        exit_status=1
+      fi
+      echo "Atlas maintenance: its auto-update timer remains stopped" >&2
+    elif [[ "$atlas_deploy_started" == "1" && "$exit_status" != "0" ]]; then
       echo "Atlas deployment failed; its auto-update timer remains stopped" >&2
       echo "after fixing or reverting main, restart it with:" >&2
-      echo "  ssh atlas sudo systemctl start nix-auto-sync-update.timer" >&2
-    elif ! ssh atlas sudo systemctl start nix-auto-sync-update.timer; then
+      echo "  ssh "${ssh_args[@]}" atlas sudo systemctl start nix-auto-sync-update.timer" >&2
+    elif ! ssh "${ssh_args[@]}" atlas sudo systemctl start nix-auto-sync-update.timer; then
       echo "failed to restart Atlas auto-update timer" >&2
       exit_status=1
     fi
@@ -76,13 +92,13 @@ trap restart_atlas_timer EXIT
 
 if [[ "$host" == "atlas" ]]; then
   atlas_timer_needs_restart=1
-  ssh atlas sudo systemctl stop nix-auto-sync-update.timer
-  update_state="$(ssh atlas systemctl show --property=ActiveState --value nix-auto-sync-update.service)"
+  ssh "${ssh_args[@]}" atlas sudo systemctl stop nix-auto-sync-update.timer
+  update_state="$(ssh "${ssh_args[@]}" atlas systemctl show --property=ActiveState --value nix-auto-sync-update.service)"
   if [[ "$update_state" != "inactive" ]]; then
     echo "Atlas auto-update state is $update_state; it was not deployed" >&2
     exit 1
   fi
-  reboot_state="$(ssh atlas systemctl show --property=ActiveState --value nix-auto-sync-update-reboot.timer)"
+  reboot_state="$(ssh "${ssh_args[@]}" atlas systemctl show --property=ActiveState --value nix-auto-sync-update-reboot.timer)"
   if [[ "$reboot_state" != "inactive" ]]; then
     echo "Atlas reboot timer state is $reboot_state; it was not deployed" >&2
     exit 1

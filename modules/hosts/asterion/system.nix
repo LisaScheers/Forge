@@ -62,6 +62,6 @@
     };
     environment.systemPackages = with pkgs; [git vim curl pciutils usbutils];
     zramSwap.enable = true;
-    system.stateVersion = "26.05";
+    system.stateVersion = "26.11";
   };
 }

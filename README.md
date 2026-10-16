@@ -119,6 +119,17 @@ just deploy nook
 
 Use the same commands for Atlas. The Atlas recipe refuses dirty or off-main revisions, aborts when an auto-update or scheduled reboot is active, and pauses `nix-auto-sync-update.timer` while deploy-rs runs. It restarts the timer after a successful deployment or a preflight abort. If deploy-rs itself fails, the timer stays stopped so it cannot retry the same bad `main` revision; the recipe prints the recovery command.
 
+For an approved database maintenance window, `just deploy-maintenance` applies
+Atlas while leaving its updater timer stopped. The root-owned marker
+`/var/lib/postgresql/.forge-maintenance` also prevents updater runs across
+reboots. Keep the marker and timer hold until migration and recovery checks pass;
+then remove the marker and restart `nix-auto-sync-update.timer` explicitly.
+Atlas's PostgreSQL major and data directory are pinned in
+`modules/services/postgresql/atlas.nix`. Its scheduled `pg_dumpall` backup covers
+all databases and cluster roles, with the existing Uptime Kuma completion probe.
+The `nixpkgs-atlas-apps` input holds Forgejo at its deployed 15.0.9 during the
+database migration; advance that application pin separately from PostgreSQL.
+
 The recipe builds the host closure plus host-specific deploy-rs schema and activation checks before it opens the deployment connection. Nix may still use the remote builders declared by this flake during that build. The recipe then passes `--skip-checks` to deploy-rs because Forge's full-flake check has pre-existing development-shell check failures. Do not use `--skip-checks` without those targeted builds.
 
 Atlas needs one bootstrap from its existing auto-updater after this change reaches `main`. That activation adds `lisa` to Nix's trusted users. Confirm it before the first deploy-rs run:

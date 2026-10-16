@@ -7,6 +7,5 @@
       then "/Users/lisa"
       else "/home/lisa";
     home.username = "lisa";
-    home.stateVersion = "25.11";
   };
 }

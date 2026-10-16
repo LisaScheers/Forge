@@ -109,6 +109,7 @@
       coturn.restartTriggers = [../../security/agenix/secrets/atlas/matrix-turn-secret.age];
     };
 
+    # Preserve PostgreSQL 16 and /var/lib/postgresql/16 until a database migration.
     system.stateVersion = "25.05";
   };
 }

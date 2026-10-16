@@ -96,7 +96,7 @@
         "-${lib.getExe report} auto-update"
       ];
     };
-    systemd.services.postgresqlBackup-forgejo = lib.mkIf (host == "atlas") {
+    systemd.services.postgresqlBackup = lib.mkIf (host == "atlas") {
       serviceConfig.ExecStartPost = [
         "-+${lib.getExe report} postgresql-backup"
       ];
