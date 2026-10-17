@@ -1,6 +1,8 @@
 {
   nixos.nook = {pkgs, ...}: {
     systemd.services.codex = {
+      # Renew /home/codex/.codex authentication before re-enabling remote control.
+      enable = false;
       description = "Codex app server with remote control";
       wantedBy = ["multi-user.target"];
       wants = ["network-online.target"];
