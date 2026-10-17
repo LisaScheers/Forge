@@ -57,6 +57,12 @@
       };
     };
 
+    systemd.services.nginx = {
+      # nginx resolves the remote Authentik upstream while testing its config.
+      after = ["unbound.service"];
+      wants = ["unbound.service"];
+    };
+
     services.unbound = {
       enable = true;
       checkconf = true;
