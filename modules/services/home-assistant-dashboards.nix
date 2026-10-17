@@ -24,6 +24,11 @@ in {
       type = "button";
       inherit name icon;
       show_state = false;
+      show_icon = false;
+      grid_options = {
+        columns = "full";
+        rows = 1;
+      };
       tap_action = {
         action = "navigate";
         navigation_path = destination;
@@ -119,6 +124,7 @@ in {
               }
               {
                 type = "media-control";
+                theme = "Home media";
                 entity = "media_player.bedroom_display";
               }
               (navigate "Network" "mdi:lan" "/home-network/overview")
@@ -329,6 +335,7 @@ in {
     services.home-assistant = {
       customLovelaceModules = [deployedPackages.home-assistant-custom-lovelace-modules.mini-graph-card];
       config = {
+        frontend.themes."Home media"."primary-color" = "#242424";
         frontend.themes.Home = {
           "primary-background-color" = "#000000";
           "secondary-background-color" = "#111111";
