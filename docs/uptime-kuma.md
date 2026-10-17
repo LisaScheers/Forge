@@ -10,6 +10,11 @@ the connection and STARTTLS/SMTPS negotiation without sending messages. IMAP,
 POP3, ManageSieve, LDAPS, and TURN TCP monitors check listeners, not login or
 end-to-end delivery/relay functionality.
 
+Atlas's Minecraft system-service monitor checks `minecraft.service`, the socket
+proxy to Nook. The old local `atm10-8-0.service` is intentionally masked; the
+game server runs on Nook. The separate game query through Atlas's loopback
+port 25565 checks the proxy and backend together.
+
 ## Private probes
 
 `modules/services/monitoring/probes.nix` defines a local systemd timer on Atlas
@@ -38,3 +43,10 @@ jobs finish successfully; do not send synthetic success reports.
 The metrics, logs, traces, and profiling stack has been retired. Its old Kuma
 checks are paused, while PostgreSQL, backup, update, media, and proxy checks stay
 enabled. Existing monitoring data is retained on Nook.
+
+Mail's separate legacy Alloy container was disabled on 2026-10-17 after repeated
+host OOM kills and connectivity failures. `mailcow-alloy` is stopped with Docker
+restart policy `no`. On Mail, `/opt/mailcow-observability/docker-compose.yml`
+also assigns Alloy the `disabled` profile and `restart: "no"`, so a normal
+Compose start excludes it. The original file is retained beside it as
+`docker-compose.yml.before-disable-alloy-20261017`. Mail filtering stays enabled.

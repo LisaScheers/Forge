@@ -8,8 +8,7 @@ Lisa uses Nix to manage her systems. Prefer declarative Nix and Home Manager ove
 - Bold ideas are welcome when they materially improve the result.
 - Use type safety where it removes real invalid states. Avoid `any`, needless casts, and wrapper functions that exist only to cast.
 - Follow the repository's existing language, design, and testing conventions before introducing a new one.
-- Write idiomatic TypeScript. When no stack exists, prefer Convex (or sqlite for personal apps), Tailwind CSS, React, Vite, Effect, and bun. For complex web or React Native apps, consider Zustand, React Query, TanStack Start, Clerk or better-auth, and ArkType or Zod.
-- Add comments for behavior, constraints, or non-obvious reasons. Keep them synchronized with the code.
+- Add comments only for behavior, constraints, that are non-obvious. Keep them synchronized with the code.
 - Run the narrowest direct check that proves the requested result in the relevant environment. Add broader checks only when the affected boundary or failure cost warrants them.
 - In zsh, never use special parameters such as `path` or `status` as scratch variables. Use descriptive names such as `file_path` and `command_status`; select the required shell explicitly for shell-specific snippets.
 - For standalone helpers with known external dependencies, use the existing `nix-dependencies` workflow before execution.
