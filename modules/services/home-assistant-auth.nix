@@ -13,8 +13,8 @@ in {
         user = "home-assistant-owners";
       };
       features = {
-        # Disable after Lisa's first OIDC login links her existing HA owner.
-        automatic_user_linking = true;
+        # Lisa's OIDC subject is already linked to her existing HA owner.
+        automatic_user_linking = false;
         automatic_person_creation = false;
         default_redirect = true;
       };
@@ -28,12 +28,14 @@ in {
   }: {
     systemd.services.authentik-home-assistant-blueprint = {
       description = "Apply Home Assistant Authentik OIDC provider and owner policy";
+      wantedBy = ["multi-user.target"];
       requiredBy = ["authentik.service"];
       before = ["authentik.service"];
       after = ["authentik-migrate.service"];
       requires = ["authentik-migrate.service"];
       serviceConfig = {
         Type = "oneshot";
+        RemainAfterExit = true;
         DynamicUser = true;
         User = "authentik";
         StateDirectory = "authentik";
