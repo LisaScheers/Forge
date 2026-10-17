@@ -29,6 +29,19 @@ in {
         "met"
         "radio_browser"
         "shopping_list"
+        # Config-entry integrations need their dependencies in the Nix closure;
+        # Home Assistant runs with --skip-pip and cannot install them itself.
+        "google_generative_ai_conversation"
+        "ibeacon"
+        "minecraft_server"
+        "unifi"
+        # Devices/services discovered on Lisa's home networks (2026-10-17).
+        "apple_tv"
+        "cast"
+        "homekit_controller"
+        "homewizard"
+        "smartthings"
+        "thread"
         # Recommended for fast zlib compression
         # https://www.home-assistant.io/integrations/isal
         "isal"
@@ -36,6 +49,8 @@ in {
 
       config = {
         default_config = {};
+        # The bedroom Nest Hub already advertises a Thread border router.
+        thread = {};
         homeassistant = {
           name = "Home Assistant";
           #51.203108, 4.769569
