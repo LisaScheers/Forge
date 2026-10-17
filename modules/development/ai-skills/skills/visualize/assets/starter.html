@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Request latency · illustrative example</title>
+  <style>
+    :root { color-scheme: dark; font: 15px/1.5 system-ui, sans-serif; background: #000; color: #fff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { max-width: 1000px; padding: clamp(16px, 4vw, 36px); margin: auto; }
+    h1 { margin: 0; font-size: clamp(24px, 4vw, 32px); letter-spacing: -.03em; }
+    p { margin: 8px 0 20px; color: #b6b6b6; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+    label { display: flex; align-items: center; gap: 8px; }
+    select, .export { font: inherit; color: #fff; background: #151515; border: 1px solid #555; border-radius: 4px; padding: 7px 10px; }
+    .export { cursor: pointer; text-decoration: none; }
+    :focus-visible { outline: 2px solid #8cbaff; outline-offset: 3px; }
+    #chart { width: 100%; height: 360px; margin: 16px 0; }
+    #takeaway { color: #fff; }
+    #error { color: #ffb8b8; }
+    details { border-top: 1px solid #333; padding: 12px 0; }
+    summary { cursor: pointer; }
+    .table-scroll { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; margin-top: 12px; text-align: right; }
+    caption { text-align: left; color: #b6b6b6; margin-bottom: 8px; }
+    th, td { padding: 8px; border-bottom: 1px solid #333; }
+    th:first-child { text-align: left; }
+    .licenses { color: #999; font-size: 12px; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Where do slow requests stand out?</h1>
+  <p id="source">Illustrative data, not a measurement. All values are milliseconds.</p>
+  <div class="controls">
+    <label for="measure">Measure
+      <select id="measure"><option value="median">Median</option><option value="p95">95th percentile</option></select>
+    </label>
+    <a id="export" class="export" download="request-latency.png">Save PNG</a>
+  </div>
+  <p id="error" role="alert" hidden></p>
+  <div id="chart" role="img" aria-describedby="source takeaway"></div>
+  <p id="takeaway" aria-live="polite"></p>
+  <details id="data">
+    <summary>View the data</summary>
+    <div class="table-scroll"><table>
+      <caption>Illustrative request latency, milliseconds</caption>
+      <thead><tr><th scope="col">Service</th><th scope="col">Median</th><th scope="col">95th percentile</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+  </details>
+  <!-- ECHARTS_NOTICES -->
+</main>
+<!-- ECHARTS_RUNTIME -->
+<script>
+  // Replace this synthetic example and its source note together.
+  const samples = [
+    { service: 'Search', median: 42, p95: 115 },
+    { service: 'Checkout', median: 68, p95: 240 },
+    { service: 'Profile', median: 29, p95: 76 },
+    { service: 'Export', median: 120, p95: 610 },
+  ];
+  const measure = document.getElementById('measure');
+  const chartElement = document.getElementById('chart');
+  const errorElement = document.getElementById('error');
+  const rows = document.getElementById('rows');
+  samples.forEach(sample => {
+    const row = document.createElement('tr');
+    [sample.service, sample.median, sample.p95].forEach((value, index) => {
+      const cell = document.createElement(index === 0 ? 'th' : 'td');
+      if (index === 0) cell.scope = 'row';
+      cell.textContent = String(value);
+      row.append(cell);
+    });
+    rows.append(row);
+  });
+  function showError(error) {
+    errorElement.textContent = `Could not render the chart: ${error.message}. The data is available below.`;
+    errorElement.hidden = false;
+    document.getElementById('data').open = true;
+    document.getElementById('export').removeAttribute('href');
+    document.getElementById('export').setAttribute('aria-disabled', 'true');
+  }
+  try {
+    const chart = echarts.init(chartElement, null, { renderer: 'canvas' });
+    function render() {
+      const metric = measure.value;
+      const metricLabel = measure.selectedOptions[0].textContent;
+      chart.setOption({
+        animation: false,
+        backgroundColor: '#000',
+        textStyle: { color: '#ddd', fontFamily: 'system-ui, sans-serif' },
+        grid: { left: 10, right: 20, top: 24, bottom: 10, containLabel: true },
+        tooltip: { trigger: 'axis', renderMode: 'richText', valueFormatter: value => `${value} ms` },
+        xAxis: { type: 'value', min: 0, splitNumber: 4, axisLabel: { color: '#b6b6b6', formatter: '{value} ms', hideOverlap: true }, splitLine: { lineStyle: { color: '#292929' } } },
+        yAxis: { type: 'category', inverse: true, data: samples.map(sample => sample.service), axisLabel: { color: '#ddd' }, axisLine: { show: false }, axisTick: { show: false } },
+        series: [{ type: 'bar', name: metricLabel, data: samples.map(sample => sample[metric]), barMaxWidth: 36, itemStyle: { color: '#8cbaff' }, label: { show: true, position: 'right', color: '#fff', formatter: '{c} ms' } }],
+      }, { notMerge: true });
+      const slowest = samples.reduce((a, b) => a[metric] > b[metric] ? a : b);
+      const takeaway = `${slowest.service} has the highest ${metricLabel.toLowerCase()}: ${slowest[metric]} ms in this illustrative dataset.`;
+      document.getElementById('takeaway').textContent = takeaway;
+      chartElement.setAttribute('aria-label', `${metricLabel} request latency by service. ${takeaway}`);
+      updateExport();
+    }
+    const exportLink = document.getElementById('export');
+    function updateExport() {
+      exportLink.download = `request-latency-${measure.value}.png`;
+      exportLink.href = chart.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#000' });
+    }
+    render();
+    measure.addEventListener('change', render);
+    const observer = new ResizeObserver(() => { chart.resize(); updateExport(); });
+    observer.observe(chartElement);
+  } catch (error) { showError(error); }
+</script>
+</body>
+</html>

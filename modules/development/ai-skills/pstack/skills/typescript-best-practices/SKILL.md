@@ -5,20 +5,25 @@ description: Use when implementing or reviewing TypeScript types, public APIs, o
 
 # TypeScript best practices
 
-Follow the repository's TypeScript conventions first. Use types to prevent real mistakes without adding ceremony that the code does not need.
+Apply the **type-system-discipline** principle skill first.
 
-- Prefer inference and derive types from authoritative schemas or existing functions.
-- Treat untrusted external data as `unknown` until a boundary parser validates it.
-- Use discriminated unions when variants have different valid fields or behavior.
-- Make variant handling exhaustive when a missed case would be a bug.
-- Avoid `any`. Isolate it at an unavoidable third-party boundary and explain why it cannot be narrowed.
-- Prefer narrowing, `satisfies`, and schema validation over broad assertions.
-- Keep a necessary assertion local. Use it only when runtime evidence or an upstream contract establishes a fact that TypeScript cannot express.
-- Brand primitive values when accidental mixing is plausible and costly, not for every identifier.
-- Strengthen a collection or value type only where the looser type makes an operation partial or repeatedly forces a guard.
-- Prefer object arguments when several similar positional values are easy to swap. Keep simple positional APIs when their meaning is obvious.
-- Validate once at an untrusted boundary. Internal checks still belong where state can change independently, persistence can drift, or a lower-level invariant is not represented by the type.
+| Rule | Summary |
+|------|---------|
+| Discriminated unions | Model variants with a `kind` literal discriminant so impossible states can't be represented. No optional-field bags. |
+| Branded types | Distinguish primitives when mixing them up creates a real invalid state. Follow the repository's branding convention and validate at creation. |
+| Constructive modeling | Use tuples and discriminated unions to exclude invalid shapes. A start plus duration makes range calculation explicit; numeric constraints still need validation. |
+| Simplest total type | Keep `T[]` while every operation on it stays total. Strengthen to `NonEmpty<T>` only where the loose type forces `!`, a cast, or a "should never happen" throw. |
+| `unknown` over `any` | External data is `unknown`. |
+| Schemas before guards | Before hand-writing a property-by-property type guard, use the repository's runtime schema library and infer the type from the schema, such as `z.infer`. |
+| Type assertions | Prefer inference and narrowing. Use a small assertion only for an established invariant TypeScript cannot express; `as const` is also valid. Assertions do not validate runtime data. Avoid wrappers that only cast. |
+| Narrowing hierarchy | Discriminant switch > `in` operator > `typeof`/`instanceof` > user-defined type guard > `as`. |
+| Type guards | Must verify the claim. A lying guard is worse than `as` because the bug hides behind a name that says it's safe. Name them `isX` or `hasX`. |
+| Exhaustiveness | Inline `const _exhaustive: never = x;` in default arms so the compiler errors when a new variant is added. |
+| `satisfies` | Check assignability at compile time while retaining useful inferred details. Contextual typing still affects inference; this is not runtime validation. |
+| Boundary validation | Parse external representations into domain types at entry. Avoid repeated shape checks; retain domain preconditions and runtime invariant checks. See the **boundary-discipline** principle skill. |
+| Schema-derived types | Reach for `Pick`/`Omit`/`Parameters`/`ReturnType`/`Awaited`/`typeof` before declaring a new interface. |
+| Object args | Prefer named options for several easily confused inputs. Preserve clear positional APIs and existing conventions; consider allocation cost on hot paths. |
+| Real tests | Don't mock what you can run. Prefer the framework's real test primitives with leak/disposable checks, and verify UI in a running build. Mock only what you can't run locally. |
+| Structured telemetry | Prefer structured logger diagnostics with enough context to debug from an id. No `console.log` in shipped code. |
 
-Use focused tests for runtime behavior. Type checks prove the static contract, not parsing, side effects, or user-visible behavior.
-
-Read [references/patterns.md](references/patterns.md) only when a concrete type-design problem needs an example.
+Examples: `references/patterns.md`.

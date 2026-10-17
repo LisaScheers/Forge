@@ -1,17 +1,17 @@
 ---
 name: principle-boundary-discipline
-description: "Use when wiring validation, error handling, or framework adapters. Concentrate guards at system boundaries (CLI, config, network, external APIs); trust internal types and keep business logic in pure functions."
+description: "Apply when wiring validation, error handling, or framework adapters. Concentrate guards at system boundaries (CLI, config, network, external APIs); trust internal types and keep business logic in pure functions."
 ---
 
 # Boundary Discipline
 
-Concentrate validation, type narrowing, and translation at system boundaries. Let validated types remove redundant internal checks. Keep checks where state can change independently, persistence can drift, or the invariant is not represented by the type.
+Place external-data validation, type narrowing, and boundary error handling at system boundaries. Trust previously validated representations while their invariants hold. Business logic lives in pure functions. The shell is thin and mechanical.
 
-**Why:** Scattered validation is noisy, redundant, and gives a false sense of safety. Validate data once at the boundary. Keep logic out of framework wiring so it can be tested without the framework.
+**Why:** Scattered validation is noisy, redundant, and gives a false sense of safety. Keep logic out of framework wiring so it can be tested without the framework.
 
 **The pattern:**
 - **At boundaries** (CLI args, config files, external APIs, network protocols): validate, return errors, handle defensively.
-- **Inside the system:** use typed data and error propagation. Avoid re-validating an invariant that the type and ownership model already preserve.
+- **Inside the system:** typed data and error propagation, without redundant shape validation. Keep domain preconditions and invariant checks that mutation, concurrency, or state transitions can invalidate; static types do not prove those runtime facts.
 - **Across the boundary.** Expose domain concepts, not the boundary's private representation. Keep general-purpose mechanism inside and special-purpose policy at the edge.
 
 **Applications:**
@@ -23,11 +23,11 @@ Validation and error handling:
 - No redundant nil checks deep in call chains if the boundary already validated
 
 Code organization:
-- Prefer pure business logic when side effects are not part of the domain behavior
+- Business logic in pure functions with no framework dependencies
 - Parse functions: pure transforms from raw bytes to typed state
 - Prompt construction: structured state in, string out
 - Scoring and assessment: pure transforms from state to results
 
 **The tests:**
-- "Is this data crossing a trust or ownership boundary, or can it drift independently?" If not, validation may be redundant.
+- "Was this representation already validated, and does the guarantee still hold?" Skip duplicate shape checks; retain checks for domain rules and runtime state that types cannot establish.
 - "Can this be a pure function that the shell just calls?" If yes, extract it.

@@ -10,7 +10,10 @@
     # scan the skills directory for all skills, and make them available to the user
     bundledSkills = builtins.listToAttrs (map (skill: {
       name = skill;
-      value = ./skills/${skill};
+      value =
+        if skill == "visualize"
+        then "${import ./skills/visualize/_package.nix {inherit pkgs;}}"
+        else ./skills/${skill};
     }) (builtins.attrNames (builtins.readDir ./skills)));
     pstackSkills = builtins.listToAttrs (map (skill: {
       name = skill;

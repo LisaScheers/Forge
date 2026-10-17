@@ -1,46 +1,23 @@
 ---
 name: reflect
-description: Use only when the user invokes $reflect or explicitly asks to reflect on the active session and propose durable skill improvements.
+description: Spawn three parallel review subagents over the active transcript, surface learnings, and route each to a concrete edit on an existing skill. Use when the user says reflect.
 ---
 
 # Reflect
 
 Mine the current conversation for durable learnings, then route them into skill edits.
 
-## When to invoke
+Invoke when the user says "reflect" or "/reflect". Skip when the conversation is trivial, off-topic, or already covered by an existing skill the parent followed correctly. One-offs are not learnings.
 
-Invoke only when the user says "reflect" or `$reflect`, or when an already active parent workflow explicitly requests this skill. Do not trigger it merely because a task used many tools, hit a dead end, or received a correction. One unusual session is not enough evidence for a durable rule.
+## 1. Locate the active transcript
 
-## Process
+Use Codex chat tools (`list_threads` and `read_thread`) when available, filtering to the active workspace before reading messages. For local transcripts, use `${CODEX_HOME:-$HOME/.codex}/sessions/YYYY/MM/DD/rollout-*.jsonl`; inspect only the `session_meta` fields `payload.id` and `payload.cwd` first, and read message records only after `payload.cwd` matches the active workspace. Never read unrelated project chats. Match the active chat by ID and its opening user prompt. If no transcript matches, pass a tight digest of the session instead.
 
-### 1. Locate the active transcript
+## 2. Spawn three reviewers in parallel
 
-The parent finds its own transcript file before fanning out. Search `~/.codex/sessions/` and `~/.codex/archived_sessions/` for the active workspace path. Do not scan unrelated workspaces.
+Spawn three reviewers with `collaboration.spawn_agent`. Reviewers need MCP access to look up the tickets, chat threads, and observability traces the transcript references. Instruct them not to edit files.
 
-```bash
-rg -l -0 -F "$WORKSPACE" "$HOME/.codex/sessions" "$HOME/.codex/archived_sessions" |
-while IFS= read -r -d '' session; do
-  jq -r '
-    select(
-      .type == "response_item" and
-      .payload.type == "message" and
-      (.payload.role == "user" or .payload.role == "assistant")
-    )
-    | .payload as $message
-    | $message.content[]?
-    | select(.type == "input_text" or .type == "output_text")
-    | (.text // empty)
-  ' "$session"
-done
-```
-
-Three transcript layouts: legacy flat (`<id>.jsonl`), current nested (`<id>/<id>.jsonl`), and subagent (`<parent>/subagents/<child>.jsonl`).
-
-For each candidate, locate its first user message and check that it contains the conversation's opening prompt. Take the matching path. If no path resolves, write a tight digest of the session and pass that instead.
-
-### 2. Spawn three reviewers in parallel
-
-Spawn three reviewers with `collaboration.spawn_agent`, `fork_turns: "none"`, and the parent model. The prompt forbids file writes; the parent applies approved edits.
+Use `collaboration.spawn_agent`. Inherit the parent model and reasoning effort unless the user explicitly selects a supported override; validate any override against the current tool schema. Give read-only agents an explicit instruction not to edit files.
 
 | Lens | Prompt template |
 |---|---|
@@ -48,36 +25,36 @@ Spawn three reviewers with `collaboration.spawn_agent`, `fork_turns: "none"`, an
 | Tooling | `references/tooling-reviewer.md` |
 | Divergent | `references/divergent-reviewer.md` |
 
-Pass each template verbatim, substituting the transcript path or digest where marked. Reviewers return findings to the parent.
+Pass each template verbatim, substituting the transcript path or digest where marked. Reviewers return findings in their final response.
 
-### 3. Synthesize
+## 3. Synthesize
 
-Spawn one synthesizer with `collaboration.spawn_agent`, `fork_turns: "none"`, and the parent model. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. Tell it to make no edits or external writes. It returns a structured Accepted / Rejected / Backlog list.
+Spawn one synthesizer with `collaboration.spawn_agent`, inheriting the parent model unless the user explicitly selects a supported override. It spot-verifies citations through MCP. Pass `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. It returns an Accepted / Rejected / Backlog list.
 
-### 4. Structural enforcement check
+## 4. Structural enforcement check
 
-Sanity-check the synthesizer's Accepted list. For any item that would be enforced more reliably by a lint rule, script, metadata flag, or runtime check, move it from Accepted to Backlog. The synthesizer already applies this criterion; this is a final pass before edits land. See the **encode-lessons-in-structure** principle skill.
+Move any Accepted item that a lint rule, script, metadata flag, or runtime check would enforce more reliably to Backlog. See the **encode-lessons-in-structure** principle skill.
 
-### 5. Apply
+## 5. Apply
 
-Before applying any Accepted edit, present the synthesizer's full Accepted/Rejected/Backlog output to the user and wait for explicit approval. The user picks which subset to apply and may redirect routings. Skill changes affect every future agent in the org; do not auto-apply.
+Present the synthesizer's full Accepted / Rejected / Backlog output. A review-only request produces proposals. Apply Accepted edits when the current or earlier user request authorizes those edits; otherwise ask for approval of the proposed subset. Respect any requested checkpoint or routing change without asking again for authorization already granted.
 
-Do not file Backlog items automatically. Present them with the Accepted list and wait for explicit approval before any external write.
+File Backlog items to the team's tracker only when the user has authorized that external write. Otherwise return draft backlog items with the proposals. Prepare the concrete drafts before asking for any missing approval.
 
-For each approved Accepted item, follow the Routing field exactly:
+Follow each authorized row's Routing:
 
-- Trivial existing-skill edit (a one-line bullet, a tightened sentence, a stale fact corrected): parent does directly.
-- Substantive existing-skill edit (a new section, a new pattern table, more than ~10 lines): use `$skill-creator` and run its draft / test / iterate loop.
-- `tune description: <skill path>` (the skill exists but didn't trigger when it should have): use `$skill-creator` and run its description-optimization loop.
-- `new skill via skill-creator: <kebab-name>`: use `$skill-creator`. Do not invent the shape ad hoc.
+- Trivial existing-skill edit (a one-line bullet, a tightened sentence, a stale fact corrected): the parent does it directly.
+- Substantive existing-skill edit (a new section, a new pattern table, more than ~10 lines): use Codex’s `skill-creator` skill and follow its current validation workflow.
+- `tune description: <skill path>` (the skill exists but didn't trigger when it should have): use `skill-creator` to revise the description and check representative requests that should and should not select it.
+- `new skill via skill-creator: <kebab-name>`: hand creation to `skill-creator`. Do not invent the shape ad hoc.
 
-If your environment ships a SKILL.md validator, run it on every touched skill before declaring done. Skip this step if it doesn't.
+If your environment ships a SKILL.md validator, run it on every touched skill before declaring done.
 
-### 6. Summarize for the user
+## 6. Summarize for the user
 
 Short list, no preamble:
 
 - Edits applied: `<skill path>`. What changed, one line each.
 - New skills created: `<skill path>`. One line each (rare).
-- Backlog filed to the devex tracker: `<issue title>` (`<tags>`). One line each.
+- Backlog: distinguish draft proposals from items actually filed; link any created issues. One line each.
 - Dropped: one line per rejected finding + reason from the synthesizer.

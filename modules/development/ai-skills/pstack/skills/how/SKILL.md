@@ -1,36 +1,35 @@
 ---
 name: how
-description: Use when the user asks how a subsystem or feature works, requests a code walkthrough, or asks where code should live or which component owns it. Use why for recorded historical rationale.
+description: "Use for \"how does X work\", code walkthroughs before changing something, and placement / ownership / layering questions (\"where should this live\", \"which package owns this\", \"is this the right layer\"). Explains subsystem architecture, runtime flow, onboarding mental models. Use why for motivation."
 ---
 
 # How
 
-Inspect the codebase and give the user a working mental model. This is read-only unless the user separately asks for changes.
+Explore the codebase to answer "how does X work?" questions. Produce architectural explanations at the level of a senior engineer onboarding onto a subsystem, enough to build a working mental model, not so much that it reads like annotated source code.
 
-## Explore
+Use `collaboration.spawn_agent`. Inherit the parent model and reasoning effort unless the user explicitly selects a supported override; validate any override against the current tool schema. Give read-only agents an explicit instruction not to edit files.
 
-Interpret the narrowest useful scope from the request and conversation. State a material assumption, then proceed.
+## 1. Assess complexity
 
-Explore directly in the current task by default:
+If the scope is ambiguous, state your interpretation and explore. The user can redirect.
 
-1. Find the entry point and the important types or state.
-2. Trace the path from trigger or input to effect or output.
-3. Read the code that makes each material decision.
-4. Stop when the full path can be explained without guessing.
+- **Simple** (a single module, a small utility, a narrow question such as "how does function X work"): no explorers. Spawn one explainer that explores and explains in one pass, built from `references/explainer-prompt.md` without the explorer-findings section. Go to step 4.
+- **Complex** (a subsystem spanning multiple files or services, a cross-cutting feature, a full architectural overview): go to step 2.
 
-For a broad question that spans independent subsystems, split the reads by subsystem and run them concurrently when the tooling supports it. Use subagents only when the user requested parallel work or the breadth justifies their coordination cost. Give each one a read-only scope and synthesize the result yourself.
+When in doubt, take the simple path.
 
-## Explain
+## 2. Explore (complex only)
 
-Lead with the answer. Then include only the sections the question needs:
+Decompose the question into 2 to 4 angles, each a distinct slice of the subsystem. Spawn all explorers in a single message, each with `references/explorer-prompt.md` and its angle filled in.
 
-- the main flow in execution order;
-- the types, services, or boundaries needed to understand it;
-- the files and symbols that let the user continue exploring;
-- non-obvious behavior or sharp edges.
+## 3. Synthesize (complex only)
 
-Use file and symbol references as evidence. Do not turn the answer into an inventory of functions.
+Once all explorers have returned, spawn one explainer with `references/explainer-prompt.md` and every explorer's findings filled in.
 
-When the user asks for architectural criticism, explain the current design first. Review it locally by default. Use multiple independent critics only when the user asks for adversarial or multi-agent review.
+## 4. Present
 
-Stop when the user can answer what triggers the behavior, where state moves, which decisions change the path, and which component owns the result.
+Present the explainer's output. Light edits for clarity or context from the conversation are fine. Do not substantially rewrite it.
+
+## Output format
+
+The explanation uses the sections defined in `references/explainer-prompt.md`, dropping any that do not apply: Overview, Key Concepts, How It Works, Where Things Live, Gotchas.
