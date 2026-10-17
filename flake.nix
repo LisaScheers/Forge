@@ -90,6 +90,7 @@
     };
     nixpkgs.url = "github:NixOS/nixpkgs/master";
     nixpkgs-atlas-apps.url = "github:NixOS/nixpkgs/67b5cf9be1c8d2170270509db4ed12e904a768b0";
+    nixpkgs-nook-apps.url = "github:NixOS/nixpkgs/67b5cf9be1c8d2170270509db4ed12e904a768b0";
     onepassword-shell-plugins = {
       url = "github:1Password/shell-plugins";
       inputs.nixpkgs.follows = "nixpkgs";

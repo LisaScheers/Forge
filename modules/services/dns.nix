@@ -15,7 +15,6 @@
       "home-server.local.bylisa.dev."
       "i2p.local.bylisa.dev."
       "dns.local.bylisa.dev."
-      "grafana.local.bylisa.dev."
       "ha.local.bylisa.dev."
       "jellyfin.local.bylisa.dev."
       "media.local.bylisa.dev."
@@ -61,7 +60,6 @@
     services.unbound = {
       enable = true;
       checkconf = true;
-      localControlSocketPath = "/run/unbound/unbound.ctl";
       resolveLocalQueries = false;
       settings = {
         server = {
@@ -79,7 +77,6 @@
           do-ip6 = true;
           do-tcp = true;
           do-udp = true;
-          extended-statistics = true;
           hide-identity = true;
           hide-version = true;
           interface = [
@@ -96,7 +93,6 @@
           ];
           prefetch = true;
           qname-minimisation = true;
-          statistics-cumulative = true;
           tls-cert-bundle = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
         };
         forward-zone = [
@@ -108,24 +104,6 @@
             ];
           }
         ];
-      };
-    };
-
-    systemd.services.prometheus-unbound-exporter = {
-      description = "Prometheus exporter for Unbound DNS resolver";
-      wantedBy = ["multi-user.target"];
-      after = ["unbound.service"];
-      requires = ["unbound.service"];
-      serviceConfig = {
-        DynamicUser = true;
-        SupplementaryGroups = ["unbound"];
-        ExecStart = "${pkgs.prometheus-unbound-exporter}/bin/unbound_exporter -web.listen-address=127.0.0.1:9167 -unbound.host=unix:///run/unbound/unbound.ctl";
-        Restart = "always";
-        RestartSec = "5s";
-        ProtectSystem = "strict";
-        ProtectHome = true;
-        PrivateTmp = true;
-        NoNewPrivileges = true;
       };
     };
   };

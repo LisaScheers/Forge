@@ -11,44 +11,6 @@
       [[ -n "''${AWS_IDENTITY_CENTER_ACS_URL:-}" ]]
       [[ -n "''${AWS_IDENTITY_CENTER_AUDIENCE:-}" ]]
     '';
-    grafanaBlueprint = pkgs.writeText "authentik-grafana-blueprint.yaml" ''
-      version: 1
-
-      metadata:
-        name: Grafana OAuth2/OIDC
-
-      entries:
-        - model: authentik_providers_oauth2.oauth2provider
-          identifiers:
-            name: Grafana
-          id: grafana-provider
-          attrs:
-            authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
-            invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
-            client_type: confidential
-            grant_types:
-              - authorization_code
-            client_id: grafana
-            client_secret: !Env GRAFANA_CLIENT_SECRET
-            redirect_uris:
-              - matching_mode: strict
-                url: https://grafana.bylisa.dev/login/generic_oauth
-              - matching_mode: strict
-                url: https://grafana.local.bylisa.dev/login/generic_oauth
-            logout_uri: https://grafana.bylisa.dev/logout
-            logout_method: frontchannel
-            property_mappings:
-              - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'openid'"]]
-              - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'email'"]]
-              - !Find [authentik_providers_oauth2.scopemapping, [name, "authentik default OAuth Mapping: OpenID 'profile'"]]
-
-        - model: authentik_core.application
-          identifiers:
-            slug: grafana
-          attrs:
-            name: Grafana
-            provider: !KeyOf grafana-provider
-    '';
     postplanBlueprint = pkgs.writeText "authentik-postplan-blueprint.yaml" ''
       version: 1
 
@@ -193,30 +155,6 @@
       ports = [
         "636:6636"
       ];
-    };
-
-    systemd.services.authentik-grafana-blueprint = {
-      description = "Apply Grafana Authentik OAuth2/OIDC blueprint";
-      requiredBy = ["authentik.service"];
-      before = ["authentik.service"];
-      after = ["authentik-migrate.service"];
-      requires = ["authentik-migrate.service"];
-      serviceConfig = {
-        Type = "oneshot";
-        DynamicUser = true;
-        User = "authentik";
-        StateDirectory = "authentik";
-        WorkingDirectory = "%S/authentik";
-        EnvironmentFile = [authentikEnvironmentFile];
-        Environment = [
-          "AUTHENTIK_CONFIG=/etc/authentik/config.yml"
-        ];
-        ExecStartPre = [
-          "${pkgs.coreutils}/bin/install -D -m 0600 ${grafanaBlueprint} %S/authentik/blueprints/grafana.yaml"
-        ];
-        ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint grafana.yaml";
-      };
-      restartTriggers = [../../security/agenix/secrets/atlas/authentik-env.age];
     };
 
     systemd.services.authentik-postplan-blueprint = {

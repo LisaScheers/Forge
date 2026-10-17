@@ -134,6 +134,9 @@ directory and its system generation for recovery. Returning to it after new
 writes requires reconciling those writes or restoring a current backup.
 The `nixpkgs-atlas-apps` input holds Forgejo at its deployed 15.0.9 during the
 database migration; advance that application pin separately from PostgreSQL.
+The `nixpkgs-nook-apps` input holds Home Assistant and Sonarr at their deployed
+versions. Advance it separately from infrastructure changes that do not need
+application database migrations.
 
 The recipe builds the host closure plus host-specific deploy-rs schema and activation checks before it opens the deployment connection. Nix may still use the remote builders declared by this flake during that build. The recipe then passes `--skip-checks` to deploy-rs because Forge's full-flake check has pre-existing development-shell check failures. Do not use `--skip-checks` without those targeted builds.
 

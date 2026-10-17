@@ -4,7 +4,7 @@ https://dash.bylisa.dev runs on Atlas. The Cosmic launcher layout uses local SVG
 icons, service cards, search, an issues filter, and expandable check details.
 
 Anonymous visitors see the personal site and publicly browsable Forgejo.
-Authentik users also see media, home automation, identity, monitoring, mail,
+Authentik users also see media, home automation, identity, uptime, mail,
 Minecraft, Sunshine, T3 Code, and every remaining non-group Uptime Kuma check. Application-specific
 permissions still apply when opening a service. Home-only links are labeled
 “Home / Tailscale”. Minecraft offers a copyable server address.

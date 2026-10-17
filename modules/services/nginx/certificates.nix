@@ -13,8 +13,6 @@
       enable = true;
       apiTokenFile = config.age.secrets.cloudflare-dns-api-token.path;
       domains = [
-        "grafana.bylisa.dev"
-        "grafana.local.bylisa.dev"
         "ha.bylisa.dev"
         "ha.local.bylisa.dev"
       ];
@@ -25,15 +23,6 @@
 
     security.acme = {
       acceptTerms = true;
-      certs."grafana.bylisa.dev" = {
-        extraDomainNames = ["grafana.local.bylisa.dev"];
-        extraLegoFlags = [
-          "--dns.propagation.wait"
-          "30s"
-        ];
-        group = "nginx";
-        reloadServices = ["nginx.service"];
-      };
       certs."ha.bylisa.dev" = {
         extraDomainNames = ["ha.local.bylisa.dev"];
         extraLegoFlags = [

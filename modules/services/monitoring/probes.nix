@@ -32,9 +32,6 @@
         }
       ]
       else [
-        (httpProbe "loki" "http://127.0.0.1:3100/ready")
-        (httpProbe "mimir" "http://127.0.0.1:9009/ready")
-        (httpProbe "tempo" "http://127.0.0.1:3200/ready")
         (httpProbe "sonarr" "http://127.0.0.1:8989/ping")
         (httpProbe "radarr" "http://127.0.0.1:7878/ping")
         (httpProbe "prowlarr" "http://127.0.0.1:9696/ping")

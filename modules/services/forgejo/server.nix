@@ -83,7 +83,6 @@
           FORCE_TRUST_SERVER_CERT = false;
         };
         actions.ENABLED = false;
-        metrics.ENABLED = true;
         repository.DEFAULT_BRANCH = "main";
         log = {
           LEVEL = "Info";
@@ -111,8 +110,6 @@
         proxyWebsockets = true;
         extraConfig = "proxy_request_buffering off;";
       };
-
-      locations."= /metrics".extraConfig = "return 404;";
     };
   };
 }
