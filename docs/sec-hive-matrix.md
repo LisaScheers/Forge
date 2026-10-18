@@ -558,9 +558,15 @@ their bytes, and a new 51 MiB public upload/download and its NAS file hash pass.
 The original local media remains underneath the mount for initial rollback.
 
 The first post-cutover coordinated backup, 789895a6, contains 53,729 files and
-6.181 GiB. Its repository check passes; its isolated restore is running. The
-auto-update timer remains held until verification finishes. Atlas and Nook SSH
-signing recovered after Lisa's retry; Nook's mounted HDD has 1.3 TiB free.
+6.181 GiB. Its repository check passes. Restic restored and verified every file
+from Nook; the isolated rehearsal passed at 23:29 UTC: 53,727 checkpoint hashes,
+matching bridge/profile/backlog counts, all three applications started, and the
+original pilot's 1,106 parts, 36 file hashes and 11 replies passed client checks.
+The newly uploaded NAS file's restored 51 MiB hash also matches. External
+networking was unavailable. Generated rehearsal copies were removed, the earlier
+protected restore download retained, and Atlas's updater timer resumed. Atlas
+has about 27 GiB free. The original 5.2 GB local duplicate remains pending Lisa's
+cleanup decision; the full coordinated recovery copy remains on Atlas.
 
 All thirty remaining root rooms are allocated privately without portals, Space
 links or Lisa invitations. Their PluralMatrix allowlist is configured together so
