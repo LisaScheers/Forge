@@ -349,31 +349,34 @@ are verified. It has no native message mapping. The remaining source events keep
 their original timestamps and verified order. Stable transaction/journal reuse
 preserves the same supplementary event on retry.
 
-The hierarchy audit confirms 25 rooms at its earlier checkpoint, all under the
-root plus seven category Spaces, with reciprocal links and moderator-only
-invitations/state. Each later room passes the same per-room gates. A later power
-level event from Lisa's Matrix account made rules-and-philosophy read-only one
-second after its earlier writable proof. Its message/reaction level is 50 and it
-is excluded from the historical-reaction wave pending Lisa's clarification; do
-not silently overwrite that later user-written setting. Other opened rooms have
-webhook relays and joined PluralMatrix. Ordinary admissions still require role
-review; Space membership grants no room access.
+The 22:46 UTC audit confirms 31 live rooms under the root plus seven category
+Spaces, with reciprocal links, webhook relays, PluralMatrix and moderator-only
+invitations/state. General verifies 79,029 original root messages, 79,753 native
+parts, 1,092 file hashes and 15,177 replies, plus three public threads containing
+224 source events and seven files. Beep-stim-chat verifies 7,304 root messages,
+7,322 parts, 38 file hashes and 1,106 replies. Fourteen General and two beep
+missing reply targets were checked against Discord: all are unavailable at the
+source. Both rooms are listed and Lisa is invited. The normal Atlas deployment
+of f0adddd passed. Coordinated off-host snapshot fbbc8309 completed at 22:49 UTC:
+53,727 files, 6.131 GiB. The repository check passed at 22:50 UTC and all three
+applications and the updater timer are active. Its expanded restore is pending.
 
-The independently prepared beep-stim-chat snapshot verifies 7,304 messages and
-38 ordinary file hashes. Its original complete export matches the fresh source
-ID set, and the existing media was rehashed. The redundant refresh was stopped
-after this proof passed. Its native history import is running privately; the
-room remains unlisted and uninvited until full verification and declarative
-PluralMatrix admission. That allowlist change alters the bridge environment and
-would restart it, so it is staged locally until both General and beep-stim-chat
-initial imports finish. Candidate system build passes; Synapse/PostgreSQL units
-are unchanged, while the bridge unit difference is the extra plural-room ID.
-A parallel export covers 29 other accessible text roots and their 88 discovered
-threads, separately from the original running whole-server export. These are
-archives, not Matrix import proofs. A fresh bounded source audit measures the
-remaining roots before their import/capacity review. The four hidden text roots
-and all eight voice-channel text histories remain outside verified coverage,
-pending Lisa's coverage choice and actual bot permissions.
+Lisa explicitly restored rules-and-philosophy posting and reactions on 19 October.
+Its ordinary event levels are zero; moderator state and admission controls remain
+unchanged. The first fifteen-room historical-reaction wave is complete: 716
+messages, 2,392 reactor mappings, including 188 in rules. A reproduced rules
+reaction passes at source power zero. Later rollout batches still need their
+reaction passes. Ordinary admissions require role review; Space membership
+grants no room access.
+
+A fresh complete audit measures 300,499 root messages and 22,770,926,569 declared
+ordinary attachment bytes across the remaining 30 readable text roots, plus 88
+discovered public threads. The largest ordinary attachment is 502,648,947 bytes;
+22 exceed 100 MiB. A parallel archive covers 29 roots and those threads alongside
+the original whole-server export. Archives are not Matrix import proofs. Lisa
+chose to keep four hidden text channels and all eight voice-channel text histories
+excluded on 19 October; exact IDs are pinned in protected coverage-policy.json.
+Unjoined private-thread history remains unavailable through the bot.
 
 Source: [Discord reaction users and kinds](https://docs.discord.com/developers/resources/message#get-reactions).
 
@@ -498,6 +501,64 @@ generation. Checksums and database dump catalog pass. The coordinated off-host
 recovery test below also passes; wider history/access gates remain open.
 
 ## Coordinated off-host backup and restore
+
+### Live media on Nook: authorized 2026-10-19, cutover pending
+
+Lisa selected Nook's HDD for live Synapse media after the remaining attachment
+audit exceeded Atlas's room for both live data and a full local backup copy.
+Only media moves: PostgreSQL, signing keys, registrations and credentials stay
+on Atlas. The existing local coordinated recovery copy stays on Atlas, providing
+a separate physical copy from Nook's live media and encrypted backup repository.
+
+`media.nix` prepares an NFSv4 export at
+`/srv/disks/western-digital-hdd/matrix-media`. It binds Nook's tailnet address,
+opens TCP 2049 only on tailscale0 and permits only Atlas's tailnet IP. Reserved
+client ports are required. All NFS identities squash to the dedicated media UID
+224. Disk-mount dependencies and a marker prevent exporting an empty root-disk
+directory. A separate forced-command SSH account accepts the existing Atlas
+backup key only from Atlas and only for restricted rsync within the media tree;
+remote deletion and shell access are denied. The key remains agenix-managed.
+
+The client uses an automount at Synapse's existing `media_store` path, hard NFS
+mounts and a marker/filesystem guard before Synapse or checkpoint preparation.
+An unavailable NAS must fail startup rather than write a local replacement.
+Synapse and nginx accept 512 MiB uploads for the measured source files. The local
+checkpoint fetches media through restricted SSH rsync to avoid per-file NFS
+latency; its restore layout and full checksum manifest remain unchanged.
+
+Cut over in two reviewed phases:
+
+1. Deploy Nook with Atlas remote media disabled. Verify the HDD mount, free
+   capacity, export, restricted transfers and independent backup reads. Do not
+   enable the client before copying media.
+2. Copy Atlas's current media into the export without deleting source files or
+   the NAS marker. Verify file sizes and hashes. Wait for imports and coordinated
+   checkpoints to finish, hold the auto-update timer, then pause Matrix, bridge
+   and PluralMatrix for a final delta and verification. Keep services paused
+   across activation so no process writes between the final copy and mount.
+   The declarative service condition uses the root-only marker
+   `/var/lib/sec-hive-migration/MEDIA-CUTOVER-PAUSED`; it also holds checkpoints
+   and survives reboot. Clear it only after the final copy and mount are verified.
+3. Enable the declarative Atlas client with the normal deployment script in
+   maintenance mode. Retain the original local media underneath the mount for
+   initial rollback. Confirm NFS and the marker before resuming services; verify
+   existing authenticated media downloads, new uploads and unchanged content URIs.
+4. Capture and restore-test an expanded coordinated backup before removing the
+   old local media copy or importing the remaining large batch. Resume the
+   auto-update timer after health checks. Record actual free space and headroom.
+
+Before writes resume, rollback may unmount NFS and reveal the original local
+media. After writes resume, reverse-copy new NAS media before reverting the
+client; reverting the system generation alone would lose access to new files.
+No live media cutover or expanded restore success is claimed yet. Atlas and Nook
+SSH signing recovered after Lisa's retry; Nook's mounted HDD has 1.3 TiB free.
+
+The `matrix-media` check passed on 19 October: real Synapse uploads/downloads, unauthorized
+NFS peers, restricted rsync, unavailable storage, recovery and disk-mount lifetime
+in isolated VMs. The 51 MiB upload crosses the old limit; its authenticated
+download retains the same URI and bytes after an actual failed mount and recovery.
+
+### Encrypted off-host repository
 
 Lisa approved Nook's HDD destination on 2026-10-18:
 `/srv/disks/western-digital-hdd/backups/atlas-matrix`. Restic encrypts the repository;

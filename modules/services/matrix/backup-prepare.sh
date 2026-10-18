@@ -10,9 +10,21 @@ test ! -e /var/lib/postgresql/.forge-maintenance
 rm -f "$checkpoint/COMPLETE"
 install -d -m 0700 "$checkpoint/synapse" "$checkpoint/bridge" "$checkpoint/runtime" "$checkpoint/verification"
 
-# Copy immutable media first, keeping the service pause limited to the final
-# delta and database dumps. --delete affects this generated staging copy only.
-rsync -a --delete /var/lib/matrix-synapse/ "$checkpoint/synapse/"
+copy_synapse() {
+  if [[ -n "${MEDIA_RSYNC_SSH:-}" ]]; then
+    # The local recovery copy stays independent of Nook's live media disk.
+    # Fetch its file list through restricted rsync, avoiding per-file NFS RTTs.
+    rsync -a --delete --exclude=/media_store/ /var/lib/matrix-synapse/ "$checkpoint/synapse/"
+    install -d -m 0700 "$checkpoint/synapse/media_store"
+    rsync -a --delete -e "$MEDIA_RSYNC_SSH" matrix-backup:. "$checkpoint/synapse/media_store/"
+  else
+    rsync -a --delete /var/lib/matrix-synapse/ "$checkpoint/synapse/"
+  fi
+}
+
+# Copy media first; only the final delta and database dumps require a pause.
+# --delete affects the generated local staging copy, never Nook's live store.
+copy_synapse
 restart_synapse=0
 restart_bridge=0
 restart_plural=0
@@ -73,7 +85,7 @@ SELECT json_build_object(
   'portals', (SELECT count(*) FROM portal), 'messages', (SELECT count(*) FROM message),
   'threads', (SELECT count(*) FROM thread), 'users', (SELECT count(*) FROM "user"));
 SQL
-rsync -a --delete /var/lib/matrix-synapse/ "$checkpoint/synapse/"
+copy_synapse
 rsync -a --delete /var/lib/mautrix-discord/ "$checkpoint/bridge/"
 install -m 0600 "$SYNAPSE_CONFIG" "$checkpoint/synapse-config.json"
 for secret_name in matrix-registration-secret matrix-turn-secret discord-bridge-env; do

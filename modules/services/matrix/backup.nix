@@ -72,6 +72,7 @@ in {
         if config.matrix.plural.enable
         then "1"
         else "0";
+      runtimeEnv.MEDIA_RSYNC_SSH = lib.optionalString config.matrix.remoteMedia.enable "${pkgs.openssh}/bin/ssh -F ${sshConfig} -l matrix-media";
       runtimeEnv.PLURAL_CONFIG =
         pkgs.writeText "matrix-backup-plural-config.json"
         (builtins.toJSON (
@@ -125,7 +126,10 @@ in {
         requires = ["postgresql.service"];
         serviceConfig = {
           UMask = "0077";
-          TimeoutStartSec = "1h";
+          TimeoutStartSec =
+            if config.matrix.remoteMedia.enable
+            then "2h"
+            else "1h";
           CPUWeight = 25;
           IOWeight = 25;
         };
