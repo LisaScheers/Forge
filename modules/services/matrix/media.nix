@@ -15,8 +15,7 @@ in {
     ...
   }: {
     imports = [features.matrix-media-client];
-    # Enable only after the server and verified media copy are ready.
-    matrix.remoteMedia.enable = false;
+    matrix.remoteMedia.enable = true;
     # Keep the cutover pause across activation and an unexpected reboot.
     systemd.services = lib.genAttrs ["matrix-synapse" "mautrix-discord" "pluralmatrix" "restic-backups-matrix"] (_: {
       unitConfig.ConditionPathExists = "!/var/lib/sec-hive-migration/MEDIA-CUTOVER-PAUSED";
