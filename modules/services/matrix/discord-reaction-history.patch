@@ -1,0 +1,433 @@
+--- a/commands.go
++++ b/commands.go
+@@ -65,6 +65,7 @@
+ 		cmdCreatePortal,
+ 		cmdRetryInitialBackfill,
+ 		cmdImportThreadHistory,
++		cmdImportReactions,
+ 		cmdSetRelay,
+ 		cmdUnsetRelay,
+ 		cmdGuilds,
+--- a/portal.go
++++ b/portal.go
+@@ -563,6 +563,9 @@
+ }
+ 
+ func (portal *Portal) handleDiscordMessages(msg portalDiscordMessage) {
++	if request, ok := msg.msg.(*historicalReaction); ok {
++		defer close(request.Done)
++	}
+ 	if portal.MXID == "" {
+ 		msgCreate, ok := msg.msg.(*discordgo.MessageCreate)
+ 		if !ok {
+@@ -582,6 +585,9 @@
+ 	defer portal.forwardBackfillLock.Unlock()
+ 
+ 	switch convertedMsg := msg.msg.(type) {
++	case *historicalReaction:
++		portal.handleDiscordReactionWithHistory(msg.user, convertedMsg.Reaction, true, msg.thread, &discordgo.Member{User: convertedMsg.Actor}, convertedMsg.Kinds)
++		convertedMsg.Applied = true
+ 	case *discordgo.MessageCreate:
+ 		portal.handleDiscordMessageCreate(msg.user, convertedMsg.Message, msg.thread)
+ 	case *discordgo.MessageUpdate:
+@@ -2062,11 +2068,15 @@
+ }
+ 
+ func (portal *Portal) handleDiscordReaction(user *User, reaction *discordgo.MessageReaction, add bool, thread *Thread, member *discordgo.Member) {
++	portal.handleDiscordReactionWithHistory(user, reaction, add, thread, member, nil)
++}
++
++func (portal *Portal) handleDiscordReactionWithHistory(user *User, reaction *discordgo.MessageReaction, add bool, thread *Thread, member *discordgo.Member, historicalKinds []int) {
+ 	puppet := portal.bridge.GetPuppetByID(reaction.UserID)
+ 	if member != nil {
+ 		puppet.UpdateInfo(user, member.User, nil)
+ 	}
+-	intent := puppet.IntentFor(portal)
++	intent := puppet.messageIntent(portal, len(historicalKinds) > 0)
+ 
+ 	log := portal.log.With().
+ 		Str("message_id", reaction.MessageID).
+@@ -2098,16 +2108,33 @@
+ 	}
+ 
+ 	// Lookup an existing reaction
+-	existing := portal.bridge.DB.Reaction.GetByDiscordID(portal.Key, message[0].DiscordID, reaction.UserID, discordID)
++	existing := portal.reactionMapping(message[0].DiscordID, reaction.UserID, reaction.Emoji)
+ 	if !add {
+ 		if existing == nil {
+ 			log.Debug().Msg("Failed to remove reaction: reaction not found")
+ 			return
+ 		}
+ 
++		original, err := portal.MainIntent().GetEvent(portal.MXID, existing.MXID)
++		if err != nil {
++			log.Err(err).Msg("Failed to read reaction author; preserving its mapping")
++			return
++		}
++		if original.Content.Raw["fi.mau.discord.imported_reaction"] != nil {
++			present, err := importedReactionActorPresent(user, reaction.ChannelID, reaction.MessageID, reaction.UserID, reaction.Emoji)
++			if err != nil {
++				log.Err(err).Msg("Failed to check remaining reaction kinds; preserving its mapping")
++				return
++			}
++			if present {
++				return
++			}
++		}
++		intent = puppet.reactionRemovalIntent(portal, original.Sender)
+ 		resp, err := intent.RedactEvent(portal.MXID, existing.MXID)
+ 		if err != nil {
+ 			log.Err(err).Msg("Failed to remove reaction")
++			return
+ 		} else {
+ 			go portal.sendDeliveryReceipt(resp.EventID)
+ 		}
+@@ -2127,6 +2154,9 @@
+ 		},
+ 	}
+ 	extraContent := map[string]any{}
++	if len(historicalKinds) > 0 {
++		extraContent["fi.mau.discord.imported_reaction"] = map[string]any{"types": historicalKinds, "original_timestamp_available": false}
++	}
+ 	if reaction.Emoji.ID != "" {
+ 		extraContent["fi.mau.discord.reaction"] = map[string]any{
+ 			"id":   reaction.Emoji.ID,
+--- /dev/null
++++ b/reaction_history.go
+@@ -0,0 +1,250 @@
++package main
++
++import (
++	"context"
++	"encoding/json"
++	"fmt"
++	"go.mau.fi/mautrix-discord/database"
++	"sort"
++	"strconv"
++	"strings"
++	"time"
++
++	"github.com/bwmarrin/discordgo"
++	"maunium.net/go/mautrix/appservice"
++	"maunium.net/go/mautrix/bridge/bridgeconfig"
++	"maunium.net/go/mautrix/bridge/commands"
++	"maunium.net/go/mautrix/id"
++)
++
++type historicalReaction struct {
++	Reaction *discordgo.MessageReaction
++	Actor    *discordgo.User
++	Kinds    []int
++	Done     chan struct{}
++	Applied  bool
++}
++
++type reactionActor struct {
++	User  *discordgo.User
++	Kinds []int
++}
++
++type sourceReaction struct {
++	Count  int `json:"count"`
++	Counts *struct {
++		Normal int `json:"normal"`
++		Burst  int `json:"burst"`
++	} `json:"count_details"`
++	Emoji discordgo.Emoji `json:"emoji"`
++}
++
++func (reaction sourceReaction) kinds() []int {
++	if reaction.Count == 0 {
++		return nil
++	}
++	if reaction.Counts == nil {
++		return []int{0, 1}
++	}
++	var kinds []int
++	if reaction.Counts.Normal > 0 {
++		kinds = append(kinds, 0)
++	}
++	if reaction.Counts.Burst > 0 {
++		kinds = append(kinds, 1)
++	}
++	return kinds
++}
++
++// Discord paginates each reaction kind separately; a person may have both kinds.
++func collectReactionActors(kinds []int, fetch func(int, string) ([]*discordgo.User, error)) ([]reactionActor, error) {
++	actors := make(map[string]*reactionActor)
++	for _, kind := range kinds {
++		after := ""
++		seen := make(map[string]bool)
++		for {
++			users, err := fetch(kind, after)
++			if err != nil {
++				return nil, err
++			}
++			var cursor uint64
++			for _, user := range users {
++				if user == nil {
++					return nil, fmt.Errorf("nil reaction user")
++				}
++				numeric, err := strconv.ParseUint(user.ID, 10, 64)
++				if err != nil || seen[user.ID] {
++					return nil, fmt.Errorf("invalid or repeated reaction user ID")
++				}
++				seen[user.ID] = true
++				if numeric > cursor {
++					cursor = numeric
++				}
++				actor := actors[user.ID]
++				if actor == nil {
++					actor = &reactionActor{User: user}
++					actors[user.ID] = actor
++				}
++				actor.Kinds = append(actor.Kinds, kind)
++			}
++			if len(users) < 100 {
++				break
++			}
++			next := strconv.FormatUint(cursor, 10)
++			previous, _ := strconv.ParseUint(after, 10, 64)
++			if cursor <= previous {
++				return nil, fmt.Errorf("reaction pagination did not advance")
++			}
++			after = next
++		}
++	}
++	result := make([]reactionActor, 0, len(actors))
++	for _, actor := range actors {
++		result = append(result, *actor)
++	}
++	sort.Slice(result, func(i, j int) bool { return compareMessageIDs(result[i].User.ID, result[j].User.ID) < 0 })
++	return result, nil
++}
++
++func reactionActors(ctx context.Context, session *discordgo.Session, channelID, messageID string, emoji discordgo.Emoji, kinds []int) ([]reactionActor, error) {
++	return collectReactionActors(kinds, func(kind int, after string) ([]*discordgo.User, error) {
++		return session.MessageReactions(channelID, messageID, emoji.APIName(), 100, "", after, discordgo.WithQueryParam("type", strconv.Itoa(kind)), discordgo.WithContext(ctx))
++	})
++}
++
++func (puppet *Puppet) reactionRemovalIntent(portal *Portal, originalSender id.UserID) *appservice.IntentAPI {
++	if originalSender == puppet.MXID {
++		return puppet.DefaultIntent()
++	}
++	current := puppet.IntentFor(portal)
++	if current.UserID == originalSender {
++		return current
++	}
++	// Linking/unlinking must not leave a source reaction that the bridge can't remove.
++	return portal.MainIntent()
++}
++
++var cmdImportReactions = &commands.FullHandler{
++	Func:           wrapCommand(fnImportReactions),
++	Name:           "import-reactions",
++	Help:           commands.HelpMeta{Section: HelpSectionPortalManagement, Description: "Import current Discord reactors for already bridged messages (bridge admins only)", Args: "<message ID> [message ID...]"},
++	RequiresPortal: true, RequiresLogin: true, RequiresEventLevel: roomModerator,
++}
++
++func fnImportReactions(ce *WrappedCommandEvent) {
++	if ce.User.PermissionLevel < bridgeconfig.PermissionLevelAdmin || ce.Portal.GuildID == "" || len(ce.Args) == 0 || len(ce.Args) > 20 {
++		ce.Reply("Bridge administrators may specify 1–20 already bridged guild message IDs")
++		return
++	}
++	for _, messageID := range ce.Args {
++		if _, err := strconv.ParseUint(messageID, 10, 64); err != nil {
++			ce.Reply("Invalid message ID")
++			return
++		}
++		if ce.Bridge.DB.Message.GetFirstByDiscordID(ce.Portal.Key, messageID) == nil {
++			ce.Reply("Import and verify every target message first")
++			return
++		}
++	}
++	go func() {
++		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
++		defer cancel()
++		imported := 0
++		for _, messageID := range ce.Args {
++			count, err := ce.Portal.importMessageReactions(ctx, ce.User, messageID)
++			if err != nil {
++				ce.Reply("Reaction import stopped after %d mappings: %v", imported, err)
++				return
++			}
++			imported += count
++		}
++		ce.Reply("Verified %d Discord reactor mappings. Reaction times are unavailable; imported events use the import time.", imported)
++	}()
++}
++
++func (portal *Portal) importMessageReactions(ctx context.Context, user *User, messageID string) (int, error) {
++	message := portal.bridge.DB.Message.GetFirstByDiscordID(portal.Key, messageID)
++	if message == nil {
++		return 0, fmt.Errorf("target message is no longer bridged")
++	}
++	channelID := portal.Key.ChannelID
++	var thread *Thread
++	if message.ThreadID != "" {
++		meta, err := user.Session.Channel(message.ThreadID, discordgo.WithContext(ctx))
++		if err != nil || !canImportPublicThread(meta, channelID) {
++			return 0, fmt.Errorf("thread is not an accessible public thread in this portal")
++		}
++		channelID = message.ThreadID
++		thread = portal.bridge.GetThreadByID(message.ThreadID, nil)
++	}
++	body, err := user.Session.RequestWithBucketID("GET", discordgo.EndpointChannelMessage(channelID, messageID), nil, discordgo.EndpointChannelMessage(channelID, ""), discordgo.WithContext(ctx))
++	if err != nil {
++		return 0, err
++	}
++	var snapshot struct {
++		ID        string           `json:"id"`
++		ChannelID string           `json:"channel_id"`
++		Reactions []sourceReaction `json:"reactions"`
++	}
++	if err = json.Unmarshal(body, &snapshot); err != nil {
++		return 0, err
++	}
++	if snapshot.ID != messageID || snapshot.ChannelID != channelID {
++		return 0, fmt.Errorf("reaction source does not match target")
++	}
++	total := 0
++	for _, reaction := range snapshot.Reactions {
++		actors, err := reactionActors(ctx, user.Session, channelID, messageID, reaction.Emoji, reaction.kinds())
++		if err != nil {
++			return total, err
++		}
++		for _, actor := range actors {
++			request := &historicalReaction{Reaction: &discordgo.MessageReaction{UserID: actor.User.ID, MessageID: messageID, ChannelID: channelID, GuildID: portal.GuildID, Emoji: reaction.Emoji}, Actor: actor.User, Kinds: actor.Kinds, Done: make(chan struct{})}
++			// The portal loop serializes these with live reactions and Matrix writes.
++			select {
++			case portal.discordMessages <- portalDiscordMessage{msg: request, user: user, thread: thread}:
++			case <-ctx.Done():
++				return total, ctx.Err()
++			}
++			select {
++			case <-request.Done:
++			case <-ctx.Done():
++				return total, ctx.Err()
++			}
++			if !request.Applied || portal.reactionMapping(messageID, actor.User.ID, reaction.Emoji) == nil {
++				return total, fmt.Errorf("reaction mapping was not created for %s", messageID)
++			}
++			total++
++		}
++	}
++	return total, nil
++}
++
++// Custom emoji IDs remain stable when their human-readable names change.
++func (portal *Portal) reactionMapping(messageID, userID string, emoji discordgo.Emoji) *database.Reaction {
++	existing := portal.bridge.DB.Reaction.GetByDiscordID(portal.Key, messageID, userID, emoji.APIName())
++	if existing != nil || emoji.ID == "" {
++		return existing
++	}
++	for _, candidate := range portal.bridge.DB.Reaction.GetAllForMessage(portal.Key, messageID) {
++		if candidate.Sender == userID && strings.HasSuffix(candidate.EmojiName, ":"+emoji.ID) {
++			return candidate
++		}
++	}
++	return nil
++}
++
++func importedReactionActorPresent(user *User, channelID, messageID, userID string, emoji discordgo.Emoji) (bool, error) {
++	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
++	defer cancel()
++	actors, err := reactionActors(ctx, user.Session, channelID, messageID, emoji, []int{0, 1})
++	if err != nil {
++		return false, err
++	}
++	for _, actor := range actors {
++		if actor.User.ID == userID {
++			return true, nil
++		}
++	}
++	return false, nil
++}
+--- /dev/null
++++ b/reaction_history_test.go
+@@ -0,0 +1,83 @@
++package main
++
++import (
++	"encoding/json"
++	"fmt"
++	"testing"
++
++	"github.com/bwmarrin/discordgo"
++	"go.mau.fi/mautrix-discord/database"
++	"maunium.net/go/mautrix/appservice"
++)
++
++func TestReactionHistoryIncludesEveryPageAndBothKinds(t *testing.T) {
++	calls := 0
++	actors, err := collectReactionActors([]int{0, 1}, func(kind int, after string) ([]*discordgo.User, error) {
++		calls++
++		if kind == 1 {
++			return []*discordgo.User{{ID: "101"}, {ID: "102"}}, nil
++		}
++		if after == "100" {
++			return []*discordgo.User{{ID: "101"}}, nil
++		}
++		if after != "" {
++			t.Fatalf("wrong pagination cursor: %s", after)
++		}
++		users := make([]*discordgo.User, 100)
++		for i := range users {
++			users[i] = &discordgo.User{ID: fmt.Sprint(i + 1)}
++		}
++		return users, nil
++	})
++	if err != nil || calls != 3 || len(actors) != 102 {
++		t.Fatalf("roster incomplete: actors=%d calls=%d error=%v", len(actors), calls, err)
++	}
++	if actors[100].User.ID != "101" || len(actors[100].Kinds) != 2 || actors[101].User.ID != "102" {
++		t.Fatal("normal/burst overlap lost its identity or kinds")
++	}
++	_, err = collectReactionActors([]int{0}, func(int, string) ([]*discordgo.User, error) { return []*discordgo.User{{ID: "1"}, {ID: "1"}}, nil })
++	if err == nil {
++		t.Fatal("repeated source user must fail rather than silently double counting")
++	}
++}
++
++func TestSourceReactionKindsSurviveSDKMetadataLimit(t *testing.T) {
++	var reaction sourceReaction
++	if err := json.Unmarshal([]byte(`{"count":2,"count_details":{"normal":1,"burst":1},"emoji":{"name":"x"}}`), &reaction); err != nil {
++		t.Fatal(err)
++	}
++	if kinds := reaction.kinds(); len(kinds) != 2 || kinds[0] != 0 || kinds[1] != 1 {
++		t.Fatalf("superreactions omitted: %v", kinds)
++	}
++	reaction.Counts = nil
++	if len(reaction.kinds()) != 2 {
++		t.Fatal("missing count details must not silently omit a kind")
++	}
++}
++
++func TestReactionRemovalRetainsOriginalGhostAfterAccountLink(t *testing.T) {
++	as := appservice.Create()
++	as.HomeserverDomain = "test"
++	as.Registration = &appservice.Registration{AppToken: "test-only", SenderLocalpart: "bot"}
++	if err := as.SetHomeserverURL("https://test"); err != nil {
++		t.Fatal(err)
++	}
++	br := &DiscordBridge{}
++	br.AS = as
++	bot := as.Intent("@bot:test")
++	br.Bot = bot
++	custom := as.Intent("@linked:test")
++	custom.IsCustomPuppet = true
++	puppet := &Puppet{bridge: br, MXID: "@discord_actor:test", customIntent: custom}
++	portal := &Portal{bridge: br, Portal: &database.Portal{Key: database.NewPortalKey("channel", "")}}
++	ghost := puppet.reactionRemovalIntent(portal, puppet.MXID)
++	if ghost.IsCustomPuppet || ghost.UserID != puppet.MXID {
++		t.Fatal("linked user could not redact the original historical ghost reaction")
++	}
++	if puppet.reactionRemovalIntent(portal, custom.UserID) != custom {
++		t.Fatal("ordinary linked reaction lost its author")
++	}
++	if puppet.reactionRemovalIntent(portal, "@formerly-linked:test") != bot {
++		t.Fatal("changed account link would leave a permanent stale reaction")
++	}
++}

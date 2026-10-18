@@ -76,6 +76,7 @@
             ./discord-relay-features.patch
             ./discord-plural.patch
             ./discord-history.patch
+            ./discord-reaction-history.patch
           ];
           doCheck = true;
         };

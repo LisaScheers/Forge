@@ -231,6 +231,47 @@ undergone a fresh isolated restore; the earlier restore proof covers the pilot.
 
 ## Bridge foundation
 
+### General-category rollout, 2026-10-18
+
+Four more rooms are live under the private General subspace: special-interests,
+quotes, fashion-outfits and stories. Both accessible public special-interests
+threads are imported. This batch verifies 3,298 source IDs, 3,471 Matrix parts,
+230 attachment hashes and 527 reply relations, with no missing reply references.
+All 15 message rooms have configured relays and PluralMatrix membership; the
+18-entry hierarchy includes the root, Admin stuff and General Spaces. Both queues
+were empty after verification. Ordinary admissions still require moderator review.
+
+Encrypted off-host snapshot `521755c2` captures 30,242 files and 2.479 GiB.
+The backup/repository check passed at 19:22 Brussels time on 2026-10-18. This
+checkpoint has not undergone a fresh isolated restore; the earlier restore proof
+remains the pilot proof. General's separate completed export contains 78,922
+messages and 1,077 file attachments; source validation and a larger measured
+backfill bound are required before creating that portal.
+
+### Historical reactions
+
+The previous message imports did not import historical reaction rosters. The
+first ten additional channels contain 384 source reaction groups, while their
+bridge reaction table initially had no corresponding mappings. Message/file
+preservation counts do not establish historical reaction coverage.
+
+`import-reactions MESSAGE_ID [MESSAGE_ID...]` is restricted to bridge admins and
+at most 20 already bridged guild messages. Private threads cannot be imported
+through a parent portal. It fetches current reaction users with full pagination,
+including normal and burst kinds, and sends imports through the portal's event
+loop. Existing mappings make retries idempotent. Historical reactions use ghost
+identities even when their owners have linked real Matrix accounts.
+
+Matrix displays one reaction per person and emoji; normal/burst distinctions are
+retained in `fi.mau.discord.imported_reaction.types`. Original reaction times are
+unavailable, so imported events use import time and explicitly mark that limitation.
+Historical removals check whether the person still has another kind of that
+reaction, use the original event author's identity, and retain mappings if a
+redaction fails. Custom emoji lookup tolerates name changes by using its stable ID.
+This adds current-roster import, not a guarantee of offline reaction reconciliation.
+
+Source: [Discord reaction users and kinds](https://docs.discord.com/developers/resources/message#get-reactions).
+
 Incremental rollout is authorized by Lisa's request to sync completed channels.
 Verify each root export and every accessible public thread independently before
 admission. Unused private rooms can be staged first; bind/import only after the
