@@ -6,9 +6,9 @@
   }: {
     matrix.discord = {
       enable = true;
-      # Pilot: 1,070 archived messages, rounded up for activity during setup.
-      # Re-measure before creating portals for additional channels.
-      initialBackfillLimit = 2000;
+      # General: 78,978 audited messages plus 51 newer arrivals fit this bound.
+      # Each portal still requires its own access and history review.
+      initialBackfillLimit = 90000;
     };
     age.secrets.discord-bridge-env = lib.mkIf config.matrix.discord.enable {
       file = ../../security/agenix/secrets/atlas/discord-bridge-env.age;

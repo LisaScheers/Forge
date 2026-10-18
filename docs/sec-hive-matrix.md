@@ -310,6 +310,34 @@ reaction, use the original event author's identity, and retain mappings if a
 redaction fails. Custom emoji lookup tolerates name changes by using its stable ID.
 This adds current-roster import, not a guarantee of offline reaction reconciliation.
 
+A live import exposed PluralMatrix treating Discord's question-mark reactions as
+its own commands and redacting them. The reaction-control patch ignores Discord
+ghosts, bridge provenance (including linked accounts) and historical-import tags;
+ordinary controls apply only to local PluralMatrix-owned messages. The bridge now
+marks every Discord reaction's provenance and can replace a server-confirmed
+redacted historical mapping when the source roster still contains that person.
+The isolated test preserves question/cross/bell reactions from a Discord actor,
+from a marked linked account and on an ordinary message, while owner cross-reaction
+deletion of a proxied message still works. Package and integration checks pass.
+
+All seven previously missing forwarded files are restored as Matrix thread
+supplements linked from their original messages. Ordinary-account downloads match
+their source hashes; original event IDs and timestamps remain unchanged. These
+supplements use restoration times and do not add native bridge message-part
+mappings: react to the original message for its Discord counterpart. All 265
+older component messages have verified edits retaining their visible labels/text.
+Source payloads, restoration transaction IDs and proofs remain in the protected
+migration state. New imports use the corrected native converter directly.
+
+Five rooms from the next batch are verified and open: facility-posting,
+little-space, abdl-area, ace-kink and mantras. This makes 20 live channels. Five
+additional category Spaces preserve their Discord placement; uninvited access is
+denied. The controller is paused before the next portal binding for the reaction
+fix deployment. General has an unused private staging room only; its measured
+source upper bound is 79,029 messages and its export references 2.65 GB of local
+assets. Atlas has 37.7 GB free. Its declarative initial bound is raised to 90,000;
+binding still requires completion of the fresh source audit and all file checks.
+
 Source: [Discord reaction users and kinds](https://docs.discord.com/developers/resources/message#get-reactions).
 
 Incremental rollout is authorized by Lisa's request to sync completed channels.

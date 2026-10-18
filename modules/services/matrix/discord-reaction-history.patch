@@ -47,12 +47,24 @@
  
  	log := portal.log.With().
  		Str("message_id", reaction.MessageID).
-@@ -2098,16 +2108,33 @@
+@@ -2098,16 +2108,45 @@
  	}
  
  	// Lookup an existing reaction
 -	existing := portal.bridge.DB.Reaction.GetByDiscordID(portal.Key, message[0].DiscordID, reaction.UserID, discordID)
 +	existing := portal.reactionMapping(message[0].DiscordID, reaction.UserID, reaction.Emoji)
++	if add && existing != nil && len(historicalKinds) > 0 {
++		original, err := portal.MainIntent().GetEvent(portal.MXID, existing.MXID)
++		if err != nil {
++			log.Err(err).Msg("Failed to inspect historical reaction")
++			return
++		}
++		if original.Unsigned.RedactedBecause != nil {
++			existing.Delete()
++			existing = nil
++		}
++	}
++
  	if !add {
  		if existing == nil {
  			log.Debug().Msg("Failed to remove reaction: reaction not found")
@@ -82,10 +94,12 @@
  		} else {
  			go portal.sendDeliveryReceipt(resp.EventID)
  		}
-@@ -2127,6 +2154,9 @@
+@@ -2126,7 +2165,10 @@
+ 			Key:     matrixReaction,
  		},
  	}
- 	extraContent := map[string]any{}
+-	extraContent := map[string]any{}
++	extraContent := map[string]any{"fi.mau.discord.source_reaction": true}
 +	if len(historicalKinds) > 0 {
 +		extraContent["fi.mau.discord.imported_reaction"] = map[string]any{"types": historicalKinds, "original_timestamp_available": false}
 +	}

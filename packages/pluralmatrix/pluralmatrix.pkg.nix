@@ -69,7 +69,7 @@ in
     pname = "pluralmatrix";
     inherit version;
     src = "${src}/app-service";
-    patches = [./integration.patch];
+    patches = [./integration.patch ./reaction-controls.patch];
     nodejs = nodejs_22;
     npmDepsHash = "sha256-DfhNtoYYw4uvhlLNgKE2nl0CKTLBxLkRxkuDSmMAvao=";
     nativeBuildInputs = [autoPatchelfHook makeWrapper];
@@ -83,7 +83,7 @@ in
     doCheck = true;
     checkPhase = ''
       node node_modules/jest/bin/jest.js --runInBand --forceExit \
-        --testPathPatterns='utils/(avatarDownload|proxyParser|commandParser|privacy|timeParser).test|schemas/(member|import).test'
+        --testPathPatterns='utils/(avatarDownload|proxyParser|commandParser|privacy|timeParser|reactionPolicy).test|schemas/(member|import).test'
     '';
     buildPhase = ''
       runHook preBuild

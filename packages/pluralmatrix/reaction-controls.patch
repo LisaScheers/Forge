@@ -1,0 +1,65 @@
+--- a/src/bot.ts
++++ b/src/bot.ts
+@@ -4,7 +4,7 @@
+ import * as fs from 'fs';
+ import * as path from 'path';
+ import { config } from './config';
+-import { isEnabledRoom, enabledRooms, requireJoinedAccount, RoomMembershipRemoved } from './deploymentPolicy';
++import { isEnabledRoom, enabledRooms, requireJoinedAccount, RoomMembershipRemoved, isBridgedReaction } from './deploymentPolicy';
+ import { retainTransaction, parseRetainedEvent, deliverySchema } from './inboundEvents';
+ import { proxyCache } from './services/cache';
+ import { maskMxid } from './utils/privacy';
+@@ -147,9 +147,15 @@
+ 
+   // Reaction handling logic
+   if (event.type === 'm.reaction') {
++    if (isBridgedReaction(sender, event.content, DOMAIN)) return;
+     const relatesTo = event.content?.['m.relates_to'] as NonNullable<PluralMatrixEventContent['m.relates_to']>;
+     if (relatesTo?.rel_type === 'm.annotation') {
+       const reaction = relatesTo.key;
++      const control = ['❌', '❓', '❔', 'ℹ️', '🔔', '🛎', '❗️', '🏓'].some(key => reaction?.includes(key)) ||
++        ['x', ':x:'].includes(reaction?.toLowerCase() || '');
++      if (!control || !relatesTo.event_id) return;
++      const target = await bridgeInstance.getBot().getClient().getEvent(roomId, relatesTo.event_id);
++      if (!target.sender?.startsWith('@_plural_') || !target.sender.endsWith(`:${DOMAIN}`)) return;
+       if (reaction?.includes('❌') || reaction?.toLowerCase() === 'x' || reaction?.toLowerCase() === ':x:') {
+         const targetEventId = relatesTo.event_id;
+         if (!targetEventId) return;
+--- a/src/deploymentPolicy.ts
++++ b/src/deploymentPolicy.ts
+@@ -10,3 +10,11 @@
+   const state = await bridge.getIntent().matrixClient.getRoomStateEvent(roomId, 'm.room.member', sender);
+   if (state?.membership !== 'join') throw new RoomMembershipRemoved('The account is no longer a room member');
+ }
++
++// Discord reactions remain chat reactions, including double-puppeted accounts.
++export function isBridgedReaction(sender: string, content: Record<string, unknown>, domain: string): boolean {
++  const localpart = sender.split(':', 1)[0];
++  const ghost = localpart.startsWith('@discord_') && /^\d+$/.test(localpart.slice(9)) && sender.endsWith(`:${domain}`);
++  return ghost || sender === `@discordbot:${domain}` || content['fi.mau.discord.source_reaction'] === true ||
++    content['fi.mau.discord.imported_reaction'] != null;
++}
+--- /dev/null
++++ b/src/utils/reactionPolicy.test.ts
+@@ -0,0 +1,21 @@
++import { isBridgedReaction } from '../deploymentPolicy';
++
++describe('Discord reaction provenance', () => {
++  test('recognizes local Discord ghosts and the dedicated bridge bot', () => {
++    expect(isBridgedReaction('@discord_123:test', {}, 'test')).toBe(true);
++    expect(isBridgedReaction('@discordbot:test', {}, 'test')).toBe(true);
++    expect(isBridgedReaction('@discord_123:remote', {}, 'test')).toBe(false);
++    expect(isBridgedReaction('@discord_alice:test', {}, 'test')).toBe(false);
++  });
++  test('preserves source reactions from a linked real Matrix account', () => {
++    expect(isBridgedReaction('@alice:test', {'fi.mau.discord.source_reaction': true}, 'test')).toBe(true);
++    expect(isBridgedReaction('@alice:test', {'fi.mau.discord.source_reaction': false}, 'test')).toBe(false);
++  });
++  test('recognizes already imported historical reactions', () => {
++    expect(isBridgedReaction('@alice:test', {'fi.mau.discord.imported_reaction': {types: [0]}}, 'test')).toBe(true);
++  });
++  test('ordinary Matrix reactions retain PluralMatrix control eligibility', () => {
++    expect(isBridgedReaction('@alice:test', {}, 'test')).toBe(false);
++    expect(isBridgedReaction('@_plural_system_member:test', {}, 'test')).toBe(false);
++  });
++});

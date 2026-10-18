@@ -123,6 +123,31 @@ levels = request(matrix, room_path + "/state/m.room.power_levels/", token=owner)
 assert levels["users"].get(users["peer"]["user_id"], levels.get("users_default", 0)) == 0
 assert levels["users"].get(first["sender"], levels.get("users_default", 0)) == 0
 
+# Bridge actors and linked-account provenance must not trigger proxy controls.
+bridge_actor = request(matrix, "/_matrix/client/v3/register", "POST", {
+    "username": "discord_12345", "password": "isolated-fixture-password", "auth": {"type": "m.login.dummy"}})
+request(matrix, room_path + "/invite", "POST", {"user_id": bridge_actor["user_id"]}, owner)
+request(matrix, room_path + "/join", "POST", {}, bridge_actor["access_token"])
+ordinary_target = send("ordinary reaction target")
+preserved_reactions = []
+for key in ("❓", "❌", "🔔"):
+    for reactor, target, extra in (
+        (bridge_actor["access_token"], first["event_id"], {}),
+        (owner, first["event_id"], {"fi.mau.discord.source_reaction": True}),
+        (owner, ordinary_target, {}),
+    ):
+        preserved_reactions.append(request(matrix, room_path + "/send/m.reaction/" + uuid.uuid4().hex, "PUT", {
+            "m.relates_to": {"rel_type": "m.annotation", "event_id": target, "key": key}, **extra}, reactor)["event_id"])
+time.sleep(2)
+for event_id in preserved_reactions:
+    assert request(matrix, room_path + "/event/" + quote(event_id, safe=""), token=owner)["content"].get("m.relates_to")
+assert request(matrix, room_path + "/event/" + quote(first["event_id"], safe=""), token=owner)["content"].get("body") == "hello from Alpha"
+send("owner:reaction control target")
+control_target = wait_for(lambda: proxied("reaction control target"), "reaction control target")
+request(matrix, room_path + "/send/m.reaction/" + uuid.uuid4().hex, "PUT", {
+    "m.relates_to": {"rel_type": "m.annotation", "event_id": control_target["event_id"], "key": "❌"}}, owner)
+wait_for(lambda: request(matrix, room_path + "/event/" + quote(control_target["event_id"], safe=""), token=owner).get("unsigned", {}).get("redacted_because"), "owner reaction deletion still works")
+
 thread_root = send("ordinary thread root")
 send("owner:thread child", extra={"m.relates_to": {"rel_type": "m.thread", "event_id": thread_root, "is_falling_back": True}})
 child = wait_for(lambda: proxied("thread child"), "thread proxy")
