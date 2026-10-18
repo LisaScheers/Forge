@@ -66,6 +66,8 @@
         package = pkgs.mautrix-discord.overrideAttrs {
           tags = ["nocrypto"];
           buildInputs = [];
+          patches = [./discord-relay-recovery.patch];
+          doCheck = true;
         };
         registerToSynapse = true;
         inherit (cfg) environmentFile;

@@ -48,12 +48,39 @@ Completed: live Atlas health/capacity inspection; bot membership verification;
 credentials for Lisa and Atlas, with successful Atlas decryption validation.
 The bot cannot view 4 text and 2 voice channels; those are explicit coverage gaps.
 The exporter discovered 236 threads and started a 309-channel/thread archive.
-No Matrix portals, service deployment, or live relay have been performed.
+Atlas now runs the bridge. Only the selected pilot has a message portal; guild
+mode is `if-portal-exists`, preventing automatic creation for other channels.
 The pilot export contains 1,070 messages and 36 attachments, verified locally.
 Three PNGs differ from Discord's declared sizes; fresh downloads from URLs returned
 by Discord's message API have identical SHA-256 and byte counts to the local files.
 The verification report records these source inconsistencies explicitly. The pilot
 initial limit is 2,000; re-measure before creating portals for other channels.
+
+Pilot evidence: all 1,070 source message IDs map to 1,106 Matrix message parts.
+An ordinary Matrix member can read every part with the original timestamp and
+sender, all 11 reply relations, and all 36 attachments with matching SHA-256.
+The same historical messages and files remain readable with the bridge stopped.
+Two embedded image URLs returned 404; these are explicit media gaps, separate
+from the 36 successfully preserved file attachments.
+
+Live pilot checks passed for ordinary Matrix webhook relay, text and files in both
+directions, edits, own-message deletion, replies, existing Discord threads, and an
+independent webhook without an echo loop. Matrix replies use linked Discord
+embeds. Uninvited Matrix joins and ordinary members changing room access are
+denied. Lisa has not yet been invited for human acceptance.
+
+An outage test exposed a missed-message race: queued Matrix sends could become
+the newest database message before Discord catch-up, hiding older offline input.
+The package patch snapshots incoming root/thread cursors synchronously at READY,
+excludes outbound relay messages, and catches up known threads even when gateway
+metadata omits the latest message ID. Its database regression test and isolated
+NixOS test pass. Production recovery must still be re-tested after deployment.
+This does not establish recovery of offline edits or deletions.
+
+Matrix-only native reactions and new Discord thread creation remain unsupported
+by the unpatched upstream relay. Lisa selected attributed reaction notices
+(“Alice (Matrix) reacted 👍”) on 2026-10-18. Implement and verify notices, removal,
+and bot-created threads before considering this pilot feature-complete.
 
 Checks: migration package builds and its 6 permission/attachment tests pass;
 enabled Atlas settings evaluate without assertion failures, with all encryption
@@ -146,3 +173,7 @@ Do not deploy unrelated working-tree changes or bypass the gate.
 
 PostgreSQL backups already include all databases. They do not cover Synapse media,
 signing keys, bridge registration/credentials, or off-host recovery by themselves.
+A protected pre-bridge backup at `/var/backup/sec-hive-prebridge-20261018` contains
+the Synapse database, media/configuration/signing files, checksums, and deployed
+generation. Checksums and database dump catalog pass; a coordinated restore and
+off-host recovery test remain gates before broader rollout.

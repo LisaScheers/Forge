@@ -1,0 +1,254 @@
+--- a/user.go
++++ b/user.go
+@@ -53,6 +53,9 @@
+ 	dmSpaceMembershipChecked bool
+ 
+ 	Session *discordgo.Session
++
++	relayBackfillLock    sync.Mutex
++	relayBackfillAnchors map[relayBackfillKey]string
+ 
+ 	BridgeState     *bridge.BridgeStateQueue
+ 	bridgeStateLock sync.Mutex
+@@ -651,6 +654,9 @@
+ }
+ 
+ func (user *User) eventHandlerSync(rawEvt any) {
++	if _, ready := rawEvt.(*discordgo.Ready); ready {
++		user.captureRelayBackfillSnapshot()
++	}
+ 	go user.eventHandler(rawEvt)
+ }
+ 
+@@ -1049,6 +1055,7 @@
+ 				portal.UpdateInfo(user, ch)
+ 				if user.bridge.Config.Bridge.Backfill.MaxGuildMembers < 0 || meta.MemberCount < user.bridge.Config.Bridge.Backfill.MaxGuildMembers {
+ 					portal.ForwardBackfillMissed(user, ch.LastMessageID, nil)
++					user.backfillKnownRelayThreads(portal)
+ 				}
+ 			}
+ 		}
+--- a/backfill.go
++++ b/backfill.go
+@@ -78,30 +78,32 @@
+ 	portal.forwardBackfillLock.Lock()
+ 	defer portal.forwardBackfillLock.Unlock()
+ 
+-	var lastMessage *database.Message
+-	if thread != nil {
+-		lastMessage = portal.bridge.DB.Message.GetLastInThread(portal.Key, thread.ID)
+-	} else {
+-		lastMessage = portal.bridge.DB.Message.GetLast(portal.Key)
+-	}
+-	if lastMessage == nil || serverLastMessageID == "" {
+-		log.Debug().Msg("Not backfilling, no last message in database or no last message in metadata")
+-		return
+-	} else if !shouldBackfill(lastMessage.DiscordID, serverLastMessageID) {
+-		log.Debug().
+-			Str("last_bridged_message", lastMessage.DiscordID).
+-			Str("last_server_message", serverLastMessageID).
+-			Msg("Not backfilling, last message in database is newer than last message in metadata")
+-		return
++	threadID := ""
++	if thread != nil {
++		threadID = thread.ID
++	}
++	after, anchored := source.takeRelayBackfillAnchor(portal.Key, threadID)
++	if !anchored {
++		var lastMessage *database.Message
++		if thread != nil {
++			lastMessage = portal.bridge.DB.Message.GetLastInThread(portal.Key, thread.ID)
++		} else {
++			lastMessage = portal.bridge.DB.Message.GetLast(portal.Key)
++		}
++		if lastMessage == nil || serverLastMessageID == "" || !shouldBackfill(lastMessage.DiscordID, serverLastMessageID) {
++			return
++		}
++		after = lastMessage.DiscordID
+ 	}
+ 	log.Debug().
+-		Str("last_bridged_message", lastMessage.DiscordID).
++		Str("last_bridged_message", after).
+ 		Str("last_server_message", serverLastMessageID).
++		Bool("startup_snapshot", anchored).
+ 		Msg("Backfilling missed messages")
+ 	if limit < 0 {
+-		portal.backfillUnlimitedMissed(log, source, lastMessage.DiscordID, thread)
++		portal.backfillUnlimitedMissed(log, source, after, thread)
+ 	} else {
+-		portal.backfillLimited(log, source, limit, lastMessage.DiscordID, thread)
++		portal.backfillLimited(log, source, limit, after, thread)
+ 	}
+ }
+ 
+--- /dev/null
++++ b/relay_recovery.go
+@@ -0,0 +1,90 @@
++package main
++
++import (
++	"fmt"
++	"sort"
++
++	"go.mau.fi/util/dbutil"
++
++	"go.mau.fi/mautrix-discord/database"
++)
++
++type relayBackfillKey struct {
++	database.PortalKey
++	ThreadID string
++}
++
++// Snapshot before dispatching READY: queued Matrix sends and later gateway
++// events must not advance the cursor past Discord messages missed offline.
++const relayBackfillSnapshotSQL = `
++	SELECT p.dcid, p.receiver, '', '0'
++	FROM portal p
++	WHERE COALESCE(p.mxid, '') <> '' AND COALESCE(p.relay_webhook_id, '') <> ''
++	UNION ALL
++	SELECT p.dcid, p.receiver, t.dcid, '0'
++	FROM portal p JOIN thread t ON t.parent_chan_id=p.dcid
++	WHERE COALESCE(p.mxid, '') <> '' AND COALESCE(p.relay_webhook_id, '') <> ''
++	UNION ALL
++	SELECT m.dc_chan_id, m.dc_chan_receiver, COALESCE(m.dc_thread_id, ''),
++	       CAST(MAX(CAST(m.dcid AS BIGINT)) AS TEXT)
++	FROM message m JOIN portal p ON p.dcid=m.dc_chan_id AND p.receiver=m.dc_chan_receiver
++	WHERE COALESCE(p.mxid, '') <> '' AND COALESCE(p.relay_webhook_id, '') <> ''
++	  AND m.dc_sender<>p.relay_webhook_id
++	GROUP BY m.dc_chan_id, m.dc_chan_receiver, m.dc_thread_id
++`
++
++func readRelayBackfillSnapshot(db *dbutil.Database) (map[relayBackfillKey]string, error) {
++	rows, err := db.Query(relayBackfillSnapshotSQL)
++	if err != nil {
++		return nil, fmt.Errorf("snapshot relay recovery cursors: %w", err)
++	}
++	defer rows.Close()
++	anchors := make(map[relayBackfillKey]string)
++	for rows.Next() {
++		var key relayBackfillKey
++		var messageID string
++		if err = rows.Scan(&key.ChannelID, &key.Receiver, &key.ThreadID, &messageID); err != nil {
++			return nil, err
++		}
++		if _, exists := anchors[key]; !exists || messageID != "0" {
++			anchors[key] = messageID
++		}
++	}
++	return anchors, rows.Err()
++}
++
++func (user *User) captureRelayBackfillSnapshot() {
++	anchors, err := readRelayBackfillSnapshot(user.bridge.DB.Database)
++	if err != nil {
++		panic(err)
++	}
++	user.relayBackfillLock.Lock()
++	user.relayBackfillAnchors = anchors
++	user.relayBackfillLock.Unlock()
++}
++
++func (user *User) takeRelayBackfillAnchor(portal database.PortalKey, threadID string) (string, bool) {
++	key := relayBackfillKey{PortalKey: portal, ThreadID: threadID}
++	user.relayBackfillLock.Lock()
++	defer user.relayBackfillLock.Unlock()
++	anchor, exists := user.relayBackfillAnchors[key]
++	delete(user.relayBackfillAnchors, key)
++	return anchor, exists
++}
++
++func (user *User) backfillKnownRelayThreads(portal *Portal) {
++	user.relayBackfillLock.Lock()
++	var threadIDs []string
++	for key := range user.relayBackfillAnchors {
++		if key.PortalKey == portal.Key && key.ThreadID != "" {
++			threadIDs = append(threadIDs, key.ThreadID)
++		}
++	}
++	user.relayBackfillLock.Unlock()
++	sort.Strings(threadIDs)
++	for _, threadID := range threadIDs {
++		if thread := user.bridge.GetThreadByID(threadID, nil); thread != nil {
++			portal.ForwardBackfillMissed(user, "", thread)
++		}
++	}
++}
+--- /dev/null
++++ b/relay_recovery_test.go
+@@ -0,0 +1,75 @@
++package main
++
++import (
++	"database/sql"
++	"testing"
++
++	_ "github.com/mattn/go-sqlite3"
++	"go.mau.fi/util/dbutil"
++
++	"go.mau.fi/mautrix-discord/database"
++)
++
++func TestRelayRecoverySnapshot(t *testing.T) {
++	raw, err := sql.Open("sqlite3", ":memory:")
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer raw.Close()
++	raw.SetMaxOpenConns(1)
++	db, err := dbutil.NewWithDB(raw, "sqlite3")
++	if err != nil {
++		t.Fatal(err)
++	}
++	for _, statement := range []string{
++		`CREATE TABLE portal (dcid TEXT, receiver TEXT, mxid TEXT, relay_webhook_id TEXT)`,
++		`CREATE TABLE thread (dcid TEXT, parent_chan_id TEXT)`,
++		`CREATE TABLE message (dcid TEXT, dc_chan_id TEXT, dc_chan_receiver TEXT, dc_thread_id TEXT, dc_sender TEXT)`,
++		`INSERT INTO portal VALUES ('channel','','!room','hook'), ('empty','','!empty','hook'), ('unlinked','','','hook'), ('nonrelay','','!other','')`,
++		`INSERT INTO thread VALUES ('thread','channel'), ('outbound-only','channel')`,
++		`INSERT INTO message VALUES ('9','channel','','','human'), ('100','channel','','','human'), ('200','channel','','','hook'), ('50','channel','','thread','human'), ('300','channel','','thread','hook'), ('400','channel','','outbound-only','hook'), ('999','unlinked','','','human'), ('999','nonrelay','','','human')`,
++	} {
++		if _, err = raw.Exec(statement); err != nil {
++			t.Fatal(err)
++		}
++	}
++	anchors, err := readRelayBackfillSnapshot(db)
++	if err != nil {
++		t.Fatal(err)
++	}
++	channel := database.NewPortalKey("channel", "")
++	for key, expected := range map[relayBackfillKey]string{
++		{PortalKey: channel}:                            "100",
++		{PortalKey: channel, ThreadID: "thread"}:        "50",
++		{PortalKey: channel, ThreadID: "outbound-only"}: "0",
++		{PortalKey: database.NewPortalKey("empty", "")}: "0",
++	} {
++		if anchors[key] != expected {
++			t.Fatalf("cursor for %+v = %q, want %q", key, anchors[key], expected)
++		}
++	}
++	if len(anchors) != 4 {
++		t.Fatalf("unlinked or non-relay portal included: %+v", anchors)
++	}
++	// A live Discord event after READY must not erase the offline interval.
++	if _, err = raw.Exec(`INSERT INTO message VALUES ('500','channel','','','human')`); err != nil {
++		t.Fatal(err)
++	}
++	user := &User{relayBackfillAnchors: anchors}
++	if cursor, ok := user.takeRelayBackfillAnchor(channel, ""); !ok || cursor != "100" {
++		t.Fatalf("startup cursor changed after live traffic: %q, %v", cursor, ok)
++	}
++	if _, ok := user.takeRelayBackfillAnchor(channel, ""); ok {
++		t.Fatal("startup cursor reused for an ordinary guild update")
++	}
++	if cursor, ok := user.takeRelayBackfillAnchor(channel, "thread"); !ok || cursor != "50" {
++		t.Fatalf("root cursor affected thread cursor: %q, %v", cursor, ok)
++	}
++	if cursor, ok := user.takeRelayBackfillAnchor(channel, "outbound-only"); !ok || cursor != "0" {
++		t.Fatalf("empty incoming history lost its explicit zero cursor: %q, %v", cursor, ok)
++	}
++	fresh, err := readRelayBackfillSnapshot(db)
++	if err != nil || fresh[relayBackfillKey{PortalKey: channel}] != "500" {
++		t.Fatalf("next READY did not capture current incoming cursor: %+v, %v", fresh, err)
++	}
++}
