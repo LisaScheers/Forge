@@ -2,7 +2,19 @@
   nixos.atlas = {config, ...}: {
     matrix.plural = {
       enable = true;
-      allowedRooms = ["!JhfHvvWnFwYhEKzlot:bylisa.dev"];
+      allowedRooms = [
+        "!JhfHvvWnFwYhEKzlot:bylisa.dev"
+        "!KrGrzXsrtNgUGfgJFh:bylisa.dev"
+        "!fEiZNnpdJmNLhtRcNw:bylisa.dev"
+        "!DtGujQmwAFWjOZNonz:bylisa.dev"
+        "!JzOHVnnyAguuApobZG:bylisa.dev"
+        "!TFToFwMQyifpNLCcGa:bylisa.dev"
+        "!DqeZkbYhmtDfsMUHfY:bylisa.dev"
+        "!spztIYjpjIHDxpEWJs:bylisa.dev"
+        "!SlbIfVoFLHvcAhNJAl:bylisa.dev"
+        "!FAQhXHzcurAdMaNINe:bylisa.dev"
+        "!StJHuKFstNgJVqTCrF:bylisa.dev"
+      ];
       publicHost = "plural.bylisa.dev";
       secretsFile = config.age.secrets.pluralmatrix-credentials.path;
     };

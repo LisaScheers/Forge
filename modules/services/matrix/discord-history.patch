@@ -1,0 +1,189 @@
+--- a/commands.go
++++ b/commands.go
+@@ -63,6 +63,8 @@
+ 		cmdUnbridge,
+ 		cmdDeletePortal,
+ 		cmdCreatePortal,
++		cmdRetryInitialBackfill,
++		cmdImportThreadHistory,
+ 		cmdSetRelay,
+ 		cmdUnsetRelay,
+ 		cmdGuilds,
+--- a/portal.go
++++ b/portal.go
+@@ -619,7 +619,7 @@
+ 
+ func (portal *Portal) handleDiscordMessageCreate(user *User, msg *discordgo.Message, thread *Thread) {
+ 	switch msg.Type {
+-	case discordgo.MessageTypeChannelNameChange, discordgo.MessageTypeChannelIconChange, discordgo.MessageTypeChannelPinnedMessage:
++	case discordgo.MessageTypeChannelNameChange, discordgo.MessageTypeChannelIconChange:
+ 		// These are handled via channel updates
+ 		return
+ 	}
+--- a/portal_convert.go
++++ b/portal_convert.go
+@@ -683,6 +683,9 @@
+ </blockquote>`
+ 
+ func (portal *Portal) convertDiscordTextMessage(ctx context.Context, intent *appservice.IntentAPI, msg *discordgo.Message) *ConvertedMessage {
++	if converted := convertDiscordSystemMessage(msg); converted != nil {
++		return converted
++	}
+ 	log := zerolog.Ctx(ctx)
+ 	if msg.Type == discordgo.MessageTypeCall {
+ 		return &ConvertedMessage{Type: event.EventMessage, Content: &event.MessageEventContent{
+--- /dev/null
++++ b/history_repair.go
+@@ -0,0 +1,106 @@
++package main
++
++import (
++	"github.com/bwmarrin/discordgo"
++	"maunium.net/go/mautrix/bridge/bridgeconfig"
++	"maunium.net/go/mautrix/bridge/commands"
++	"maunium.net/go/mautrix/event"
++)
++
++// These source events have no ordinary text but must not disappear from history.
++func convertDiscordSystemMessage(msg *discordgo.Message) *ConvertedMessage {
++	var body string
++	switch msg.Type {
++	case discordgo.MessageTypeChannelPinnedMessage:
++		body = "pinned a message"
++	case discordgo.MessageTypeUserPremiumGuildSubscription:
++		body = "boosted the server"
++	case discordgo.MessageTypeUserPremiumGuildSubscriptionTierOne:
++		body = "boosted the server (boost level 1 reached)"
++	case discordgo.MessageTypeUserPremiumGuildSubscriptionTierTwo:
++		body = "boosted the server (boost level 2 reached)"
++	case discordgo.MessageTypeUserPremiumGuildSubscriptionTierThree:
++		body = "boosted the server (boost level 3 reached)"
++	default:
++		return nil
++	}
++	return &ConvertedMessage{Type: event.EventMessage, Content: &event.MessageEventContent{MsgType: event.MsgEmote, Body: body}}
++}
++
++var cmdRetryInitialBackfill = &commands.FullHandler{
++	Func: wrapCommand(fnRetryInitialBackfill),
++	Name: "retry-initial-backfill",
++	Help: commands.HelpMeta{
++		Section: HelpSectionPortalManagement,
++		Description: "Retry a completely empty initial history import (bridge admins only)",
++	},
++	RequiresPortal: true,
++	RequiresLogin: true,
++	RequiresEventLevel: roomModerator,
++}
++
++func fnRetryInitialBackfill(ce *WrappedCommandEvent) {
++	if ce.User.PermissionLevel < bridgeconfig.PermissionLevelAdmin {
++		ce.Reply("Only bridge administrators can retry an initial import")
++		return
++	}
++	if ce.Portal.GuildID == "" || ce.Portal.bridge.Config.Bridge.Backfill.Limits.Initial.Channel <= 0 {
++		ce.Reply("This requires a guild portal with initial history import enabled")
++		return
++	}
++	ce.Portal.forwardBackfillLock.Lock()
++	if ce.Portal.bridge.DB.Message.GetLast(ce.Portal.Key) != nil {
++		ce.Portal.forwardBackfillLock.Unlock()
++		ce.Reply("Refusing to insert old history into a portal that already has bridged messages")
++		return
++	}
++	go ce.Portal.forwardBackfillInitial(ce.User, nil)
++	ce.Reply("Retrying the empty initial history import")
++}
++
++func canImportPublicThread(meta *discordgo.Channel, parentID string) bool {
++	return meta != nil && meta.Type == discordgo.ChannelTypeGuildPublicThread && meta.ParentID == parentID
++}
++
++var cmdImportThreadHistory = &commands.FullHandler{
++	Func: wrapCommand(fnImportThreadHistory),
++	Name: "import-thread-history",
++	Help: commands.HelpMeta{
++		Section: HelpSectionPortalManagement,
++		Description: "Import an empty public thread's history without joining it (bridge admins only)",
++		Args: "<thread ID>",
++	},
++	RequiresPortal: true,
++	RequiresLogin: true,
++	RequiresEventLevel: roomModerator,
++}
++
++func fnImportThreadHistory(ce *WrappedCommandEvent) {
++	if ce.User.PermissionLevel < bridgeconfig.PermissionLevelAdmin {
++		ce.Reply("Only bridge administrators can import thread history")
++		return
++	}
++	if len(ce.Args) != 1 || ce.Portal.GuildID == "" || ce.Portal.bridge.Config.Bridge.Backfill.Limits.Initial.Thread <= 0 {
++		ce.Reply("Specify a public thread ID in its parent guild portal with initial history import enabled")
++		return
++	}
++	meta, err := ce.User.Session.Channel(ce.Args[0])
++	if err != nil || !canImportPublicThread(meta, ce.Portal.Key.ChannelID) {
++		ce.Reply("This must be an accessible public thread belonging to this portal; private threads require separate admission")
++		return
++	}
++	root := ce.Bridge.DB.Message.GetFirstByDiscordID(ce.Portal.Key, meta.ID)
++	if root == nil {
++		ce.Reply("Import and verify the thread's root message first")
++		return
++	}
++	thread := ce.Bridge.GetThreadByID(meta.ID, root)
++	ce.Portal.forwardBackfillLock.Lock()
++	if ce.Bridge.DB.Message.GetLastInThread(ce.Portal.Key, meta.ID) != nil {
++		ce.Portal.forwardBackfillLock.Unlock()
++		ce.Reply("Refusing to insert old history into a thread that already has bridged messages")
++		return
++	}
++	go ce.Portal.forwardBackfillInitial(ce.User, thread)
++	ce.Reply("Importing public thread history without changing Discord thread membership")
++}
+--- /dev/null
++++ b/history_repair_test.go
+@@ -0,0 +1,43 @@
++package main
++
++import (
++	"context"
++	"testing"
++
++	"github.com/bwmarrin/discordgo"
++	"maunium.net/go/mautrix/event"
++)
++
++func TestHistoricalSystemEventsSurviveConversion(t *testing.T) {
++	for _, test := range []struct { kind discordgo.MessageType; body string }{
++		{discordgo.MessageTypeChannelPinnedMessage, "pinned a message"},
++		{discordgo.MessageTypeUserPremiumGuildSubscription, "boosted the server"},
++		{discordgo.MessageTypeUserPremiumGuildSubscriptionTierOne, "boosted the server (boost level 1 reached)"},
++		{discordgo.MessageTypeUserPremiumGuildSubscriptionTierTwo, "boosted the server (boost level 2 reached)"},
++		{discordgo.MessageTypeUserPremiumGuildSubscriptionTierThree, "boosted the server (boost level 3 reached)"},
++	} {
++		// Exercise the real text-conversion entry point; these events have no text.
++		var portal *Portal
++		got := portal.convertDiscordTextMessage(context.Background(), nil, &discordgo.Message{Type: test.kind})
++		if got == nil || got.Type != event.EventMessage || got.Content.MsgType != event.MsgEmote || got.Content.Body != test.body {
++			t.Fatalf("system event %d was not preserved: %#v", test.kind, got)
++		}
++	}
++	if convertDiscordSystemMessage(&discordgo.Message{Type: discordgo.MessageTypeDefault, Content: "ordinary text"}) != nil {
++		t.Fatal("ordinary text must retain the existing converter")
++	}
++}
++
++func TestThreadHistoryImportDoesNotWidenPrivateOrUnrelatedAccess(t *testing.T) {
++	for _, test := range []struct { meta *discordgo.Channel; allowed bool }{
++		{nil, false},
++		{&discordgo.Channel{Type: discordgo.ChannelTypeGuildPublicThread, ParentID: "approved"}, true},
++		{&discordgo.Channel{Type: discordgo.ChannelTypeGuildPublicThread, ParentID: "other"}, false},
++		{&discordgo.Channel{Type: discordgo.ChannelTypeGuildPrivateThread, ParentID: "approved"}, false},
++		{&discordgo.Channel{Type: discordgo.ChannelTypeGuildText, ParentID: "approved"}, false},
++	} {
++		if got := canImportPublicThread(test.meta, "approved"); got != test.allowed {
++			t.Fatalf("unexpected import permission for %#v: %v", test.meta, got)
++		}
++	}
++}

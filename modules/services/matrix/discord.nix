@@ -70,6 +70,7 @@
             ./discord-relay-recovery.patch
             ./discord-relay-features.patch
             ./discord-plural.patch
+            ./discord-history.patch
           ];
           doCheck = true;
         };

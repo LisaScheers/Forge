@@ -192,6 +192,28 @@ restore-tested checkpoint and will enter the next coordinated backup.
 
 ## Bridge foundation
 
+Incremental rollout is authorized by Lisa's request to sync completed channels.
+Verify each root export and every accessible public thread independently before
+admission. Unused private rooms can be staged first; bind/import only after the
+relevant source checks pass. Keep guild mode `if-portal-exists` throughout.
+
+The history patch preserves pin and server-boost system events instead of silently
+omitting them. `retry-initial-backfill` is restricted to bridge admins in guild
+portals and refuses any portal with an existing message mapping. It recovers a
+completely failed empty import without deleting or replacing the room.
+`import-thread-history THREAD_ID` likewise requires a bridge admin, verifies that
+the accessible thread is public and belongs to this portal, requires its imported
+root, and refuses threads with existing history. It reads archived history without
+joining or unarchiving the Discord thread. Private threads require separate room
+admission; this command deliberately refuses them.
+
+Keep the ordinary event level at zero for bridge ghosts. Raising it globally to
+50 blocks Discord authors as well as human members. Invitations/state changes
+remain moderator-only; review each human account's channel read/post eligibility
+before admission. Creating relay webhooks separately requires Manage Webhooks in
+the individual Discord channel. A readable history room without that permission
+is not evidence of a working relay for Matrix-only members.
+
 `matrix.discord.enable` defaults to false. Before enabling it, set
 `matrix.discord.environmentFile` to an agenix runtime file containing a random
 `DISCORD_PROVISIONING_SECRET`, and `matrix.discord.initialBackfillLimit` to a measured
