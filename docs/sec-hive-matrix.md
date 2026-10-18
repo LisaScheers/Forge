@@ -67,7 +67,7 @@ Live pilot checks passed for ordinary Matrix webhook relay, text and files in bo
 directions, edits, own-message deletion, replies, existing Discord threads, and an
 independent webhook without an echo loop. Matrix replies use linked Discord
 embeds. Uninvited Matrix joins and ordinary members changing room access are
-denied. Lisa has not yet been invited for human acceptance.
+denied. Lisa's normal-account acceptance remains required before expansion.
 
 An outage test exposed a missed-message race: queued Matrix sends could become
 the newest database message before Discord catch-up, hiding older offline input.
@@ -86,12 +86,17 @@ notices with the full Matrix account ID in the linked-message embed footer,
 disables mentions, and persists notices for removal after restart. It uses existing
 message/reaction mappings without a schema change. Thread creation selects a
 connected bot session; message attribution continues through the relay webhook.
-Webhook thread edits/deletions include the required thread ID. Build and live
-verification of this second patch remain required before pilot acceptance.
+Webhook thread edits/deletions include the required thread ID. The package tests,
+isolated NixOS test, and all three Atlas deployment checks pass. The deployed
+pilot verifies two distinct Matrix-only members reacting with the same emoji,
+individual notice attribution/full IDs, root and thread notice removal after
+restart, bot-owned thread creation, bidirectional replies in the new thread, and
+thread edits/deletions. The temporary peer left the room after testing.
 An additional reaction handler routes permitted members without a Discord login
 around the framework's native-login-only guard. It excludes blocked members,
 bridge/ghost senders, personal DMs, and existing native-login handling. Regression
-coverage exercises routing and those exclusions, not just notice formatting.
+coverage exercises permitted/blocked routing, native-login exclusion, ghost/bot
+exclusion, and missing relays, as well as notice formatting and Unicode bounds.
 
 Checks: migration package builds and its 6 permission/attachment tests pass;
 enabled Atlas settings evaluate without assertion failures, with all encryption
