@@ -1,4 +1,26 @@
 {inputs, ...}: {
+  darwin.base = {
+    config,
+    pkgs,
+    lib,
+    ...
+  }: let
+    nom = inputs.nix-output-monitor.packages.${pkgs.system}.default;
+  in {
+    system.tools.darwin-rebuild.enable = false;
+    environment.systemPackages = [
+      (config.system.build.darwin-rebuild.overrideAttrs (old: {
+        postInstall =
+          (old.postInstall or "")
+          + ''
+            # Patch only builds: preserve stdout for jq and the activation path in $0.
+            substituteInPlace "$out/bin/darwin-rebuild" \
+              --replace-fail 'systemConfig="$(nix-build ' 'systemConfig="$(${lib.getExe' nom "nom-build"} ' \
+              --replace-fail 'systemConfig=$(nix "''${flakeFlags[@]}" build ' 'systemConfig=$(${lib.getExe' nom "nom"} build "''${flakeFlags[@]}" '
+          '';
+      }))
+    ];
+  };
   home."lisa" = {
     pkgs,
     lib,
