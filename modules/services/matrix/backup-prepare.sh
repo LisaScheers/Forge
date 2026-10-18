@@ -15,6 +15,7 @@ install -d -m 0700 "$checkpoint/synapse" "$checkpoint/bridge" "$checkpoint/runti
 rsync -a --delete /var/lib/matrix-synapse/ "$checkpoint/synapse/"
 restart_synapse=0
 restart_bridge=0
+restart_plural=0
 resume_services() {
   result=$?
   trap - EXIT
@@ -30,16 +31,44 @@ fi
 if systemctl is-active --quiet matrix-synapse.service; then
   restart_synapse=1
 fi
-printf '%s %s\n' "$restart_synapse" "$restart_bridge" > /run/matrix-coordinated-state
+if [[ "${PLURAL_ENABLED:-0}" == 1 ]] && systemctl is-active --quiet pluralmatrix.service; then
+  restart_plural=1
+fi
+printf '%s %s %s\n' "$restart_synapse" "$restart_bridge" "$restart_plural" > /run/matrix-coordinated-state
+if (( restart_plural )); then
+  systemctl stop pluralmatrix.service
+fi
 if (( restart_bridge )); then
   systemctl stop mautrix-discord.service
 fi
 if (( restart_synapse )); then
   systemctl stop matrix-synapse.service
 fi
+for _ in $(seq 1 30); do
+  connections=$(runuser -u postgres -- psql -XAt -v ON_ERROR_STOP=1 -d postgres -c "SELECT count(*) FROM pg_stat_activity WHERE usename IN ('matrix-synapse','mautrix-discord','pluralmatrix')")
+  if [[ "$connections" == 0 ]]; then
+    break
+  fi
+  sleep 1
+done
+test "$connections" == 0
 runuser -u postgres -- pg_dump -Fc --compress=lz4 matrix-synapse > "$checkpoint/synapse.dump.tmp"
 runuser -u postgres -- pg_dump -Fc --compress=lz4 mautrix-discord > "$checkpoint/bridge.dump.tmp"
-runuser -u postgres -- psql -XAt -d mautrix-discord > "$checkpoint/bridge-counts.json" <<'SQL'
+if [[ "${PLURAL_ENABLED:-0}" == 1 ]]; then
+  runuser -u postgres -- pg_dump -Fc --compress=lz4 pluralmatrix > "$checkpoint/plural.dump.tmp"
+  runuser -u postgres -- psql -XAt -v ON_ERROR_STOP=1 -d pluralmatrix > "$checkpoint/plural-counts.json" <<'SQL'
+SELECT json_build_object('systems', (SELECT count(*) FROM "System"), 'members', (SELECT count(*) FROM "Member"),
+  'switches', (SELECT count(*) FROM "Switch"), 'journal', (SELECT count(*) FROM "InboundEvent"));
+SQL
+  install -d -m 0700 "$checkpoint/plural" "$checkpoint/plural-registration"
+  rsync -a --delete /var/lib/pluralmatrix/ "$checkpoint/plural/"
+  rsync -a --delete /var/lib/pluralmatrix-registration/ "$checkpoint/plural-registration/"
+  install -m 0600 "$PLURAL_CONFIG" "$checkpoint/plural-config.json"
+  runuser -u postgres -- psql -XAt -v ON_ERROR_STOP=1 -d mautrix-discord -c 'SELECT count(*) FROM sec_hive_plural_pending' > "$checkpoint/plural-bridge-pending-count"
+  mv "$checkpoint/plural.dump.tmp" "$checkpoint/plural.dump"
+fi
+printf '%s\n' "${PLURAL_ENABLED:-0}" > "$checkpoint/plural-enabled"
+runuser -u postgres -- psql -XAt -v ON_ERROR_STOP=1 -d mautrix-discord > "$checkpoint/bridge-counts.json" <<'SQL'
 SELECT json_build_object(
   'portals', (SELECT count(*) FROM portal), 'messages', (SELECT count(*) FROM message),
   'threads', (SELECT count(*) FROM thread), 'users', (SELECT count(*) FROM "user"));

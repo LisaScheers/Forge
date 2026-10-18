@@ -233,9 +233,10 @@ Nook gets an SFTP-only, chrooted account restricted to Atlas's tailnet address.
 Repository setup requires the HDD mount, avoiding a fallback to Nook's root disk.
 
 `restic-backups-matrix.service` stages `/var/backup/matrix-coordinated`: both
-database dumps, Synapse media/signing key, bridge configuration/registration,
+Synapse, bridge and PluralMatrix database dumps, Synapse media/signing key,
+bridge and PluralMatrix configuration/registration/state,
 required Matrix runtime secrets, and private pilot verification inputs. It copies
-media before the pause, stops bridge then Synapse, captures databases/files at a
+media before the pause, stops PluralMatrix, bridge and Synapse, captures databases/files at a
 common quiescent point, resumes services, and only then hashes/uploads. EXIT and
 systemd post-stop cleanup restore the previous running states after failure.
 The updater shares the checkpoint lock and skips a pending recovery marker;
@@ -258,7 +259,7 @@ For a restore rehearsal, restore a specific off-host snapshot into a new protect
 network namespace containing an interface other than loopback. The dedicated
 DynamicUser service cannot access the live PostgreSQL socket or application data.
 It restores fresh databases and files, compares bridge mapping counts, starts
-separate Synapse/bridge processes, and verifies original pilot authors/timestamps,
+separate Synapse, bridge and PluralMatrix processes, and verifies original pilot authors/timestamps,
 ordering, replies and every file hash through the restored Matrix client API.
 Discord login tokens are cleared only in the isolated restored database before
 starting its bridge; the encrypted backup and production credentials are intact.
@@ -269,8 +270,8 @@ complete. Select one snapshot and its recorded Forge generation; obtain the
 repository password from Lisa's recovery copy or agenix with her identity. Nook
 cannot decrypt the repository. Restore to a protected staging directory and run
 the isolated rehearsal first. Rebuild the matching Nix configuration/roles, stop
-both live applications, and restore both databases plus Synapse media/signing key,
-bridge state/registration and runtime credentials from that same snapshot. Restore
+all three live applications, and restore all three databases plus Synapse media/signing key,
+bridge/PluralMatrix state, registrations and runtime credentials from that same snapshot. Restore
 service ownership and confirm the appservice token pair matches registration.
 Replacing live databases/files is destructive and needs Lisa's explicit approval;
 the rehearsal never performs that step. Start privately, verify client history,
@@ -290,3 +291,67 @@ It completed in 61 seconds after download, with external networking unavailable.
 The first attempt exposed an id-mapped mount ownership mismatch; the copy step
 now omits production UIDs inside the test directory. The original snapshot still
 preserves production ownership. Live services remained active during rehearsal.
+
+## PluralMatrix pilot
+
+Lisa requested implementation on 2026-10-18 after the Matrix alternative review.
+The deployment is limited to `#boring-bot-stuff`; it does not enable proxying in
+other rooms or create additional portals. Source is pinned to PluralMatrix
+`d10e51a4c9fe12cdab226b8241f85716fe37f50f`, packaged declaratively with its
+Node/Rust dependencies. Synapse's core remains unmodified. The rooms remain
+unencrypted; the packaged Rust crypto dependencies require no libolm exception.
+
+The dashboard is `https://plural.bylisa.dev`; the appservice identity is
+`@plural_bot:bylisa.dev`. Local Matrix accounts authenticate against the configured
+Synapse endpoint. Passwords are not stored; the temporary Matrix login is logged
+out after verification. Remote homeservers need an explicit trusted HTTPS endpoint
+in `matrix.plural.loginHomeservers` for dashboard login. Never forward passwords
+to user-supplied discovery URLs. The browser receives a seven-day app JWT.
+
+Accounts own their systems/members/groups/switches. Unverified cross-account
+linking is disabled. PluralKit JSON import creates a separate Matrix copy;
+it is not continuous synchronization with PluralKit on Discord. Existing Discord
+PluralKit messages continue through the Discord bridge. Matrix profile messages
+appear as attributed webhook messages on Discord, without separate Discord user
+accounts or native per-member reactions. Moderator admission remains unchanged.
+Only the bot may invite its ghosts; ordinary users retain power level zero.
+Ghosts leave when their owning account leaves/is removed, with startup and
+periodic reconciliation for missed membership callbacks.
+
+The appservice commits incoming messages to PostgreSQL before acknowledging the
+Synapse transaction. It saves the selected identity/content before sending,
+uses a stable Matrix transaction ID, and redacts the original only after Matrix
+acknowledges the replacement. Pending work survives restart. The Discord bridge
+keeps a separate PostgreSQL queue and waits for the actual appservice decision;
+it forwards ordinary text once, suppresses originals of proxied messages, and
+retries missing replacements. A room's backed-off head cannot be overtaken;
+other rooms can continue. Failed work remains queued for operator inspection.
+This does not establish recovery from the ambiguous Discord accepted-but-response-
+lost case, nor does it change the existing offline edit/deletion limitations.
+
+All three HTTP listeners bind loopback. Nginx exposes only the dashboard/API over
+HTTPS, limits login requests and request bodies, suppresses API access logs for
+JWT-bearing media/export URLs, and sends `Referrer-Policy: no-referrer`. Imports
+fetch only bounded HTTPS images from pinned public IPv4 addresses. Credentials
+are agenix-encrypted for Lisa and Atlas; Nook gets no decryption identity.
+
+The coordinated backup also stops PluralMatrix before the bridge and Synapse,
+waits for application DB connections to drain, then captures its database,
+profile/crypto state, appservice registration, runtime credentials and both durable
+queues at the same checkpoint. Resume order is Synapse, PluralMatrix, bridge.
+The isolated restore compares profile/switch/journal and bridge backlog counts,
+starts all three services without external networking, and checks the original
+pilot history/media. Restore all three applications from the same checkpoint;
+never mix a new profile database with an older Synapse or bridge database.
+
+Validation status: package/unit checks and the isolated/live acceptance results
+are recorded below once complete. Wider rollout remains gated on the existing
+history, access and parity checks.
+
+For moderation, webhook display names are not proof of ownership. Resolve the
+Matrix sender and its system/account mapping; keep the existing moderator checks
+for admission. Discord PluralKit does not manage these Matrix-owned profiles.
+For rollback, pause relaying, remove PluralMatrix's bot and ghosts from the pilot
+with moderator authority, then revert the Nix enablement and restart Synapse and
+the bridge. Preserve the profile database and both queues for gap/duplicate review;
+do not delete or blindly replay them against a different checkpoint.

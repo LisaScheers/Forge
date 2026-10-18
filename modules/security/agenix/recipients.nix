@@ -41,6 +41,7 @@ in {
     "secrets/atlas/matrix-registration-secret.age".publicKeys = all;
     "secrets/atlas/matrix-turn-secret.age".publicKeys = all;
     "secrets/atlas/discord-bridge-env.age".publicKeys = [keys.users.lisa keys.hosts.atlas];
+    "secrets/atlas/pluralmatrix-credentials.age".publicKeys = [keys.users.lisa keys.hosts.atlas];
     "secrets/atlas/matrix-backup-password.age".publicKeys = [keys.users.lisa keys.hosts.atlas];
     "secrets/atlas/matrix-backup-ssh-key.age".publicKeys = [keys.users.lisa keys.hosts.atlas];
     "secrets/atlas/monitoring-otlp-env.age".publicKeys = all;

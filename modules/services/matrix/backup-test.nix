@@ -23,6 +23,11 @@
         test ! -e "$MATRIX_BACKUP_STATE_FILE"
         bash -euo pipefail ${./backup-resume.sh}
         test "$(wc -l < "$RESUME_LOG")" -eq 1
+        echo '1 1 1' > "$MATRIX_BACKUP_STATE_FILE"
+        bash -euo pipefail ${./backup-resume.sh}
+        tail -n 3 "$RESUME_LOG" > order
+        printf 'start matrix-synapse.service\nstart pluralmatrix.service\nstart mautrix-discord.service\n' > expected
+        cmp order expected
         echo 'invalid 1' > "$MATRIX_BACKUP_STATE_FILE"
         if bash -euo pipefail ${./backup-resume.sh}; then
           echo 'invalid recovery state accepted' >&2

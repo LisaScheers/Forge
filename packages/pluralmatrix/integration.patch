@@ -1,0 +1,1492 @@
+diff --git a/prisma/migrations/20261018000000_durable_inbound/migration.sql b/prisma/migrations/20261018000000_durable_inbound/migration.sql
+new file mode 100644
+index 0000000..bb6122a
+--- /dev/null
++++ b/prisma/migrations/20261018000000_durable_inbound/migration.sql
+@@ -0,0 +1,2 @@
++CREATE TABLE "InboundEvent" ("sequence" BIGSERIAL UNIQUE, "isProxy" BOOLEAN, "id" TEXT PRIMARY KEY, "payload" TEXT NOT NULL, "delivery" TEXT, "deliveredEventId" TEXT, "cancelledReason" TEXT, "done" BOOLEAN NOT NULL DEFAULT false, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
++CREATE INDEX "InboundEvent_done_createdAt_idx" ON "InboundEvent"("done", "createdAt");
+diff --git a/prisma/schema.prisma b/prisma/schema.prisma
+index f5ba04d..306a085 100644
+--- a/prisma/schema.prisma
++++ b/prisma/schema.prisma
+@@ -113,3 +113,16 @@ model BotDMRoom {
+   createdAt DateTime @default(now())
+   updatedAt DateTime @updatedAt
+ }
++
++model InboundEvent {
++  sequence BigInt @unique @default(autoincrement())
++  isProxy Boolean?
++  id String @id
++  payload String
++  done Boolean @default(false)
++  delivery String?
++  deliveredEventId String?
++  cancelledReason String?
++  createdAt DateTime @default(now())
++  @@index([done, createdAt])
++}
+diff --git a/src/auth.ts b/src/auth.ts
+index 92ed0ff..7e4fd0b 100644
+--- a/src/auth.ts
++++ b/src/auth.ts
+@@ -1,6 +1,7 @@
+ import { Request, Response, NextFunction } from 'express';
+ import jwt from 'jsonwebtoken';
+ import { config } from './config';
++import { z } from 'zod';
+ 
+ export interface AuthRequest extends Request {
+   user?: {
+@@ -52,68 +53,31 @@ export const authenticateGatekeeper = (req: Request, res: Response, next: NextFu
+ /**
+  * Logic to verify Matrix credentials against the user's home server
+  */
+-export const loginToMatrix = async (mxid: string, password: string): Promise<boolean> => {
+-  try {
+-    let domain = config.synapseDomain;
+-    let fullMxid = mxid;
+-
+-    // Ensure full MXID
+-    if (mxid.includes(':')) {
+-      domain = mxid.split(':')[1];
+-      fullMxid = mxid.startsWith('@') ? mxid : `@${mxid}`;
+-    } else {
+-      fullMxid = `@${mxid}:${domain}`;
+-    }
+-
+-    // 1. Discover the correct homeserver URL via .well-known
+-    let serverUrl = `https://${domain}`;
+-
+-    // Skip .well-known lookup for the local server if we have an internal URL configured
+-    if (domain === config.synapseDomain && config.synapseUrl) {
+-      serverUrl = config.synapseUrl;
+-    } else {
+-      try {
+-        const wellKnownRes = await fetch(`https://${domain}/.well-known/matrix/client`);
+-        if (wellKnownRes.ok) {
+-          const wellKnownData = (await wellKnownRes.json()) as { 'm.homeserver'?: { base_url?: string } };
+-          if (wellKnownData['m.homeserver']?.base_url) {
+-            serverUrl = wellKnownData['m.homeserver'].base_url;
+-            // Strip trailing slash if present
+-            if (serverUrl.endsWith('/')) {
+-              serverUrl = serverUrl.slice(0, -1);
+-            }
+-          }
+-        }
+-      } catch {
+-        console.log(`[Auth] .well-known discovery failed for ${domain}, falling back to https://${domain}`);
+-      }
+-    }
++const loginHomeservers = z.record(z.string(), z.string().url().startsWith('https://')).parse(JSON.parse(process.env.PLURAL_LOGIN_HOMESERVERS || '{}'));
++export const trustedHomeserverFor = (mxid: string): string | undefined => {
++  const domain = mxid.includes(':') ? mxid.slice(mxid.indexOf(':') + 1) : config.synapseDomain;
++  return domain === config.synapseDomain ? config.synapseUrl : loginHomeservers[domain];
++};
+ 
+-    // 2. Authenticate against the discovered server
+-    const response = await fetch(`${serverUrl}/_matrix/client/v3/login`, {
+-      method: 'POST',
+-      headers: { 'Content-Type': 'application/json' },
+-      body: JSON.stringify({
+-        type: 'm.login.password',
+-        identifier: {
+-          type: 'm.id.user',
+-          user: fullMxid,
+-        },
+-        password: password,
+-      }),
++export const loginToMatrix = async (mxid: string, password: string): Promise<string | null> => {
++  const qualified = mxid.includes(':') ? (mxid.startsWith('@') ? mxid : `@${mxid}`) : `@${mxid.replace(/^@/, '')}:${config.synapseDomain}`;
++  const homeserver = trustedHomeserverFor(qualified);
++  if (qualified !== qualified.toLowerCase() || !homeserver) return null;
++  try {
++    const response = await fetch(`${homeserver}/_matrix/client/v3/login`, {
++      method: 'POST', redirect: 'error', headers: {'Content-Type': 'application/json'}, signal: AbortSignal.timeout(10000),
++      body: JSON.stringify({type: 'm.login.password', identifier: {type: 'm.id.user', user: qualified}, password}),
+     });
+-
+-    if (response.ok) {
+-      return true;
+-    } else {
+-      const data = (await response.json()) as { error?: string };
+-      console.warn(`[Auth] Login failed for ${fullMxid} on ${serverUrl}:`, data.error);
+-      return false;
++    if (!response.ok) return null;
++    const data: unknown = await response.json();
++    const parsed = z.object({user_id: z.string(), access_token: z.string()}).parse(data);
++    try {
++      return parsed.user_id === qualified ? parsed.user_id : null;
++    } finally {
++      await fetch(`${homeserver}/_matrix/client/v3/logout`, {method: 'POST', redirect: 'error',
++        headers: {Authorization: `Bearer ${parsed.access_token}`}, signal: AbortSignal.timeout(10000)});
+     }
+-  } catch (error) {
+-    console.error(`[Auth] Error connecting to homeserver for ${mxid}:`, error);
+-    return false;
+-  }
++  } catch { return null; }
+ };
+ 
+ /**
+diff --git a/src/bot.ts b/src/bot.ts
+index 077be0b..f4e99f0 100644
+--- a/src/bot.ts
++++ b/src/bot.ts
+@@ -4,6 +4,8 @@ import * as yaml from 'js-yaml';
+ import * as fs from 'fs';
+ import * as path from 'path';
+ import { config } from './config';
++import { isEnabledRoom, enabledRooms, requireJoinedAccount, RoomMembershipRemoved } from './deploymentPolicy';
++import { retainTransaction, parseRetainedEvent, deliverySchema } from './inboundEvents';
+ import { proxyCache } from './services/cache';
+ import { maskMxid } from './utils/privacy';
+ import { OlmMachineManager } from './crypto/OlmMachineManager';
+@@ -18,7 +20,7 @@ import { IntentWithClient, PluralMatrixEvent, PluralMatrixEventContent } from '.
+ import { applyProxyEffects } from './services/autoproxyService';
+ 
+ // Configuration
+-const REGISTRATION_PATH = '/data/app-service-registration.yaml';
++const REGISTRATION_PATH = process.env.REGISTRATION_PATH || '/data/app-service-registration.yaml';
+ const HOMESERVER_URL = config.synapseUrl;
+ const DOMAIN = config.synapseDomain;
+ 
+@@ -65,10 +67,14 @@ export const handleEvent = async (
+   prismaClient: PrismaClient,
+   isDecrypted: boolean = false,
+ ) => {
+-  const event = request.getData();
++  return handleEventData(request.getData(), bridgeInstance, prismaClient, isDecrypted);
++};
++
++const handleEventData = async (event: WeakEvent, bridgeInstance: Bridge, prismaClient: PrismaClient, isDecrypted = false) => {
+   const eventId = event.event_id;
+   const roomId = event.room_id;
+   const sender = event.sender;
++  if (!isEnabledRoom(roomId)) return;
+ 
+   // Member Event Handling (Invites and Joins)
+   if (event.type === 'm.room.member') {
+@@ -127,128 +133,14 @@ export const handleEvent = async (
+         return;
+       }
+ 
+-      // Managed Ghost invited
+-      if (targetUserId.startsWith('@_plural_')) {
+-        console.log(`[Ghost] ${targetUserId} received invite to ${roomId}. Implementing auto-forwarding...`);
+-        const ghostIntent = bridgeInstance.getIntent(targetUserId);
+-
+-        try {
+-          // Ghost Joins
+-          await ghostIntent.join(roomId);
+-
+-          // Find the system this ghost belongs to
+-          const parts = targetUserId.split(':')[0].split('_');
+-          const systemSlug = parts[2];
+-
+-          const system = await prismaClient.system.findUnique({
+-            where: { slug: systemSlug },
+-            include: { accountLinks: true },
+-          });
+-
+-          if (system) {
+-            const isOwnerInviting = system.accountLinks.some((l) => l.matrixId.toLowerCase() === sender.toLowerCase());
+-            const primaryLink = system.accountLinks.find((l) => l.isPrimary) || system.accountLinks[0];
+-
+-            if (primaryLink) {
+-              // 1. Set Room Name: "[Sender Name], [Ghost Name]"
+-              try {
+-                const intentClient = ghostIntent as IntentWithClient;
+-                const senderProfile = (await intentClient.matrixClient.getUserProfile(sender)) as {
+-                  displayname?: string;
+-                };
+-                const ghostProfile = (await intentClient.matrixClient.getUserProfile(targetUserId)) as {
+-                  displayname?: string;
+-                };
+-                const senderName = senderProfile.displayname || sender;
+-                const ghostName = ghostProfile.displayname || targetUserId;
+-                const roomName = `${senderName}, ${ghostName}`;
+-
+-                // Match found: Setting room name
+-                console.log(`[Ghost] Setting room name in ${roomId}`);
+-                await ghostIntent.setRoomName(roomId, roomName);
+-              } catch (e: unknown) {
+-                console.warn(`[Ghost] Failed to set room name in ${roomId}:`, (e as Error).message);
+-              }
+-
+-              if (!isOwnerInviting) {
+-                console.log(`[Ghost] Inviting primary account ${primaryLink.matrixId} and bot to ${roomId}`);
+-                try {
+-                  await ghostIntent.invite(roomId, primaryLink.matrixId);
+-                } catch (e: unknown) {
+-                  console.warn(`[Ghost] Failed to invite primary account (already in room?):`, (e as Error).message);
+-                }
+-              } else {
+-                console.log(
+-                  `[Ghost] Owner ${maskMxid(sender)} invited managed ghost. Skipping owner invite, inviting bot.`,
+-                );
+-              }
+-
+-              // 2. Invite PluralBot
+-              await ghostIntent.invite(roomId, botUserId);
+-
+-              // Force Bot to join immediately (Don't wait for invite event loopback)
+-              setTimeout(() => {
+-                (async () => {
+-                  try {
+-                    await bridgeInstance.getIntent().join(roomId);
+-                    console.log(`[Bot] Joined ${roomId} via ghost-triggered join.`);
+-                    joinedRooms.add(roomId);
+-                  } catch (e: unknown) {
+-                    console.warn(`[Bot] Immediate join failed (might already be in room):`, (e as Error).message);
+-                  }
+-                })().catch(console.error);
+-              }, 500);
+-
+-              // 3. Pre-emptively promote system (Bot & Owner) to Admin
+-              await commandHandler.promoteSystemPowerLevels(roomId, targetUserId);
+-
+-              if (!isOwnerInviting) {
+-                // 4. Set Room Topic: Temporary notice until owner arrives
+-                try {
+-                  await ghostIntent.setRoomTopic(roomId, 'PluralMatrix: Waiting for account owner to join...');
+-                } catch (e: unknown) {
+-                  console.warn(`[Ghost] Failed to set room topic in ${roomId}:`, (e as Error).message);
+-                }
+-              }
+-            }
+-          }
+-        } catch (e: unknown) {
+-          console.error(`[Ghost] Auto-forwarding failed for ${targetUserId} in ${roomId}:`, (e as Error).message);
+-        }
+-        return;
+-      }
+     }
+ 
+-    // 2. Case: Join Handling (Power level promotion & Topic clearing)
+-    if (membership === 'join') {
+-      try {
+-        const members = await bridgeInstance.getBot().getClient().getJoinedRoomMembers(roomId);
+-        const ghostInRoom = members.find((m: string) => m.startsWith('@_plural_'));
+-
+-        if (ghostInRoom) {
+-          const parts = ghostInRoom.split(':')[0].split('_');
+-          const systemSlug = parts[2];
+-          const system = await prismaClient.system.findUnique({
+-            where: { slug: systemSlug },
+-            include: { accountLinks: true },
+-          });
+-
+-          if (system) {
+-            const primaryUser =
+-              system.accountLinks.find((l) => l.isPrimary)?.matrixId || system.accountLinks[0].matrixId;
+-            if (targetUserId === primaryUser) {
+-              try {
+-                const ghostIntent = bridgeInstance.getIntent(ghostInRoom);
+-                await ghostIntent.setRoomTopic(roomId, '');
+-                console.log(`[Ghost] Cleared room topic in ${roomId} as primary user ${targetUserId} has joined.`);
+-              } catch {
+-                // Ignore topic errors
+-              }
+-            }
+-          }
+-        }
+-      } catch {
+-        // Ignore errors
++    if (membership === 'leave' || membership === 'ban') {
++      const link = await prismaClient.accountLink.findUnique({
++        where: {matrixId: targetUserId}, include: {system: {include: {members: true}}},
++      });
++      if (link) for (const member of link.system.members) {
++        await bridgeInstance.getIntent(`@_plural_${link.system.slug}_${member.slug}:${DOMAIN}`).leave(roomId);
+       }
+     }
+   }
+@@ -343,17 +235,12 @@ export const handleEvent = async (
+     }
+   }
+ 
+-  // --- ZERO-FLASH: REDACT EMPTY MESSAGES (MOD-CLEARED) ---
+-  if (body.trim() === '') {
+-    console.log(`[Janitor] Redacting module-cleared message ${eventId} in ${roomId}`);
+-    await commandHandler.safeRedact(roomId, eventId, 'ZeroFlash');
+-    return;
+-  }
+-
+   // --- Command handling ---
+   const parsedCommand = parseCommand(body, content?.formatted_body);
+   if (parsedCommand) {
++    await requireJoinedAccount(bridgeInstance, roomId, sender);
+     const { cmd, parts, botMention } = parsedCommand;
++    await prismaClient.inboundEvent.updateMany({where: {id: eventId}, data: {isProxy: true}});
+     const system = await proxyCache.getSystemRules(sender, prismaClient);
+ 
+     const handled = await commandHandler.handleCommand(event, cmd, parts, system, botMention);
+@@ -370,6 +257,7 @@ export const handleEvent = async (
+   const proxyMatch = parseProxyMatch(content, system, isEdit ? originalEvent?.content : undefined);
+ 
+   if (proxyMatch) {
++    await requireJoinedAccount(bridgeInstance, roomId, sender);
+     const { targetMember, cleanBody, cleanFormattedBody, wasAutoproxied } = proxyMatch as {
+       targetMember: { id: string; slug?: string; name?: string; displayName?: string; avatarUrl?: string };
+       cleanBody: string;
+@@ -384,69 +272,117 @@ export const handleEvent = async (
+     // If it's an edit, redact the original root event (Matrix server will cascade redact all associated m.replace edits)
+     // If it's a new message, redact the event itself
+     const targetRedactionId = isEdit ? originalEventId : eventId;
+-    await commandHandler.safeRedact(roomId, targetRedactionId, 'PluralProxy');
++    // Keep the original until the replacement has been acknowledged by Matrix.
+ 
+-    try {
+-      const ghostUserId = `@_plural_${system.slug}_${targetMember.slug}:${DOMAIN}`;
+-      const intent = bridgeInstance.getIntent(ghostUserId);
+-      const finalDisplayName = system.systemTag
+-        ? `${targetMember.displayName || targetMember.name} ${system.systemTag}`
+-        : targetMember.displayName || targetMember.name;
++    const ghostUserId = `@_plural_${system.slug}_${targetMember.slug}:${DOMAIN}`;
++    const intent = bridgeInstance.getIntent(ghostUserId);
++    const finalDisplayName = system.systemTag
++      ? `${targetMember.displayName || targetMember.name} ${system.systemTag}`
++      : targetMember.displayName || targetMember.name;
+ 
+-      await intent.ensureRegistered();
++    await intent.ensureRegistered();
++    try {
++      await intent.join(roomId);
++    } catch {
+       try {
++        await bridgeInstance.getIntent().invite(roomId, ghostUserId);
+         await intent.join(roomId);
+-      } catch {
+-        try {
+-          await bridgeInstance.getIntent().invite(roomId, ghostUserId);
+-          await intent.join(roomId);
+-        } catch {
+-          // Ignore errors
+-        }
+-      }
+-
+-      const machine = await cryptoManager.getMachine(ghostUserId);
+-      await registerDevice(intent, machine.deviceId.toString(), prismaClient, targetMember.id);
+-
+-      try {
+-        if (finalDisplayName) await intent.setDisplayName(finalDisplayName);
+-        if (targetMember.avatarUrl) await intent.setAvatarUrl(targetMember.avatarUrl);
+       } catch {
+         // Ignore errors
+       }
++    }
+ 
+-      let relatesTo: PluralMatrixEventContent['m.relates_to'] | undefined = undefined;
+-      // If it's an edit, we want the *original* event's relations (e.g. what it was replying to)
+-      // since the edit event itself only contains the m.replace relation.
+-      const sourceContent = isEdit && originalEvent?.content ? originalEvent.content : event.content;
++    const machine = await cryptoManager.getMachine(ghostUserId);
++    await registerDevice(intent, machine.deviceId.toString(), prismaClient, targetMember.id);
+ 
+-      if (sourceContent['m.relates_to']) {
+-        relatesTo = { ...sourceContent['m.relates_to'] } as NonNullable<PluralMatrixEventContent['m.relates_to']>;
+-        if (relatesTo.rel_type === 'm.replace') {
+-          delete relatesTo.rel_type;
+-          delete relatesTo.event_id;
+-        }
+-        if (Object.keys(relatesTo).length === 0) relatesTo = undefined;
+-      }
+-      messageQueue.enqueue(
+-        roomId,
+-        sender,
+-        intent,
+-        cleanBody,
+-        relatesTo,
+-        prismaClient,
+-        system.slug,
+-        format,
+-        cleanFormattedBody,
+-        proxyMatch.fullContent,
+-      );
++    try {
++      if (finalDisplayName) await intent.setDisplayName(finalDisplayName);
++      if (targetMember.avatarUrl) await intent.setAvatarUrl(targetMember.avatarUrl);
+     } catch {
+       // Ignore errors
+     }
++
++    let relatesTo: PluralMatrixEventContent['m.relates_to'] | undefined = undefined;
++    // If it's an edit, we want the *original* event's relations (e.g. what it was replying to)
++    // since the edit event itself only contains the m.replace relation.
++    const sourceContent = isEdit && originalEvent?.content ? originalEvent.content : event.content;
++
++    if (sourceContent['m.relates_to']) {
++      relatesTo = { ...sourceContent['m.relates_to'] } as NonNullable<PluralMatrixEventContent['m.relates_to']>;
++      if (relatesTo.rel_type === 'm.replace') {
++        delete relatesTo.rel_type;
++        delete relatesTo.event_id;
++      }
++      if (Object.keys(relatesTo).length === 0) relatesTo = undefined;
++    }
++    await messageQueue.enqueue(
++      roomId,
++      sender,
++      intent,
++      cleanBody,
++      relatesTo,
++      prismaClient,
++      system.slug,
++      format,
++      cleanFormattedBody,
++      proxyMatch.fullContent,
++      eventId,
++      targetRedactionId,
++    );
++    await commandHandler.safeRedact(roomId, targetRedactionId, 'PluralProxy');
+     return;
+   }
+ };
+ 
++const processingEvents = new Set<string>();
++async function processEventData(event: WeakEvent) {
++  if (!isEnabledRoom(event.room_id) || !event.event_id) return;
++  if (processingEvents.has(event.event_id)) return;
++  processingEvents.add(event.event_id);
++  try {
++    if (event.type === 'm.room.message' && isEnabledRoom(event.room_id)) {
++      const saved = await prisma.inboundEvent.findUnique({where: {id: event.event_id}});
++      if (saved?.done) return;
++    }
++    const retained = await prisma.inboundEvent.findUnique({where: {id: event.event_id}});
++    if (event.type === 'm.room.message' && isEnabledRoom(event.room_id) && !retained?.deliveredEventId) {
++      const latest = await bridge.getIntent().matrixClient.getEvent(event.room_id, event.event_id);
++      if (latest.unsigned?.redacted_because) {
++        await prisma.inboundEvent.updateMany({where: {id: event.event_id}, data: {done: true, payload: '', delivery: null, isProxy: true, cancelledReason: 'source_redacted'}});
++        return;
++      }
++    }
++    if (retained?.delivery) {
++      const snapshot = deliverySchema.parse(JSON.parse(retained.delivery));
++      const owner = await prisma.accountLink.findUnique({where: {matrixId: event.sender}, include: {system: {include: {members: true}}}});
++      if (!owner || !owner.system.members.some(member => snapshot.ghostUserId === `@_plural_${owner.system.slug}_${member.slug}:${DOMAIN}`)) throw new Error('Pending identity requires operator review');
++      await messageQueue.enqueue(event.room_id, event.sender, bridge.getIntent(snapshot.ghostUserId), snapshot.content.body || '',
++        snapshot.content['m.relates_to'], prisma, owner.system.slug, snapshot.content.format, snapshot.content.formatted_body,
++        snapshot.content, event.event_id, snapshot.redactionTarget);
++      await commandHandler.safeRedact(event.room_id, snapshot.redactionTarget, 'PluralProxy');
++    } else await handleEventData(event, bridge, prisma);
++    await prisma.inboundEvent.updateMany({where: {id: event.event_id, isProxy: null}, data: {isProxy: false}});
++    await prisma.inboundEvent.updateMany({where: {id: event.event_id}, data: {done: true, payload: '', delivery: null}});
++  } catch (error) {
++    if (!(error instanceof RoomMembershipRemoved)) throw error;
++    await prisma.inboundEvent.updateMany({where: {id: event.event_id}, data: {done: true, payload: '', delivery: null, isProxy: true, cancelledReason: 'membership_removed'}});
++  } finally { processingEvents.delete(event.event_id); }
++}
++const scheduledEvents = new Set<string>();
++const roomWork = new Map<string, Promise<void>>();
++async function processRoomEvent(event: WeakEvent) {
++  if (scheduledEvents.has(event.event_id)) return;
++  scheduledEvents.add(event.event_id);
++  const previous = roomWork.get(event.room_id) || Promise.resolve();
++  const current = previous.catch(() => {}).then(() => processEventData(event));
++  roomWork.set(event.room_id, current);
++  try { await current; } finally {
++    scheduledEvents.delete(event.event_id);
++    if (roomWork.get(event.room_id) === current) roomWork.delete(event.room_id);
++  }
++}
++async function processEvent(request: Request<WeakEvent>) { return processRoomEvent(request.getData()); }
++
+ export const startMatrixBot = async () => {
+   const reg = yaml.load(fs.readFileSync(REGISTRATION_PATH, 'utf8')) as { as_token: string; hs_token: string };
+   asToken = reg.as_token;
+@@ -462,7 +398,7 @@ export const startMatrixBot = async () => {
+     controller: {
+       onUserQuery: () => ({}),
+       onEvent: (request: Request<WeakEvent>) => {
+-        handleEvent(request, bridge, prisma).catch(console.error);
++        processEvent(request).catch(console.error);
+       },
+     },
+   });
+@@ -545,12 +481,14 @@ export const startMatrixBot = async () => {
+ 
+   const appServiceInstance = new AppService({ homeserverToken: reg.hs_token });
+   const app = appServiceInstance.app;
+-  app.use(async (req: { method: string; path: string; body: unknown }, res: unknown, next: () => void) => {
++  app.use(async (req: {method: string; path: string; body: unknown; headers: Record<string, string | string[] | undefined>}, res: {sendStatus: (code: number) => unknown}, next: () => void) => {
+     if (req.method === 'PUT' && req.path.includes('/transactions/')) {
++      if (req.headers.authorization !== `Bearer ${reg.hs_token}`) { res.sendStatus(401); return; }
+       try {
+-        await router.processTransaction(req.body as never);
+-      } catch (e: unknown) {
+-        console.error('[Router] Error:', e);
++        const transaction = await retainTransaction(prisma, req.body);
++        await router.processTransaction(transaction);
++      } catch {
++        res.sendStatus(503); return;
+       }
+     }
+     next();
+@@ -565,9 +503,35 @@ export const startMatrixBot = async () => {
+     else stack.unshift(myLayer);
+   }
+ 
+-  await bridge.listen(8008, '0.0.0.0', 10, appServiceInstance);
++  await bridge.listen(parseInt(process.env.AS_PORT || '29336'), '127.0.0.1', 10, appServiceInstance);
+   await joinPendingInvites(bridge);
+   await syncJoinedRooms(bridge);
++  await reconcileGhostMembership(bridge);
++  setInterval(() => reconcileGhostMembership(bridge).catch(console.error), 30000);
++  const replay = async () => {
++    for (const row of await prisma.inboundEvent.findMany({where: {done: false}, orderBy: {sequence: 'asc'}, take: 100})) {
++      const event = parseRetainedEvent(row.payload);
++      await processRoomEvent(event).catch(error => console.error('[Replay]', error.message));
++    }
++  };
++  await replay();
++  setInterval(() => replay().catch(console.error), 5000);
++};
++
++// A missed membership callback must not leave a removed member's ghosts in a private room.
++const reconcileGhostMembership = async (bridgeInstance: Bridge) => {
++  const systems = await prisma.system.findMany({include: {accountLinks: true, members: true}});
++  for (const roomId of joinedRooms) {
++    const state = await bridgeInstance.getIntent().matrixClient.getRoomState(roomId);
++    const joined = new Set(state.filter(event => event.type === 'm.room.member' && event.content.membership === 'join').map(event => event.state_key));
++    for (const system of systems) {
++      if (system.accountLinks.some(account => joined.has(account.matrixId))) continue;
++      for (const member of system.members) {
++        const ghost = `@_plural_${system.slug}_${member.slug}:${DOMAIN}`;
++        if (joined.has(ghost)) await bridgeInstance.getIntent(ghost).leave(roomId);
++      }
++    }
++  }
+ };
+ 
+ const syncJoinedRooms = async (bridgeInstance: Bridge) => {
+@@ -575,7 +539,7 @@ const syncJoinedRooms = async (bridgeInstance: Bridge) => {
+     const botClient = bridgeInstance.getBot().getClient();
+     const rooms = await botClient.getJoinedRooms();
+     for (const roomId of rooms) {
+-      joinedRooms.add(roomId);
++      if (isEnabledRoom(roomId)) joinedRooms.add(roomId);
+     }
+     console.log(`[Bot] Synced joined rooms: ${joinedRooms.size} rooms.`);
+   } catch (e: unknown) {
+@@ -584,22 +548,13 @@ const syncJoinedRooms = async (bridgeInstance: Bridge) => {
+ };
+ 
+ const joinPendingInvites = async (bridgeInstance: Bridge) => {
+-  try {
+-    const botClient = bridgeInstance.getBot().getClient();
+-    const syncData = (await botClient.doRequest('GET', '/_matrix/client/v3/sync', {
+-      filter: '{"room":{"timeline":{"limit":1}}}',
+-    })) as { rooms?: { invite?: Record<string, unknown> } };
+-    if (syncData.rooms?.invite) {
+-      for (const roomId of Object.keys(syncData.rooms.invite)) {
+-        try {
+-          await bridgeInstance.getIntent().join(roomId);
+-          joinedRooms.add(roomId);
+-        } catch {
+-          // Ignore errors
+-        }
+-      }
++  // AS tokens cannot /sync on Synapse. Joining still requires a moderator's invite.
++  for (const roomId of enabledRooms()) {
++    try {
++      await bridgeInstance.getIntent().join(roomId);
++      joinedRooms.add(roomId);
++    } catch {
++      // Uninvited rooms stay inaccessible.
+     }
+-  } catch {
+-    // Ignore errors
+   }
+ };
+diff --git a/src/config.ts b/src/config.ts
+index c5e885c..aaf5149 100644
+--- a/src/config.ts
++++ b/src/config.ts
+@@ -60,6 +60,7 @@ export const config: Config = {
+  */
+ export const validateConfig = () => {
+   const missing = [];
++  if (!process.env.PLURAL_ALLOWED_ROOMS) missing.push('PLURAL_ALLOWED_ROOMS');
+   if (!config.asToken) missing.push('AS_TOKEN');
+   if (!config.jwtSecret) missing.push('JWT_SECRET');
+   if (!config.gatekeeperSecret) missing.push('GATEKEEPER_SECRET');
+diff --git a/src/controllers/authController.ts b/src/controllers/authController.ts
+index 20731a6..b78c334 100644
+--- a/src/controllers/authController.ts
++++ b/src/controllers/authController.ts
+@@ -1,6 +1,6 @@
+ import { Request, Response } from 'express';
+ import { prisma } from '../bot';
+-import { loginToMatrix, generateToken, AuthRequest } from '../auth';
++import { loginToMatrix, generateToken, AuthRequest, trustedHomeserverFor } from '../auth';
+ import { proxyCache } from '../services/cache';
+ import { LoginSchema } from '../schemas/auth';
+ import { z } from 'zod';
+@@ -14,11 +14,12 @@ export const login = async (req: Request, res: Response) => {
+     let mxid = parsed.mxid;
+     const password = parsed.password;
+ 
+-    const success = await loginToMatrix(mxid, password);
++    if (!trustedHomeserverFor(mxid)) return res.status(403).json({error: 'Dashboard sign-in is not enabled for that homeserver yet. Contact a moderator.'});
++    const verifiedMxid = await loginToMatrix(mxid, password);
+ 
+-    if (success) {
++    if (verifiedMxid) {
+       // Consistently lowercase and format the MXID
+-      mxid = mxid.toLowerCase();
++      mxid = verifiedMxid;
+       if (!mxid.startsWith('@')) mxid = `@${mxid}`;
+       if (!mxid.includes(':')) mxid = `${mxid}:${DOMAIN}`;
+ 
+diff --git a/src/controllers/groupController.ts b/src/controllers/groupController.ts
+index c1cde72..0de1e6f 100644
+--- a/src/controllers/groupController.ts
++++ b/src/controllers/groupController.ts
+@@ -30,6 +30,7 @@ export const createGroup = async (req: AuthRequest, res: Response) => {
+     });
+     if (!link) return res.status(404).json({ error: 'System not found' });
+     const system = link.system;
++    if (members && await prisma.member.count({where: {id: {in: members}, systemId: system.id}}) !== new Set(members).size) return res.status(400).json({error: 'Members must belong to your system'});
+ 
+     const group = await prisma.group.create({
+       data: {
+@@ -72,6 +73,7 @@ export const updateGroup = async (req: AuthRequest, res: Response) => {
+       where: { id, systemId: link.systemId },
+     });
+     if (!groupToUpdate) return res.status(404).json({ error: 'Group not found' });
++    if (members && await prisma.member.count({where: {id: {in: members}, systemId: link.systemId}}) !== new Set(members).size) return res.status(400).json({error: 'Members must belong to your system'});
+ 
+     const group = await prisma.group.update({
+       where: { id },
+diff --git a/src/controllers/mediaController.ts b/src/controllers/mediaController.ts
+index 45935dc..696f86d 100644
+--- a/src/controllers/mediaController.ts
++++ b/src/controllers/mediaController.ts
+@@ -66,7 +66,7 @@ export const downloadMedia = async (req: Request, res: Response) => {
+ 
+     // Modern Synapse requires authenticated media download via /client/v1/
+     const response = await fetch(
+-      `${config.synapseUrl}/_matrix/client/v1/media/download/${server as string}/${mediaId as string}`,
++      `${config.synapseUrl}/_matrix/client/v1/media/download/${encodeURIComponent(String(server))}/${encodeURIComponent(String(mediaId))}`,
+       {
+         headers: {
+           Authorization: `Bearer ${config.asToken}`,
+diff --git a/src/controllers/memberController.ts b/src/controllers/memberController.ts
+index fea9899..aa5285f 100644
+--- a/src/controllers/memberController.ts
++++ b/src/controllers/memberController.ts
+@@ -33,6 +33,7 @@ export const createMember = async (req: AuthRequest, res: Response) => {
+     });
+     if (!link) return res.status(404).json({ error: 'System not found' });
+     const system = link.system;
++    if (groups && await prisma.group.count({where: {id: {in: groups}, systemId: system.id}}) !== new Set(groups).size) return res.status(400).json({error: 'Groups must belong to your system'});
+ 
+     // Check for duplicate proxy tags in the same system
+     for (const member of system.members) {
+@@ -115,6 +116,7 @@ export const updateMember = async (req: AuthRequest, res: Response) => {
+     }
+ 
+     const { groups, privacy, ...prismaUpdateData } = updateData;
++    if (groups && await prisma.group.count({where: {id: {in: groups}, systemId: link.systemId}}) !== new Set(groups).size) return res.status(400).json({error: 'Groups must belong to your system'});
+ 
+     const updated = await prisma.member.update({
+       where: { id },
+diff --git a/src/controllers/systemController.ts b/src/controllers/systemController.ts
+index 3de70cb..434aea2 100644
+--- a/src/controllers/systemController.ts
++++ b/src/controllers/systemController.ts
+@@ -297,6 +297,7 @@ export const updateSystem = async (req: AuthRequest, res: Response) => {
+       return res.status(404).json({ error: 'No system found for this account' });
+     }
+ 
++    if (autoproxyId && !await prisma.member.findFirst({where: {id: autoproxyId, systemId: link.systemId}})) return res.status(400).json({error: 'Autoproxy member must belong to your system'});
+     const currentSystemId = link.systemId;
+     const updateData: Prisma.SystemUncheckedUpdateInput = {
+       name,
+@@ -395,77 +396,8 @@ export const getLinks = async (req: AuthRequest, res: Response) => {
+   }
+ };
+ 
+-export const createLink = async (req: AuthRequest, res: Response) => {
+-  try {
+-    const mxid = req.user!.mxid;
+-    let targetMxid = (req.body as { targetMxid?: string }).targetMxid;
+-    console.log(`[API] createLink initiated by ${mxid} for target ${targetMxid}`);
+-    if (!targetMxid) return res.status(400).json({ error: 'Missing targetMxid' });
+-
+-    targetMxid = targetMxid.toLowerCase();
+-    if (!targetMxid.startsWith('@')) targetMxid = `@${targetMxid}`;
+-    if (!targetMxid.includes(':')) {
+-      const domain = mxid.split(':')[1];
+-      targetMxid = `${targetMxid}:${domain}`;
+-    }
+-    console.log(`[API] createLink normalized target to ${targetMxid}`);
+-
+-    const link = await prisma.accountLink.findUnique({
+-      where: { matrixId: mxid },
+-    });
+-
+-    if (!link) {
+-      console.log(`[API] createLink failed: Source system not found for ${mxid}`);
+-      return res.status(404).json({ error: 'System not found' });
+-    }
+-
+-    // Safety check: target existing system
+-    const targetLink = await prisma.accountLink.findUnique({
+-      where: { matrixId: targetMxid },
+-      include: { system: { include: { members: true, accountLinks: true } } },
+-    });
+-
+-    if (targetLink) {
+-      console.log(`[API] createLink: Target ${targetMxid} already has a link to system ${targetLink.systemId}`);
+-      if (targetLink.systemId === link.systemId) {
+-        return res.status(400).json({ error: 'Account is already linked' });
+-      }
+-      if (targetLink.system.members.length > 0) {
+-        console.log(`[API] createLink failed: Target has populated system.`);
+-        return res.status(400).json({ error: 'Target account already has members in its system.' });
+-      }
+-
+-      // Cleanup target's empty system if they were the only link
+-      console.log(`[API] createLink: Cleaning up empty system for target ${targetMxid}`);
+-      if (targetLink.system.accountLinks.length === 1) {
+-        await prisma.system.delete({ where: { id: targetLink.systemId } });
+-      } else {
+-        await prisma.accountLink.delete({ where: { matrixId: targetMxid } });
+-      }
+-    }
+-
+-    const existingPrimary = await prisma.accountLink.findFirst({
+-      where: { systemId: link.systemId, isPrimary: true },
+-    });
+-
+-    console.log(`[API] createLink: Creating new link for ${targetMxid} to system ${link.systemId}`);
+-    const newLink = await prisma.accountLink.create({
+-      data: {
+-        matrixId: targetMxid,
+-        systemId: link.systemId,
+-        isPrimary: !existingPrimary,
+-      },
+-    });
+-
+-    proxyCache.invalidate(targetMxid);
+-    emitSystemUpdate(targetMxid);
+-    emitSystemUpdate(mxid);
+-    console.log(`[API] createLink successful for ${targetMxid}`);
+-    res.status(201).json(newLink);
+-  } catch (e: unknown) {
+-    console.error('[SystemController] Failed to create link:', (e as Error).message || e);
+-    res.status(500).json({ error: 'Failed to create link' });
+-  }
++export const createLink = (_req: AuthRequest, res: Response) => {
++  return res.status(403).json({error: 'Account linking requires proof from both accounts and is disabled.'});
+ };
+ 
+ export const deleteLink = async (req: AuthRequest, res: Response) => {
+@@ -654,6 +586,9 @@ export const logSwitch = async (req: AuthRequest, res: Response) => {
+ 
+     if (!link) return res.status(404).json({ error: 'System not found' });
+ 
++    if (!members.every((item: unknown) => typeof item === 'string') || new Set(members).size !== members.length ||
++        await prisma.member.count({where: {id: {in: members}, systemId: link.systemId}}) !== members.length) return res.status(400).json({error: 'Switch members must belong to your system'});
++
+     const newSwitch = await prisma.switch.create({
+       data: {
+         systemId: link.systemId,
+diff --git a/src/crypto/encryption.ts b/src/crypto/encryption.ts
+index 30687ba..402a30e 100644
+--- a/src/crypto/encryption.ts
++++ b/src/crypto/encryption.ts
+@@ -56,6 +56,7 @@ export async function sendEncryptedEvent(
+   manager: OlmMachineManager,
+   asToken: string,
+   prisma?: PrismaClient,
++  transactionId?: string,
+ ) {
+   const ghostUserId = intent.userId;
+ 
+@@ -73,6 +74,9 @@ export async function sendEncryptedEvent(
+   }
+ 
+   if (!isEncrypted) {
++    if (transactionId) return intent.matrixClient.doRequest('PUT',
++      `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/send/${encodeURIComponent(eventType)}/${encodeURIComponent(transactionId)}`,
++      {user_id: ghostUserId}, content);
+     return intent.sendEvent(roomId, eventType, content);
+   }
+ 
+@@ -166,6 +170,9 @@ export async function sendEncryptedEvent(
+     }
+ 
+     // Step D: Send encrypted event
++    if (transactionId) return intent.matrixClient.doRequest('PUT',
++      `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/send/m.room.encrypted/${encodeURIComponent(transactionId)}`,
++      {user_id: ghostUserId}, encryptedPayload);
+     return intent.sendEvent(roomId, 'm.room.encrypted', encryptedPayload);
+   } catch (e: unknown) {
+     console.error(`[Crypto] Encryption failed for ${ghostUserId} in ${roomId}:`, (e as Error).message || e);
+diff --git a/src/deploymentPolicy.ts b/src/deploymentPolicy.ts
+new file mode 100644
+index 0000000..b4f25e0
+--- /dev/null
++++ b/src/deploymentPolicy.ts
+@@ -0,0 +1,12 @@
++import { Bridge } from 'matrix-appservice-bridge';
++
++export const enabledRooms = () => (process.env.PLURAL_ALLOWED_ROOMS || '').split(',').filter(Boolean);
++export const isEnabledRoom = (roomId: string) => enabledRooms().includes(roomId);
++
++export class RoomMembershipRemoved extends Error {}
++
++export async function requireJoinedAccount(bridge: Bridge, roomId: string, sender: string) {
++  if (!isEnabledRoom(roomId)) throw new Error('PluralMatrix is not enabled in this room');
++  const state = await bridge.getIntent().matrixClient.getRoomStateEvent(roomId, 'm.room.member', sender);
++  if (state?.membership !== 'join') throw new RoomMembershipRemoved('The account is no longer a room member');
++}
+diff --git a/src/import.ts b/src/import.ts
+index 39668e1..a7d54ee 100644
+--- a/src/import.ts
++++ b/src/import.ts
+@@ -1,7 +1,9 @@
+ import { prisma } from './bot';
++import { downloadAvatar } from './utils/avatarDownload';
+ import { getBridge } from './bot';
+ import archiver from 'archiver';
+ import AdmZip from 'adm-zip';
++import { PluralKitImportSchema } from './schemas/import';
+ import { maskMxid } from './utils/privacy';
+ import fs from 'fs';
+ import path from 'path';
+@@ -11,6 +13,15 @@ import { config } from './config';
+ import { PKExport, PluralKitMember, PluralKitSystem, PluralKitGroup } from './types';
+ import { Member, System, Prisma } from '@prisma/client';
+ 
++function boundedZip(buffer: Buffer) {
++  if (buffer.length > 10 * 1024 * 1024) throw new Error('ZIP exceeds 10 MiB');
++  const zip = new AdmZip(buffer);
++  const entries = zip.getEntries();
++  if (entries.length > 2000 || entries.reduce((total, entry) => total + entry.header.size, 0) > 32 * 1024 * 1024 ||
++      entries.some(entry => entry.header.size > 4 * 1024 * 1024)) throw new Error('ZIP expansion exceeds import limits');
++  return zip;
++}
++
+ export interface AvatarMigrationError {
+   slug: string;
+   name: string;
+@@ -208,16 +219,8 @@ export const migrateAvatar = async (url: string): Promise<{ mxcUrl?: string; err
+     const bridge = getBridge();
+     if (!bridge) return null;
+ 
+-    const controller = new AbortController();
+-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s for download
+-
+-    const response = await fetch(url, { signal: controller.signal });
+-    clearTimeout(timeoutId);
+-
+-    if (!response.ok) return { error: `Server returned ${response.status} ${response.statusText}` };
+-
+-    const buffer = Buffer.from(await response.arrayBuffer());
+-    const contentType = response.headers.get('content-type') || 'image/png';
++    const buffer = await downloadAvatar(url);
++    const contentType = 'image/' + imageSize(buffer).type;
+ 
+     // 2. Validate Image Content
+     const validation = validateImageBuffer(buffer);
+@@ -468,8 +471,8 @@ export const importFromPluralKit = async (
+       const slug = pkMember.finalSlug;
+       const rawTags = (pkMember.proxy_tags || []) as { prefix?: string; suffix?: string }[];
+       const proxyTags: Prisma.InputJsonValue = rawTags
+-        .filter((t) => t.prefix)
+-        .map((t) => ({ prefix: t.prefix, suffix: t.suffix || '' }));
++        .filter((t) => t.prefix || t.suffix)
++        .map((t) => ({ prefix: t.prefix || '', suffix: t.suffix || '' }));
+ 
+       const migrationResult = await migrateAvatar(pkMember.avatar_url as string);
+       const avatarUrl = migrationResult?.mxcUrl;
+@@ -878,7 +881,7 @@ export const exportSystemZip = async (mxid: string, stream: NodeJS.WritableStrea
+         const controller = new AbortController();
+         const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout for export downloads
+ 
+-        const response = await fetch(`${homeserverUrl}/_matrix/client/v1/media/download/${server}/${mediaId}`, {
++        const response = await fetch(`${homeserverUrl}/_matrix/client/v1/media/download/${encodeURIComponent(server)}/${encodeURIComponent(mediaId)}`, {
+           headers: { Authorization: `Bearer ${asToken}` },
+           signal: controller.signal,
+         });
+@@ -921,7 +924,7 @@ export const exportSystemZip = async (mxid: string, stream: NodeJS.WritableStrea
+         const controller = new AbortController();
+         const timeoutId = setTimeout(() => controller.abort(), 10000);
+ 
+-        const response = await fetch(`${homeserverUrl}/_matrix/client/v1/media/download/${server}/${mediaId}`, {
++        const response = await fetch(`${homeserverUrl}/_matrix/client/v1/media/download/${encodeURIComponent(server)}/${encodeURIComponent(mediaId)}`, {
+           headers: { Authorization: `Bearer ${asToken}` },
+           signal: controller.signal,
+         });
+@@ -998,7 +1001,7 @@ export const importSystemZip = async (
+   mxid: string,
+   zipBuffer: Buffer,
+ ): Promise<{ count: number; systemSlug: string; failedAvatars: AvatarMigrationError[] }> => {
+-  const zip = new AdmZip(zipBuffer);
++  const zip = boundedZip(zipBuffer);
+   const entries = zip.getEntries();
+ 
+   const jsonEntry = entries.find(
+@@ -1009,7 +1012,7 @@ export const importSystemZip = async (
+   );
+   if (!jsonEntry) throw new Error('No JSON system file found in ZIP');
+ 
+-  const jsonData = JSON.parse(jsonEntry.getData().toString('utf8')) as PKExport;
++  const jsonData = PluralKitImportSchema.parse(JSON.parse(jsonEntry.getData().toString('utf8'))) as PKExport;
+ 
+   const result = await importFromPluralKit(mxid, jsonData);
+ 
+@@ -1043,7 +1046,7 @@ export const importAvatarsZip = async (
+   if (!link) throw new Error('System not found');
+   const system = link.system;
+ 
+-  const zip = new AdmZip(zipBuffer);
++  const zip = boundedZip(zipBuffer);
+   const entries = zip.getEntries();
+   const bridge = getBridge();
+   if (!bridge) throw new Error('Bridge not initialized');
+diff --git a/src/inboundEvents.ts b/src/inboundEvents.ts
+new file mode 100644
+index 0000000..0102558
+--- /dev/null
++++ b/src/inboundEvents.ts
+@@ -0,0 +1,38 @@
++import { PrismaClient } from '@prisma/client';
++import { z } from 'zod';
++import { isEnabledRoom } from './deploymentPolicy';
++import { PluralMatrixEventContent } from './types';
++
++const contentSchema: z.ZodType<PluralMatrixEventContent> = z.object({
++  body: z.string().optional(), msgtype: z.string().optional(), format: z.string().optional(),
++  formatted_body: z.string().optional(), url: z.string().optional(),
++  'm.relates_to': z.object({rel_type: z.string().optional(), event_id: z.string().optional(),
++    is_falling_back: z.boolean().optional(), key: z.string().optional(),
++    'm.in_reply_to': z.object({event_id: z.string().optional()}).optional(),
++  }).loose().optional(),
++  'm.new_content': z.lazy(() => contentSchema).optional(),
++}).loose();
++export const deliverySchema = z.object({ghostUserId: z.string(), content: contentSchema, redactionTarget: z.string()});
++
++const eventSchema = z.object({
++  event_id: z.string(), room_id: z.string(), sender: z.string(), type: z.string(),
++  content: contentSchema,
++  origin_server_ts: z.number().default(0), state_key: z.string().optional(),
++  unsigned: z.record(z.string(), z.unknown()).optional(),
++}).loose();
++export type IncomingEvent = z.infer<typeof eventSchema>;
++const transactionSchema = z.object({events: z.array(eventSchema).default([])}).loose();
++
++// Commit before acknowledging the homeserver; pending work survives service restarts.
++export async function retainTransaction(prisma: PrismaClient, body: unknown) {
++  const parsed = transactionSchema.parse(body);
++  const events = parsed.events.filter(event => isEnabledRoom(event.room_id) && event.type === 'm.room.message');
++  if (events.length) await prisma.inboundEvent.createMany({
++    data: events.map(event => ({id: event.event_id, payload: JSON.stringify(event)})), skipDuplicates: true,
++  });
++  return parsed;
++}
++
++export function parseRetainedEvent(payload: string): IncomingEvent {
++  return eventSchema.parse(JSON.parse(payload));
++}
+diff --git a/src/index.ts b/src/index.ts
+index 05fc069..4a1b7e6 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -67,7 +67,7 @@ const startWithRetries = async () => {
+ if (require.main === module) {
+   startWithRetries()
+     .then(() => {
+-      app.listen(PORT, () => {
++      app.listen(PORT, '127.0.0.1', () => {
+         console.log(`App Service (Brain) listening on port ${PORT}`);
+       });
+ 
+@@ -80,7 +80,7 @@ if (require.main === module) {
+       // Mount at root since gatekeeperRoutes already defines the '/check' path
+       internalApp.use('/', gatekeeperRoutes);
+ 
+-      internalApp.listen(9001, '0.0.0.0', () => {
++      internalApp.listen(parseInt(process.env.GATEKEEPER_PORT || '29337'), '127.0.0.1', () => {
+         console.log(`Internal Gatekeeper listening on port 9001 (Docker-only)`);
+       });
+     })
+diff --git a/src/routes/gatekeeperRoutes.ts b/src/routes/gatekeeperRoutes.ts
+index e19ff91..989af84 100644
+--- a/src/routes/gatekeeperRoutes.ts
++++ b/src/routes/gatekeeperRoutes.ts
+@@ -1,9 +1,17 @@
+ import { Router } from 'express';
+-import * as gatekeeperController from '../controllers/gatekeeperController';
+ import { authenticateGatekeeper } from '../auth';
+-
++import { prisma } from '../bot';
++import { z } from 'zod';
+ const router = Router();
+-
+-router.post('/check', authenticateGatekeeper, gatekeeperController.checkMessage);
+-
++// The bridge waits for interpretation of the actual event; it never triggers a second proxy operation.
++router.post('/decision', authenticateGatekeeper, async (req, res) => {
++  const parsed = z.object({event_id: z.string()}).safeParse(req.body);
++  if (!parsed.success) return res.sendStatus(400);
++  for (let attempt = 0; attempt < 20; attempt++) {
++    const saved = await prisma.inboundEvent.findUnique({where: {id: parsed.data.event_id}});
++    if (saved?.isProxy !== undefined && saved.isProxy !== null && (!saved.isProxy || saved.done || saved.deliveredEventId)) return res.json({ready: true, proxy: saved.isProxy, replacement_event_id: saved.deliveredEventId});
++    await new Promise(resolve => setTimeout(resolve, 50));
++  }
++  return res.json({ready: false});
++});
+ export default router;
+diff --git a/src/routes/index.ts b/src/routes/index.ts
+index 401d7b1..d8f46f0 100644
+--- a/src/routes/index.ts
++++ b/src/routes/index.ts
+@@ -5,7 +5,6 @@ import systemRoutes from './systemRoutes';
+ import groupRoutes from './groupRoutes';
+ import importRoutes from './importRoutes';
+ import mediaRoutes from './mediaRoutes';
+-import gatekeeperRoutes from './gatekeeperRoutes';
+ 
+ const router = Router();
+ 
+@@ -16,6 +15,5 @@ router.use('/groups', groupRoutes);
+ router.use('/import', importRoutes);
+ router.use('/media', mediaRoutes);
+ 
+-router.use('/', gatekeeperRoutes);
+ 
+ export default router;
+diff --git a/src/routes/mediaRoutes.ts b/src/routes/mediaRoutes.ts
+index 614a800..59b6c98 100644
+--- a/src/routes/mediaRoutes.ts
++++ b/src/routes/mediaRoutes.ts
+@@ -5,6 +5,6 @@ import { authenticateToken } from '../auth';
+ const router = Router();
+ 
+ router.post('/upload', authenticateToken, express.raw({ type: 'image/*', limit: '10mb' }), mediaController.uploadMedia);
+-router.get('/download/:server/:mediaId', mediaController.downloadMedia);
++router.get('/download/:server/:mediaId', authenticateToken, mediaController.downloadMedia);
+ 
+ export default router;
+diff --git a/src/services/commandHandler.ts b/src/services/commandHandler.ts
+index 6f48712..8f7aefa 100644
+--- a/src/services/commandHandler.ts
++++ b/src/services/commandHandler.ts
+@@ -1,5 +1,7 @@
+ import { Bridge, Intent } from 'matrix-appservice-bridge';
+ import { PrismaClient, Prisma, Member, Group } from '@prisma/client';
++import { createHash } from 'crypto';
++import { messageQueue } from './queue/MessageQueue';
+ import {
+   SystemWithRelations,
+   PluralMatrixEvent,
+@@ -550,7 +552,6 @@ export class CommandHandler {
+     let relatesToForReproxy: PluralMatrixEventContent['m.relates_to'] | undefined = undefined;
+     // The original root event contains the m.in_reply_to block, not necessarily the latest edit
+     const originalContent = resolution?.event?.content || resolution?.event?.content || {};
+-    console.log(`[CommandHandler] originalContent extracted from resolution:`, JSON.stringify(originalContent));
+     const sourceForRelatesTo = originalContent['m.relates_to'] ? originalContent : targetContent;
+ 
+     if (sourceForRelatesTo['m.relates_to']) {
+@@ -561,7 +562,6 @@ export class CommandHandler {
+       }
+       if (Object.keys(relatesToForReproxy).length === 0) relatesToForReproxy = undefined;
+     }
+-    console.log(`[CommandHandler] Final relatesToForReproxy:`, JSON.stringify(relatesToForReproxy));
+ 
+     if (cmd === 'edit' || cmd === 'e') {
+       const newText = parts.slice(1).join(' ');
+@@ -605,6 +605,7 @@ export class CommandHandler {
+         this.cryptoManager,
+         this.asToken,
+         this.prisma,
++        event.event_id ? createHash('sha256').update(event.event_id + ':edit').digest('hex') : undefined,
+       );
+ 
+       // Critical: If the user used `pk;e` on the "last message", we must update the cache
+@@ -629,7 +630,6 @@ export class CommandHandler {
+       const memberSlug = parts[1]?.toLowerCase();
+ 
+       const member = system.members.find((m) => m.slug === memberSlug);
+-      console.log(`[CommandHandler] Reproxy targetContent:`, JSON.stringify(targetContent));
+       if (member) {
+         if (!latestText) {
+           await this.sendEncryptedText(
+@@ -640,7 +640,6 @@ export class CommandHandler {
+           return true;
+         }
+ 
+-        await this.safeRedact(roomId, originalId, 'PluralReproxy', this.bridge.getIntent(targetSender));
+ 
+         // Invalidate cache if we just deleted the 'last message'
+         const cached = lastMessageCache.get(roomId, system.slug);
+@@ -685,15 +684,9 @@ export class CommandHandler {
+           delete reproxyPayload['m.relates_to'];
+         }
+ 
+-        await sendEncryptedEvent(
+-          intent,
+-          roomId,
+-          'm.room.message',
+-          reproxyPayload,
+-          this.cryptoManager,
+-          this.asToken,
+-          this.prisma,
+-        );
++        await messageQueue.enqueue(roomId, event.sender, intent, latestText, relatesToForReproxy,
++          this.prisma, system.slug, latestFormat, latestFormattedBody, reproxyPayload, event.event_id, originalId);
++        await this.safeRedact(roomId, originalId, 'PluralReproxy', this.bridge.getIntent(targetSender));
+       } else {
+         await this.sendEncryptedText(this.bridge.getIntent(), roomId, `No member found with ID: ${memberSlug}`);
+       }
+@@ -1264,137 +1257,7 @@ ${webUrl}
+     }
+ 
+     if (cmd === 'link') {
+-      if (!parts[1]) {
+-        await this.sendEncryptedText(
+-          this.bridge.getIntent(),
+-          roomId,
+-          'Usage: `pk;link <@user:domain>` or `pk;link primary <@user:domain>`',
+-        );
+-        return true;
+-      }
+-
+-      let targetMxid = (parts[1].toLowerCase() === 'primary' ? parts[2] : parts[1])?.toLowerCase();
+-      if (!targetMxid) {
+-        await this.sendEncryptedText(
+-          this.bridge.getIntent(),
+-          roomId,
+-          'Usage: `pk;link <@user:domain>` or `pk;link primary <@user:domain>`',
+-        );
+-        return true;
+-      }
+-
+-      if (!targetMxid.startsWith('@')) targetMxid = `@${targetMxid}`;
+-      if (!targetMxid.includes(':')) targetMxid = `${targetMxid}:${sender.split(':')[1]}`;
+-
+-      // Issue #5: Verify user existence before linking
+-      try {
+-        await (this.bridge.getIntent() as IntentWithClient).matrixClient.getUserProfile(targetMxid);
+-      } catch {
+-        await this.sendRichText(
+-          this.bridge.getIntent(),
+-          roomId,
+-          `❌ Could not verify Matrix ID **${targetMxid}**. Please ensure the ID is correct and the user exists.`,
+-        );
+-        return true;
+-      }
+-
+-      if (parts[1].toLowerCase() === 'primary' && parts[2]) {
+-        if (!system) return true;
+-
+-        const link = await this.prisma.accountLink.findUnique({
+-          where: { matrixId: targetMxid },
+-        });
+-
+-        if (!link || link.systemId !== system.id) {
+-          await this.sendRichText(
+-            this.bridge.getIntent(),
+-            roomId,
+-            `**${targetMxid}** is not linked to your system. Link it first with \`pk;link ${targetMxid}\`.`,
+-          );
+-          return true;
+-        }
+-
+-        await this.prisma.$transaction([
+-          this.prisma.accountLink.updateMany({
+-            where: { systemId: system.id },
+-            data: { isPrimary: false },
+-          }),
+-          this.prisma.accountLink.update({
+-            where: { matrixId: targetMxid },
+-            data: { isPrimary: true },
+-          }),
+-        ]);
+-
+-        proxyCache.invalidate(sender);
+-        emitSystemUpdate(sender);
+-        await this.sendRichText(
+-          this.bridge.getIntent(),
+-          roomId,
+-          `✅ **${targetMxid}** is now the primary routing account for this system. Direct messages sent to system members will be forwarded here.`,
+-        );
+-        return true;
+-      }
+-
+-      // Normal link logic
+-      // The sender MUST have a system to link someone else into it.
+-      if (!system) {
+-        await this.sendRichText(
+-          this.bridge.getIntent(),
+-          roomId,
+-          'You must have a system to link other accounts to it.',
+-        );
+-        return true;
+-      }
+-
+-      if (targetMxid === sender) {
+-        await this.sendRichText(this.bridge.getIntent(), roomId, 'You are already linked to this system.');
+-        return true;
+-      }
+-
+-      const targetLink = await this.prisma.accountLink.findUnique({
+-        where: { matrixId: targetMxid },
+-        include: { system: { include: { members: true, accountLinks: true } } },
+-      });
+-
+-      if (targetLink) {
+-        if (targetLink.systemId === system.id) {
+-          await this.sendRichText(
+-            this.bridge.getIntent(),
+-            roomId,
+-            `**${targetMxid}** is already linked to your system.`,
+-          );
+-          return true;
+-        }
+-
+-        if (targetLink.system.members.length > 0) {
+-          await this.sendRichText(
+-            this.bridge.getIntent(),
+-            roomId,
+-            `❌ **${targetMxid}** already belongs to an active system with members. They must delete their system before they can be linked to yours.`,
+-          );
+-          return true;
+-        }
+-
+-        // If it's an empty system, we can safely delete it or unlink it to make way for the new link
+-        if (targetLink.system.accountLinks.length === 1) {
+-          await this.prisma.system.delete({ where: { id: targetLink.systemId } });
+-        } else {
+-          await this.prisma.accountLink.delete({ where: { matrixId: targetMxid } });
+-        }
+-      }
+-
+-      await this.prisma.accountLink.create({
+-        data: { matrixId: targetMxid, systemId: system.id },
+-      });
+-
+-      proxyCache.invalidate(targetMxid);
+-      emitSystemUpdate(targetMxid);
+-      emitSystemUpdate(sender);
+-      await this.sendRichText(
+-        this.bridge.getIntent(),
+-        roomId,
+-        `✅ Successfully linked **${targetMxid}** to this system (\`${system.slug}\`).`,
+-      );
++      await this.sendEncryptedText(this.bridge.getIntent(), roomId, 'Account linking requires proof from both accounts and is disabled.');
+       return true;
+     }
+ 
+diff --git a/src/services/queue/MessageQueue.ts b/src/services/queue/MessageQueue.ts
+index 2625516..0427b40 100644
+--- a/src/services/queue/MessageQueue.ts
++++ b/src/services/queue/MessageQueue.ts
+@@ -7,6 +7,9 @@ import { cryptoManager, asToken, getBridge } from '../../bot';
+ import { lastMessageCache } from '../cache';
+ import { PluralMatrixEventContent } from '../../types';
+ import { isMatrixHttpError } from '../../utils/error';
++import { requireJoinedAccount } from '../../deploymentPolicy';
++import { deliverySchema } from '../../inboundEvents';
++import { createHash } from 'crypto';
+ 
+ export interface QueueItem {
+   id: string;
+@@ -21,6 +24,9 @@ export interface QueueItem {
+   prisma?: PrismaClient;
+   systemSlug?: string; // Added to update LastMessageCache on success
+   fullContent?: PluralMatrixEventContent; // Added to preserve non-text events (images, audio)
++  sourceEventId?: string;
++  delivered?: () => void;
++  failed?: (error: unknown) => void;
+ }
+ 
+ export interface DeadLetter {
+@@ -54,7 +60,7 @@ class MessageQueueService {
+   /**
+    * Enqueues a message for a ghost to send and triggers processing.
+    */
+-  public enqueue(
++  public async enqueue(
+     roomId: string,
+     senderId: string,
+     ghostIntent: Intent,
+@@ -65,10 +71,32 @@ class MessageQueueService {
+     format?: string,
+     formattedBody?: string,
+     fullContent?: PluralMatrixEventContent,
++    sourceEventId?: string,
++    redactionTarget?: string,
+   ) {
++    const payload: PluralMatrixEventContent = fullContent ? {...fullContent} : {msgtype: 'm.text', body: plaintext};
++    if (plaintext) payload.body = plaintext;
++    if (format && formattedBody) { payload.format = format; payload.formatted_body = formattedBody; }
++    if (relatesTo) payload['m.relates_to'] = relatesTo;
++    if (sourceEventId && prisma) {
++      await prisma.inboundEvent.updateMany({where: {id: sourceEventId, delivery: null},
++        data: {isProxy: true, delivery: JSON.stringify({ghostUserId: ghostIntent.userId, content: payload, redactionTarget: redactionTarget || sourceEventId})}});
++      const saved = await prisma.inboundEvent.findUniqueOrThrow({where: {id: sourceEventId}});
++      if (saved.deliveredEventId) return;
++      const snapshot = deliverySchema.parse(JSON.parse(saved.delivery || 'null'));
++      ghostIntent = getBridge().getIntent(snapshot.ghostUserId);
++      fullContent = snapshot.content;
++      plaintext = snapshot.content.body || '';
++      format = snapshot.content.format;
++      formattedBody = snapshot.content.formatted_body;
++      relatesTo = snapshot.content['m.relates_to'];
++    }
++    let delivered: (() => void) | undefined;
++    let failed: ((error: unknown) => void) | undefined;
++    const completion = new Promise<void>((resolve, reject) => { delivered = resolve; failed = reject; });
+     const queue = this.RoomQueues.get(roomId) || [];
+     queue.push({
+-      id: uuidv4(),
++      id: sourceEventId ? createHash('sha256').update(sourceEventId + ghostIntent.userId).digest('hex') : uuidv4(),
+       roomId,
+       senderId,
+       ghostIntent,
+@@ -80,6 +108,7 @@ class MessageQueueService {
+       prisma,
+       systemSlug,
+       fullContent,
++      sourceEventId, delivered, failed,
+     });
+     this.RoomQueues.set(roomId, queue);
+ 
+@@ -87,6 +116,7 @@ class MessageQueueService {
+     this.processQueue(roomId).catch((err) => {
+       console.error(`[Queue] Fatal error in queue processor for ${roomId}:`, err);
+     });
++    return completion;
+   }
+ 
+   /**
+@@ -119,6 +149,7 @@ class MessageQueueService {
+         const item = queue[0]; // Peek
+ 
+         try {
++          if (item.sourceEventId) await requireJoinedAccount(getBridge(), item.roomId, item.senderId);
+           // Try to send the event
+           // Use the original full content payload if available to preserve file/image metadata
+           const payload: PluralMatrixEventContent = item.fullContent
+@@ -139,7 +170,6 @@ class MessageQueueService {
+             payload['m.relates_to'] = item.relatesTo;
+           }
+ 
+-          console.log(`[MQ] Sending payload to Matrix:`, JSON.stringify(payload, null, 2));
+ 
+           const result = (await sendEncryptedEvent(
+             item.ghostIntent,
+@@ -149,7 +179,12 @@ class MessageQueueService {
+             cryptoManager,
+             asToken,
+             item.prisma,
++            item.sourceEventId ? item.id : undefined,
+           )) as { event_id?: string };
++          if (item.sourceEventId && item.prisma) {
++            if (!result.event_id) throw new Error('Matrix did not acknowledge the replacement event');
++            await item.prisma.inboundEvent.update({where: {id: item.sourceEventId}, data: {deliveredEventId: result.event_id}});
++          }
+ 
+           // Success! Update Last Message Cache if system info is present
+           if (item.systemSlug && result?.event_id) {
+@@ -175,6 +210,7 @@ class MessageQueueService {
+ 
+           // Success! Remove from queue.
+           queue.shift();
++          item.delivered?.();
+         } catch (error: unknown) {
+           await this.handleSendError(item, queue, error);
+         }
+@@ -205,6 +241,11 @@ class MessageQueueService {
+     }
+ 
+     // --- Fallback 1: The plural_bot Bailout ---
++    if (item.sourceEventId) {
++      queue.shift();
++      item.failed?.(error);
++      return;
++    }
+     console.error(
+       `[Queue] Delivery failed for ${item.ghostIntent.userId}. Triggering Fallback 1 (Bot Bailout). Error:`,
+       (error as Error).message,
+diff --git a/src/utils/avatarDownload.test.ts b/src/utils/avatarDownload.test.ts
+new file mode 100644
+index 0000000..bf9cc80
+--- /dev/null
++++ b/src/utils/avatarDownload.test.ts
+@@ -0,0 +1,13 @@
++import { avatarAddress } from './avatarDownload';
++it.each(['http://example.org/a.png', 'https://user:password@example.org/a.png', 'https://example.org:8443/a.png'])('rejects unsupported avatar URL %s', async url => {
++  await expect(avatarAddress(new URL(url))).rejects.toThrow();
++});
++it.each(['127.0.0.1','10.0.0.1','100.106.233.104','169.254.169.254','192.168.1.1'])('blocks private DNS address %s', async address => {
++  await expect(avatarAddress(new URL('https://avatars.example/a.png'), async () => [{address, family:4}])).rejects.toThrow();
++});
++it('pins only validated public IPv4 DNS results', async () => {
++  const url = new URL('https://avatars.example/a.png');
++  await expect(avatarAddress(url, async () => [{address:'1.1.1.1', family:4}])).resolves.toBe('1.1.1.1');
++  await expect(avatarAddress(url, async () => [{address:'1.1.1.1', family:4},{address:'127.0.0.1', family:4}])).rejects.toThrow();
++  await expect(avatarAddress(url, async () => [{address:'::1', family:6}])).rejects.toThrow();
++});
+diff --git a/src/utils/avatarDownload.ts b/src/utils/avatarDownload.ts
+new file mode 100644
+index 0000000..3a2b8b6
+--- /dev/null
++++ b/src/utils/avatarDownload.ts
+@@ -0,0 +1,49 @@
++import { lookup } from 'dns/promises';
++import { LookupAddress } from 'dns';
++import https from 'https';
++import { BlockList, isIP } from 'net';
++
++const blocked = new BlockList();
++for (const [address, prefix] of [
++  ['0.0.0.0',8], ['10.0.0.0',8], ['100.64.0.0',10], ['127.0.0.0',8],
++  ['169.254.0.0',16], ['172.16.0.0',12], ['192.168.0.0',16], ['192.0.0.0',24],
++  ['192.0.2.0',24], ['198.18.0.0',15], ['198.51.100.0',24], ['203.0.113.0',24],
++  ['224.0.0.0',4], ['240.0.0.0',4],
++] as const) blocked.addSubnet(address, prefix);
++
++export async function avatarAddress(url: URL, resolve: (hostname: string) => Promise<LookupAddress[]> = hostname => lookup(hostname, {all: true, family: 4})): Promise<string> {
++  if (url.protocol !== 'https:' || url.username || url.password || (url.port && url.port !== '443')) throw new Error('Avatars require a public HTTPS URL');
++  const addresses = await resolve(url.hostname);
++  if (!addresses.length || addresses.some(item => item.family !== 4 || isIP(item.address) !== 4 || blocked.check(item.address))) throw new Error('Private avatar destinations are forbidden');
++  return addresses[0].address;
++}
++
++export async function downloadAvatar(input: string, redirects = 0): Promise<Buffer> {
++  const url = new URL(input);
++  const address = await avatarAddress(url);
++  return new Promise<Buffer>((resolve, reject) => {
++    const request = https.get(url, {
++      signal: AbortSignal.timeout(10000), family: 4,
++      // Pin the validated DNS result while keeping normal TLS hostname checks.
++      lookup: (_hostname, _options, callback) => callback(null, address, 4),
++    }, response => {
++      if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400) {
++        response.resume();
++        if (redirects >= 3 || !response.headers.location) { reject(new Error('Invalid avatar redirect')); return; }
++        downloadAvatar(new URL(response.headers.location, url).href, redirects + 1).then(resolve, reject);
++        return;
++      }
++      if (response.statusCode !== 200) { response.resume(); reject(new Error('Avatar download failed')); return; }
++      const chunks: Buffer[] = [];
++      let bytes = 0;
++      response.on('data', (chunk: Buffer) => {
++        bytes += chunk.length;
++        if (bytes > 1024 * 1024) request.destroy(new Error('Avatar exceeds 1 MiB'));
++        else chunks.push(chunk);
++      });
++      response.on('end', () => resolve(Buffer.concat(chunks)));
++      response.on('error', reject);
++    });
++    request.on('error', reject);
++  });
++}

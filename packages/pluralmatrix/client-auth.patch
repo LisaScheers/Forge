@@ -1,0 +1,11 @@
+diff --git a/src/utils/matrix.ts b/src/utils/matrix.ts
+index e5ec2aa..c6d5f84 100644
+--- a/src/utils/matrix.ts
++++ b/src/utils/matrix.ts
+@@ -9,5 +9,5 @@ export const getAvatarUrl = (mxc: string | null | undefined): string | null => {
+   if (parts.length < 2) return null;
+ 
+   const [server, mediaId] = parts;
+-  return `/api/media/download/${server}/${mediaId}`;
++  return `/api/media/download/${encodeURIComponent(server)}/${encodeURIComponent(mediaId)}?token=${encodeURIComponent(localStorage.getItem('token') || '')}`;
+ };

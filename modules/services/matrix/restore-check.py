@@ -115,23 +115,35 @@ def main():
             result = subprocess.run(command, env=environment, stdout=subprocess.PIPE if output else log, stderr=log, check=True)
             return result.stdout.decode().strip() if output else None
 
-    def start(name, command):
+    def start(name, command, process_environment=None, cwd=None):
         log = (work / (name + ".log")).open("wb")
         logs.append(log)
-        process = subprocess.Popen(command, env=environment, stdout=log, stderr=log)
+        process = subprocess.Popen(command, env=process_environment or environment, cwd=cwd, stdout=log, stderr=log)
         processes.append(process)
         return process
 
     try:
         run("initdb", "--no-locale", "--encoding=UTF8", "-U", "restore_admin")
         run("pg_ctl", "-l", str(work / "postgres.log"), "-o", "-c listen_addresses= -c unix_socket_directories=" + str(socket_dir), "-w", "start")
-        for database, dump in (("matrix-synapse", "synapse.dump"), ("mautrix-discord", "bridge.dump")):
+        plural_enabled = (source / "plural-enabled").is_file() and (source / "plural-enabled").read_text().strip() == "1"
+        databases = [("matrix-synapse", "synapse.dump"), ("mautrix-discord", "bridge.dump")]
+        if plural_enabled:
+            databases.append(("pluralmatrix", "plural.dump"))
+        for database, dump in databases:
             run("createdb", "--template=template0", "--locale=C", database)
             run("pg_restore", "--exit-on-error", "--no-owner", "--no-acl", "--jobs=2", "-d", database, str(source / dump))
         counts_sql = '''SELECT json_build_object('portals', (SELECT count(*) FROM portal), 'messages', (SELECT count(*) FROM message), 'threads', (SELECT count(*) FROM thread), 'users', (SELECT count(*) FROM "user"))'''
         counts = json.loads(run("psql", "-XAt", "-d", "mautrix-discord", "-c", counts_sql, output=True))
         if counts != json.loads((source / "bridge-counts.json").read_text()):
             raise RuntimeError("Restored bridge mappings differ from checkpoint")
+        if plural_enabled:
+            plural_counts_sql = '''SELECT json_build_object('systems', (SELECT count(*) FROM "System"), 'members', (SELECT count(*) FROM "Member"), 'switches', (SELECT count(*) FROM "Switch"), 'journal', (SELECT count(*) FROM "InboundEvent"))'''
+            plural_counts = json.loads(run("psql", "-XAt", "-d", "pluralmatrix", "-c", plural_counts_sql, output=True))
+            if plural_counts != json.loads((source / "plural-counts.json").read_text()):
+                raise RuntimeError("Restored PluralMatrix data differs from checkpoint")
+            pending = run("psql", "-XAt", "-d", "mautrix-discord", "-c", "SELECT count(*) FROM sec_hive_plural_pending", output=True)
+            if pending != (source / "plural-bridge-pending-count").read_text().strip():
+                raise RuntimeError("Restored PluralMatrix bridge backlog differs from checkpoint")
         # Sanitize only the isolated restored database before starting the bridge.
         # The real encrypted backup and production credentials remain unchanged.
         run("psql", "-X", "-v", "ON_ERROR_STOP=1", "-d", "mautrix-discord", "-c", 'UPDATE "user" SET discord_token=NULL')
@@ -157,6 +169,31 @@ def main():
             "turn_uris": [], "report_stats": False, "trusted_key_servers": [],
             "pid_file": str(work / "synapse.pid"), "log_config": None,
         })
+        plural_environment = None
+        bridge_environment = None
+        if plural_enabled:
+            shutil.copytree(source / "plural", work / "plural")
+            for entry in (work / "plural").rglob("*"):
+                entry.chmod(0o700 if entry.is_dir() else 0o600)
+            (work / "plural").chmod(0o700)
+            plural_registration = work / "plural-registration.yaml"
+            plural_registration.write_bytes((source / "plural-registration/registration.yaml").read_bytes())
+            synapse["app_service_config_files"].append(str(plural_registration))
+            plural_environment = dict(environment, **json.loads((source / "plural-config.json").read_text()))
+            for line in (source / "plural-registration/environment").read_text().splitlines():
+                if line:
+                    key, value = line.split("=", 1)
+                    if key not in {"AS_TOKEN", "JWT_SECRET", "GATEKEEPER_SECRET"}:
+                        raise RuntimeError("Unexpected PluralMatrix environment key")
+                    plural_environment[key] = value
+            plural_environment.update({
+                "DATABASE_URL": "postgresql://restore_admin@localhost/pluralmatrix?host=" + str(socket_dir),
+                "SYNAPSE_URL": "http://[::1]:18008", "REGISTRATION_PATH": str(plural_registration),
+                "PUBLIC_WEB_URL": "http://127.0.0.1:29335",
+            })
+            bridge_environment = dict(environment, PLURALMATRIX_ROOMS=plural_environment["PLURAL_ALLOWED_ROOMS"],
+                PLURALMATRIX_DECISION_URL="http://127.0.0.1:29337/decision",
+                PLURALMATRIX_GATEKEEPER_SECRET=plural_environment["GATEKEEPER_SECRET"])
         synapse_file = work / "synapse.json"
         synapse_file.write_text(json.dumps(synapse))
         bridge = yaml.safe_load((source / "bridge/config.yaml").read_text())
@@ -175,10 +212,15 @@ def main():
             with opener.open(url, timeout=5) as response:
                 return response.status == 200
         wait_for(lambda: live("http://[::1]:18008/_matrix/client/versions"), "restored Synapse startup")
-        start("bridge", ["mautrix-discord", "--config", str(bridge_file), "--registration", str(registration_file)])
+        if plural_enabled:
+            start("pluralmatrix", ["pluralmatrix"], plural_environment, work / "plural")
+            wait_for(lambda: live("http://127.0.0.1:29335/health"), "restored PluralMatrix startup")
+        start("bridge", ["mautrix-discord", "--config", str(bridge_file), "--registration", str(registration_file)], bridge_environment)
         wait_for(lambda: live("http://127.0.0.1:19334/_matrix/mau/live"), "restored bridge startup")
         result = verify_history("http://[::1]:18008", source)
         result.update({"checkpoint_files_checked": files_checked, "bridge_counts_match": True, "bridge_started": True, "external_network": False})
+        if plural_enabled:
+            result.update({"plural_counts_match": True, "plural_started": True, "plural_backlog_count_matches": True})
         (work / "result.json").write_text(json.dumps(result, indent=2) + "\n")
         print(json.dumps(result))
     finally:

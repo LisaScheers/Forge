@@ -1,0 +1,374 @@
+--- a/main.go
++++ b/main.go
+@@ -17,6 +17,7 @@
+ package main
+ 
+ import (
++	"context"
+ 	_ "embed"
+ 	"net/http"
+ 	"sync"
+@@ -45,6 +46,8 @@
+ var ExampleConfig string
+ 
+ type DiscordBridge struct {
++	pluralWake   chan struct{}
++	pluralCancel context.CancelFunc
+ 	bridge.Bridge
+ 
+ 	Config *config.Config
+@@ -106,6 +109,7 @@
+ }
+ 
+ func (br *DiscordBridge) Start() {
++	br.startPluralQueue()
+ 	if br.Config.Bridge.Provisioning.SharedSecret != "disable" {
+ 		br.provisioning = newProvisioningAPI(br)
+ 	}
+@@ -118,6 +122,9 @@
+ }
+ 
+ func (br *DiscordBridge) Stop() {
++	if br.pluralCancel != nil {
++		br.pluralCancel()
++	}
+ 	for _, user := range br.usersByMXID {
+ 		if user.Session == nil {
+ 			continue
+--- a/portal.go
++++ b/portal.go
+@@ -1404,12 +1404,15 @@
+ 		w.WriteHeader(http.StatusNotFound)
+ 		return
+ 	}
+-	reader, err := br.Bot.Download(mxc)
++	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
++	defer cancel()
++	reader, err := br.Bot.DownloadContext(ctx, mxc)
+ 	if err != nil {
+ 		br.ZLog.Warn().Err(err).Msg("Failed to download media to proxy")
+ 		w.WriteHeader(http.StatusInternalServerError)
+ 		return
+ 	}
++	defer reader.Close()
+ 	buf := make([]byte, 32*1024)
+ 	n, err := io.ReadFull(reader, buf)
+ 	if err != nil && (!errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF)) {
+@@ -1525,6 +1528,16 @@
+ }
+ 
+ func (portal *Portal) handleMatrixMessage(sender *User, evt *event.Event) {
++	if portal.queuePluralMessage(sender, evt) {
++		return
++	}
++	portal.handleMatrixMessageNow(sender, evt)
++}
++
++func (portal *Portal) handleMatrixMessageNow(sender *User, evt *event.Event) {
++	if portal.bridge.DB.Message.GetByMXID(portal.Key, evt.ID) != nil {
++		return
++	}
+ 	content, ok := evt.Content.Parsed.(*event.MessageEventContent)
+ 	if !ok {
+ 		go portal.sendMessageMetrics(evt, fmt.Errorf("%w %T", errUnexpectedParsedContentType, evt.Content.Parsed), "Ignoring")
+--- a/plural_queue.go
++++ b/plural_queue.go
+@@ -0,0 +1,220 @@
++package main
++
++import (
++	"bytes"
++	"context"
++	"encoding/json"
++	"fmt"
++	"io"
++	"net/http"
++	"os"
++	"strings"
++	"time"
++
++	"maunium.net/go/mautrix/bridge/bridgeconfig"
++	"maunium.net/go/mautrix/event"
++	"maunium.net/go/mautrix/id"
++)
++
++const pluralPendingQuery = `SELECT p.event_id,p.room_id,p.payload,p.attempts FROM sec_hive_plural_pending p
++ WHERE p.next_attempt <= $1 AND NOT EXISTS (SELECT 1 FROM sec_hive_plural_pending q WHERE q.room_id=p.room_id
++ AND (q.queued_at<p.queued_at OR (q.queued_at=p.queued_at AND q.event_id<p.event_id))) ORDER BY p.queued_at LIMIT 50`
++
++const pluralQueueSchema = `CREATE TABLE IF NOT EXISTS sec_hive_plural_pending (
++ event_id TEXT PRIMARY KEY, room_id TEXT NOT NULL, payload TEXT NOT NULL,
++ queued_at BIGINT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, next_attempt BIGINT NOT NULL DEFAULT 0)`
++
++func pluralRoomEnabled(room id.RoomID) bool {
++	for _, allowed := range strings.Split(os.Getenv("PLURALMATRIX_ROOMS"), ",") {
++		if allowed != "" && allowed == string(room) {
++			return true
++		}
++	}
++	return false
++}
++
++func (br *DiscordBridge) isPluralIdentity(user id.UserID) bool {
++	local, server, err := user.Parse()
++	return err == nil && server == br.AS.HomeserverDomain && (local == "plural_bot" || strings.HasPrefix(local, "_plural_"))
++}
++
++func (portal *Portal) queuePluralMessage(sender *User, evt *event.Event) bool {
++	if !pluralRoomEnabled(portal.MXID) || portal.bridge.isPluralIdentity(evt.Sender) {
++		return false
++	}
++	payload, err := json.Marshal(evt)
++	if err == nil {
++		_, err = portal.bridge.DB.Exec(`INSERT INTO sec_hive_plural_pending (event_id, room_id, payload, queued_at) VALUES ($1,$2,$3,$4) ON CONFLICT (event_id) DO NOTHING`, evt.ID, portal.MXID, string(payload), time.Now().UnixNano())
++	}
++	if err != nil {
++		go portal.sendMessageMetrics(evt, fmt.Errorf("could not queue PluralMatrix decision: %w", err), "Error sending")
++	} else {
++		select {
++		case portal.bridge.pluralWake <- struct{}{}:
++		default:
++		}
++	}
++	return true
++}
++
++func (br *DiscordBridge) startPluralQueue() {
++	if os.Getenv("PLURALMATRIX_ROOMS") == "" {
++		return
++	}
++	if os.Getenv("PLURALMATRIX_DECISION_URL") == "" || os.Getenv("PLURALMATRIX_GATEKEEPER_SECRET") == "" {
++		panic("PluralMatrix queue requires its decision URL and secret")
++	}
++	if _, err := br.DB.Exec(pluralQueueSchema); err != nil {
++		panic(err)
++	}
++	ctx, cancel := context.WithCancel(context.Background())
++	br.pluralCancel = cancel
++	br.pluralWake = make(chan struct{}, 1)
++	go func() {
++		timer := time.NewTicker(2 * time.Second)
++		defer timer.Stop()
++		for {
++			br.drainPluralQueue(ctx)
++			select {
++			case <-ctx.Done():
++				return
++			case <-timer.C:
++			case <-br.pluralWake:
++			}
++		}
++	}()
++}
++
++type pluralPending struct {
++	eventID  id.EventID
++	roomID   id.RoomID
++	payload  string
++	attempts int
++}
++type pluralDecision struct {
++	Ready       bool       `json:"ready"`
++	Proxy       bool       `json:"proxy"`
++	Replacement id.EventID `json:"replacement_event_id"`
++}
++
++func (br *DiscordBridge) drainPluralQueue(ctx context.Context) {
++	rows, err := br.DB.Query(pluralPendingQuery, time.Now().UnixMilli())
++	if err != nil {
++		br.ZLog.Error().Err(err).Msg("Failed to read PluralMatrix backlog")
++		return
++	}
++	pending := []pluralPending{}
++	for rows.Next() {
++		var item pluralPending
++		if err = rows.Scan(&item.eventID, &item.roomID, &item.payload, &item.attempts); err != nil {
++			break
++		}
++		pending = append(pending, item)
++	}
++	if rowsErr := rows.Err(); rowsErr != nil {
++		err = rowsErr
++	}
++	rows.Close()
++	if err != nil {
++		br.ZLog.Error().Err(err).Msg("Failed to scan PluralMatrix backlog")
++		return
++	}
++	for _, item := range pending {
++		if ctx.Err() != nil {
++			return
++		}
++		if !pluralRoomEnabled(item.roomID) {
++			continue
++		}
++		handled, err := br.deliverPluralPending(ctx, item)
++		if handled {
++			_, err = br.DB.Exec(`DELETE FROM sec_hive_plural_pending WHERE event_id=$1`, item.eventID)
++		} else {
++			delay := min(300, 1<<min(item.attempts, 8))
++			_, dbErr := br.DB.Exec(`UPDATE sec_hive_plural_pending SET attempts=attempts+1,next_attempt=$2 WHERE event_id=$1`, item.eventID, time.Now().Add(time.Duration(delay)*time.Second).UnixMilli())
++			if dbErr != nil {
++				br.ZLog.Error().Err(dbErr).Msg("Failed to retain PluralMatrix retry")
++			}
++		}
++		if err != nil {
++			br.ZLog.Warn().Err(err).Str("event_id", string(item.eventID)).Msg("PluralMatrix delivery remains queued")
++		}
++	}
++}
++
++func (br *DiscordBridge) deliverPluralPending(ctx context.Context, item pluralPending) (bool, error) {
++	portal := br.GetPortalByMXID(item.roomID)
++	if portal == nil {
++		return false, fmt.Errorf("portal no longer exists")
++	}
++	if br.DB.Message.GetByMXID(portal.Key, item.eventID) != nil {
++		return true, nil
++	}
++	var evt event.Event
++	if err := json.Unmarshal([]byte(item.payload), &evt); err != nil {
++		return false, err
++	}
++	if err := evt.Content.ParseRaw(evt.Type); err != nil {
++		return false, err
++	}
++	current, err := portal.MainIntent().GetEvent(item.roomID, item.eventID)
++	if err != nil {
++		return false, err
++	}
++	body, _ := json.Marshal(map[string]string{"event_id": string(item.eventID)})
++	request, err := http.NewRequestWithContext(ctx, http.MethodPost, os.Getenv("PLURALMATRIX_DECISION_URL"), bytes.NewReader(body))
++	if err != nil {
++		return false, err
++	}
++	request.Header.Set("Authorization", "Bearer "+os.Getenv("PLURALMATRIX_GATEKEEPER_SECRET"))
++	request.Header.Set("Content-Type", "application/json")
++	client := &http.Client{Timeout: 2 * time.Second, CheckRedirect: func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }}
++	response, err := client.Do(request)
++	if err != nil {
++		return false, err
++	}
++	defer response.Body.Close()
++	if response.StatusCode != http.StatusOK {
++		return false, fmt.Errorf("decision endpoint returned %d", response.StatusCode)
++	}
++	var decision pluralDecision
++	if err = json.NewDecoder(io.LimitReader(response.Body, 4096)).Decode(&decision); err != nil {
++		return false, err
++	}
++	if !decision.Ready {
++		return false, nil
++	}
++	if decision.Proxy {
++		if decision.Replacement == "" || br.DB.Message.GetByMXID(portal.Key, decision.Replacement) != nil {
++			return true, nil
++		}
++		replacement, err := portal.MainIntent().GetEvent(item.roomID, decision.Replacement)
++		if err != nil {
++			return false, err
++		}
++		if replacement.Type != event.EventMessage || !br.isPluralIdentity(replacement.Sender) {
++			return false, fmt.Errorf("invalid PluralMatrix replacement identity")
++		}
++		if replacement.Unsigned.RedactedBecause != nil {
++			return true, nil
++		}
++		if err = replacement.Content.ParseRaw(replacement.Type); err != nil {
++			return false, err
++		}
++		portal.forwardBackfillLock.Lock()
++		defer portal.forwardBackfillLock.Unlock()
++		portal.handleMatrixMessageNow(br.GetUserByMXID(replacement.Sender), replacement)
++		return br.DB.Message.GetByMXID(portal.Key, decision.Replacement) != nil, nil
++	}
++	if current.Unsigned.RedactedBecause != nil {
++		return true, nil
++	}
++	sender := br.GetUserByMXID(evt.Sender)
++	if sender == nil || sender.GetPermissionLevel() < bridgeconfig.PermissionLevelRelay {
++		return false, fmt.Errorf("sender is no longer permitted to relay")
++	}
++	portal.forwardBackfillLock.Lock()
++	defer portal.forwardBackfillLock.Unlock()
++	portal.handleMatrixMessageNow(sender, &evt)
++	return br.DB.Message.GetByMXID(portal.Key, item.eventID) != nil, nil
++}
+--- a/plural_queue_test.go
++++ b/plural_queue_test.go
+@@ -0,0 +1,75 @@
++package main
++
++import (
++	"database/sql"
++	"path/filepath"
++	"testing"
++
++	_ "github.com/mattn/go-sqlite3"
++	"maunium.net/go/mautrix/appservice"
++	"maunium.net/go/mautrix/id"
++)
++
++func TestPluralIdentityIsLocal(t *testing.T) {
++	br := &DiscordBridge{}
++	br.AS = &appservice.AppService{HomeserverDomain: "test"}
++	for user, expected := range map[id.UserID]bool{
++		"@plural_bot:test": true, "@_plural_owner_alice:test": true,
++		"@plural_bot:other": false, "@_plural_owner_alice:other": false, "@alice:test": false,
++	} {
++		if br.isPluralIdentity(user) != expected {
++			t.Fatalf("incorrect identity classification: %s", user)
++		}
++	}
++	t.Setenv("PLURALMATRIX_ROOMS", "!reviewed:test")
++	if !pluralRoomEnabled("!reviewed:test") || pluralRoomEnabled("!unreviewed:test") || pluralRoomEnabled("") {
++		t.Fatal("room allowlist widened")
++	}
++}
++
++func TestPluralSpoolPersistsAndKeepsRoomOrder(t *testing.T) {
++	filename := filepath.Join(t.TempDir(), "queue.sqlite")
++	db, err := sql.Open("sqlite3", filename)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if _, err = db.Exec(pluralQueueSchema); err != nil {
++		t.Fatal(err)
++	}
++	for _, row := range []struct {
++		id, room       string
++		timestamp, due int64
++	}{{"first", "A", 1, 100}, {"second", "A", 2, 0}, {"independent", "B", 3, 0}} {
++		if _, err = db.Exec(`INSERT INTO sec_hive_plural_pending(event_id,room_id,payload,queued_at,next_attempt) VALUES(?,?,?,?,?)`, row.id, row.room, "{}", row.timestamp, row.due); err != nil {
++			t.Fatal(err)
++		}
++	}
++	if err = db.Close(); err != nil {
++		t.Fatal(err)
++	}
++	db, err = sql.Open("sqlite3", filename)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer db.Close()
++	rows, err := db.Query(pluralPendingQuery, 50)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer rows.Close()
++	var ids []string
++	for rows.Next() {
++		var eventID, room, payload string
++		var attempts int
++		if err = rows.Scan(&eventID, &room, &payload, &attempts); err != nil {
++			t.Fatal(err)
++		}
++		ids = append(ids, eventID)
++	}
++	if err = rows.Err(); err != nil {
++		t.Fatal(err)
++	}
++	if len(ids) != 1 || ids[0] != "independent" {
++		t.Fatalf("backoff allowed overtaking or blocked another room: %v", ids)
++	}
++}
