@@ -80,4 +80,6 @@ jobs:
       - name: Build configuration without activation
         env:
           TARGET: ${{ matrix.target }}
+          # Cargo sources contain LFS pointers; fetching example media changes them.
+          GIT_LFS_SKIP_SMUDGE: "1"
         run: bash .github/scripts/build-configuration.sh

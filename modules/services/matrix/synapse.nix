@@ -1,4 +1,17 @@
 {
+  overlays.matrix-synapse = _final: prev: {
+    matrix-synapse-unwrapped = prev.matrix-synapse-unwrapped.overrideAttrs (old: {
+      # Remove when Nixpkgs includes the Authlib 1.7 integer-subject fix.
+      # https://github.com/NixOS/nixpkgs/pull/575253
+      patches = (old.patches or []) ++ [
+        (prev.fetchurl {
+          url = "https://github.com/element-hq/synapse/commit/a4cfd7d7420409c1ab22e83c4f9d196644f02c83.patch";
+          hash = "sha256-g96q69atwo2bFr6a+E2KQ+S1mOGubQ4rzxBnLxfz3Vw=";
+        })
+      ];
+    });
+  };
+
   nixos.matrix = {
     pkgs,
     lib,

@@ -11,11 +11,10 @@ for attempt in 1 2 3; do
     build_exit=$?
   fi
 
-  # Retry transient DNS failures in place, retaining the completed store paths.
-  # Compilation and test failures without a DNS error fail immediately.
-  if [[ "$attempt" == 3 ]] || ! grep -q 'curl: (6) Could not resolve host:' "$build_log"; then
+  # Retain completed store paths when DNS or a resumed cache download fails.
+  if [[ "$attempt" == 3 ]] || ! grep -Eq 'curl: \(6\) Could not resolve host:|error: unable to download .https://cache\.nixos\.org/nar/.*: HTTP error 416 ' "$build_log"; then
     exit "$build_exit"
   fi
-  echo "DNS lookup failed; retrying build in 30 seconds (attempt $((attempt + 1))/3)."
+  echo "Download failed; retrying build in 30 seconds (attempt $((attempt + 1))/3)."
   sleep 30
 done
