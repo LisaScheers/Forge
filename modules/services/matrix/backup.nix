@@ -71,7 +71,8 @@ in {
       text = ''
         test -f /var/lib/matrix-restore-input/var/backup/matrix-coordinated/COMPLETE
         rm -rf /var/lib/matrix-restore-check/input /var/lib/matrix-restore-check/work
-        cp -a /var/lib/matrix-restore-input/var/backup/matrix-coordinated /var/lib/matrix-restore-check/input
+        # DynamicUser's id-mapped mount cannot represent production service UIDs.
+        cp -a --no-preserve=ownership /var/lib/matrix-restore-input/var/backup/matrix-coordinated /var/lib/matrix-restore-check/input
         # The enclosing StateDirectory remains 0700 and belongs to DynamicUser.
         chmod -R a+rX /var/lib/matrix-restore-check/input
       '';

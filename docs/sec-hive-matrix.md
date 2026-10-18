@@ -164,6 +164,29 @@ Use the local provisioning login endpoint to connect the Discord bot to
 `@sec-hive-relay:bylisa.dev`; this avoids placing the bot token in a Matrix message
 or command arguments. Preserve the bridge's registration and database together.
 
+## Membership and moderation
+
+Lisa selected moderator invitations after checking Discord roles on 2026-10-18.
+There is no automatic account-linking or role-to-Matrix admission service.
+
+Before inviting anyone, moderators must verify the Matrix account's owner and
+their eligibility for that specific Discord channel. Matching display names are
+not identity proof. Use Discord channel roles/overwrites as the access reference;
+Matrix-only participants need an explicit equivalent access decision from a
+moderator. Record approved account IDs in the private channel manifest.
+
+Before each room opens, set invite/kick/ban/redact/state power to 50, normal member
+power to 0, and grant administration to Lisa and required bridge identities.
+Verify invite-only joining and history visibility before adding members. Ordinary
+members must not be able to widen access; the pilot's negative checks establish
+the expected policy. Native upstream room defaults are not evidence of this
+policy: apply and verify it on every portal before invitations.
+
+Discord role loss, member removal, and bans require the corresponding Matrix
+review/removal. Moderator deletion of somebody else's Discord message is not
+established by the own-message deletion tests; do not grant Manage Messages or
+claim automatic cross-platform moderation without a separate decision and test.
+
 ## Gates before permanent rooms
 
 - Finish the relevant channel/thread exports and verify the history bound before
@@ -199,3 +222,61 @@ A protected pre-bridge backup at `/var/backup/sec-hive-prebridge-20261018` conta
 the Synapse database, media/configuration/signing files, checksums, and deployed
 generation. Checksums and database dump catalog pass; a coordinated restore and
 off-host recovery test remain gates before broader rollout.
+
+## Coordinated off-host backup and restore
+
+Lisa approved Nook's HDD destination on 2026-10-18:
+`/srv/disks/western-digital-hdd/backups/atlas-matrix`. Restic encrypts the repository;
+its password and restricted SSH key are agenix secrets for Lisa and Atlas only.
+Nook gets an SFTP-only, chrooted account restricted to Atlas's tailnet address.
+Repository setup requires the HDD mount, avoiding a fallback to Nook's root disk.
+
+`restic-backups-matrix.service` stages `/var/backup/matrix-coordinated`: both
+database dumps, Synapse media/signing key, bridge configuration/registration,
+required Matrix runtime secrets, and private pilot verification inputs. It copies
+media before the pause, stops bridge then Synapse, captures databases/files at a
+common quiescent point, resumes services, and only then hashes/uploads. EXIT and
+systemd post-stop cleanup restore the previous running states after failure.
+The updater shares the checkpoint lock and skips a pending recovery marker;
+manual Atlas deployment refuses an in-progress checkpoint. Do not run concurrent
+manual maintenance while taking a checkpoint.
+
+The daily timer is at 02:00 server time. Initial catch-up-on-boot is staged off
+until the first backup/restore is proven. No snapshots are automatically pruned;
+retention/deletion policy remains a separate decision.
+
+The first off-host snapshot, `d8284df2`, completed on 2026-10-18 at 13:13 UTC.
+It captured 2.045 GiB and stored 1.767 GiB; Restic's repository check passed.
+Synapse and the bridge were stopped from 13:11:12 to 13:11:25 UTC (13 seconds).
+Both resumed before upload and remained active afterward.
+
+For a restore rehearsal, restore a specific off-host snapshot into a new protected
+`/var/lib/matrix-restore-input` directory with `sudo restic-matrix restore ID
+--target /var/lib/matrix-restore-input --verify`, then start
+`matrix-restore-check.service`. It rejects incomplete/corrupt checkpoints and any
+network namespace containing an interface other than loopback. The dedicated
+DynamicUser service cannot access the live PostgreSQL socket or application data.
+It restores fresh databases and files, compares bridge mapping counts, starts
+separate Synapse/bridge processes, and verifies original pilot authors/timestamps,
+ordering, replies and every file hash through the restored Matrix client API.
+Discord login tokens are cleared only in the isolated restored database before
+starting its bridge; the encrypted backup and production credentials are intact.
+Logs and detailed results stay in the protected restore StateDirectory.
+
+For real recovery, keep Discord and federation disconnected until validation is
+complete. Select one snapshot and its recorded Forge generation; obtain the
+repository password from Lisa's recovery copy or agenix with her identity. Nook
+cannot decrypt the repository. Restore to a protected staging directory and run
+the isolated rehearsal first. Rebuild the matching Nix configuration/roles, stop
+both live applications, and restore both databases plus Synapse media/signing key,
+bridge state/registration and runtime credentials from that same snapshot. Restore
+service ownership and confirm the appservice token pair matches registration.
+Replacing live databases/files is destructive and needs Lisa's explicit approval;
+the rehearsal never performs that step. Start privately, verify client history,
+media and mappings, then deliberately reconnect and test both delivery directions.
+Messages sent after the selected checkpoint require a separate gap/duplicate
+review; restoring an older mapping database alone is not safe recovery.
+
+Five fixture tests cover valid, damaged, incomplete and escaping checkpoints plus
+the network guard. A shell test verifies recovery state handling and refuses
+invalid state. The first real off-host restore is still pending.
