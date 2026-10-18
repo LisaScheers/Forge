@@ -207,6 +207,10 @@ with `GITHUB_TOKEN` do not trigger other workflows. Its PR body links to the bui
 results. The same build workflow runs for ordinary PRs, pushes to `main`, and
 manual runs.
 
+Both workflows use Lix, matching the hosts and preserving the tarball revision
+URLs in Lix-generated lock files. Upstream Nix 2.35 rejects those URLs during
+configuration evaluation.
+
 The build matrix discovers every NixOS, nix-darwin, and standalone Home Manager
 configuration from the flake and builds it on a native Linux or macOS runner.
 It also builds both Asterion installer packages. These are full builds, with

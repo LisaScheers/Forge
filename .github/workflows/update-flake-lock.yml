@@ -25,7 +25,7 @@ jobs:
         with:
           ref: main
 
-      - uses: cachix/install-nix-action@v31
+      - uses: samueldr/lix-gha-installer-action@38852f089fdd2f5aabeec42c59c8d180bb8a15e9
         with:
           github_access_token: ${{ secrets.FLAKE_INPUTS_TOKEN || github.token }}
           extra_nix_config: |
