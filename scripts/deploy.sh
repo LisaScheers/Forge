@@ -103,6 +103,10 @@ if [[ "$host" == "atlas" ]]; then
     echo "Atlas reboot timer state is $reboot_state; it was not deployed" >&2
     exit 1
   fi
+  if ! ssh "${ssh_args[@]}" atlas sudo test ! -e /run/matrix-coordinated-state; then
+    echo "Atlas Matrix checkpoint is in progress; it was not deployed" >&2
+    exit 1
+  fi
 
   # Close the race where main changes while the closures are building.
   git fetch --quiet origin main
