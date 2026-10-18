@@ -253,17 +253,29 @@ results rendered differently by the exporter. The prepared raw snapshot retains
 1.216 GB of file bytes. One newer PNG has inconsistent size metadata, but a
 second fresh source download matches its local bytes and SHA-256. General's three
 accessible public threads independently verify 224 raw messages and seven files.
-Unjoined private-thread coverage remains unavailable. A larger measured backfill
-bound and fresh Atlas capacity/runtime checks are required before binding General.
+Unjoined private-thread coverage remains unavailable. A subsequent complete source audit covers 79,029 root messages with no missing
+older IDs, deletions, changed attachment sets or changed authors. The current
+snapshot preserves 1,092 root file hashes (1,218,723,098 bytes), and its three
+public threads still verify 224 raw messages and seven files. Unchanged archived
+files were rehashed; new size discrepancies were checked against a second source
+download. Atlas had 37.7 GB free before import, against 2.65 GB of referenced local
+export assets. The deployed initial bound is 90,000 messages. General is bound to
+a private, unlisted staging room and its native import is running. Do not restart
+the bridge during initial collection/import; original IDs, authors, timestamps,
+chronology, replies and every file hash must pass before admission. Finalization
+also classifies missing reply targets against Discord; accessible unresolved
+targets block admission. A new coordinated backup waits until active initial
+imports finish.
 
 ### Prepared batch and content gaps, 2026-10-18
 
 Another 14 channels and 79 public threads have completed independent export and
 fresh source-ID verification: 10,357 raw messages and 265 ordinary file hashes.
 Ten additional files inside forwarded snapshots were downloaded and hashed
-separately, bringing the prepared batch to 275 file hashes. No portals or category
-Spaces for this batch have been created. Protected helpers preserve its five
-Discord categories rather than putting all rooms under General.
+separately, bringing the prepared batch to 275 file hashes. A later refreshed
+export verifies 10,359 raw messages before rollout. The five additional private
+category Spaces preserve Discord placement. Import controllers verify each room
+and all of its public threads before linking the room and inviting Lisa.
 
 `discord-history-content.patch` preserves poll questions, answer choices and count
 snapshots, poll-result embeds, forwarded attachments/stickers/embeds, and nested
@@ -273,20 +285,18 @@ room; slice copies leave cached source payloads unchanged. Edits retain forwarde
 attachment IDs so native edit handling does not remove those files accidentally.
 Package tests and the isolated Synapse/PostgreSQL integration check pass.
 
-This conversion is not yet confirmed deployed. Initial deployment and commit
-attempts failed when 1Password SSH/Git signing became unavailable. Lisa restored
-signing; the retry succeeded, and all three services and the auto-update timer
-are active. Complete normal deployment gates and verify the actual running bridge
-package before importing new content. Signing was not bypassed; a passing build
-or pushed commit does not establish activation.
+The converter and reaction-control repair are confirmed deployed through normal
+Atlas deployment gates (commits e1dbea9 and 4f6a430). Lisa restored SSH/Git signing;
+no bypass was used. The actual running bridge executable and configuration were
+checked, including the 90,000-message initial bound. Synapse, mautrix-discord,
+PluralMatrix and the auto-update timer are active.
 
 The expanded audit also found seven forwarded files in previously opened rooms
 (two Admin stuff thread files and five special-interests files). Their bytes and
-hashes are preserved locally, but Matrix repair and client-API verification remain
-pending. Existing component messages also need reconciliation. Earlier verified
-file counts cover ordinary attachments, not these newly discovered forwarded
-files. Do not rerun initial history into populated portals or declare these gaps
-fixed merely by deploying the new converter.
+hashes were preserved locally, then repaired and verified through an ordinary
+Matrix account. All 265 older component messages were also reconciled. The live
+repair proof and its mapping/timestamp limits are recorded below. Earlier
+ordinary-attachment counts exclude these seven supplementary files.
 
 ### Historical reactions
 
@@ -329,14 +339,41 @@ older component messages have verified edits retaining their visible labels/text
 Source payloads, restoration transaction IDs and proofs remain in the protected
 migration state. New imports use the corrected native converter directly.
 
-Five rooms from the next batch are verified and open: facility-posting,
-little-space, abdl-area, ace-kink and mantras. This makes 20 live channels. Five
-additional category Spaces preserve their Discord placement; uninvited access is
-denied. The controller is paused before the next portal binding for the reaction
-fix deployment. General has an unused private staging room only; its measured
-source upper bound is 79,029 messages and its export references 2.65 GB of local
-assets. Atlas has 37.7 GB free. Its declarative initial bound is raised to 90,000;
-binding still requires completion of the fresh source audit and all file checks.
+The 21:32 UTC checkpoint has 29 live rooms. All fourteen rooms from the latest
+batch add 10,359 preserved source events, 10,568 native Matrix parts, 275 file
+hashes, 2,023 verified replies and 79 public threads. Three missing reply targets all
+return Discord HTTP 404. One empty thread-recipient removal event, skipped by the
+legacy converter, is retained as an explicitly dated import-time thread notice;
+its author, source payload digest, thread relation and ordinary-account visibility
+are verified. It has no native message mapping. The remaining source events keep
+their original timestamps and verified order. Stable transaction/journal reuse
+preserves the same supplementary event on retry.
+
+The hierarchy audit confirms 25 rooms at its earlier checkpoint, all under the
+root plus seven category Spaces, with reciprocal links and moderator-only
+invitations/state. Each later room passes the same per-room gates. A later power
+level event from Lisa's Matrix account made rules-and-philosophy read-only one
+second after its earlier writable proof. Its message/reaction level is 50 and it
+is excluded from the historical-reaction wave pending Lisa's clarification; do
+not silently overwrite that later user-written setting. Other opened rooms have
+webhook relays and joined PluralMatrix. Ordinary admissions still require role
+review; Space membership grants no room access.
+
+The independently prepared beep-stim-chat snapshot verifies 7,304 messages and
+38 ordinary file hashes. Its original complete export matches the fresh source
+ID set, and the existing media was rehashed. The redundant refresh was stopped
+after this proof passed. Its native history import is running privately; the
+room remains unlisted and uninvited until full verification and declarative
+PluralMatrix admission. That allowlist change alters the bridge environment and
+would restart it, so it is staged locally until both General and beep-stim-chat
+initial imports finish. Candidate system build passes; Synapse/PostgreSQL units
+are unchanged, while the bridge unit difference is the extra plural-room ID.
+A parallel export covers 29 other accessible text roots and their 88 discovered
+threads, separately from the original running whole-server export. These are
+archives, not Matrix import proofs. A fresh bounded source audit measures the
+remaining roots before their import/capacity review. The four hidden text roots
+and all eight voice-channel text histories remain outside verified coverage,
+pending Lisa's coverage choice and actual bot permissions.
 
 Source: [Discord reaction users and kinds](https://docs.discord.com/developers/resources/message#get-reactions).
 

@@ -33,6 +33,8 @@
         "!wWxtpqIlaxVBLRYhyZ:bylisa.dev"
         "!YeWRZvwFPmiZRJcZvX:bylisa.dev"
         "!BSjqWjEWiEYskgFfGd:bylisa.dev"
+        # Unlisted staging room; archive verification precedes portal binding.
+        "!TVanAIHULKScLLKCIM:bylisa.dev"
       ];
       publicHost = "plural.bylisa.dev";
       secretsFile = config.age.secrets.pluralmatrix-credentials.path;
