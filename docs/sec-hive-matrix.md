@@ -190,6 +190,45 @@ category names and child links an audience may see before inviting it. Room/Spac
 state is persisted by Synapse; these newly created links are newer than the last
 restore-tested checkpoint and will enter the next coordinated backup.
 
+### Completed-channel rollout, 2026-10-18
+
+Ten additional channels are now live under Admin stuff: `join`, `suggestions`,
+`rules-and-philosophy`, `introductions`, `stream-notifications`,
+`lore-glossary-definitions`, `blocked-messages`, `vetting`, `ask-to-dm`, and
+`announcements`. All 64 audited public threads are imported into their parent
+rooms. The root Space, category and 11 message rooms produce 13 verified hierarchy
+entries. Lisa is invited; ordinary admissions remain subject to moderator review.
+
+The additional batch verifies 2,301 original source IDs as 2,360 Matrix parts,
+78 attachment SHA-256 hashes and 293 reply relations, with no missing reply
+references. Every part's author, timestamp, thread relation and readable timeline
+order is checked through the Matrix client API. These counts exclude the original
+pilot's 1,070 messages, 1,106 parts, 36 files and 11 replies. The public-thread
+audit retains 27 structural starter wrappers and two thread-renaming events.
+The moderation converter preserves all 229 moderation notices in blocked-messages.
+
+Lisa selected read-only mirrors for join and rules-and-philosophy. Both now have
+Discord Manage Webhooks permission, but this does not change their read-only
+policy. The eight other new rooms have configured relays and PluralMatrix
+membership; the pilot remains the end-to-end live behavior proof. Both application
+queues were empty and all three services healthy after import; guild mode stays
+`if-portal-exists`.
+
+Two failed staging copies are preserved, renamed and tombstoned toward their
+verified replacements. One linked-account historical event had lost its original
+timestamp; another partial import skipped moderation embeds. Replacing these
+staging portals preserved chronology without deleting either old room. Operational
+requests honor Matrix's retry delay while retaining the original transaction ID.
+Discord-provided embedded image/icon/preview URLs also produced HTTP 404s; these
+are recorded separately from the 78 successfully verified file attachments.
+The full-server archive and unjoined private-thread coverage remain unfinished.
+
+Post-rollout encrypted off-host snapshot `befbbb95` was saved at 16:17 UTC;
+the backup and repository check completed at 16:18 UTC with no errors. It captures
+26,961 files and 2.124 GiB, adding 260.216 MiB of new data (200.972 MiB stored).
+All three live applications resumed before off-host upload. This batch has not
+undergone a fresh isolated restore; the earlier restore proof covers the pilot.
+
 ## Bridge foundation
 
 Incremental rollout is authorized by Lisa's request to sync completed channels.
