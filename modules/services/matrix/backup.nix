@@ -99,7 +99,7 @@ in {
       runCheck = true;
       timerConfig = {
         OnCalendar = "*-*-* 02:00:00";
-        Persistent = false;
+        Persistent = true;
       };
       # Retention/deletion is a separate decision; preserve every snapshot.
     };

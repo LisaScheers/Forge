@@ -73,7 +73,8 @@ appeared in Discord, a thumbs-up produced the attributed notice with her Matrix
 ID, Element created a Discord thread, and a normal Discord reply returned to that
 same Element thread. Removing the reaction in Element removed only its Discord
 notice. This used the native apps, without extracting personal account tokens.
-Wider room access and coordinated restore remain rollout gates.
+Wider room access remains a rollout gate. The coordinated off-host restore passed
+on 2026-10-18; details follow below.
 
 An outage test exposed a missed-message race: queued Matrix sends could become
 the newest database message before Discord catch-up, hiding older offline input.
@@ -220,8 +221,8 @@ PostgreSQL backups already include all databases. They do not cover Synapse medi
 signing keys, bridge registration/credentials, or off-host recovery by themselves.
 A protected pre-bridge backup at `/var/backup/sec-hive-prebridge-20261018` contains
 the Synapse database, media/configuration/signing files, checksums, and deployed
-generation. Checksums and database dump catalog pass; a coordinated restore and
-off-host recovery test remain gates before broader rollout.
+generation. Checksums and database dump catalog pass. The coordinated off-host
+recovery test below also passes; wider history/access gates remain open.
 
 ## Coordinated off-host backup and restore
 
@@ -241,9 +242,9 @@ The updater shares the checkpoint lock and skips a pending recovery marker;
 manual Atlas deployment refuses an in-progress checkpoint. Do not run concurrent
 manual maintenance while taking a checkpoint.
 
-The daily timer is at 02:00 server time. Initial catch-up-on-boot is staged off
-until the first backup/restore is proven. No snapshots are automatically pruned;
-retention/deletion policy remains a separate decision.
+The daily timer is at 02:00 server time (UTC on Atlas), with missed runs caught up
+after boot. No snapshots are automatically pruned; retention/deletion policy
+remains a separate decision.
 
 The first off-host snapshot, `d8284df2`, completed on 2026-10-18 at 13:13 UTC.
 It captured 2.045 GiB and stored 1.767 GiB; Restic's repository check passed.
@@ -279,4 +280,13 @@ review; restoring an older mapping database alone is not safe recovery.
 
 Five fixture tests cover valid, damaged, incomplete and escaping checkpoints plus
 the network guard. A shell test verifies recovery state handling and refuses
-invalid state. The first real off-host restore is still pending.
+invalid state. The first real off-host restore passed on 2026-10-18 at 13:22 UTC:
+Restic downloaded and verified all 23,913 files from snapshot `d8284df2`; the
+isolated service checked 23,911 content hashes (excluding the checksum manifest
+and completion marker), restored both databases, matched bridge mapping counts,
+started Synapse and the bridge, and verified 1,106 original pilot message parts,
+36 attachment hashes and 11 reply relations through the restored client API.
+It completed in 61 seconds after download, with external networking unavailable.
+The first attempt exposed an id-mapped mount ownership mismatch; the copy step
+now omits production UIDs inside the test directory. The original snapshot still
+preserves production ownership. Live services remained active during rehearsal.
