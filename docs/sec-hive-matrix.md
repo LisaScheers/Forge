@@ -67,7 +67,13 @@ Live pilot checks passed for ordinary Matrix webhook relay, text and files in bo
 directions, edits, own-message deletion, replies, existing Discord threads, and an
 independent webhook without an echo loop. Matrix replies use linked Discord
 embeds. Uninvited Matrix joins and ordinary members changing room access are
-denied. Lisa's normal-account acceptance remains required before expansion.
+denied. On 2026-10-18, Lisa requested testing through her local Element app.
+Checks in her existing Element and Discord sessions passed: an Element message
+appeared in Discord, a thumbs-up produced the attributed notice with her Matrix
+ID, Element created a Discord thread, and a normal Discord reply returned to that
+same Element thread. Removing the reaction in Element removed only its Discord
+notice. This used the native apps, without extracting personal account tokens.
+Wider room access and coordinated restore remain rollout gates.
 
 An outage test exposed a missed-message race: queued Matrix sends could become
 the newest database message before Discord catch-up, hiding older offline input.
