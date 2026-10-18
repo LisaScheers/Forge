@@ -4,6 +4,8 @@
       enable = true;
       allowedRooms = [
         "!JhfHvvWnFwYhEKzlot:bylisa.dev"
+        "!NQIGQqdtQEZKmXOooD:bylisa.dev"
+        "!fEiZNnpdJmNLhtRcNw:bylisa.dev"
         "!DtGujQmwAFWjOZNonz:bylisa.dev"
         "!YjBtrJaLHdZbOycxkC:bylisa.dev"
         "!TFToFwMQyifpNLCcGa:bylisa.dev"

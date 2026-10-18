@@ -207,10 +207,10 @@ pilot's 1,070 messages, 1,106 parts, 36 files and 11 replies. The public-thread
 audit retains 27 structural starter wrappers and two thread-renaming events.
 The moderation converter preserves all 229 moderation notices in blocked-messages.
 
-Lisa selected read-only mirrors for join and rules-and-philosophy. Both now have
-Discord Manage Webhooks permission, but this does not change their read-only
-policy. The eight other new rooms have configured relays and PluralMatrix
-membership; the pilot remains the end-to-end live behavior proof. Both application
+Lisa subsequently removed the read-only policy for join and rules-and-philosophy
+on 2026-10-18. Both have Discord Manage Webhooks permission and use the same
+relay and PluralMatrix policy as the other rooms. All 11 rooms permit posting;
+the pilot remains the end-to-end live behavior proof. Both application
 queues were empty and all three services healthy after import; guild mode stays
 `if-portal-exists`.
 
@@ -254,15 +254,14 @@ before admission. Creating relay webhooks separately requires Manage Webhooks in
 the individual Discord channel. A readable history room without that permission
 is not evidence of a working relay for Matrix-only members.
 
-Lisa selected read-only mirrors for `#join` and `#rules-and-philosophy`. Their Discord channel IDs
-are declared in `matrix.discord.readOnlyChannels`; no relay webhooks are required.
-The bridge rejects Matrix-originated messages/edits, reactions and redactions for
-that mirror with a permanent permission failure, including queued message sends.
-PluralMatrix is excluded there. Before admitting an ordinary reader, set their
-individual Matrix power to -1; source ghosts keep level zero and administrators
-retain management rights. Do not raise the global send level, which would also
-block incoming Discord ghosts. Restore this declarative channel policy with the
-matching Nix generation when recovering the service.
+`matrix.discord.readOnlyChannels` defaults to an empty list; Atlas has no read-only
+channel exceptions following Lisa's revised instruction. If configured in future,
+the bridge rejects Matrix-originated messages/edits, reactions and redactions for
+those channels with a permanent permission failure, including queued sends.
+Exclude PluralMatrix from such mirrors and assign individual readers power -1
+before admission. Keep source ghosts at zero and administrators' management
+rights intact; raising the global send level would block incoming source messages.
+Restore the matching declarative policy when recovering the service.
 
 Historical creation/backfill uses appservice-controlled Discord identities even
 when an author has linked their real Matrix account. Ordinary Matrix account
