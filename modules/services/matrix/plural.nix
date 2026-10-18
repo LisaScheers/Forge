@@ -18,6 +18,20 @@
         "!HFhiefsmHgROSzxcVp:bylisa.dev"
         "!arWzVrlMDwjRgeZOEo:bylisa.dev"
         "!iETtijEpVNadVEewzq:bylisa.dev"
+        "!XcjXcHtDBtNMMUWZjP:bylisa.dev"
+        "!deGNODYsnWeYosmfrf:bylisa.dev"
+        "!bInBpaIsNtwSEClRaV:bylisa.dev"
+        "!mQwAfTpbOZJZJpLsXD:bylisa.dev"
+        "!GUlrjTBzBMcdoZZXsj:bylisa.dev"
+        "!jLntrehfaMwpdnuYFy:bylisa.dev"
+        "!hCdJteiOatlXJHTbAm:bylisa.dev"
+        "!rDfdijNyPqPUerIDEZ:bylisa.dev"
+        "!QUBhmHiTLrculNTctW:bylisa.dev"
+        "!zhdLXaCUpCaPkvzQyo:bylisa.dev"
+        "!jxUqPwtGbUqImaHrgT:bylisa.dev"
+        "!dUoaSoWbhiBhiMQEyq:bylisa.dev"
+        "!wWxtpqIlaxVBLRYhyZ:bylisa.dev"
+        "!YeWRZvwFPmiZRJcZvX:bylisa.dev"
       ];
       publicHost = "plural.bylisa.dev";
       secretsFile = config.age.secrets.pluralmatrix-credentials.path;
