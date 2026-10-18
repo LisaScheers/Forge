@@ -21,7 +21,7 @@
 +func (portal *Portal) handleDiscordMessageCreateWithHistory(user *User, msg *discordgo.Message, thread *Thread, historical bool) {
  	switch msg.Type {
 -	case discordgo.MessageTypeChannelNameChange, discordgo.MessageTypeChannelIconChange, discordgo.MessageTypeChannelPinnedMessage:
-+	case discordgo.MessageTypeChannelNameChange, discordgo.MessageTypeChannelIconChange:
++	case discordgo.MessageTypeChannelIconChange:
  		// These are handled via channel updates
  		return
  	}
@@ -115,7 +115,17 @@
  
 --- a/portal_convert.go
 +++ b/portal_convert.go
-@@ -683,6 +683,9 @@
+@@ -636,6 +636,9 @@
+ 			return EmbedLinkPreview
+ 		}
+ 		return EmbedRich
++	case discordgo.EmbedType("auto_moderation_message"):
++		// Discord moderation notices carry their content in these rich fields.
++		return EmbedRich
+ 	case discordgo.EmbedTypeRich:
+ 		return EmbedRich
+ 	default:
+@@ -683,6 +686,9 @@
  </blockquote>`
  
  func (portal *Portal) convertDiscordTextMessage(ctx context.Context, intent *appservice.IntentAPI, msg *discordgo.Message) *ConvertedMessage {
@@ -127,7 +137,7 @@
  		return &ConvertedMessage{Type: event.EventMessage, Content: &event.MessageEventContent{
 --- /dev/null
 +++ b/history_repair.go
-@@ -0,0 +1,139 @@
+@@ -0,0 +1,142 @@
 +package main
 +
 +import (
@@ -171,6 +181,9 @@
 +	var body string
 +	msgType := event.MsgEmote
 +	switch msg.Type {
++	case discordgo.MessageTypeChannelNameChange:
++		body = "changed the channel name"
++		if msg.Content != "" { body += ": " + msg.Content }
 +	case discordgo.MessageTypeThreadStarterMessage:
 +		body = "Original message for this thread"
 +		msgType = event.MsgNotice
@@ -269,12 +282,14 @@
 +}
 --- /dev/null
 +++ b/history_repair_test.go
-@@ -0,0 +1,80 @@
+@@ -0,0 +1,95 @@
 +package main
 +
 +import (
 +	"context"
 +	"testing"
++	"strings"
++	"go.mau.fi/mautrix-discord/config"
 +
 +	"github.com/bwmarrin/discordgo"
 +	"maunium.net/go/mautrix/event"
@@ -284,6 +299,7 @@
 +
 +func TestHistoricalSystemEventsSurviveConversion(t *testing.T) {
 +	for _, test := range []struct { kind discordgo.MessageType; body string }{
++		{discordgo.MessageTypeChannelNameChange, "changed the channel name"},
 +		{discordgo.MessageTypeChannelPinnedMessage, "pinned a message"},
 +		{discordgo.MessageTypeUserPremiumGuildSubscription, "boosted the server"},
 +		{discordgo.MessageTypeUserPremiumGuildSubscriptionTierOne, "boosted the server (boost level 1 reached)"},
@@ -305,6 +321,18 @@
 +	if starter == nil || starter.Content.MsgType != event.MsgNotice || starter.Content.Body == "" {
 +		t.Fatal("empty thread-starter wrappers must retain a mapped structural notice")
 +	}
++}
++
++func TestModerationNoticeKeepsDescriptionAndFields(t *testing.T) {
++    portal := &Portal{bridge: &DiscordBridge{Config: &config.Config{}}}
++    got := portal.convertDiscordTextMessage(context.Background(), nil, &discordgo.Message{
++        Type: discordgo.MessageType(24),
++        Embeds: []*discordgo.MessageEmbed{{Type: discordgo.EmbedType("auto_moderation_message"), Description: "Blocked message content", Fields: []*discordgo.MessageEmbedField{{Name: "Rule", Value: "Example policy"}}}},
++    })
++    if got == nil { t.Fatal("moderation notice disappeared") }
++    for _, text := range []string{"Blocked message content", "Rule", "Example policy"} {
++        if !strings.Contains(got.Content.Body, text) { t.Fatalf("moderation content lost %q: %q", text, got.Content.Body) }
++    }
 +}
 +
 +func TestThreadHistoryImportDoesNotWidenPrivateOrUnrelatedAccess(t *testing.T) {

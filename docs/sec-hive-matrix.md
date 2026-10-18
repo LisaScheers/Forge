@@ -48,8 +48,8 @@ Completed: live Atlas health/capacity inspection; bot membership verification;
 credentials for Lisa and Atlas, with successful Atlas decryption validation.
 The bot cannot view 4 text and 2 voice channels; those are explicit coverage gaps.
 The exporter discovered 236 threads and started a 309-channel/thread archive.
-Atlas now runs the bridge. Only the selected pilot has a message portal; guild
-mode is `if-portal-exists`, preventing automatic creation for other channels.
+Atlas now runs the bridge for the pilot and individually reviewed completed
+channels. Guild mode is `if-portal-exists`, preventing automatic portal creation.
 The pilot export contains 1,070 messages and 36 attachments, verified locally.
 Three PNGs differ from Discord's declared sizes; fresh downloads from URLs returned
 by Discord's message API have identical SHA-256 and byte counts to the local files.
@@ -175,10 +175,10 @@ Source: [Discord message endpoint permissions](https://github.com/discord/discor
 ### Space navigation
 
 The invite-only SEC-Hive root Space and its Admin stuff subspace now exist; the
-pilot is linked under Admin stuff. Lisa has invitations to both Spaces. Creation,
+pilot and verified incremental rooms are linked under Admin stuff. Lisa has invitations to both Spaces. Creation,
 federation, no encryption, moderator-only state/invitations, reciprocal parent/child
 links and the hierarchy API are verified. An uninvited ordinary fixture cannot
-read either Space's state. No additional message portal was created.
+read either Space's state. Each additional message portal requires its own source audit.
 
 Navigation is explicitly maintained separately from native guild bridging, so the
 guild stays in `if-portal-exists` mode. Do not run `guilds bridge` to create a second
@@ -197,8 +197,9 @@ Verify each root export and every accessible public thread independently before
 admission. Unused private rooms can be staged first; bind/import only after the
 relevant source checks pass. Keep guild mode `if-portal-exists` throughout.
 
-The history patch preserves pin and server-boost system events instead of silently
-omitting them. `retry-initial-backfill` is restricted to bridge admins in guild
+The history patch preserves pin, server-boost and channel-renaming system events
+instead of silently omitting them. Moderation notice embeds use the rich-embed
+converter to retain their description and fields. `retry-initial-backfill` is restricted to bridge admins in guild
 portals and refuses any portal with an existing message mapping. It recovers a
 completely failed empty import without deleting or replacing the room.
 `import-thread-history THREAD_ID` likewise requires a bridge admin, verifies that
@@ -214,8 +215,8 @@ before admission. Creating relay webhooks separately requires Manage Webhooks in
 the individual Discord channel. A readable history room without that permission
 is not evidence of a working relay for Matrix-only members.
 
-Lisa clarified that `#rules-and-philosophy` is read-only. Its Discord channel ID
-is declared in `matrix.discord.readOnlyChannels`; no relay webhook is required.
+Lisa selected read-only mirrors for `#join` and `#rules-and-philosophy`. Their Discord channel IDs
+are declared in `matrix.discord.readOnlyChannels`; no relay webhooks are required.
 The bridge rejects Matrix-originated messages/edits, reactions and redactions for
 that mirror with a permanent permission failure, including queued message sends.
 PluralMatrix is excluded there. Before admitting an ordinary reader, set their
