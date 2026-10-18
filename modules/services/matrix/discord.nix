@@ -77,6 +77,7 @@
             ./discord-plural.patch
             ./discord-history.patch
             ./discord-reaction-history.patch
+            ./discord-history-content.patch
           ];
           doCheck = true;
         };

@@ -245,8 +245,48 @@ Encrypted off-host snapshot `521755c2` captures 30,242 files and 2.479 GiB.
 The backup/repository check passed at 19:22 Brussels time on 2026-10-18. This
 checkpoint has not undergone a fresh isolated restore; the earlier restore proof
 remains the pilot proof. General's separate completed export contains 78,922
-messages and 1,077 file attachments; source validation and a larger measured
-backfill bound are required before creating that portal.
+messages and 1,077 file attachments. A later source scan covers 78,978 messages:
+56 newer arrivals, no missing older IDs or deletions, no changed attachment sets
+or authors. Its 18 text differences are pins, joins, thread creation and poll
+results rendered differently by the exporter. The prepared raw snapshot retains
+1,090 file hashes, including ten forwarded files and three newer attachments;
+1.216 GB of file bytes. One newer PNG has inconsistent size metadata, but a
+second fresh source download matches its local bytes and SHA-256. General's three
+accessible public threads independently verify 224 raw messages and seven files.
+Unjoined private-thread coverage remains unavailable. A larger measured backfill
+bound and fresh Atlas capacity/runtime checks are required before binding General.
+
+### Prepared batch and content gaps, 2026-10-18
+
+Another 14 channels and 79 public threads have completed independent export and
+fresh source-ID verification: 10,357 raw messages and 265 ordinary file hashes.
+Ten additional files inside forwarded snapshots were downloaded and hashed
+separately, bringing the prepared batch to 275 file hashes. No portals or category
+Spaces for this batch have been created. Protected helpers preserve its five
+Discord categories rather than putting all rooms under General.
+
+`discord-history-content.patch` preserves poll questions, answer choices and count
+snapshots, poll-result embeds, forwarded attachments/stickers/embeds, and nested
+bot-message text, button labels and media links. Poll voting and component actions
+remain on Discord. Forwarded media uses the forwarding message's author, ID and
+room; slice copies leave cached source payloads unchanged. Edits retain forwarded
+attachment IDs so native edit handling does not remove those files accidentally.
+Package tests and the isolated Synapse/PostgreSQL integration check pass.
+
+This conversion is not yet confirmed deployed. Initial deployment and commit
+attempts failed when 1Password SSH/Git signing became unavailable. Lisa restored
+signing; the retry succeeded, and all three services and the auto-update timer
+are active. Complete normal deployment gates and verify the actual running bridge
+package before importing new content. Signing was not bypassed; a passing build
+or pushed commit does not establish activation.
+
+The expanded audit also found seven forwarded files in previously opened rooms
+(two Admin stuff thread files and five special-interests files). Their bytes and
+hashes are preserved locally, but Matrix repair and client-API verification remain
+pending. Existing component messages also need reconciliation. Earlier verified
+file counts cover ordinary attachments, not these newly discovered forwarded
+files. Do not rerun initial history into populated portals or declare these gaps
+fixed merely by deploying the new converter.
 
 ### Historical reactions
 

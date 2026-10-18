@@ -1,0 +1,272 @@
+--- a/portal_convert.go
++++ b/portal_convert.go
+@@ -275,6 +275,7 @@
+ }
+ 
+ func (portal *Portal) convertDiscordMessage(ctx context.Context, puppet *Puppet, intent *appservice.IntentAPI, msg *discordgo.Message) []*ConvertedMessage {
++	msg = withForwardedMedia(msg)
+ 	predictedLength := len(msg.Attachments) + len(msg.StickerItems)
+ 	if msg.Content != "" {
+ 		predictedLength++
+@@ -636,7 +637,7 @@
+ 			return EmbedLinkPreview
+ 		}
+ 		return EmbedRich
+-	case discordgo.EmbedType("auto_moderation_message"):
++	case discordgo.EmbedType("auto_moderation_message"), discordgo.EmbedType("poll_result"):
+ 		// Discord moderation notices carry their content in these rich fields.
+ 		return EmbedRich
+ 	case discordgo.EmbedTypeRich:
+@@ -702,6 +703,9 @@
+ 		}}
+ 	}
+ 	var htmlParts []string
++	if pollHTML := discordPollHTML(msg.Poll); pollHTML != "" {
++		htmlParts = append(htmlParts, pollHTML)
++	}
+ 	if msg.Interaction != nil {
+ 		puppet := portal.bridge.GetPuppetByID(msg.Interaction.User.ID)
+ 		puppet.UpdateInfo(nil, msg.Interaction.User, nil)
+@@ -764,7 +768,7 @@
+ 	}
+ 
+ 	if len(msg.Components) > 0 {
+-		htmlParts = append(htmlParts, msgComponentTemplateHTML)
++		htmlParts = append(htmlParts, discordComponentsHTML(msg.Components), msgComponentTemplateHTML)
+ 	}
+ 
+ 	if len(htmlParts) == 0 {
+--- a/portal.go
++++ b/portal.go
+@@ -874,6 +874,7 @@
+ 	// Edits must use the identity that authored the original historical part.
+ 	intent := puppet.messageIntent(portal, existing[0].SenderMXID == puppet.MXID)
+ 
++	msg = withForwardedMedia(msg)
+ 	redactions := zerolog.Dict()
+ 	attachmentMap := map[string]*database.Message{}
+ 	for _, existingPart := range existing {
+--- /dev/null
++++ b/history_content.go
+@@ -0,0 +1,131 @@
++package main
++
++import (
++	"fmt"
++	"html"
++	"net/url"
++	"strings"
++	"time"
++
++	"github.com/bwmarrin/discordgo"
++)
++
++// Snapshot media belongs to the forwarding message, not its inaccessible source
++// portal. Copy slices so later edits of the cached raw message remain independent.
++func withForwardedMedia(msg *discordgo.Message) *discordgo.Message {
++	if msg.MessageReference == nil || msg.MessageReference.Type != discordgo.MessageReferenceTypeForward || len(msg.MessageSnapshots) == 0 {
++		return msg
++	}
++	copy := *msg
++	copy.Attachments = append([]*discordgo.MessageAttachment{}, msg.Attachments...)
++	copy.StickerItems = append([]*discordgo.StickerItem{}, msg.StickerItems...)
++	copy.Embeds = append([]*discordgo.MessageEmbed{}, msg.Embeds...)
++	for _, snapshot := range msg.MessageSnapshots {
++		if snapshot.Message == nil {
++			continue
++		}
++		copy.Attachments = append(copy.Attachments, snapshot.Message.Attachments...)
++		copy.StickerItems = append(copy.StickerItems, snapshot.Message.StickerItems...)
++		copy.Embeds = append(copy.Embeds, snapshot.Message.Embeds...)
++	}
++	return &copy
++}
++
++func pollMediaText(media *discordgo.PollMedia) string {
++	if media == nil {
++		return ""
++	}
++	text := media.Text
++	if emoji := media.Emoji; emoji != nil {
++		label := emoji.Name
++		if emoji.ID != "" {
++			label = fmt.Sprintf("<:%s:%s>", emoji.Name, emoji.ID)
++		}
++		text = strings.TrimSpace(label + " " + text)
++	}
++	return text
++}
++
++func discordPollHTML(poll *discordgo.Poll) string {
++	if poll == nil {
++		return ""
++	}
++	var body strings.Builder
++	body.WriteString("<blockquote><strong>Discord poll snapshot</strong><br>" + html.EscapeString(pollMediaText(&poll.Question)) + "<ul>")
++	counts := map[int]int{}
++	finalized := poll.Results != nil && poll.Results.Finalized
++	if poll.Results != nil {
++		for _, count := range poll.Results.AnswerCounts {
++			if count != nil {
++				counts[count.ID] = count.Count
++			}
++		}
++	}
++	for _, answer := range poll.Answers {
++		label := html.EscapeString(pollMediaText(answer.Media))
++		count, known := counts[answer.AnswerID]
++		if known || finalized {
++			label += fmt.Sprintf(" — %d votes", count)
++		} else {
++			label += " — vote count unavailable"
++		}
++		fmt.Fprintf(&body, "<li>%s</li>", label)
++	}
++	body.WriteString("</ul>")
++	if poll.AllowMultiselect {
++		body.WriteString("Multiple answers allowed. ")
++	} else {
++		body.WriteString("Single answer. ")
++	}
++	if finalized {
++		body.WriteString("Final results. ")
++	} else {
++		body.WriteString("Results are not final. ")
++	}
++	if poll.Expiry != nil {
++		body.WriteString("Closes: " + poll.Expiry.UTC().Format(time.RFC3339) + ". ")
++	}
++	body.WriteString("Voting remains on Discord.</blockquote>")
++	return body.String()
++}
++
++func discordComponentsHTML(components []discordgo.MessageComponent) string {
++	var body strings.Builder
++	for _, component := range components {
++		switch item := component.(type) {
++		case *discordgo.Container:
++			body.WriteString(discordComponentsHTML(item.Components))
++		case *discordgo.ActionsRow:
++			body.WriteString(discordComponentsHTML(item.Components))
++		case *discordgo.Section:
++			body.WriteString(discordComponentsHTML(item.Components))
++			if item.Accessory != nil {
++				body.WriteString(discordComponentsHTML([]discordgo.MessageComponent{item.Accessory}))
++			}
++		case *discordgo.TextDisplay:
++			body.WriteString("<p>" + strings.ReplaceAll(html.EscapeString(item.Content), "\n", "<br>") + "</p>")
++		case *discordgo.Button:
++			body.WriteString("<p>Discord button: " + html.EscapeString(item.Label) + "</p>")
++			body.WriteString(componentMediaLink(item.URL, "Button link"))
++		case *discordgo.MediaGallery:
++			for _, entry := range item.Items {
++				label := "Discord gallery media"
++				if entry.Description != nil && *entry.Description != "" {
++					label = *entry.Description
++				}
++				body.WriteString(componentMediaLink(entry.Media.URL, label))
++			}
++		case *discordgo.FileComponent:
++			body.WriteString(componentMediaLink(item.File.URL, "Discord component file"))
++		}
++	}
++	return body.String()
++}
++
++func componentMediaLink(rawURL, label string) string {
++	parsed, err := url.Parse(rawURL)
++	if err != nil || parsed.Host == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") {
++		return ""
++	}
++	return "<p><a href=\"" + html.EscapeString(rawURL) + "\">" + html.EscapeString(label) + "</a></p>"
++}
+--- /dev/null
++++ b/history_content_test.go
+@@ -0,0 +1,87 @@
++package main
++
++import (
++	"context"
++	"encoding/json"
++	"strings"
++	"testing"
++
++	"github.com/bwmarrin/discordgo"
++	"go.mau.fi/mautrix-discord/config"
++)
++
++func TestDiscordPollHistoryKeepsAnswersAndCounts(t *testing.T) {
++	portal := &Portal{bridge: &DiscordBridge{Config: &config.Config{}}}
++	poll := &discordgo.Poll{Question: discordgo.PollMedia{Text: "<question>"}, Answers: []discordgo.PollAnswer{{AnswerID: 1, Media: &discordgo.PollMedia{Text: "one"}}, {AnswerID: 2, Media: &discordgo.PollMedia{Text: "two"}}}, Results: &discordgo.PollResults{Finalized: true, AnswerCounts: []*discordgo.PollAnswerCount{{ID: 2, Count: 7}}}}
++	got := portal.convertDiscordTextMessage(context.Background(), nil, &discordgo.Message{Poll: poll})
++	if got == nil {
++		t.Fatal("poll-only message disappeared")
++	}
++	for _, text := range []string{"<question>", "one — 0 votes", "two — 7 votes", "Final results", "Voting remains on Discord"} {
++		if !strings.Contains(got.Content.Body, text) {
++			t.Fatalf("poll lost %q: %q", text, got.Content.Body)
++		}
++	}
++	if strings.Contains(got.Content.FormattedBody, "<question>") {
++		t.Fatal("poll text was interpreted as HTML")
++	}
++	poll.Results = nil
++	unknown := discordPollHTML(poll)
++	if !strings.Contains(unknown, "vote count unavailable") || strings.Contains(unknown, "0 votes") {
++		t.Fatal("unknown results were invented")
++	}
++}
++
++func TestDiscordPollResultEmbedSurvivesConversion(t *testing.T) {
++	portal := &Portal{bridge: &DiscordBridge{Config: &config.Config{}}}
++	got := portal.convertDiscordTextMessage(context.Background(), nil, &discordgo.Message{Type: discordgo.MessageType(46), Embeds: []*discordgo.MessageEmbed{{Type: discordgo.EmbedType("poll_result"), Fields: []*discordgo.MessageEmbedField{{Name: "poll_question_text", Value: "A question"}, {Name: "victor_answer_text", Value: "An answer"}, {Name: "total_votes", Value: "17"}}}}})
++	if got == nil {
++		t.Fatal("poll-result message disappeared")
++	}
++	for _, text := range []string{"A question", "An answer", "17"} {
++		if !strings.Contains(got.Content.Body, text) {
++			t.Fatalf("poll result lost %q", text)
++		}
++	}
++}
++
++func TestForwardedMediaStaysWithForwardingMessage(t *testing.T) {
++	original := &discordgo.Message{ID: "forward", Attachments: []*discordgo.MessageAttachment{{ID: "own"}}, MessageReference: &discordgo.MessageReference{Type: discordgo.MessageReferenceTypeForward}, MessageSnapshots: []discordgo.MessageSnapshot{{Message: &discordgo.Message{Attachments: []*discordgo.MessageAttachment{{ID: "snapshot"}}, StickerItems: []*discordgo.StickerItem{{ID: "sticker"}}, Embeds: []*discordgo.MessageEmbed{{URL: "snapshot-embed"}}}}, {Message: nil}}}
++	got := withForwardedMedia(original)
++	if got.ID != "forward" || len(got.Attachments) != 2 || got.Attachments[1].ID != "snapshot" || len(got.StickerItems) != 1 || len(got.Embeds) != 1 {
++		t.Fatal("forwarded media was dropped or reassigned")
++	}
++	got.Attachments[0] = nil
++	if original.Attachments[0] == nil || len(original.Attachments) != 1 || len(original.Embeds) != 0 {
++		t.Fatal("normalization changed cached source data")
++	}
++	reply := *original
++	reply.MessageReference = &discordgo.MessageReference{Type: discordgo.MessageReferenceTypeDefault}
++	if withForwardedMedia(&reply) != &reply {
++		t.Fatal("ordinary replies must not import the referenced message's media")
++	}
++}
++
++func TestNestedDiscordComponentTextIsPreserved(t *testing.T) {
++	var message discordgo.Message
++	err := json.Unmarshal([]byte(`{"components":[{"type":17,"components":[{"type":10,"content":"First line\n<second>"},{"type":12,"items":[{"media":{"url":"https://example.test/image"},"description":"Image caption"}]},{"type":1,"components":[{"type":2,"label":"Continue","custom_id":"action"}]}]}]}`), &message)
++	if err != nil {
++		t.Fatal(err)
++	}
++	portal := &Portal{bridge: &DiscordBridge{Config: &config.Config{}}}
++	got := portal.convertDiscordTextMessage(context.Background(), nil, &message)
++	if got == nil {
++		t.Fatal("component-only message disappeared")
++	}
++	for _, text := range []string{"First line", "<second>", "Image caption", "Continue", "Use the Discord app"} {
++		if !strings.Contains(got.Content.Body, text) {
++			t.Fatalf("component lost %q: %q", text, got.Content.Body)
++		}
++	}
++	if !strings.Contains(got.Content.FormattedBody, "https://example.test/image") || strings.Contains(got.Content.FormattedBody, "<second>") {
++		t.Fatal("component media/text were not represented safely")
++	}
++	if componentMediaLink("javascript:bad()", "x") != "" {
++		t.Fatal("unsafe component link")
++	}
++}
