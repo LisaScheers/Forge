@@ -502,7 +502,7 @@ recovery test below also passes; wider history/access gates remain open.
 
 ## Coordinated off-host backup and restore
 
-### Live media on Nook: authorized 2026-10-19, cutover pending
+### Live media on Nook: deployed 2026-10-19
 
 Lisa selected Nook's HDD for live Synapse media after the remaining attachment
 audit exceeded Atlas's room for both live data and a full local backup copy.
@@ -550,8 +550,24 @@ Cut over in two reviewed phases:
 Before writes resume, rollback may unmount NFS and reveal the original local
 media. After writes resume, reverse-copy new NAS media before reverting the
 client; reverting the system generation alone would lose access to new files.
-No live media cutover or expanded restore success is claimed yet. Atlas and Nook
-SSH signing recovered after Lisa's retry; Nook's mounted HDD has 1.3 TiB free.
+Nook preparation deployed as e2be06d; Atlas cut over as 8272c0d. All 53,688
+frozen media files (5,185,486,008 bytes) have identical source/NAS SHA-256 sets.
+Atlas's real Synapse UID passed a separate NFS read/write probe. All three
+applications resumed on the NAS; five existing authenticated public URLs retain
+their bytes, and a new 51 MiB public upload/download and its NAS file hash pass.
+The original local media remains underneath the mount for initial rollback.
+
+The first post-cutover coordinated backup, 789895a6, contains 53,729 files and
+6.181 GiB. Its repository check passes; its isolated restore is running. The
+auto-update timer remains held until verification finishes. Atlas and Nook SSH
+signing recovered after Lisa's retry; Nook's mounted HDD has 1.3 TiB free.
+
+All thirty remaining root rooms are allocated privately without portals, Space
+links or Lisa invitations. Their PluralMatrix allowlist is configured together so
+later initial imports need no bridge restart per room. This is staging, not
+verified history or live channel coverage. The four hidden roots and eight voice
+text histories remain excluded. Two remaining roots have missing public-thread
+starters and need explicit preservation handling before admission.
 
 The `matrix-media` check passed on 19 October: real Synapse uploads/downloads, unauthorized
 NFS peers, restricted rsync, unavailable storage, recovery and disk-mount lifetime
