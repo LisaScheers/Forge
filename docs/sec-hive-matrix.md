@@ -88,6 +88,10 @@ message/reaction mappings without a schema change. Thread creation selects a
 connected bot session; message attribution continues through the relay webhook.
 Webhook thread edits/deletions include the required thread ID. Build and live
 verification of this second patch remain required before pilot acceptance.
+An additional reaction handler routes permitted members without a Discord login
+around the framework's native-login-only guard. It excludes blocked members,
+bridge/ghost senders, personal DMs, and existing native-login handling. Regression
+coverage exercises routing and those exclusions, not just notice formatting.
 
 Checks: migration package builds and its 6 permission/attachment tests pass;
 enabled Atlas settings evaluate without assertion failures, with all encryption

@@ -1,3 +1,13 @@
+--- a/main.go
++++ b/main.go
+@@ -97,6 +97,7 @@
+ 	br.CommandProcessor = commands.NewProcessor(&br.Bridge)
+ 	br.RegisterCommands()
+ 	br.EventProcessor.On(event.StateTombstone, br.HandleTombstone)
++	br.EventProcessor.On(event.EventReaction, br.HandleRelayReaction)
+ 
+ 	matrixHTMLParser.PillConverter = br.pillConverter
+ 
 --- a/portal.go
 +++ b/portal.go
 @@ -990,6 +990,9 @@
@@ -131,7 +141,7 @@
  		return
 --- /dev/null
 +++ b/relay_features.go
-@@ -0,0 +1,88 @@
+@@ -0,0 +1,106 @@
 +package main
 +
 +import (
@@ -139,8 +149,26 @@
 +	"strings"
 +
 +	"github.com/bwmarrin/discordgo"
++	"maunium.net/go/mautrix/appservice"
++	"maunium.net/go/mautrix/bridge/bridgeconfig"
 +	"maunium.net/go/mautrix/event"
 +)
++
++// The framework's native reaction handler requires a Discord login. Add only
++// the relay-only path here, retaining its ghost/permission/echo exclusions.
++func (br *DiscordBridge) HandleRelayReaction(evt *event.Event) {
++	user := br.GetUserByMXID(evt.Sender)
++	if user == nil || user.IsLoggedIn() || user.GetPermissionLevel() < bridgeconfig.PermissionLevelRelay {
++		return
++	}
++	if val, ok := evt.Content.Raw[appservice.DoublePuppetKey]; ok && val == br.Name && user.GetIDoublePuppet() != nil {
++		return
++	}
++	portal := br.GetPortalByMXID(evt.RoomID)
++	if portal != nil && !portal.IsPrivateChat() && portal.RelayWebhookID != "" {
++		portal.ReceiveMatrixEvent(user, evt)
++	}
++}
 +
 +// Thread creation needs a bot session; webhook sends still retain each Matrix
 +// member's name. Never select a personal Discord session for this fallback.
@@ -222,16 +250,56 @@
 +}
 --- /dev/null
 +++ b/relay_features_test.go
-@@ -0,0 +1,33 @@
+@@ -0,0 +1,73 @@
 +package main
 +
 +import (
++	"regexp"
 +	"strings"
 +	"testing"
 +	"unicode/utf8"
 +
++	"maunium.net/go/mautrix/appservice"
++	"maunium.net/go/mautrix/bridge/bridgeconfig"
 +	"maunium.net/go/mautrix/event"
++	"maunium.net/go/mautrix/id"
++
++	"go.mau.fi/mautrix-discord/database"
 +)
++
++func TestRelayReactionRouting(t *testing.T) {
++	previousRegex := userIDRegex
++	userIDRegex = regexp.MustCompile(`^@discord_([0-9]+):test$`)
++	defer func() { userIDRegex = previousRegex }()
++	userID := id.UserID("@alice:test")
++	roomID := id.RoomID("!room:test")
++	user := &User{User: &database.User{MXID: userID}, PermissionLevel: bridgeconfig.PermissionLevelRelay}
++	portal := &Portal{Portal: &database.Portal{RelayWebhookID: "hook"}, matrixMessages: make(chan portalMatrixMessage, 2)}
++	br := &DiscordBridge{usersByMXID: map[id.UserID]*User{userID: user}, portalsByMXID: map[id.RoomID]*Portal{roomID: portal}}
++	br.Bot = &appservice.IntentAPI{UserID: "@bridge:test"}
++	evt := &event.Event{Sender: userID, RoomID: roomID, Type: event.EventReaction}
++	br.HandleRelayReaction(evt)
++	if len(portal.matrixMessages) != 1 {
++		t.Fatal("ordinary relay member's reaction did not reach the portal")
++	}
++	<-portal.matrixMessages
++	user.DiscordToken = "test-only"
++	br.HandleRelayReaction(evt)
++	user.DiscordToken = ""
++	user.PermissionLevel = 0
++	br.HandleRelayReaction(evt)
++	user.PermissionLevel = bridgeconfig.PermissionLevelRelay
++	portal.RelayWebhookID = ""
++	br.HandleRelayReaction(evt)
++	portal.RelayWebhookID = "hook"
++	evt.Sender = "@discord_123:test"
++	br.HandleRelayReaction(evt)
++	evt.Sender = "@bridge:test"
++	br.HandleRelayReaction(evt)
++	if len(portal.matrixMessages) != 0 {
++		t.Fatal("native-login, blocked, non-relay, ghost, or bridge reaction entered relay path")
++	}
++}
 +
 +func TestRelayReactionAttribution(t *testing.T) {
 +	if got := relayReactionText("Alice", "👍"); got != "Alice (Matrix) reacted 👍" {
