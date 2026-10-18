@@ -17,6 +17,7 @@
   nixos.matrix = {
     config,
     lib,
+    pkgs,
     ...
   }: let
     cfg = config.matrix.discord;
@@ -55,6 +56,11 @@
 
       services.mautrix-discord = {
         enable = true;
+        # Unencrypted rooms do not need the deprecated libolm dependency.
+        package = pkgs.mautrix-discord.overrideAttrs {
+          tags = ["nocrypto"];
+          buildInputs = [];
+        };
         registerToSynapse = true;
         inherit (cfg) environmentFile;
         settings = {
@@ -88,15 +94,10 @@
             direct_media.enabled = false;
             message_error_notices = true;
             encryption = {
-              allow = true;
-              default = true;
-              require = true;
-              allow_key_sharing = true;
-              verification_levels = {
-                receive = "cross-signed-tofu";
-                send = "cross-signed-tofu";
-                share = "cross-signed-tofu";
-              };
+              allow = false;
+              default = false;
+              require = false;
+              allow_key_sharing = false;
             };
             backfill = {
               forward_limits = {

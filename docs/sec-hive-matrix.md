@@ -7,19 +7,22 @@ the required Matrix import.
 Discord application: `1561338659536375828` (SEC-Hive Matrix Bridge). Server Members
 and Message Content intents enabled. No personal Discord account tokens.
 Guild ID: `1293572131086667827`. Lisa confirmed the bot was added on 2026-10-18.
-Permanent rooms: federation enabled; encryption required between Matrix devices
-and the bridge (Lisa, 2026-10-18). The Discord side remains readable by Discord.
+Permanent rooms: federation enabled; encryption disabled (Lisa, 2026-10-18).
+This supersedes Lisa's earlier encryption requirement. No rooms existed when the
+preference changed. Discord and Matrix servers can read bridged content.
 
-## Current gate: maintained encryption
+## Encryption decision
 
 The pinned mautrix-discord 0.7.7 depends on `libolm-3.2.16`. Nix refuses to build
 that deprecated library because of its known cryptographic issues. Its pinned
 mautrix-go 0.16 dependency links directly to libolm; adding a `goolm` build tag
 does not provide a replacement in that version. Lisa explicitly declined an
-insecure-library exception on 2026-10-18. Keep encryption required and the service
-disabled; do not bypass this gate with an insecure-package allowlist.
+insecure-library exception on 2026-10-18, then explicitly requested disabling
+encryption. Build with the supported `nocrypto` tag and remove the libolm build
+input. Disable encryption and key sharing in bridge settings; no insecure-package
+allowlist is needed.
 
-Alternatives inspected:
+Alternatives inspected before the preference changed:
 
 - Upstream `megadiscord`, commit `bd79ef827620fa6d2367ec02adde78ddafba664d`:
   modern bridgev2/crypto framework and history code. Upstream explicitly labels it
@@ -47,8 +50,8 @@ The exporter discovered 236 threads and started a 309-channel/thread archive.
 No Matrix portals, service deployment, or live relay have been performed.
 
 Checks: migration package builds and its 4 permission/attachment tests pass;
-enabled bridge settings evaluate with federation/encryption and no assertion failures.
-The NixOS integration test is prepared but blocked by libolm before execution.
+enabled bridge settings previously evaluated without assertion failures.
+The NixOS integration test must be rerun against the build without crypto.
 The repository's dendritic check also fails on the pre-existing
 `modules/development/ai-skills/skills/visualize/_package.nix` import; this work does
 not change that unrelated baseline.
@@ -88,9 +91,8 @@ The appservice and provisioning endpoints bind to loopback. Synapse reaches the
 bridge locally; the bridge reaches Synapse's IPv6 listener. PostgreSQL has a separate
 bridge database and role. Relay permissions are limited to local Matrix accounts;
 administration is limited to Lisa and the dedicated relay identity.
-Encrypted rooms require cross-signed devices; trust is pinned on first use.
-Key sharing is enabled for eligible room members/devices so historical access can
-be tested during onboarding. Preserve the crypto database and test device recovery.
+New bridge rooms are unencrypted. Encrypted Matrix rooms cannot be connected by
+this build. Preserve the bridge database and test recovery of room mappings.
 
 Use the local provisioning login endpoint to connect the Discord bot to
 `@sec-hive-relay:bylisa.dev`; this avoids placing the bot token in a Matrix message
@@ -99,9 +101,10 @@ or command arguments. Preserve the bridge's registration and database together.
 ## Gates before permanent rooms
 
 - Finish inventory/export and verify the history bound; no recent-history fallback.
-- Federation and encryption are confirmed. `federateRooms = false` is only for
-  disposable local pilot rooms; a permanent room cannot later be made federated by
-  changing this flag. Confirm history visibility, membership, and moderator powers.
+- Federation enabled and encryption disabled are confirmed. `federateRooms = false`
+  is only for disposable local pilot rooms; a permanent room cannot later be made
+  federated by changing this flag. Confirm history visibility, membership, and
+  moderator powers.
 - Prove webhook relay from ordinary members; test edits/deletions, attachments,
   threads/forums, other webhooks, and reconnect/catch-up behavior.
 - Import into unused rooms before inviting members. Synapse cannot insert old
