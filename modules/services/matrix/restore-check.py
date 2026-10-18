@@ -180,6 +180,8 @@ def main():
             plural_registration.write_bytes((source / "plural-registration/registration.yaml").read_bytes())
             synapse["app_service_config_files"].append(str(plural_registration))
             plural_environment = dict(environment, **json.loads((source / "plural-config.json").read_text()))
+            # systemd's captured PATH omits the verifier's application binaries.
+            plural_environment["PATH"] = environment["PATH"]
             for line in (source / "plural-registration/environment").read_text().splitlines():
                 if line:
                     key, value = line.split("=", 1)

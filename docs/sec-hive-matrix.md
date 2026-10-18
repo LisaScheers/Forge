@@ -321,7 +321,8 @@ periodic reconciliation for missed membership callbacks.
 The appservice commits incoming messages to PostgreSQL before acknowledging the
 Synapse transaction. It saves the selected identity/content before sending,
 uses a stable Matrix transaction ID, and redacts the original only after Matrix
-acknowledges the replacement. Pending work survives restart. The Discord bridge
+acknowledges the replacement. Matrix clients may briefly show the original; no
+Synapse patch hides it before acknowledged delivery. Pending work survives restart. The Discord bridge
 keeps a separate PostgreSQL queue and waits for the actual appservice decision;
 it forwards ordinary text once, suppresses originals of proxied messages, and
 retries missing replacements. A room's backed-off head cannot be overtaken;
@@ -344,9 +345,17 @@ starts all three services without external networking, and checks the original
 pilot history/media. Restore all three applications from the same checkpoint;
 never mix a new profile database with an older Synapse or bridge database.
 
-Validation status: package/unit checks and the isolated/live acceptance results
-are recorded below once complete. Wider rollout remains gated on the existing
-history, access and parity checks.
+Validation on 2026-10-18: all 52 selected tests in seven suites pass. Both the
+Synapse/PostgreSQL PluralMatrix VM and existing Discord foundation VM pass, as do
+the backup boundary checks and all three Atlas deployment gates. The VM verifies
+account isolation, PluralKit JSON import, suffix-only proxy tags, private-network
+avatar rejection, thread/edit/front behavior, lost-ACK crash replay without a
+duplicate, and cleanup after offline member removal. Live pilot checks verify
+two names/avatars on Discord, original suppression, threads, edit/delete and front
+switching. Ordinary/proxied messages survive a PluralMatrix outage plus bridge
+restart exactly once; both queues drain to zero. The public HTTPS dashboard loads
+and unauthenticated API access returns 401. Wider rollout remains gated on the
+existing history, access and parity checks.
 
 For moderation, webhook display names are not proof of ownership. Resolve the
 Matrix sender and its system/account mapping; keep the existing moderator checks
