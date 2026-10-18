@@ -364,3 +364,21 @@ For rollback, pause relaying, remove PluralMatrix's bot and ghosts from the pilo
 with moderator authority, then revert the Nix enablement and restart Synapse and
 the bridge. Preserve the profile database and both queues for gap/duplicate review;
 do not delete or blindly replay them against a different checkpoint.
+
+The fresh three-application snapshot `417849e0` was captured on 2026-10-18 at
+14:21 UTC: 23,943 files, 2.046 GiB, 48.895 MiB additional stored data. Restic's
+repository check passed. Synapse was inactive for 13.092 seconds; all applications
+resumed before upload. The checkpoint contains two systems, two members, one
+switch, 19 journal rows and zero pending Discord decision rows.
+
+Restic downloaded and verified all 23,943 files from Nook into a new protected
+input directory. The three-application rehearsal passed at 14:31 UTC in 72.575
+seconds: 23,941 checkpoint content hashes, matching profile/journal/backlog and
+bridge mapping counts, all three services started, and the original 1,106 message
+parts, 36 attachment hashes and 11 reply relations passed client API verification.
+External networking was unavailable. The first attempt exposed a captured systemd
+PATH shadowing the verifier's binary paths; commit `8119c5f` preserves the verifier
+PATH. The successful retry used the same verified off-host snapshot. Generated
+restore databases/media and the superseded download were cleaned up; the newest
+protected download, logs and result remain. Live services stayed active during
+both rehearsals.
