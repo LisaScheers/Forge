@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from discord_migration import READ_MESSAGE_HISTORY, VIEW_CHANNEL, permissions_for, verify_archive
@@ -32,6 +33,32 @@ class PermissionTests(unittest.TestCase):
 
 
 class ArchiveTests(unittest.TestCase):
+    def test_size_mismatch_requires_identical_bytes_from_source(self):
+        for source_bytes, expected in [(b"preserved", 0), (b"different", 1)]:
+            with self.subTest(source_bytes=source_bytes), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                (root / "attachment.txt").write_bytes(b"preserved")
+                (root / "channel.json").write_text(json.dumps({"channel": {"id": "1"}, "messageCount": 1, "messages": [{"id": "2", "attachments": [{"id": "3", "url": "attachment.txt", "fileSizeBytes": 2}]}]}))
+                client = Mock()
+                client.get.return_value = {"attachments": [{"id": "3", "url": "https://cdn.discordapp.com/file", "size": 2}]}
+                with patch("discord_migration.urlopen", return_value=io.BytesIO(source_bytes)), contextlib.redirect_stdout(io.StringIO()):
+                    result = verify_archive(root, source_client=client)
+                self.assertEqual(result, expected)
+
+    def test_selected_channel_does_not_claim_coverage_of_partial_exports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "complete.json").write_text(json.dumps({"channel": {"id": "1"}, "messageCount": 0, "messages": []}))
+            (root / "partial.json").write_text('{"messages": [')
+            with contextlib.redirect_stdout(io.StringIO()):
+                selected = verify_archive(root, "1")
+                missing = verify_archive(root, "2")
+                whole = verify_archive(root)
+            self.assertEqual(selected, 0)
+            self.assertEqual(missing, 1)
+            self.assertEqual(whole, 1)
+            self.assertEqual(json.loads((root / "verification-1.json").read_text())["selected_channel_id"], "1")
+
     def test_missing_and_external_attachments_fail_verification(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

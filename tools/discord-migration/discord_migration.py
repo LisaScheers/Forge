@@ -132,17 +132,25 @@ def inventory(client, guild_id, output):
     }, indent=2))
 
 
-def verify_archive(output):
+def verify_archive(output, selected_channel_id=None, source_client=None):
     output = output.resolve()
     exports = sorted(output.rglob("*.json"))
     records = []
     failures = []
+    source_checks = []
     seen_channels = set()
     for export in exports:
-        if export.name in {"inventory.json", "verification.json"}:
+        if export.name == "inventory.json" or export.name.startswith("verification"):
             continue
-        document = json.loads(export.read_text())
+        try:
+            document = json.loads(export.read_text())
+        except json.JSONDecodeError:
+            if selected_channel_id is None:
+                failures.append({"export": str(export.relative_to(output)), "error": "invalid or incomplete JSON export"})
+            continue
         if not isinstance(document, dict) or "messages" not in document or "channel" not in document:
+            continue
+        if selected_channel_id is not None and str(document["channel"]["id"]) != selected_channel_id:
             continue
         messages = document["messages"]
         channel_id = document["channel"]["id"]
@@ -169,18 +177,37 @@ def verify_archive(output):
                         digest.update(chunk)
                 size = file_path.stat().st_size
                 if "fileSizeBytes" in attachment and size != attachment["fileSizeBytes"]:
-                    failures.append({"channel_id": channel_id, "attachment_id": attachment["id"], "error": "attachment size mismatch"})
+                    confirmed = False
+                    if source_client is not None:
+                        source_message = source_client.get(f"/channels/{channel_id}/messages/{message['id']}")
+                        source_attachment = next(item for item in source_message["attachments"] if item["id"] == attachment["id"])
+                        source_digest = hashlib.sha256()
+                        source_size = 0
+                        source_request = Request(source_attachment["url"], headers={"User-Agent": "SEC-Hive-Migration/0.1"})
+                        with urlopen(source_request, timeout=30) as source_file:
+                            for chunk in iter(lambda: source_file.read(1024 * 1024), b""):
+                                source_digest.update(chunk)
+                                source_size += len(chunk)
+                        confirmed = source_size == size and source_digest.hexdigest() == digest.hexdigest()
+                        source_checks.append({"channel_id": channel_id, "message_id": message["id"], "attachment_id": attachment["id"], "api_declared_bytes": source_attachment["size"], "cdn_bytes": source_size, "sha256": source_digest.hexdigest(), "identical_to_local": confirmed})
+                    if not confirmed:
+                        failures.append({"channel_id": channel_id, "attachment_id": attachment["id"], "error": "attachment size mismatch"})
                 attachments.append({"message_id": message["id"], "attachment_id": attachment["id"], "file": str(file_path.relative_to(output)), "bytes": size, "sha256": digest.hexdigest()})
         records.append({"channel_id": channel_id, "export": str(export.relative_to(output)), "messages": len(messages), "first_message_id": min(message_ids, key=int) if messages else None, "last_message_id": max(message_ids, key=int) if messages else None, "attachments": attachments})
     if not records:
         failures.append({"error": "no channel exports found"})
+    if selected_channel_id is not None and selected_channel_id not in seen_channels:
+        failures.append({"channel_id": selected_channel_id, "error": "selected channel has no complete export"})
     inventory_file = output / "inventory.json"
     if inventory_file.exists():
         for channel in json.loads(inventory_file.read_text())["manifest"]:
+            if selected_channel_id is not None and channel["discord_id"] != selected_channel_id:
+                continue
             if channel["type"] in {0, 2, 5, 13} and channel["bot_can_read_history"] and channel["discord_id"] not in seen_channels:
                 failures.append({"channel_id": channel["discord_id"], "error": "accessible message channel has no export"})
-    result = {"recorded_at": datetime.now(timezone.utc).isoformat(), "channels": records, "failures": failures, "scope": "Local export and attachment integrity; not proof of complete Discord or Matrix history."}
-    write_json(output / "verification.json", result)
+    result = {"recorded_at": datetime.now(timezone.utc).isoformat(), "selected_channel_id": selected_channel_id, "channels": records, "source_size_checks": source_checks, "failures": failures, "scope": "Local export and attachment integrity; not proof of complete Discord or Matrix history."}
+    report_name = "verification.json" if selected_channel_id is None else f"verification-{selected_channel_id}.json"
+    write_json(output / report_name, result)
     print(json.dumps({"exports": len(records), "messages": sum(record["messages"] for record in records), "attachments": sum(len(record["attachments"]) for record in records), "failures": len(failures)}, indent=2))
     return 1 if failures else 0
 
@@ -197,9 +224,12 @@ def main():
         command.add_argument("--output", type=Path, required=True)
     command = commands.add_parser("verify")
     command.add_argument("--output", type=Path, required=True)
+    command.add_argument("--channel", type=int, help="Verify one completed channel while the remaining archive is still running")
+    command.add_argument("--check-source", action="store_true", help="Independently fetch size-mismatched attachments from Discord and compare bytes")
     args = parser.parse_args()
     if args.command == "verify":
-        return verify_archive(args.output)
+        source_client = Discord(read_token(args.token_file)) if args.check_source else None
+        return verify_archive(args.output, str(args.channel) if args.channel is not None else None, source_client)
     token = read_token(args.token_file)
     client = Discord(token)
     identity = client.get("/users/@me")

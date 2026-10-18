@@ -7,6 +7,7 @@ the required Matrix import.
 Discord application: `1561338659536375828` (SEC-Hive Matrix Bridge). Server Members
 and Message Content intents enabled. No personal Discord account tokens.
 Guild ID: `1293572131086667827`. Lisa confirmed the bot was added on 2026-10-18.
+Live pilot selected by Lisa: `#boring-bot-stuff`, channel `1293576317773676584`.
 Permanent rooms: federation enabled; encryption disabled (Lisa, 2026-10-18).
 This supersedes Lisa's earlier encryption requirement. No rooms existed when the
 preference changed. Discord and Matrix servers can read bridged content.
@@ -48,8 +49,13 @@ credentials for Lisa and Atlas, with successful Atlas decryption validation.
 The bot cannot view 4 text and 2 voice channels; those are explicit coverage gaps.
 The exporter discovered 236 threads and started a 309-channel/thread archive.
 No Matrix portals, service deployment, or live relay have been performed.
+The pilot export contains 1,070 messages and 36 attachments, verified locally.
+Three PNGs differ from Discord's declared sizes; fresh downloads from URLs returned
+by Discord's message API have identical SHA-256 and byte counts to the local files.
+The verification report records these source inconsistencies explicitly. The pilot
+initial limit is 2,000; re-measure before creating portals for other channels.
 
-Checks: migration package builds and its 4 permission/attachment tests pass;
+Checks: migration package builds and its 6 permission/attachment tests pass;
 enabled Atlas settings evaluate without assertion failures, with all encryption
 flags false. The `nocrypto` package builds and its runtime closure contains no
 libolm. The NixOS integration test passes with Forge's existing Synapse Authlib
@@ -72,6 +78,7 @@ nix run .#discord-migration -- guilds
 nix run .#discord-migration -- inventory --guild GUILD_ID --output "$HOME/.local/share/sec-hive-migration/archive"
 nix run .#discord-migration -- archive --guild GUILD_ID --output "$HOME/.local/share/sec-hive-migration/archive"
 nix run .#discord-migration -- verify --output "$HOME/.local/share/sec-hive-migration/archive"
+nix run .#discord-migration -- verify --channel CHANNEL_ID --check-source --output "$HOME/.local/share/sec-hive-migration/archive"
 ```
 
 `inventory.json`: guild/channel/role metadata, effective bot access, active threads,
@@ -82,6 +89,10 @@ Inaccessible private threads still require an explicit coverage report.
 `verification.json`: export counts, attachment sizes/SHA-256, missing local files,
 and missing accessible message-channel exports. This checks local integrity; it
 does not establish full source coverage, forum coverage, or successful Matrix import.
+`--channel` produces a separate scoped report while other channels are still being
+exported. `--check-source` checks size discrepancies against fresh attachment URLs
+from Discord's message API and accepts them only when the downloaded bytes match
+the local file's size and SHA-256. It never accepts a mismatch by size alone.
 Keep exports and credentials outside the repository; do not publish them to PostPlan.
 
 ## Bridge foundation
@@ -106,7 +117,9 @@ or command arguments. Preserve the bridge's registration and database together.
 
 ## Gates before permanent rooms
 
-- Finish inventory/export and verify the history bound; no recent-history fallback.
+- Finish the relevant channel/thread exports and verify the history bound before
+  each portal is created; no recent-history fallback. A verified pilot can proceed
+  while unrelated channel exports continue.
 - Federation enabled and encryption disabled are confirmed. `federateRooms = false`
   is only for disposable local pilot rooms; a permanent room cannot later be made
   federated by changing this flag. Confirm history visibility, membership, and
@@ -116,6 +129,10 @@ or command arguments. Preserve the bridge's registration and database together.
 - Import into unused rooms before inviting members. Synapse cannot insert old
   messages into the middle of an existing conversation.
 - Preserve channel/guild history if Discord channels are removed or the bot leaves.
+- For the pilot, set guild mode to `if-portal-exists` directly, then use
+  `create-portal CHANNEL_ID`. Do not use `guilds bridge` or the provisioning guild
+  bridge endpoint: they enable creation on messages in other channels. Manual
+  `bridge CHANNEL_ID` links an existing room without starting initial backfill.
 - Test a coordinated restore of Synapse data/media/signing keys plus bridge state.
 
 Voice/video, permission synchronization, moderation, and Discord-only bots require

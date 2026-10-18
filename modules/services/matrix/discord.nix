@@ -4,6 +4,12 @@
     lib,
     ...
   }: {
+    matrix.discord = {
+      enable = true;
+      # Pilot: 1,070 archived messages, rounded up for activity during setup.
+      # Re-measure before creating portals for additional channels.
+      initialBackfillLimit = 2000;
+    };
     age.secrets.discord-bridge-env = lib.mkIf config.matrix.discord.enable {
       file = ../../security/agenix/secrets/atlas/discord-bridge-env.age;
       owner = "root";
