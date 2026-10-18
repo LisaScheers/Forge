@@ -14,6 +14,10 @@
         "!SlbIfVoFLHvcAhNJAl:bylisa.dev"
         "!FAQhXHzcurAdMaNINe:bylisa.dev"
         "!StJHuKFstNgJVqTCrF:bylisa.dev"
+        "!lGstaALKKazrjrbfeq:bylisa.dev"
+        "!HFhiefsmHgROSzxcVp:bylisa.dev"
+        "!arWzVrlMDwjRgeZOEo:bylisa.dev"
+        "!iETtijEpVNadVEewzq:bylisa.dev"
       ];
       publicHost = "plural.bylisa.dev";
       secretsFile = config.age.secrets.pluralmatrix-credentials.path;
