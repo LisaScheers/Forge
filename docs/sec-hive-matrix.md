@@ -214,6 +214,27 @@ before admission. Creating relay webhooks separately requires Manage Webhooks in
 the individual Discord channel. A readable history room without that permission
 is not evidence of a working relay for Matrix-only members.
 
+Lisa clarified that `#rules-and-philosophy` is read-only. Its Discord channel ID
+is declared in `matrix.discord.readOnlyChannels`; no relay webhook is required.
+The bridge rejects Matrix-originated messages/edits, reactions and redactions for
+that mirror with a permanent permission failure, including queued message sends.
+PluralMatrix is excluded there. Before admitting an ordinary reader, set their
+individual Matrix power to -1; source ghosts keep level zero and administrators
+retain management rights. Do not raise the global send level, which would also
+block incoming Discord ghosts. Restore this declarative channel policy with the
+matching Nix generation when recovering the service.
+
+Historical creation/backfill uses appservice-controlled Discord identities even
+when an author has linked their real Matrix account. Ordinary Matrix account
+tokens cannot preserve `origin_server_ts` in Synapse, and importing history must
+not automatically admit those linked accounts. Live messages retain linked
+identities; later Discord edits select the identity stored on the original part.
+The source audit also identifies Discord's empty type-21 thread-starter wrappers:
+DiscordChatExporter substitutes the referenced parent message's payload and ID.
+Check that exact structural substitution against the API and parent export, retain
+the actual wrapper ID/author/time, and import it as a linked structural notice.
+Do not silently discard the wrapper or import the parent payload twice.
+
 `matrix.discord.enable` defaults to false. Before enabling it, set
 `matrix.discord.environmentFile` to an agenix runtime file containing a random
 `DISCORD_PROVISIONING_SECRET`, and `matrix.discord.initialBackfillLimit` to a measured

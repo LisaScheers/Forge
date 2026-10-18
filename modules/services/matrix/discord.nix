@@ -9,6 +9,7 @@
       # Pilot: 1,070 archived messages, rounded up for activity during setup.
       # Re-measure before creating portals for additional channels.
       initialBackfillLimit = 2000;
+      readOnlyChannels = ["1293577749386104972"];
     };
     age.secrets.discord-bridge-env = lib.mkIf config.matrix.discord.enable {
       file = ../../security/agenix/secrets/atlas/discord-bridge-env.age;
@@ -45,6 +46,11 @@
         type = lib.types.bool;
         default = true;
         description = "Allow federation in newly created rooms; use false only for disposable local pilot rooms";
+      };
+      readOnlyChannels = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [];
+        description = "Discord channel IDs mirrored into Matrix without outbound writes";
       };
     };
 
@@ -144,6 +150,7 @@
         ];
       };
       systemd.services.mautrix-discord = {
+        environment.SEC_HIVE_READ_ONLY_CHANNELS = lib.concatStringsSep "," cfg.readOnlyChannels;
         requires = ["postgresql.service"];
         after = ["postgresql.service"];
         serviceConfig.UMask = lib.mkForce "0077";
