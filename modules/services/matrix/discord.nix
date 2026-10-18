@@ -79,8 +79,7 @@
           };
           bridge = {
             permissions = {
-              "*" = 0;
-              "${domain}" = "relay";
+              "*" = "relay";
               "@lisa:${domain}" = "admin";
               "@sec-hive-relay:${domain}" = "admin";
             };

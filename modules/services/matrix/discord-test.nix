@@ -3,7 +3,7 @@
   inputs,
   ...
 }: let
-  pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
+  pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux.extend config.overlays.matrix-synapse;
 in {
   flake.checks.x86_64-linux.discord-bridge = pkgs.testers.runNixOSTest {
     name = "discord-bridge-foundation";
@@ -21,7 +21,10 @@ in {
           '');
         };
       };
-      services.postgresql.enable = true;
+      services.postgresql = {
+        enable = true;
+        package = pkgs.postgresql_18;
+      };
       services.matrix-synapse = {
         enable = true;
         settings = {

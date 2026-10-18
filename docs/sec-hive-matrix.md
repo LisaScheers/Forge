@@ -50,8 +50,13 @@ The exporter discovered 236 threads and started a 309-channel/thread archive.
 No Matrix portals, service deployment, or live relay have been performed.
 
 Checks: migration package builds and its 4 permission/attachment tests pass;
-enabled bridge settings previously evaluated without assertion failures.
-The NixOS integration test must be rerun against the build without crypto.
+enabled Atlas settings evaluate without assertion failures, with all encryption
+flags false. The `nocrypto` package builds and its runtime closure contains no
+libolm. The NixOS integration test passes with Forge's existing Synapse Authlib
+overlay and PostgreSQL 18: bridge startup, Synapse appservice connectivity,
+authenticated loopback provisioning, empty initial portal state, and stable
+registration tokens after regeneration/restart. Stock Synapse fails its OIDC test
+without that existing overlay; no production dependency exception was added.
 The repository's dendritic check also fails on the pre-existing
 `modules/development/ai-skills/skills/visualize/_package.nix` import; this work does
 not change that unrelated baseline.
@@ -89,8 +94,9 @@ secrets or a zero history limit. No Discord login or guild link is automatic.
 
 The appservice and provisioning endpoints bind to loopback. Synapse reaches the
 bridge locally; the bridge reaches Synapse's IPv6 listener. PostgreSQL has a separate
-bridge database and role. Relay permissions are limited to local Matrix accounts;
-administration is limited to Lisa and the dedicated relay identity.
+bridge database and role. Invited members can relay from local or federated Matrix
+accounts; invite-only room access controls participation. Administration is limited
+to Lisa and the dedicated relay identity.
 New bridge rooms are unencrypted. Encrypted Matrix rooms cannot be connected by
 this build. Preserve the bridge database and test recovery of room mappings.
 
