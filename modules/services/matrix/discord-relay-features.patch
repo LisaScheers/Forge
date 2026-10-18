@@ -1,0 +1,258 @@
+--- a/portal.go
++++ b/portal.go
+@@ -990,6 +990,9 @@
+ 		} else if resp != nil && resp.EventID != "" {
+ 			lastResp = resp.EventID
+ 		}
++		if reaction := portal.bridge.DB.Reaction.GetByMXID(dbMsg.MXID); reaction != nil && reaction.Channel == portal.Key {
++			reaction.Delete()
++		}
+ 		dbMsg.Delete()
+ 	}
+ 	return
+@@ -1138,27 +1141,21 @@
+ }
+ 
+ func genThreadName(evt *event.Event) string {
+-	body := evt.Content.AsMessage().Body
+-	if len(body) == 0 {
++	title := []rune(strings.Join(strings.Fields(evt.Content.AsMessage().Body), " "))
++	if len(title) == 0 {
+ 		return "thread"
+ 	}
+-	fields := strings.Fields(body)
+-	var title string
+-	for _, field := range fields {
+-		if len(title)+len(field) < 40 {
+-			title += field
+-			title += " "
+-			continue
+-		}
+-		if len(title) == 0 {
+-			title = field[:40]
+-		}
+-		break
+-	}
+-	return title
++	return string(title[:min(len(title), 40)])
+ }
+ 
+ func (portal *Portal) startThreadFromMatrix(sender *User, threadRoot id.EventID) (string, error) {
++	sess := sender.Session
++	if sess == nil {
++		sess = portal.relayBotSession()
++		if sess == nil {
++			return "", errCantStartThread
++		}
++	}
+ 	rootEvt, err := portal.getEvent(threadRoot)
+ 	if err != nil {
+ 		return "", fmt.Errorf("failed to get root event: %w", err)
+@@ -1172,12 +1169,12 @@
+ 		return "", fmt.Errorf("root event is already in a thread")
+ 	} else {
+ 		var ch *discordgo.Channel
+-		ch, err = sender.Session.MessageThreadStartComplex(portal.Key.ChannelID, existingMsg.DiscordID, &discordgo.ThreadStart{
++		ch, err = sess.MessageThreadStartComplex(portal.Key.ChannelID, existingMsg.DiscordID, &discordgo.ThreadStart{
+ 			Name:                threadName,
+ 			AutoArchiveDuration: 24 * 60,
+ 			Type:                discordgo.ChannelTypeGuildPublicThread,
+ 			Location:            "Message",
+-		}, portal.RefererOptIfUser(sender.Session, "")...)
++		}, portal.RefererOptIfUser(sess, "")...)
+ 		if err != nil {
+ 			return "", fmt.Errorf("error starting thread: %v", err)
+ 		}
+@@ -1581,10 +1578,14 @@
+ 				// TODO save edit in message table
+ 				msg, err = sess.ChannelMessageEdit(edits.DiscordProtoChannelID(), edits.DiscordID, discordContent)
+ 			} else {
++				var options []discordgo.RequestOption
++				if edits.ThreadID != "" {
++					options = append(options, discordgo.WithQueryParam("thread_id", edits.ThreadID))
++				}
+ 				msg, err = relayClient.WebhookMessageEdit(portal.RelayWebhookID, portal.RelayWebhookSecret, edits.DiscordID, &discordgo.WebhookEdit{
+ 					Content:         &discordContent,
+ 					AllowedMentions: allowedMentions,
+-				})
++				}, options...)
+ 			}
+ 			go portal.sendMessageMetrics(evt, err, "Failed to edit")
+ 			if msg != nil && msg.EditedTimestamp != nil {
+@@ -1600,17 +1601,14 @@
+ 			threadID = existingThread.ID
+ 			existingThread.initialBackfillAttempted = true
+ 		} else {
+-			if isWebhookSend {
+-				// TODO start thread with bot?
+-				go portal.sendMessageMetrics(evt, errCantStartThread, "Dropping")
+-				return
+-			}
+ 			var err error
+ 			threadID, err = portal.startThreadFromMatrix(sender, threadRoot)
+ 			if err != nil {
+ 				portal.log.Warn().Err(err).
+ 					Str("thread_root_mxid", threadRoot.String()).
+ 					Msg("Failed to start thread from Matrix")
++				go portal.sendMessageMetrics(evt, err, "Dropping")
++				return
+ 			}
+ 		}
+ 	}
+@@ -1952,6 +1950,10 @@
+ 
+ func (portal *Portal) handleMatrixReaction(sender *User, evt *event.Event) {
+ 	if !sender.IsLoggedIn() {
++		if !portal.IsPrivateChat() && portal.RelayWebhookID != "" {
++			portal.handleRelayReaction(sender, evt)
++			return
++		}
+ 		go portal.sendMessageMetrics(evt, errUserNotLoggedIn, "Ignoring")
+ 		return
+ 	}
+@@ -2160,10 +2162,17 @@
+ 			err = sess.ChannelMessageDelete(message.DiscordProtoChannelID(), message.DiscordID, portal.RefererOptIfUser(sess, message.ThreadID)...)
+ 		} else {
+ 			// TODO pre-validate that the message was sent by the webhook?
+-			err = relayClient.WebhookMessageDelete(portal.RelayWebhookID, portal.RelayWebhookSecret, message.DiscordID)
++			var options []discordgo.RequestOption
++			if message.ThreadID != "" {
++				options = append(options, discordgo.WithQueryParam("thread_id", message.ThreadID))
++			}
++			err = relayClient.WebhookMessageDelete(portal.RelayWebhookID, portal.RelayWebhookSecret, message.DiscordID, options...)
+ 		}
+ 		go portal.sendMessageMetrics(evt, err, "Error sending")
+ 		if err == nil {
++			if reaction := portal.bridge.DB.Reaction.GetByMXID(evt.Redacts); reaction != nil && reaction.Channel == portal.Key {
++				reaction.Delete()
++			}
+ 			message.Delete()
+ 		}
+ 		return
+--- /dev/null
++++ b/relay_features.go
+@@ -0,0 +1,88 @@
++package main
++
++import (
++	"fmt"
++	"strings"
++
++	"github.com/bwmarrin/discordgo"
++	"maunium.net/go/mautrix/event"
++)
++
++// Thread creation needs a bot session; webhook sends still retain each Matrix
++// member's name. Never select a personal Discord session for this fallback.
++func (portal *Portal) relayBotSession() *discordgo.Session {
++	if portal.RelayWebhookID == "" || portal.GuildID == "" {
++		return nil
++	}
++	for _, userID := range portal.bridge.DB.GetUsersInPortal(portal.GuildID) {
++		user := portal.bridge.GetCachedUserByMXID(userID)
++		if user != nil && user.Session != nil && !user.Session.IsUser {
++			return user.Session
++		}
++	}
++	return nil
++}
++
++func relayReactionText(name, key string) string {
++	// Matrix reaction keys are arbitrary strings. Bound the notice and prevent
++	// formatting or line breaks from making the attribution look like a message.
++	nameRunes := []rune(strings.Join(strings.Fields(name), " "))
++	keyRunes := []rune(strings.Join(strings.Fields(key), " "))
++	name = string(nameRunes[:min(len(nameRunes), 150)])
++	key = string(keyRunes[:min(len(keyRunes), 100)])
++	return fmt.Sprintf("%s (Matrix) reacted %s", escapeDiscordMarkdown(name), escapeDiscordMarkdown(key))
++}
++
++func (portal *Portal) handleRelayReaction(sender *User, evt *event.Event) {
++	relation := evt.Content.AsReaction().RelatesTo
++	if relation.Type != event.RelAnnotation {
++		go portal.sendMessageMetrics(evt, errUnknownRelationType, "Ignoring")
++		return
++	}
++	target := portal.bridge.DB.Message.GetByMXID(portal.Key, relation.EventID)
++	if target == nil {
++		go portal.sendMessageMetrics(evt, errTargetNotFound, "Ignoring")
++		return
++	}
++	// A Matrix ID cannot collide with a numeric Discord user ID. Persist both
++	// the reaction identity and its webhook notice using existing mappings.
++	if portal.bridge.DB.Reaction.GetByDiscordID(portal.Key, target.DiscordID, sender.MXID.String(), relation.Key) != nil ||
++		portal.bridge.DB.Message.GetByMXID(portal.Key, evt.ID) != nil {
++		go portal.sendMessageMetrics(evt, nil, "")
++		return
++	}
++	name, _ := portal.getRelayUserMeta(sender)
++	params := &discordgo.WebhookParams{
++		Content:         relayReactionText(name, relation.Key),
++		Username:        "Matrix reactions",
++		AllowedMentions: &discordgo.MessageAllowedMentions{Parse: []discordgo.AllowedMentionType{}},
++		Embeds: []*discordgo.MessageEmbed{{
++			Description: fmt.Sprintf("[Reacted to message](https://discord.com/channels/%s/%s/%s)", portal.GuildID, target.DiscordProtoChannelID(), target.DiscordID),
++			Footer:      &discordgo.MessageEmbedFooter{Text: sender.MXID.String()},
++		}},
++	}
++	notice, err := relayClient.WebhookThreadExecute(portal.RelayWebhookID, portal.RelayWebhookSecret, true, target.ThreadID, params)
++	go portal.sendMessageMetrics(evt, err, "Error sending reaction notice")
++	if err != nil || notice == nil {
++		return
++	}
++	mapping := portal.bridge.DB.Message.New()
++	mapping.Channel = portal.Key
++	mapping.DiscordID = notice.ID
++	mapping.MXID = evt.ID
++	mapping.SenderID = portal.RelayWebhookID
++	mapping.SenderMXID = sender.MXID
++	mapping.Timestamp, _ = discordgo.SnowflakeTimestamp(notice.ID)
++	mapping.ThreadID = target.ThreadID
++	mapping.Insert()
++	first := portal.bridge.DB.Message.GetFirstByDiscordID(portal.Key, target.DiscordID)
++	reaction := portal.bridge.DB.Reaction.New()
++	reaction.Channel = portal.Key
++	reaction.MessageID = target.DiscordID
++	reaction.FirstAttachmentID = first.AttachmentID
++	reaction.Sender = sender.MXID.String()
++	reaction.EmojiName = relation.Key
++	reaction.ThreadID = target.ThreadID
++	reaction.MXID = evt.ID
++	reaction.Insert()
++}
+--- /dev/null
++++ b/relay_features_test.go
+@@ -0,0 +1,33 @@
++package main
++
++import (
++	"strings"
++	"testing"
++	"unicode/utf8"
++
++	"maunium.net/go/mautrix/event"
++)
++
++func TestRelayReactionAttribution(t *testing.T) {
++	if got := relayReactionText("Alice", "👍"); got != "Alice (Matrix) reacted 👍" {
++		t.Fatal(got)
++	}
++	got := relayReactionText("Alice\n**Moderator**", "👍\nspoofed message")
++	if strings.Contains(got, "\n") || strings.Contains(got, "**Moderator**") {
++		t.Fatalf("unescaped attribution: %q", got)
++	}
++	got = relayReactionText(strings.Repeat("😀", 1000), strings.Repeat("👍", 1000))
++	if !utf8.ValidString(got) || len([]rune(got)) > 300 {
++		t.Fatal("oversized or invalid Unicode reaction notice")
++	}
++}
++
++func TestRelayThreadUnicodeName(t *testing.T) {
++	for _, body := range []string{"", "  \n\t", strings.Repeat("😀", 100), "SEC-Hive\nthread root"} {
++		evt := &event.Event{Content: event.Content{Parsed: &event.MessageEventContent{Body: body}}}
++		name := genThreadName(evt)
++		if !utf8.ValidString(name) || len([]rune(name)) > 40 || name == "" || strings.Contains(name, "\n") {
++			t.Fatalf("invalid thread name: %q", name)
++		}
++	}
++}

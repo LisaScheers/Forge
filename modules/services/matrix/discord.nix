@@ -66,7 +66,10 @@
         package = pkgs.mautrix-discord.overrideAttrs {
           tags = ["nocrypto"];
           buildInputs = [];
-          patches = [./discord-relay-recovery.patch];
+          patches = [
+            ./discord-relay-recovery.patch
+            ./discord-relay-features.patch
+          ];
           doCheck = true;
         };
         registerToSynapse = true;

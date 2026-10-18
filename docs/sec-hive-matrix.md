@@ -74,13 +74,20 @@ the newest database message before Discord catch-up, hiding older offline input.
 The package patch snapshots incoming root/thread cursors synchronously at READY,
 excludes outbound relay messages, and catches up known threads even when gateway
 metadata omits the latest message ID. Its database regression test and isolated
-NixOS test pass. Production recovery must still be re-tested after deployment.
+NixOS test pass. The deployed fix recovered the previously missed probe and passed
+a new simultaneous two-way outage test without duplicate delivery. A separate
+test recovered a message in a known thread archived while the bridge was stopped.
 This does not establish recovery of offline edits or deletions.
 
 Matrix-only native reactions and new Discord thread creation remain unsupported
 by the unpatched upstream relay. Lisa selected attributed reaction notices
-(“Alice (Matrix) reacted 👍”) on 2026-10-18. Implement and verify notices, removal,
-and bot-created threads before considering this pilot feature-complete.
+(“Alice (Matrix) reacted 👍”) on 2026-10-18. The second package patch implements
+notices with the full Matrix account ID in the linked-message embed footer,
+disables mentions, and persists notices for removal after restart. It uses existing
+message/reaction mappings without a schema change. Thread creation selects a
+connected bot session; message attribution continues through the relay webhook.
+Webhook thread edits/deletions include the required thread ID. Build and live
+verification of this second patch remain required before pilot acceptance.
 
 Checks: migration package builds and its 6 permission/attachment tests pass;
 enabled Atlas settings evaluate without assertion failures, with all encryption
