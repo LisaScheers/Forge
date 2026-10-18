@@ -17,6 +17,7 @@ BOT_ID = "1561338659536375828"
 VIEW_CHANNEL = 1 << 10
 READ_MESSAGE_HISTORY = 1 << 16
 ADMINISTRATOR = 1 << 3
+CONNECT = 1 << 20
 
 
 def read_token(file_path):
@@ -73,7 +74,7 @@ def permissions_for(channel, guild_id, roles, member):
         if role["id"] in member_roles:
             permissions |= int(role["permissions"])
     if permissions & ADMINISTRATOR:
-        return permissions | VIEW_CHANNEL | READ_MESSAGE_HISTORY
+        return permissions | VIEW_CHANNEL | READ_MESSAGE_HISTORY | CONNECT
     overwrites = channel.get("permission_overwrites", [])
     for overwrite in overwrites:
         if overwrite["id"] == guild_id and overwrite["type"] == 0:
@@ -88,6 +89,14 @@ def permissions_for(channel, guild_id, roles, member):
         if overwrite["id"] == member["user"]["id"] and overwrite["type"] == 1:
             permissions = permissions & ~int(overwrite["deny"]) | int(overwrite["allow"])
     return permissions
+
+
+def can_read_history(channel, permissions):
+    required = VIEW_CHANNEL | READ_MESSAGE_HISTORY
+    # Discord's message API also requires CONNECT for voice-channel chat.
+    if channel["type"] in {2, 13}:
+        required |= CONNECT
+    return permissions & required == required
 
 
 def inventory(client, guild_id, output):
@@ -107,7 +116,7 @@ def inventory(client, guild_id, output):
             "parent_id": channel.get("parent_id"),
             "last_message_id": channel.get("last_message_id"),
             "bot_can_view": bool(permissions & VIEW_CHANNEL),
-            "bot_can_read_history": bool(permissions & VIEW_CHANNEL and permissions & READ_MESSAGE_HISTORY),
+            "bot_can_read_history": can_read_history(channel, permissions),
             "matrix_room_id": None,
             "migration_state": "not_started",
         })

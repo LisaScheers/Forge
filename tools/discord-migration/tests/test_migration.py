@@ -8,10 +8,22 @@ import unittest
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from discord_migration import READ_MESSAGE_HISTORY, VIEW_CHANNEL, permissions_for, verify_archive
+from discord_migration import ADMINISTRATOR, CONNECT, READ_MESSAGE_HISTORY, VIEW_CHANNEL, can_read_history, permissions_for, verify_archive
 
 
 class PermissionTests(unittest.TestCase):
+    def test_voice_chat_needs_connect_even_when_text_history_is_allowed(self):
+        permissions = VIEW_CHANNEL | READ_MESSAGE_HISTORY
+        self.assertTrue(can_read_history({"type": 0}, permissions))
+        for channel_type in (2, 13):
+            self.assertFalse(can_read_history({"type": channel_type}, permissions))
+            self.assertTrue(can_read_history({"type": channel_type}, permissions | CONNECT))
+
+    def test_administrator_has_implicit_voice_history_access(self):
+        channel = {"type": 2, "permission_overwrites": [{"id": "guild", "type": 0, "deny": str(CONNECT), "allow": "0"}]}
+        permissions = permissions_for(channel, "guild", [{"id": "guild", "permissions": str(ADMINISTRATOR)}], {"roles": [], "user": {"id": "bot"}})
+        self.assertTrue(can_read_history(channel, permissions))
+
     def test_member_deny_wins_over_role_allow(self):
         roles = [{"id": "guild", "permissions": str(VIEW_CHANNEL | READ_MESSAGE_HISTORY)}, {"id": "bot-role", "permissions": "0"}]
         member = {"roles": ["bot-role"], "user": {"id": "bot"}}

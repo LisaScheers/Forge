@@ -145,6 +145,51 @@ from Discord's message API and accepts them only when the downloaded bytes match
 the local file's size and SHA-256. It never accepts a mismatch by size alone.
 Keep exports and credentials outside the repository; do not publish them to PostPlan.
 
+### Completed-export audit, 2026-10-18
+
+Twenty complete exports contain 2,152 messages and 84 attachments. Local ID/count
+and attachment integrity checks pass; three declared-size discrepancies are
+independently confirmed against identical fresh Discord bytes. The global report
+still fails, correctly: one JSON export is being written and 50 accessible root
+message channels have no completed export. This is not whole-server verification.
+
+A fresh Discord pagination audit checks all 20 completed root exports. Ten text
+channels match the current message-ID set exactly. The pilot has 29 newer messages,
+with no missing older IDs, removed source IDs or post-export edits detected. These
+are source comparisons, not additional Matrix import proofs. Nine empty exports
+cannot be accepted as source coverage: eight voice chats and one inaccessible text
+channel return HTTP 403. Four text channels remain hidden from the bot overall.
+Discord requires CONNECT as well as VIEW_CHANNEL and READ_MESSAGE_HISTORY to read
+voice-channel chat; the inventory helper now includes that requirement. All eight
+voice chats currently fail the source check, including six the bot can view.
+
+The private `rollout-review/readiness.json` under the migration state directory
+records current role overwrites, per-channel history bounds, source gaps, approved
+account IDs and Space mappings. Approval lists start empty except the verified
+pilot. Do not turn individual-role visibility or bot access into automatic Matrix
+admission. Root-channel ID comparisons do not verify archived/private threads,
+message content, embedded assets or Matrix import.
+
+Source: [Discord message endpoint permissions](https://github.com/discord/discord-api-docs/blob/main/developers/resources/message.mdx#get-channel-messages).
+
+### Space navigation
+
+The invite-only SEC-Hive root Space and its Admin stuff subspace now exist; the
+pilot is linked under Admin stuff. Lisa has invitations to both Spaces. Creation,
+federation, no encryption, moderator-only state/invitations, reciprocal parent/child
+links and the hierarchy API are verified. An uninvited ordinary fixture cannot
+read either Space's state. No additional message portal was created.
+
+Navigation is explicitly maintained separately from native guild bridging, so the
+guild stays in `if-portal-exists` mode. Do not run `guilds bridge` to create a second
+root: it would enable automatic channel creation. The protected `spaces.json` and
+`space-ops.py` in Atlas's migration state directory record/manage the existing root,
+category and pilot links. Add reviewed categories and rooms to this same hierarchy
+as they migrate. Space membership never grants channel membership; review which
+category names and child links an audience may see before inviting it. Room/Space
+state is persisted by Synapse; these newly created links are newer than the last
+restore-tested checkpoint and will enter the next coordinated backup.
+
 ## Bridge foundation
 
 `matrix.discord.enable` defaults to false. Before enabling it, set
