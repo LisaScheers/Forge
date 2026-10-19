@@ -538,6 +538,37 @@ finish, seeds new copies, freezes Matrix for a final delta and exact file-hash
 comparison, and uses the normal Atlas deployment gates. Existing Nook media and
 the old root-disk recovery copy remain available for rollback.
 
+The production switch deployed `5736d0b` on 2026-10-19. Both frozen media trees
+match exactly: 94,992 files, 14,902,737,772 bytes and every SHA-256. The copied
+recovery set also passes its complete checksum manifest. The live media and
+recovery binds now use ext4 UUID `92d4aed5-e1df-45d3-9bbc-bf5ee2833910` on the
+named volume. Five existing authenticated media URLs retain their original
+hashes; a new 51 MiB public upload/download is verified on the volume. All three
+applications are healthy; PostgreSQL remains in its existing cluster. At the
+acceptance check, the volume had about 67 GiB free and Atlas's root had 22 GiB.
+
+The root Space policy passes a normal-account check across all 42 completed
+rooms: all are discoverable with only root membership, direct room and category
+joins need no further invitations, archived history is readable, and outsiders
+and category-only membership cannot admit a new room join. Staging rooms remain
+hidden. The full hierarchy audit passes without posting restrictions.
+
+The fresh off-host snapshot `264ebd4c` contains 95,043 files and 15.291 GiB;
+its repository check passed at 18:46 UTC. The verified volume receipt now permits
+the next import, with an ext4 UUID and free-space guard. The queue resumes with
+42 of 61 roots live; the full reaction workflow waits for every message import.
+The expanded isolated restore and operator handover remain open.
+
+Checkpoint sequencing now holds the update timer and waits for an already-running
+update before starting backup, after an update won the shared lock at the earlier
+checkpoint boundary. That failed attempt made no inconsistent capture; the retry
+saved `bce386a0` and its repository check passed before the storage switch.
+
+After writes resume, reverting the system generation also requires preserving
+new media from the volume on the restored storage. The retained Nook and root
+copies are frozen rollback points; reverting mounts alone would hide later
+uploads. Do not remove either original copy without a separate decision.
+
 ### Earlier Nook media cutover: 2026-10-19
 
 Lisa initially selected Nook's HDD for live Synapse media after the remaining attachment
