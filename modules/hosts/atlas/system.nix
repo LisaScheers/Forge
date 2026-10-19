@@ -100,6 +100,11 @@
       turnSecretFile = config.age.secrets.matrix-turn-secret.path;
     };
 
+    services.matrix-synapse.settings = {
+      enable_registration = true;
+      registration_requires_token = true;
+    };
+
     systemd.services = {
       nix-auto-sync-update.restartTriggers = [../../security/agenix/secrets/atlas/auto-sync-update-env.age];
       matrix-synapse.restartTriggers = [
