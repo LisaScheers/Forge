@@ -586,6 +586,23 @@ and one thread reply. Private access checks pass; webhook relay and PluralMatrix
 are active, the category Space links are reciprocal, and Lisa is invited.
 This brings opened rooms to 32. Nsfw-erotica is importing privately.
 
+For a public thread whose starter was deleted, bridge administrators can use
+`import-missing-starter-thread-history` in its reviewed parent portal. The
+command requires a Discord `Unknown Message` response, rejects permission and
+network failures, and preserves surviving messages under an explicit migration
+notice dated at import time. It creates a thread record without inventing an
+original author, timestamp or native message mapping for the notice. Existing
+thread history cannot be overwritten. Recipient-removal events retain a native
+part with the source actor, recipient identities and any source text.
+
+Long imports run in protected transient services on Atlas. The source producer
+uploads independently verified snapshots; the server checks current public
+thread scope before binding and again before admission. All roots stay unlisted
+until history, files, replies and thread checks pass. The import holds the updater
+lock and pauses its timer, then restores the timer after finishing. Coordinated
+backups run between imports. A failed source proof or changed private-thread
+scope is held for review rather than silently excluded.
+
 The `matrix-media` check passed on 19 October: real Synapse uploads/downloads, unauthorized
 NFS peers, restricted rsync, unavailable storage, recovery and disk-mount lifetime
 in isolated VMs. The 51 MiB upload crosses the old limit; its authenticated

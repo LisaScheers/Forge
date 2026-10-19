@@ -78,6 +78,7 @@
             ./discord-history.patch
             ./discord-reaction-history.patch
             ./discord-history-content.patch
+            ./discord-missing-thread-starter.patch
           ];
           doCheck = true;
         };

@@ -1,0 +1,206 @@
+diff --git a/commands.go b/commands.go
+index 92bee19..ff7b14b 100644
+--- a/commands.go
++++ b/commands.go
+@@ -65,6 +65,7 @@ func (br *DiscordBridge) RegisterCommands() {
+ 		cmdCreatePortal,
+ 		cmdRetryInitialBackfill,
+ 		cmdImportThreadHistory,
++		cmdImportMissingThreadHistory,
+ 		cmdImportReactions,
+ 		cmdSetRelay,
+ 		cmdUnsetRelay,
+diff --git a/history_repair.go b/history_repair.go
+index 1c45c87..08a9a07 100644
+--- a/history_repair.go
++++ b/history_repair.go
+@@ -2,6 +2,8 @@ package main
+ 
+ import (
+ 	"errors"
++	"fmt"
++	"net/http"
+ 	"os"
+ 	"strings"
+ 	"github.com/bwmarrin/discordgo"
+@@ -41,6 +43,14 @@ func convertDiscordSystemMessage(msg *discordgo.Message) *ConvertedMessage {
+ 	var body string
+ 	msgType := event.MsgEmote
+ 	switch msg.Type {
++	case discordgo.MessageTypeRecipientRemove:
++		body = "removed a recipient"
++		var recipients []string
++		for _, recipient := range msg.Mentions {
++			if recipient != nil { recipients = append(recipients, recipient.Username + " (Discord ID " + recipient.ID + ")") }
++		}
++		if len(recipients) > 0 { body += ": " + strings.Join(recipients, ", ") }
++		if msg.Content != "" { body += "\n" + msg.Content }
+ 	case discordgo.MessageTypeChannelNameChange:
+ 		body = "changed the channel name"
+ 		if msg.Content != "" { body += ": " + msg.Content }
+@@ -112,6 +122,40 @@ var cmdImportThreadHistory = &commands.FullHandler{
+ }
+ 
+ func fnImportThreadHistory(ce *WrappedCommandEvent) {
++	importThreadHistory(ce, false)
++}
++
++var cmdImportMissingThreadHistory = &commands.FullHandler{
++	Func: wrapCommand(func(ce *WrappedCommandEvent) { importThreadHistory(ce, true) }),
++	Name: "import-missing-starter-thread-history",
++	Help: commands.HelpMeta{
++		Section:     HelpSectionPortalManagement,
++		Description: "Import a public thread with a confirmed missing starter using a dated migration notice (bridge admins only)",
++		Args:        "<thread ID>",
++	},
++	RequiresPortal:     true,
++	RequiresLogin:      true,
++	RequiresEventLevel: roomModerator,
++}
++
++func confirmedMissingThreadStarter(err error) bool {
++	var restError *discordgo.RESTError
++	return errors.As(err, &restError) && restError.Response != nil && restError.Response.StatusCode == http.StatusNotFound && restError.Message != nil && restError.Message.Code == discordgo.ErrCodeUnknownMessage
++}
++
++func missingThreadStarterContent(meta *discordgo.Channel, guildID string) *event.Content {
++	return &event.Content{
++		Parsed: &event.MessageEventContent{
++			MsgType: event.MsgNotice,
++			Body:    fmt.Sprintf("Imported Discord thread: %s\nThe original starter is unavailable (Discord returned Unknown Message). This migration notice was created at import time.\nhttps://discord.com/channels/%s/%s", meta.Name, guildID, meta.ID),
++		},
++		Raw: map[string]interface{}{
++			"fi.mau.discord.missing_thread_starter": map[string]interface{}{"thread_id": meta.ID, "original_starter_available": false},
++		},
++	}
++}
++
++func importThreadHistory(ce *WrappedCommandEvent, allowMissingStarter bool) {
+ 	if ce.User.PermissionLevel < bridgeconfig.PermissionLevelAdmin {
+ 		ce.Reply("Only bridge administrators can import thread history")
+ 		return
+@@ -121,22 +165,47 @@ func fnImportThreadHistory(ce *WrappedCommandEvent) {
+ 		return
+ 	}
+ 	meta, err := ce.User.Session.Channel(ce.Args[0])
+-	if err != nil || !canImportPublicThread(meta, ce.Portal.Key.ChannelID) {
++	if err != nil || !canImportPublicThread(meta, ce.Portal.Key.ChannelID) || meta.GuildID != ce.Portal.GuildID {
+ 		ce.Reply("This must be an accessible public thread belonging to this portal; private threads require separate admission")
+ 		return
+ 	}
+-	root := ce.Bridge.DB.Message.GetFirstByDiscordID(ce.Portal.Key, meta.ID)
+-	if root == nil {
+-		ce.Reply("Import and verify the thread's root message first")
+-		return
+-	}
+-	thread := ce.Bridge.GetThreadByID(meta.ID, root)
+ 	ce.Portal.forwardBackfillLock.Lock()
++	unlock := true
++	defer func() {
++		if unlock {
++			ce.Portal.forwardBackfillLock.Unlock()
++		}
++	}()
+ 	if ce.Bridge.DB.Message.GetLastInThread(ce.Portal.Key, meta.ID) != nil {
+-		ce.Portal.forwardBackfillLock.Unlock()
+ 		ce.Reply("Refusing to insert old history into a thread that already has bridged messages")
+ 		return
+ 	}
++	root := ce.Bridge.DB.Message.GetFirstByDiscordID(ce.Portal.Key, meta.ID)
++	thread := ce.Bridge.GetThreadByID(meta.ID, root)
++	if thread == nil {
++		if !allowMissingStarter {
++			ce.Reply("Import and verify the thread's root message first; use the missing-starter command only for a confirmed unavailable starter")
++			return
++		}
++		_, err = ce.User.Session.ChannelMessage(meta.ParentID, meta.ID)
++		if !confirmedMissingThreadStarter(err) {
++			ce.Reply("The starter must return Discord Unknown Message; permission failures and other errors cannot create a replacement")
++			return
++		}
++		notice, sendErr := ce.Portal.MainIntent().SendMessageEvent(ce.Portal.MXID, event.EventMessage, missingThreadStarterContent(meta, ce.Portal.GuildID))
++		if sendErr != nil {
++			ce.Reply("Failed to create the dated missing-starter notice")
++			return
++		}
++		// This records the real thread ID without inventing an original message,
++		// author, timestamp or native message mapping for the migration notice.
++		saved := ce.Bridge.DB.Thread.New()
++		saved.ID, saved.ParentID = meta.ID, meta.ParentID
++		saved.RootDiscordID, saved.RootMXID = meta.ID, notice.EventID
++		saved.Insert()
++		thread = ce.Bridge.GetThreadByID(meta.ID, nil)
++	}
++	unlock = false
+ 	go ce.Portal.forwardBackfillInitial(ce.User, thread)
+ 	ce.Reply("Importing public thread history without changing Discord thread membership")
+ }
+diff --git a/missing_thread_starter_test.go b/missing_thread_starter_test.go
+new file mode 100644
+index 0000000..9290e8a
+--- /dev/null
++++ b/missing_thread_starter_test.go
+@@ -0,0 +1,63 @@
++package main
++
++import (
++	"context"
++	"errors"
++	"net/http"
++	"strings"
++	"testing"
++
++	"github.com/bwmarrin/discordgo"
++	"maunium.net/go/mautrix/event"
++)
++
++func TestMissingStarterRequiresConfirmedUnknownMessage(t *testing.T) {
++	for _, tc := range []struct {
++		status, code int
++		allowed      bool
++	}{
++		{404, discordgo.ErrCodeUnknownMessage, true},
++		{403, discordgo.ErrCodeMissingAccess, false},
++		{404, discordgo.ErrCodeUnknownChannel, false},
++		{500, discordgo.ErrCodeUnknownMessage, false},
++	} {
++		err := &discordgo.RESTError{Response: &http.Response{StatusCode: tc.status}, Message: &discordgo.APIErrorMessage{Code: tc.code}}
++		if confirmedMissingThreadStarter(err) != tc.allowed {
++			t.Fatalf("status=%d code=%d", tc.status, tc.code)
++		}
++	}
++	for _, err := range []error{nil, errors.New("network unavailable"), &discordgo.RESTError{}} {
++		if confirmedMissingThreadStarter(err) {
++			t.Fatal("unconfirmed failure accepted as missing source")
++		}
++	}
++}
++
++func TestMissingStarterNoticeHasExplicitImportProvenance(t *testing.T) {
++	content := missingThreadStarterContent(&discordgo.Channel{ID: "thread", Name: "Example <thread>"}, "guild")
++	parsed := content.Parsed.(*event.MessageEventContent)
++	if parsed.MsgType != event.MsgNotice || parsed.FormattedBody != "" || !strings.Contains(parsed.Body, "created at import time") || !strings.Contains(parsed.Body, "https://discord.com/channels/guild/thread") {
++		t.Fatalf("incorrect migration notice: %#v", parsed)
++	}
++	provenance := content.Raw["fi.mau.discord.missing_thread_starter"].(map[string]interface{})
++	if provenance["thread_id"] != "thread" || provenance["original_starter_available"] != false {
++		t.Fatal("missing explicit unavailable-source metadata")
++	}
++}
++
++func TestRecipientRemovalKeepsNativeTimestampCapablePart(t *testing.T) {
++	var portal *Portal
++	got := portal.convertDiscordTextMessage(context.Background(), nil, &discordgo.Message{Type: discordgo.MessageTypeRecipientRemove})
++	if got == nil || got.Type != event.EventMessage || got.Content.MsgType != event.MsgEmote || got.Content.Body != "removed a recipient" {
++		t.Fatal("empty recipient removal was lost")
++	}
++}
++
++func TestRecipientRemovalKeepsRecipientIdentityAndText(t *testing.T) {
++ var portal *Portal
++ got := portal.convertDiscordTextMessage(context.Background(), nil, &discordgo.Message{Type: discordgo.MessageTypeRecipientRemove, Content: "source detail", Mentions: []*discordgo.User{{ID: "123", Username: "Example"}}})
++ if got == nil { t.Fatal("recipient removal disappeared") }
++ for _, text := range []string{"removed a recipient", "Example", "Discord ID 123", "source detail"} {
++  if !strings.Contains(got.Content.Body, text) { t.Fatalf("recipient removal lost %q", text) }
++ }
++}
