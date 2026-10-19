@@ -555,7 +555,7 @@ frozen media files (5,185,486,008 bytes) have identical source/NAS SHA-256 sets.
 Atlas's real Synapse UID passed a separate NFS read/write probe. All three
 applications resumed on the NAS; five existing authenticated public URLs retain
 their bytes, and a new 51 MiB public upload/download and its NAS file hash pass.
-The original local media remains underneath the mount for initial rollback.
+The original local media was retained underneath the mount until recovery passed.
 
 The first post-cutover coordinated backup, 789895a6, contains 53,729 files and
 6.181 GiB. Its repository check passes. Restic restored and verified every file
@@ -564,16 +564,27 @@ matching bridge/profile/backlog counts, all three applications started, and the
 original pilot's 1,106 parts, 36 file hashes and 11 replies passed client checks.
 The newly uploaded NAS file's restored 51 MiB hash also matches. External
 networking was unavailable. Generated rehearsal copies were removed, the earlier
-protected restore download retained, and Atlas's updater timer resumed. Atlas
-has about 27 GiB free. The original 5.2 GB local duplicate remains pending Lisa's
-cleanup decision; the full coordinated recovery copy remains on Atlas.
+protected restore download retained, and Atlas's updater timer resumed. Lisa then
+explicitly approved retiring the original local duplicate. A private mount
+namespace exposed only the underlying ext4 copy: all 53,688 files were rehashed
+against the frozen inventory and checked against the independent recovery
+manifest before removal. This reclaimed 5,185,486,008 bytes; Atlas has about
+32 GiB free. Five existing authenticated public media downloads still match
+their hashes, and all three applications remain active. Nook's live media, the
+full local coordinated recovery copy and encrypted snapshots remain intact.
 
-All thirty remaining root rooms are allocated privately without portals, Space
-links or Lisa invitations. Their PluralMatrix allowlist is configured together so
+Thirty remaining root rooms were initially allocated privately without portals,
+Space links or Lisa invitations. Their PluralMatrix allowlist is configured together so
 later initial imports need no bridge restart per room. This is staging, not
 verified history or live channel coverage. The four hidden roots and eight voice
 text histories remain excluded. Two remaining roots have missing public-thread
 starters and need explicit preservation handling before admission.
+
+Snuggle-puddle is now verified and live: 6,669 root messages, 6,728 native
+parts, 87 file hashes and 1,290 replies, plus its nine-message public thread
+and one thread reply. Private access checks pass; webhook relay and PluralMatrix
+are active, the category Space links are reciprocal, and Lisa is invited.
+This brings opened rooms to 32. Nsfw-erotica is importing privately.
 
 The `matrix-media` check passed on 19 October: real Synapse uploads/downloads, unauthorized
 NFS peers, restricted rsync, unavailable storage, recovery and disk-mount lifetime
