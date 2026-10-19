@@ -614,8 +614,27 @@ source verifier preserves those newer raw payloads and independently downloads
 and hashes their attachments as supplements to the frozen export. Native import
 verification covers the combined IDs and files. Missing older source IDs remain
 explicit review failures. All 86 other public-thread exports finished; the
-remaining root downloads and individual source proofs continue. The current
-server queue is importing drone-media; 27 roots remain unopened.
+remaining root downloads and individual source proofs continue. By 19 October
+14:47 UTC, drone-media, music, hypnotic-audio and positivity had also passed and
+opened: 38 roots live, 23 unopened. The full hierarchy audit passed at 37 rooms;
+positivity then passed its own final access and Space checks. A coordinated
+backup is running before the next import.
+
+The source checker now excludes DiscordChatExporter's `*_Files` asset directories
+from export discovery while still hashing referenced attachments. This fixes
+downloaded binary assets ending in `.json` being mistaken for channel exports.
+Regression checks cover binary and export-shaped JSON assets, malformed exports,
+and attachment integrity. Memes and dollposting are being independently rechecked
+before their source snapshots enter the queue.
+
+An Atlas reaction workflow waits for all 61 roots to pass the message queue and
+hierarchy audit. It checks current root/public-thread scope, discovers reaction
+targets from fresh message pagination, then uses the existing admin importer and
+independent reactor/event checks. Its cache has a separate namespace and binds
+each proof to the requested message IDs. It retains moderator admission, shares
+the updater lock and takes a coordinated backup afterward. A changed scope or
+failed proof stops for review. This follow-on pass is staged, not yet completed;
+the final expanded restore and operator handover remain separate gates.
 
 The `matrix-media` check passed on 19 October: real Synapse uploads/downloads, unauthorized
 NFS peers, restricted rsync, unavailable storage, recovery and disk-mount lifetime
