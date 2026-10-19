@@ -45,6 +45,32 @@ class PermissionTests(unittest.TestCase):
 
 
 class ArchiveTests(unittest.TestCase):
+    def test_downloaded_json_assets_are_hashed_without_becoming_exports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            media = root / "channel.json_Files"
+            media.mkdir()
+            (media / "binary.json").write_bytes(b"\xff\xd8\xff")
+            (media / "document.json").write_text(json.dumps({"channel": {"id": "99"}, "messageCount": 0, "messages": []}))
+            attachments = [{"id": str(index), "url": str(file.relative_to(root)), "fileSizeBytes": file.stat().st_size} for index, file in enumerate(sorted(media.iterdir()), 3)]
+            (root / "channel.json").write_text(json.dumps({"channel": {"id": "1"}, "messageCount": 1, "messages": [{"id": "2", "attachments": attachments}]}))
+            with contextlib.redirect_stdout(io.StringIO()):
+                result = verify_archive(root)
+            self.assertEqual(result, 0)
+            channels = json.loads((root / "verification.json").read_text())["channels"]
+            self.assertEqual([channel["channel_id"] for channel in channels], ["1"])
+            self.assertEqual(len(channels[0]["attachments"]), 2)
+            self.assertTrue(all(len(attachment["sha256"]) == 64 for attachment in channels[0]["attachments"]))
+
+    def test_non_utf8_export_reports_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "channel.json").write_bytes(b"\xff")
+            with contextlib.redirect_stdout(io.StringIO()):
+                result = verify_archive(root)
+            self.assertEqual(result, 1)
+            self.assertIn("invalid or incomplete JSON export", {failure["error"] for failure in json.loads((root / "verification.json").read_text())["failures"]})
+
     def test_size_mismatch_requires_identical_bytes_from_source(self):
         for source_bytes, expected in [(b"preserved", 0), (b"different", 1)]:
             with self.subTest(source_bytes=source_bytes), tempfile.TemporaryDirectory() as directory:

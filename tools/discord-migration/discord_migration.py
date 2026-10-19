@@ -149,11 +149,14 @@ def verify_archive(output, selected_channel_id=None, source_client=None):
     source_checks = []
     seen_channels = set()
     for export in exports:
+        # DiscordChatExporter stores downloaded assets beside exports in *_Files.
+        if any(parent.name.endswith("_Files") for parent in export.relative_to(output).parents):
+            continue
         if export.name == "inventory.json" or export.name.startswith("verification"):
             continue
         try:
             document = json.loads(export.read_text())
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, UnicodeDecodeError):
             if selected_channel_id is None:
                 failures.append({"export": str(export.relative_to(output)), "error": "invalid or incomplete JSON export"})
             continue
