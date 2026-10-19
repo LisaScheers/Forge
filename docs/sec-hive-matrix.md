@@ -584,7 +584,13 @@ Snuggle-puddle is now verified and live: 6,669 root messages, 6,728 native
 parts, 87 file hashes and 1,290 replies, plus its nine-message public thread
 and one thread reply. Private access checks pass; webhook relay and PluralMatrix
 are active, the category Space links are reciprocal, and Lisa is invited.
-This brings opened rooms to 32. Nsfw-erotica is importing privately.
+Nsfw-erotica and its 513-message public thread also passed their checks and
+opened. Drone-text-posts adds 3,231 source messages, 3,253 native parts, 28 file
+hashes and 666 replies, bringing opened rooms to 34. The coordinated encrypted
+snapshot a0cdfcb6 and repository check passed before the thread-preservation
+feature deployed as 542cec6. The earlier NAS snapshot's full isolated restore
+remains the completed expanded recovery rehearsal; this newer snapshot has not
+yet had a fresh full restore.
 
 For a public thread whose starter was deleted, bridge administrators can use
 `import-missing-starter-thread-history` in its reviewed parent portal. The
@@ -602,6 +608,14 @@ until history, files, replies and thread checks pass. The import holds the updat
 lock and pauses its timer, then restores the timer after finishing. Coordinated
 backups run between imports. A failed source proof or changed private-thread
 scope is held for review rather than silently excluded.
+
+Completed exports can gain newer messages while other channels download. The
+source verifier preserves those newer raw payloads and independently downloads
+and hashes their attachments as supplements to the frozen export. Native import
+verification covers the combined IDs and files. Missing older source IDs remain
+explicit review failures. All 86 other public-thread exports finished; the
+remaining root downloads and individual source proofs continue. The current
+server queue is importing drone-media; 27 roots remain unopened.
 
 The `matrix-media` check passed on 19 October: real Synapse uploads/downloads, unauthorized
 NFS peers, restricted rsync, unavailable storage, recovery and disk-mount lifetime
