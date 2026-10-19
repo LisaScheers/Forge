@@ -185,8 +185,9 @@ guild stays in `if-portal-exists` mode. Do not run `guilds bridge` to create a s
 root: it would enable automatic channel creation. The protected `spaces.json` and
 `space-ops.py` in Atlas's migration state directory record/manage the existing root,
 category and pilot links. Add reviewed categories and rooms to this same hierarchy
-as they migrate. Space membership never grants channel membership; review which
-category names and child links an audience may see before inviting it. Room/Space
+as they migrate. The initial navigation-only policy was superseded on 2026-10-19:
+root Space membership now grants joins to verified rooms, as described below.
+Review category names and child links before inviting an audience. Room/Space
 state is persisted by Synapse; these newly created links are newer than the last
 restore-tested checkpoint and will enter the next coordinated backup.
 
@@ -366,8 +367,9 @@ Its ordinary event levels are zero; moderator state and admission controls remai
 unchanged. The first fifteen-room historical-reaction wave is complete: 716
 messages, 2,392 reactor mappings, including 188 in rules. A reproduced rules
 reaction passes at source power zero. Later rollout batches still need their
-reaction passes. Ordinary admissions require role review; Space membership
-grants no room access.
+reaction passes. Lisa changed admission on 19 October: one invitation to the
+SEC-Hive root Space permits joining every verified bridged room. Moderator
+approval remains at the root Space boundary.
 
 A fresh complete audit measures 300,499 root messages and 22,770,926,569 declared
 ordinary attachment bytes across the remaining 30 readable text roots, plus 88
@@ -432,7 +434,7 @@ secrets or a zero history limit. No Discord login or guild link is automatic.
 The appservice and provisioning endpoints bind to loopback. Synapse reaches the
 bridge locally; the bridge reaches Synapse's IPv6 listener. PostgreSQL has a separate
 bridge database and role. Invited members can relay from local or federated Matrix
-accounts; invite-only room access controls participation. Administration is limited
+accounts; approved Space membership controls room joining. Administration is limited
 to Lisa and the dedicated relay identity.
 New bridge rooms are unencrypted. Encrypted Matrix rooms cannot be connected by
 this build. Preserve the bridge database and test recovery of room mappings.
@@ -443,21 +445,30 @@ or command arguments. Preserve the bridge's registration and database together.
 
 ## Membership and moderation
 
-Lisa selected moderator invitations after checking Discord roles on 2026-10-18.
-There is no automatic account-linking or role-to-Matrix admission service.
+On 2026-10-19 Lisa selected one SEC-Hive root Space invitation as admission to
+all verified bridged rooms, replacing separate channel invitations. The root
+Space is invite-only. Category Spaces and message rooms allow joined root-Space
+members. Category membership alone does not grant access to message rooms.
+Unverified staging rooms remain invite-only until their preservation checks pass.
+This deliberately grants root-Space members access across the in-scope channels;
+Discord channel roles are not separate Matrix admission gates. The four hidden
+text channels and eight voice histories remain excluded.
 
-Before inviting anyone, moderators must verify the Matrix account's owner and
-their eligibility for that specific Discord channel. Matching display names are
-not identity proof. Use Discord channel roles/overwrites as the access reference;
-Matrix-only participants need an explicit equivalent access decision from a
-moderator. Record approved account IDs in the private channel manifest.
+Moderators verify account ownership and eligibility before inviting a member to
+the root Space. Matching display names are not identity proof. There is no
+automatic account-linking or role-to-Matrix admission service.
 
 Before each room opens, set invite/kick/ban/redact/state power to 50, normal member
 power to 0, and grant administration to Lisa and required bridge identities.
-Verify invite-only joining and history visibility before adding members. Ordinary
-members must not be able to widen access; the pilot's negative checks establish
-the expected policy. Native upstream room defaults are not evidence of this
-policy: apply and verify it on every portal before invitations.
+Verify restricted joining and shared history before opening each room. Ordinary
+members must not be able to change access policy. A controlled ordinary-account
+check joined the root, category and pilot room with only one root invitation and
+read existing archived history. Joining without Space membership failed before
+and after the test; membership and ordinary power levels were restored.
+
+Restricted joins evaluate membership only when joining. Leaving the Space does
+not remove membership from rooms already joined; moderator removal must cover
+those rooms too. See [Matrix restricted rooms](https://spec.matrix.org/latest/client-server-api/#restricted-rooms).
 
 Discord role loss, member removal, and bans require the corresponding Matrix
 review/removal. Moderator deletion of somebody else's Discord message is not
@@ -502,9 +513,34 @@ recovery test below also passes; wider history/access gates remain open.
 
 ## Coordinated off-host backup and restore
 
-### Live media on Nook: deployed 2026-10-19
+### Dedicated Atlas Matrix volume
 
-Lisa selected Nook's HDD for live Synapse media after the remaining attachment
+Lisa attached a blank 100 GiB volume on 2026-10-19 and requested it for Matrix
+storage. `volume.nix` declares ext4 at `/srv/matrix` using
+`/dev/disk/by-id/scsi-0HC_Volume_107199635`. Bind mounts preserve existing paths:
+`media_store` at `/var/lib/matrix-synapse/media_store`, and `recovery` at
+`/var/backup/matrix-coordinated`. The coordinated local copy uses the same volume;
+encrypted off-host Restic backups stay on Nook. PostgreSQL retains its existing
+cluster layout.
+
+The volume must have the explicit initialization marker and correct device,
+filesystem and bind roots. Synapse and backup guards reject missing or incorrect
+storage instead of writing to underlying root-disk directories. The layout unit
+runs before local-filesystem readiness; its mount dependencies stop Synapse when
+the volume disappears. Synapse retains its process sandbox; only its storage
+identity precheck runs with the privileges needed to see the device.
+
+The isolated `matrix-volume` check passes blank/missing storage rejection, a real
+51 MiB authenticated upload/download, separate media/recovery paths, loss and
+recovery of the mount/marker, and recovery of the same media after reboot. The
+cutover holds the next import, lets the current native import and checkpoint
+finish, seeds new copies, freezes Matrix for a final delta and exact file-hash
+comparison, and uses the normal Atlas deployment gates. Existing Nook media and
+the old root-disk recovery copy remain available for rollback.
+
+### Earlier Nook media cutover: 2026-10-19
+
+Lisa initially selected Nook's HDD for live Synapse media after the remaining attachment
 audit exceeded Atlas's room for both live data and a full local backup copy.
 Only media moves: PostgreSQL, signing keys, registrations and credentials stay
 on Atlas. The existing local coordinated recovery copy stays on Atlas, providing
@@ -624,8 +660,12 @@ The source checker now excludes DiscordChatExporter's `*_Files` asset directorie
 from export discovery while still hashing referenced attachments. This fixes
 downloaded binary assets ending in `.json` being mistaken for channel exports.
 Regression checks cover binary and export-shaped JSON assets, malformed exports,
-and attachment integrity. Memes and dollposting are being independently rechecked
-before their source snapshots enter the queue.
+and attachment integrity. Memes and dollposting passed their independent rechecks
+and uploaded at 15:14 UTC. All 27 remaining source snapshots are verified and
+queued, with no held sources. Creative-corner, drone-pit and accountability have
+also opened, bringing the live total to 41. Drone-pit's surviving thread messages
+passed the deployed missing-starter notice path. The next import is held for the
+volume cutover after pics-selfies and its checkpoint finish.
 
 An Atlas reaction workflow waits for all 61 roots to pass the message queue and
 hierarchy audit. It checks current root/public-thread scope, discovers reaction

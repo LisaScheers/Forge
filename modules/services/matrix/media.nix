@@ -14,8 +14,11 @@ in {
     lib,
     ...
   }: {
-    imports = [features.matrix-media-client];
-    matrix.remoteMedia.enable = true;
+    imports = [features.matrix-media-client features.matrix-volume];
+    matrix.volume = {
+      enable = true;
+      device = "/dev/disk/by-id/scsi-0HC_Volume_107199635";
+    };
     # Keep the cutover pause across activation and an unexpected reboot.
     systemd.services = lib.genAttrs ["matrix-synapse" "mautrix-discord" "pluralmatrix" "restic-backups-matrix"] (_: {
       unitConfig.ConditionPathExists = "!/var/lib/sec-hive-migration/MEDIA-CUTOVER-PAUSED";

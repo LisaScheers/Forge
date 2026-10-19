@@ -24,7 +24,7 @@ if sys.argv[1] == "upload":
     token = account["access_token"]
     limits = request("/_matrix/client/v1/media/config", token=token)
     assert limits["m.upload.size"] == 512 * 1024 * 1024
-    # Cross the old 50 MiB limit and exercise real Synapse writes to NFS.
+    # Cross the old 50 MiB limit and exercise real Synapse media writes.
     payload = bytes(51 * 1024 * 1024)
     uploaded = request("/_matrix/media/v3/upload?filename=storage-test.bin", payload,
                        token=token, content_type="application/octet-stream")
