@@ -48,13 +48,15 @@
       else "linux";
     script = pkgs.writeShellApplication {
       name = "nix-auto-sync-update";
-      runtimeInputs = [
-        pkgs.coreutils
-        pkgs.curl
-        pkgs.git
-        pkgs.nix
-        pkgs.openssh
-      ];
+      runtimeInputs =
+        [
+          pkgs.coreutils
+          pkgs.curl
+          pkgs.git
+          pkgs.nix
+          pkgs.openssh
+        ]
+        ++ lib.optional hasSystemd pkgs.util-linux;
       text = ''
         set -euo pipefail
 
@@ -86,11 +88,25 @@
         }
         trap cleanup EXIT
 
-        if ! mkdir "$lock_dir" 2>/dev/null; then
-          echo "Another nix-auto-sync-update run is active; exiting."
-          exit 0
-        fi
-        lock_acquired=1
+        ${
+          if hasSystemd
+          then ''
+            # Matrix checkpoints and imports use this same advisory lock. Keep
+            # the file so concurrent processes cannot lock different inodes.
+            exec 9>"$lock_dir"
+            if ! flock -n 9; then
+              echo "Another nix-auto-sync-update run or Matrix checkpoint is active; exiting."
+              exit 0
+            fi
+          ''
+          else ''
+            if ! mkdir "$lock_dir" 2>/dev/null; then
+              echo "Another nix-auto-sync-update run is active; exiting."
+              exit 0
+            fi
+            lock_acquired=1
+          ''
+        }
 
         load_env() {
           if [ -f "$env_file" ]; then
@@ -353,7 +369,7 @@
       lockDirectory = lib.mkOption {
         type = lib.types.str;
         default = "/var/run/nix-auto-sync-update.lock";
-        description = "Runtime lock directory used to prevent overlapping runs.";
+        description = "Runtime lock path used to prevent overlapping runs: an advisory lock file on Linux, a directory on Darwin.";
       };
 
       rebuildCommand = lib.mkOption {
