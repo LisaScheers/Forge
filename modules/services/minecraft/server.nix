@@ -6,6 +6,13 @@
   }: let
     minecraftRoot = "/srv/disks/second-life-cache/minecraft";
     servers = {
+      atm10-8-0 = {
+        directory = "${minecraftRoot}/atm10-8.0";
+        description = "All the Mods 10 8.1";
+        launcher = "startserver.sh";
+        # Restored world required: never silently generate a replacement.
+        requiredFile = "world/level.dat";
+      };
       atm10-aero = {
         directory = "${minecraftRoot}/atm10-aero-0.7.1";
         description = "All the Mods 10 Aeronautics 0.7.1";
@@ -33,12 +40,12 @@
     systemd.services =
       lib.mapAttrs (name: server: {
         description = "${server.description} Minecraft server";
-        # Prepared services are manual-only; neither starts on boot or activation.
+        # Servers are manual-only; activation must not start another pack.
         wantedBy = [];
         unitConfig = {
           RequiresMountsFor = server.directory;
           Conflicts = map (other: "${other}.service") (lib.filter (other: other != name) (builtins.attrNames servers));
-          ConditionPathExists = "${server.directory}/.prepared";
+          ConditionPathExists = "${server.directory}/${server.requiredFile or ".prepared"}";
         };
         path = with pkgs; [coreutils curl gawk jdk21_headless wget];
         environment = {

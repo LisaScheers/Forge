@@ -1,29 +1,64 @@
 # Minecraft
 
-Nook has two prepared, manual-only servers on its Kingston SSD:
+Nook's Minecraft services use its Kingston SSD and are manual-only:
 
 | Service | Pack | Directory under `/srv/disks/second-life-cache/minecraft` |
 | --- | --- | --- |
+| `atm10-8-0` | All the Mods 10 8.1 (original world) | `atm10-8.0` |
 | `atm10-aero` | All the Mods 10 Aeronautics 0.7.1 | `atm10-aero-0.7.1` |
 | `ftb-skies-2-aero` | FTB Skies 2: Aero 1.13.0 | `ftb-skies-2-aero-1.13.0` |
 
-Neither server has been started. Both use Minecraft 1.21.1, NeoForge
+FTB Skies 2: Aero first started at Lisa's request on 2026-10-20; ATM10 Aero
+has never been started. Both use Minecraft 1.21.1, NeoForge
 21.1.250 and Nix-provided Java 21, with an 8–15 GiB heap and 20 GiB service
 memory limit. Dedicated service users own each installation. A `.prepared`
 marker gates startup. Neither unit is wanted by a boot target; starting one
 stops the other because they share TCP 25565. RCON is disabled. Existing
 operator identities were retained; no old world or extra mods were copied.
 
-Do not start either server until Lisa requests it. Then start exactly one:
+Do not start either Aero server until Lisa requests it. Start exactly one pack:
 
 ```sh
 ssh nook sudo systemctl start atm10-aero.service
 # Or: ssh nook sudo systemctl start ftb-skies-2-aero.service
+# Original world: ssh nook sudo systemctl start atm10-8-0.service
 ```
 
-A successful installation is not a gameplay test. First startup will generate
-the new world; joining, skyblock generation and pack compatibility still need
-verification after startup is authorized.
+FTB Skies 2: Aero generated its new world and reported ready at 14:40:17
+Europe/Brussels on 2026-10-20. Direct Nook and `mc.bylisa.dev:25565` status
+requests returned Minecraft 1.21.1, protocol 767; both ATM10 services were
+stopped. Joining and island generation have not been tested.
+
+## Original ATM10 world recovery, 2026-10-20
+
+Lisa chose to restore the original ATM10 8.1 world, rather than start an Aero
+world. Recovery uses `atm10-8.1-current.tar` below, extracted with GNU tar's
+`--acls --xattrs --numeric-owner` into the original SSD location. Compare the
+restored tree against the archive before changing ownership to `atm10-8-0`.
+Keep the retirement archive intact.
+
+The full archive comparison passed. Minecraft reported ready at 12:51:41
+Europe/Brussels; both direct Nook and `mc.bylisa.dev:25565` status requests
+returned Minecraft 1.21.1, protocol 767, with zero players. Both Aero services
+remained stopped.
+
+The restored service launches the saved installation directly, preserving its
+mods, settings, JVM arguments, operators, RCON configuration and ComputerCraft
+programs. It requires `world/level.dat`, preventing accidental world creation.
+It conflicts with both Aero services and uses Java 21 with the saved 8–15 GiB
+heap and a 20 GiB service memory limit.
+
+The recovery installs only the Nix-built service at runtime; no older whole
+system configuration is activated. Its dependencies are retained by
+`/nix/var/nix/gcroots/atm10-restored-service`. The declarative definition is in
+`modules/services/minecraft/server.nix`. Until that definition is deployed,
+the runtime unit disappears on reboot; it can be relinked with:
+
+```sh
+ssh nook sudo systemctl link --runtime /nix/var/nix/gcroots/atm10-restored-service/atm10-8-0.service
+ssh nook sudo systemctl daemon-reload
+ssh nook sudo systemctl start atm10-8-0.service
+```
 
 ## ATM10 retirement, 2026-10-18
 

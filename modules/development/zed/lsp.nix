@@ -1,5 +1,6 @@
-{
+{inputs, ...}: {
   home.lisa = {pkgs, ...}: {
+    programs.zed-editor.userSettings.languages.Nix.language_servers = ["nixd" "!nil" "..."];
     programs.zed-editor.userSettings.lsp = {
       discord_presence.initialization_options = {
         application_id = "1263505205522337886";
@@ -31,30 +32,10 @@
         };
       };
       nixd = {
-        settings = {
-          nixpkgs = {
-            expr = "import (builtins.getFlake (builtins.toString .)).inputs.nixpkgs { }   ";
-          };
-          formatting = {
-            command = ["nixfmt"];
-          };
-          options = {
-            home-manager = {
-              expr = "(builtins.getFlake (builtins.toString .)).homeConfigurations.\"lisa@vega\".options";
-            };
-            flake-file = {
-              expr = "(builtins.getFlake (builtins.toString .) ).debug.options.flake-file.type.getSubOptions []";
-            };
-            "nixos" = {
-              expr = "(builtins.getFlake (builtins.toString .)).nixosConfigurations.atlas.options";
-            };
-            flake-parts = {
-              expr = "(builtins.getFlake (builtins.toString .)).debug.options";
-            };
-            devenv = {
-              expr = "{ devenv.shells.default = (builtins.getFlake (builtins.toString .)).currentSystem.options.devenv.shells.type.getSubOptions []; }";
-            };
-          };
+        settings = inputs.self.lib.nixdSettings pkgs;
+        binary = {
+          path = "${pkgs.nixd}/bin/nixd";
+          arguments = [];
         };
       };
     };

@@ -60,6 +60,17 @@
         mkdir -p ${lib.escapeShellArg cfg.configDir} ${lib.escapeShellArg cfg.authDir}
         install -m600 ${lib.escapeShellArg renderedConfig} ${lib.escapeShellArg configFile}
 
+        ${lib.optionalString (cfg.clientApiKeyFile != null) ''
+          client_api_key="$(tr -d '\r\n' < ${lib.escapeShellArg cfg.clientApiKeyFile})"
+          if [[ -z "$client_api_key" ]]; then
+            echo "CLIProxyAPIPlus: client API key file is empty" >&2
+            exit 1
+          fi
+          CLIENT_API_KEY="$client_api_key" yq --inplace \
+            '."api-keys" = [strenv(CLIENT_API_KEY)]' ${lib.escapeShellArg configFile}
+          unset client_api_key
+        ''}
+
         ${lib.optionalString (cfg.openrouter.enable && cfg.openrouter.apiKeyFile != null) ''
           if [[ -s ${lib.escapeShellArg cfg.openrouter.apiKeyFile} ]]; then
             openrouter_api_key="$(tr -d '\r\n' < ${lib.escapeShellArg cfg.openrouter.apiKeyFile})"
@@ -127,6 +138,12 @@
           API key used by local agent clients. The default is suitable only while
           the service listens on loopback.
         '';
+      };
+
+      clientApiKeyFile = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Runtime client API key file; overrides clientApiKey without putting the key in the Nix store.";
       };
 
       settings = lib.mkOption {
@@ -216,6 +233,10 @@
     config = lib.mkIf cfg.enable (lib.mkMerge [
       {
         assertions = [
+          {
+            assertion = cfg.clientApiKeyFile == null || !cfg.integrations.enable;
+            message = "services.cli-proxy-api-plus.clientApiKeyFile requires integrations.enable = false; configure client credentials outside the Nix store";
+          }
           {
             assertion = builtins.elem cfg.integrations.defaultModel cfg.integrations.models;
             message = "services.cli-proxy-api-plus.integrations.defaultModel must be present in integrations.models";
