@@ -45,6 +45,7 @@
   };
 
   extraPlugins = [pkgs.vimPlugins.resession-nvim];
+  extraFiles."lua/forge/tutorial.lua".source = ./tutorial.lua;
 
   extraPackages = with pkgs;
     [
@@ -115,6 +116,38 @@
         bigfile.enabled = true;
         dashboard = {
           enabled = true;
+          preset.keys = [
+            {
+              key = "t";
+              desc = "Learn Vim (interactive tutorial)";
+              action = ":LearnVim";
+            }
+            {
+              key = "f";
+              desc = "Find File";
+              action = ":lua Snacks.picker.files()";
+            }
+            {
+              key = "n";
+              desc = "New File";
+              action = ":ene | startinsert";
+            }
+            {
+              key = "g";
+              desc = "Find Text";
+              action = ":lua Snacks.picker.grep()";
+            }
+            {
+              key = "r";
+              desc = "Recent Files";
+              action = ":lua Snacks.picker.recent()";
+            }
+            {
+              key = "q";
+              desc = "Quit";
+              action = ":qa";
+            }
+          ];
           # The default startup statistics section requires lazy.nvim.
           sections = [
             {section = "header";}

@@ -14,6 +14,29 @@ nix run .#nixvim
 After the normal, separately approved Home Manager/system activation, `nvim`,
 `vim`, and `vi` launch it. Existing `EDITOR`/`VISUAL` settings are unchanged.
 
+## Learn Vim
+
+Press **t** on the dashboard, **Space h** while editing, or run `:LearnVim`.
+To launch straight into the tutorial without activating the system:
+
+```sh
+nix run .#nixvim -- +LearnVim
+```
+
+The guide stays beside an editable playground in a separate tab. Exercises check
+your cursor position, edited text, saved file, or opened tools. Start with modes,
+then practise movement, word edits, undo/redo, copy/paste, selection, search,
+saving, splits, the file finder, and escaping a terminal. Arrow keys work.
+
+Press **Esc**, then **Enter** to check/continue. **F1** reveals a hint, **F2**
+retries, **F3** goes back, **F4** skips. On keyboards with media keys, hold Fn
+or click the guide's buttons. `:LearnVim hint`, `reset`, `back`, `skip`, `next`,
+and `close` provide the same controls without function keys.
+
+Progress saves in Neovim's state directory and resumes on your next visit.
+Skipped exercises remain incomplete. `:LearnVim restart` starts from scratch.
+Closing the tutorial restores your previous tab and removes its temporary files.
+
 ## Features
 
 - Catppuccin Mocha, dashboard, notifications, indentation guides, keybinding help.
@@ -63,6 +86,7 @@ Leader is **Space**; press it and wait for Which-key help.
 
 | Keys | Action |
 | --- | --- |
+| `Space h` | Interactive beginner tutorial |
 | `Space e`, `Space o` | Toggle/focus explorer |
 | `Space ff`, `Space fw`, `Space fb`, `Space fo` | Files, text, buffers, recent files |
 | `Space fh`, `Space fk` | Help, keybindings |
@@ -96,7 +120,10 @@ Leader is **Space**; press it and wait for Which-key help.
 
 ```sh
 nix build .#checks.aarch64-darwin.nixvim --no-link
+nix build .#checks.aarch64-darwin.nixvim-tutorial --no-link
 ```
 
 Use `checks.x86_64-linux.nixvim` on Nook. The check starts Neovim with a temporary
 home directory and rejects startup errors and configuration warnings.
+The tutorial check plays all exercises with editor keystrokes, then checks retry,
+skip, resume, damaged progress recovery, and preservation of the original tab.

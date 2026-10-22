@@ -3,6 +3,8 @@ local map = function(mode, lhs, rhs, desc)
 end
 
 require("resession").setup({})
+require("forge.tutorial").setup()
+map("n", "<leader>h", "<cmd>LearnVim<cr>", "Learn Vim (interactive tutorial)")
 require("nvim-treesitter-textobjects").setup({ select = { lookahead = true } })
 for key, query in pairs({ af = "@function.outer", ["if"] = "@function.inner", ac = "@class.outer", ic = "@class.inner" }) do
   map({ "x", "o" }, key, function()

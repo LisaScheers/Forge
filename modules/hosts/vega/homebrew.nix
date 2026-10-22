@@ -11,7 +11,7 @@
       onActivation.autoUpdate = true;
       onActivation.cleanup = "zap";
       brews = [];
-      casks = ["moonlight"];
+      casks = ["moonlight" "orcaslicer"];
     };
 
     nix-homebrew = {
