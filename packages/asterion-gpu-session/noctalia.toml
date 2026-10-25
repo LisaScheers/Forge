@@ -1,0 +1,84 @@
+[shell]
+corner_radius_scale = 0.0
+font_family = "DejaVu Sans"
+offline_mode = true
+telemetry_enabled = false
+polkit_agent = false
+setup_wizard_enabled = false
+niri_overview_type_to_launch_enabled = false
+
+[shell.animation]
+enabled = false
+
+[shell.panel]
+transparency_mode = "solid"
+shadow = false
+border_color = "outline"
+
+[shell.launcher]
+layout = "simple"
+compact = true
+show_session_button = false
+fetch_exchange_rates = false
+
+[theme]
+mode = "dark"
+source = "custom"
+custom_palette = "Asterion"
+pure_black_dark = true
+
+[theme.templates]
+enable_builtin_templates = false
+enable_community_templates = false
+
+[wallpaper]
+enabled = false
+
+[backdrop]
+enabled = false
+
+[notification]
+enable_daemon = true
+background_opacity = 1.0
+
+[lockscreen]
+enabled = false
+lock_before_suspend = false
+
+[idle.behavior.lock]
+enabled = false
+
+[idle.behavior.screen-off]
+enabled = false
+
+[system.monitor]
+enabled = false
+
+[weather]
+enabled = false
+effects = false
+
+[calendar]
+enabled = false
+
+[location]
+auto_locate = false
+
+[audio]
+enable_sounds = false
+
+[bar.main]
+position = "top"
+thickness = 34
+background_opacity = 1.0
+compositor_blur = false
+radius = 0
+margin_ends = 0
+margin_edge = 0
+padding = 10
+shadow = false
+auto_hide = false
+reserve_space = true
+start = ["launcher", "workspaces"]
+center = ["clock"]
+end = ["tray", "notifications", "network", "brightness", "battery", "control-center"]

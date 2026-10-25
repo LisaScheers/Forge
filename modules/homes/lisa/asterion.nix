@@ -5,7 +5,7 @@
   ...
 }: {
   home.lisa-asterion = {
-    imports = [config.home.lisa-cli];
+    imports = [config.home.lisa];
 
     home = {
       username = "lisa";
