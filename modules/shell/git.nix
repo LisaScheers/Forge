@@ -5,6 +5,11 @@
     ...
   }: let
     signingKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHM77QyWYhDIEUzvyv57MoXgtO8zokNcIM0q442WUX61";
+    fjCredentialHelper = pkgs.writeShellApplication {
+      name = "git-credential-fj";
+      runtimeInputs = [pkgs.forgejo-cli pkgs.jq];
+      text = builtins.readFile ./git-credential-fj.sh;
+    };
   in {
     programs.git = {
       enable = true;
@@ -15,24 +20,14 @@
           signingkey = signingKey;
         };
         init.defaultBranch = "main";
+        credential."https://github.com".helper = ["" "!${lib.getExe pkgs.gh} auth git-credential"];
+        credential."https://gist.github.com".helper = ["" "!${lib.getExe pkgs.gh} auth git-credential"];
         credential."https://git.bylisa.dev" = {
           username = "Lisa";
           helper = [
             ""
-            (
-              if pkgs.stdenv.hostPlatform.isDarwin
-              then "osxkeychain"
-              else "cache --timeout=21600"
-            )
-            (lib.getExe pkgs.git-credential-oauth)
+            (lib.getExe fjCredentialHelper)
           ];
-          # Share Forgejo's built-in API client with forgejo-api.
-          oauthClientId = pkgs.forgejo-api.oauthClientId;
-          oauthAuthURL = "/login/oauth/authorize";
-          oauthTokenURL = "/login/oauth/access_token";
-          # Creating a repository uses /user/repos, so repository scope alone
-          # cannot cover the API workflow. Share the grant with forgejo-api.
-          oauthScopes = pkgs.forgejo-api.oauthScopes;
         };
       };
     };
@@ -43,6 +38,7 @@
 
     home.packages = with pkgs; [
       gh
+      forgejo-cli
       forgejo-api
     ];
   };

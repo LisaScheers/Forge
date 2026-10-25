@@ -82,29 +82,26 @@ The database follows upstream's nixos-unstable package index; a result can diffe
 from Forge's pinned Nixpkgs master revision. Update it with
 `nix flake update nix-index-database` and apply the configuration normally.
 
-## Forgejo authentication
+## Git authentication
 
-Git and `forgejo-api` share the credential helpers configured by Home Manager.
-On macOS, Keychain stores both access and refresh tokens; Linux currently uses
-Git's six-hour memory cache. The OAuth grant includes `write:repository` and
-`write:user`, which is also required to create a repository through `/user/repos`.
-The shared grant uses Forgejo's built-in `tea` public client. Forgejo rejects scope
-changes on an existing grant, so it is separate from the old Git-only grant.
+Home Manager configures GitHub and Gist to use `gh auth git-credential`.
+For `git.bylisa.dev`, Git uses the login stored by `fj`. Since forgejo-cli 0.7
+has no Git credential-helper command, a small adapter lets `fj` refresh its
+OAuth login before reading the saved token. Tokens stay in each CLI's own store.
 
-After applying this configuration, authorize the expanded grant once:
+After applying this configuration, sign in with the CLIs if needed:
 
 ```sh
-forgejo-api login
+gh auth login --hostname github.com
+fj --host https://git.bylisa.dev auth login
 forgejo-api user
 forgejo-api repos/Lisa/STSTP-Controller
 ```
 
-Before activation, use `nix run .#forgejo-api -- login` from this checkout.
 For writes, pass `-X POST` (or another method) and `-d '{"name":"example"}'`;
-`-d -` reads JSON from stdin. The command keeps tokens out of arguments and saves
-refreshed credentials back through Git. Use it for API requests instead of copying
-a token or signing in separately. A permission error does not discard the saved
-credential or automatically open another sign-in window.
+`-d -` reads JSON from stdin. `forgejo-api` gets its credential through Git too.
+A permission error does not discard the saved login or automatically open another
+sign-in window.
 
 ## Deployment
 

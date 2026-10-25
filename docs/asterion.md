@@ -339,6 +339,11 @@ up the `kvm` group. The first launch downloads a FEX root filesystem (about
 1.3 GB) and Steam's client files. Game compatibility and performance vary under
 translation; this setup has not yet been tested with a game on Asterion.
 
+The launcher uses `-cef-disable-gpu` for Steam's web interface: accelerated CEF
+rendering produced a solid magenta sign-in window on M3. The sign-in form and
+QR code rendered correctly with this flag on 25 October 2026. This setting
+affects the Steam interface, not game rendering.
+
 For diagnostics, run `steam-asahi --fex 'uname -m'` (expected: `x86_64`) and
 `steam-asahi --fex 'vulkaninfo --summary'` to check GPU visibility.
 
