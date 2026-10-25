@@ -46,6 +46,13 @@
     disko.url = "github:nix-community/disko";
     flake-file.url = "github:denful/flake-file";
     flake-parts.url = "github:hercules-ci/flake-parts";
+    helium = {
+      url = "github:schembriaiden/helium-browser-nix-flake/ebac6e7f4af50aa48200ae77ea6606061e2d3e84";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        nixpkgs-darwin.follows = "nixpkgs";
+      };
+    };
     home-manager = {
       url = "github:LisaScheers/home-manager/agent/nushell-session-environment";
       inputs.nixpkgs.follows = "nixpkgs";

@@ -1,0 +1,426 @@
+diff --git a/drivers/soc/apple/t6030-display-gate.c b/drivers/soc/apple/t6030-display-gate.c
+--- a/drivers/soc/apple/t6030-display-gate.c
++++ b/drivers/soc/apple/t6030-display-gate.c
+@@ -20,32 +20,30 @@
+  * nothing is changed.
+  *
+  * The DCP firmware needs the power management processor (PMP) running,
+- * which iBoot leaves loaded but halted. Once the display nodes are enabled,
+- * the gate also adds the PMP from a built-in overlay: its node, DART and
+- * mailbox (disabled), and a PMP report node whose driver sets the display
+- * and storage requests and starts the PMP when the display driver asks for
+- * it. The PMP node needs this Mac's board and DRAM vendor ids and its PMP
+- * tunables. A boot loader that copies them from the ADT into
+- * /chosen/asahi,t6030-pmp gets the T6030 overlay with those values, on any
+- * T6030 board; without them, only a J516S gets the PMP, from an overlay with
+- * one J516S's values. Before any driver probes, the gate then
++ * which iBoot leaves loaded but halted. The device tree already describes
++ * the PMP, its DART, mailbox and report. The gate checks that topology and
++ * completes it with this Mac's board and DRAM vendor ids and PMP tunables,
++ * copied by the boot loader from the ADT into /chosen/asahi,t6030-pmp.
++ * The report driver sets the display and storage requests and starts the
++ * PMP when a consumer asks for it. There is no fallback without this Mac's
++ * PMP values. Before any driver probes, the gate then
+  *  - raises the minimum power state of the display domains (display
+  *    subsystem, front end and DCP CPU) to "active", so that the PMP can
+  *    never power the running DCP down;
+  *  - keeps the PMP and PMS_SRAM domains on, as iBoot left them: the PTD the
+  *    DCP firmware and the PMP share lives in that SRAM;
+- *  - gives the PMP DART and mailbox the interrupt parent of the DCP mailbox.
++ *  - links an opted-in T6030 GPU to the same PMP.
+  * Everything the PMP needs is checked before the display nodes are enabled.
+- * Without PMP values for this Mac, or if a check fails or the PMP cannot be
+- * added, the display nodes stay (or are put back) disabled and the display
++ * Without PMP values for this Mac, or if a check fails or the topology cannot
++ * be completed, the display nodes stay (or are put back) disabled and the display
+  * stays on the boot framebuffer.
+  *
+  * What differs between SoCs is in struct gate_soc. On T8122 (M3) the gate
+  * serves the same handoff, marked apple,t8122-handoff by the boot loader on
+  * apple,t8122-dcp and apple,t8122-display-subsystem nodes. Its device tree
+- * already describes the PMP, its DART, mailbox and report (disabled where it
+- * must be), so the gate adds no overlay there: it checks that the PMP
+- * topology is complete and unused, and then completes it (see
++ * describes the PMP, its DART, mailbox and report (disabled where it
++ * must be), so the gate checks that the PMP topology is complete and unused,
++ * and then completes it, as on T6030 (see
+  * gate_reuse_resolve()). There is no T8122 fallback: the boot loader must pass
+  * this Mac's PMP values in /chosen/asahi,t8122-pmp, or nothing is enabled. A
+  * T8122 device tree without display nodes is normal and the gate says
+@@ -104,17 +102,6 @@
+ };
+ 
+ #define PMGR_PS_ACTIVE	15
+-
+-/*
+- * Built-in overlays with the PMP, its DART and mailbox, and its report. The
+- * T6030 one has no per-Mac values: the gate copies them from the node the
+- * boot loader fills from this Mac's ADT. The J516S one carries the values
+- * of one J516S, for a boot loader that passes none.
+- */
+-extern const u8 __dtbo_t6030_pmp_begin[];
+-extern const u8 __dtbo_t6030_pmp_end[];
+-extern const u8 __dtbo_t6030_j516s_pmp_begin[];
+-extern const u8 __dtbo_t6030_j516s_pmp_end[];
+ 
+ /* This Mac's PMP values, from the boot loader, or NULL. */
+ static struct device_node *gate_pmp_values __initdata;
+@@ -196,11 +183,9 @@
+ 	.pmp_uuid = gate_pmp_uuid,
+ 	.report_compat = "apple,t6030-pmp-v2-report",
+ 	.disp_entry = "report@7",
+-	.pmp_dtbo = __dtbo_t6030_pmp_begin,
+-	.pmp_dtbo_end = __dtbo_t6030_pmp_end,
+-	.fallback_board = "apple,j516s",
+-	.fallback_dtbo = __dtbo_t6030_j516s_pmp_begin,
+-	.fallback_dtbo_end = __dtbo_t6030_j516s_pmp_end,
++	.reuse_pmp = true,
++	.pmp_compat = "apple,t6030-pmp-v2",
++	.ans_entry = "report@10",
+ 	.requested = &gate_requested,
+ 	.ps_chain = { PMP_PS_DISP_CPU, PMP_PS_DISP_FE, PMP_PS_DISP_SYS },
+ 	.dcpext = true,
+@@ -573,7 +558,7 @@
+ }
+ 
+ /*
+- * The PMP topology a device tree describes itself (T8122, T6031): the report,
++ * The PMP topology a device tree describes itself: the report,
+  * linked to its PMP by apple,pmp; the PMP, disabled and with no values yet,
+  * with one DART stream and one ASC mailbox; the display request entry, always
+  * on and the DCP's apple,pmp-report; and the storage request entry. Nothing
+@@ -678,7 +663,7 @@
+ 			return -EINVAL;
+ 		}
+ 	}
+-	if (!gate_pmp_values && (!gate_soc->fallback_board ||
++	if (!gate_pmp_values && (gate_soc->reuse_pmp || !gate_soc->fallback_board ||
+ 				 !of_machine_is_compatible(gate_soc->fallback_board))) {
+ 		gate_warn("PMP not added: the boot loader passed no PMP values for this Mac\n");
+ 		return -ENODEV;
+@@ -775,8 +760,8 @@
+ }
+ 
+ /*
+- * Adds the boot loader's PMP values (gate_pmp_value_wanted()) to @pmp, which
+- * the T6030 overlay leaves without them. Returns the number added.
++ * Adds the boot loader's PMP values (gate_pmp_value_wanted()) to @pmp.
++ * Returns the number added.
+  */
+ static int __init gate_pmp_copy_values(struct of_changeset *cs, struct device_node *pmp)
+ {
+@@ -857,7 +842,7 @@
+  *    is indexed that way (T8122);
+  *  - the storage request is always on, and not acknowledged, as the PMP
+  *    keeps a block up only if its request was set when it started;
+- *  - the T8122 GPU, if available, is linked to the PMP;
++ *  - the T8122 or opted-in T6030 GPU, if available, is linked to the PMP;
+  *  - the display domains' floor, and the PMP and PMS_SRAM domains kept on;
+  *  - this Mac's PMP values on the PMP node.
+  * The PMP stays disabled: the report driver enables it once it starts it.
+@@ -875,7 +860,7 @@
+ 	/* The PMP does not acknowledge storage requests. */
+ 	if (!ret)
+ 		ret = gate_add_bool(&gate_pmp_cs, r->ans, "apple,no-ack");
+-	/* The current14 T8122 GPU needs an inner AGX vote from this Mac's PMP. */
++	/* The GPU needs its power vote from the same PMP. */
+ 	if (!ret)
+ 		ret = gate_gpu_pmp_link(&gate_pmp_cs, r->pmp);
+ 	/* The display domains' floor, applied by the PMGR driver when it probes. */
+@@ -910,15 +895,17 @@
+ static int __init gate_pmp_apply(struct device_node *dcp, struct device_node **ps,
+ 				 struct device_node *aic)
+ {
+-	const u8 *dtbo = gate_pmp_values ? gate_soc->pmp_dtbo : gate_soc->fallback_dtbo;
+-	const size_t size = gate_pmp_values ?
+-		gate_soc->pmp_dtbo_end - gate_soc->pmp_dtbo :
+-		gate_soc->fallback_dtbo_end - gate_soc->fallback_dtbo;
++	const u8 *dtbo;
++	size_t size;
+ 	struct device_node *report, *disp = NULL, *pmp = NULL, *dart = NULL, *mbox = NULL;
+ 	int ovcs_id = 0, ret, i, values = 0;
+ 
+ 	if (gate_soc->reuse_pmp)
+ 		return gate_reuse_apply(ps);
++
++	dtbo = gate_pmp_values ? gate_soc->pmp_dtbo : gate_soc->fallback_dtbo;
++	size = gate_pmp_values ? gate_soc->pmp_dtbo_end - gate_soc->pmp_dtbo :
++		gate_soc->fallback_dtbo_end - gate_soc->fallback_dtbo;
+ 
+ 	ret = of_overlay_fdt_apply(dtbo, size, &ovcs_id, NULL);
+ 	if (ret) {
+diff --git a/drivers/soc/apple/t6030-display-gate-test.c b/drivers/soc/apple/t6030-display-gate-test.c
+--- a/drivers/soc/apple/t6030-display-gate-test.c
++++ b/drivers/soc/apple/t6030-display-gate-test.c
+@@ -1,12 +1,11 @@
+ // SPDX-License-Identifier: GPL-2.0-only OR MIT
+ /*
+  * KUnit test of the display gate, run on test device trees instead of a
+- * Mac's: the gate's own init code decides, applies its changes and adds the
+- * PMP from its built-in overlay (T6030), or completes the PMP the test tree
+- * describes (T6031, T8122).
++ * Mac's: the gate's own init code decides, applies its changes and completes
++ * the PMP the test tree describes.
+  *  - T6030 (t6030-gate-test.dtso): on by default, as before, and
+- *    the T6031 switch does not change it. Run first: the T6031 and T8122
+- *    trees describe a PMP, and the T6030 gate refuses to add a second one.
++ *    the T6031 switch does not change it. Its static PMP supplies the
++ *    internal display and the opted-in GPU.
+  *  - T6031 (t6031-gate-test.dtso): off by default, enabled only by
+  *    apple_t6031_display.enable=1 with the full handoff, and nothing changed
+  *    when a check fails.
+@@ -34,7 +33,7 @@
+ 	const struct gate_soc *soc;
+ 	const u8 *fixture, *fixture_end;
+ 	const char *nodes[GATE_NR_NODES];	/* what the gate enables */
+-	const char *dcp, *display, *values, *aic;
++	const char *dcp, *display, *values, *aic, *gpu;
+ 	const char *ps[PMP_PS_NR];		/* as PMP_PS_* */
+ 	const char *report_compat, *disp_entry, *pmp_compat, *pmp_dart, *pmp_mbox;
+ 	const char *pmp_uuid;			/* the PMP image of the fixture */
+@@ -124,8 +123,13 @@
+ 	.disp_entry = "report@7",
+ 	.pmp_compat = "apple,t6030-pmp-v2",
+ 	.pmp_dart = "iommu@350300000",
+-	.pmp_mbox = "mailbox@350c08000",
++	.pmp_mbox = "mbox@350c08000",
+ 	.pmp_uuid = "2F4EB4C4-001B-3ACF-A9A0-68D8E42FC3A7",
++	.report = "/soc/pmp_report@3503c0000",
++	.pmp = "/soc/pmp@350500000",
++	.disp = "/soc/pmp_report@3503c0000/report@7",
++	.ans = "/soc/pmp_report@3503c0000/report@10",
++	.gpu = "/soc/gpu@206400000",
+ };
+ 
+ static int gt_fixture_t6031 __initdata = -1;
+@@ -268,6 +272,8 @@
+ 	}
+ 	KUNIT_EXPECT_FALSE(test, of_property_present(gt_node(test, s->ps[PMP_PS_DISP_SYS]),
+ 						     "apple,min-state"));
++	if (s->gpu)
++		KUNIT_EXPECT_FALSE(test, of_property_present(gt_node(test, s->gpu), "apple,pmp"));
+ 	if (!s->pmp_always_on)
+ 		KUNIT_EXPECT_FALSE(test, of_property_present(gt_node(test, s->ps[PMP_PS_PMP]),
+ 							     "apple,always-on"));
+@@ -279,7 +285,7 @@
+ {
+ 	struct gate_test *t = test->priv;
+ 	const struct gt_soc *s = t->s;
+-	struct device_node *entry, *report, *pmp, *dart, *mbox, *aic;
++	struct device_node *entry, *report, *pmp, *dart, *mbox, *aic, *linked;
+ 	const char *uuid = NULL;
+ 	u32 parent = 0;
+ 	int i;
+@@ -322,6 +328,14 @@
+ 	KUNIT_EXPECT_TRUE(test, of_property_present(pmp, "apple,tunable-test"));
+ 	KUNIT_EXPECT_TRUE(test, of_property_present(pmp, "apple,board-id"));
+ 	KUNIT_EXPECT_TRUE(test, of_property_present(pmp, "apple,dram-vendor-id"));
++	if (s->gpu) {
++		linked = of_parse_phandle(gt_node(test, s->gpu), "apple,pmp", 0);
++		if (IS_ENABLED(CONFIG_APPLE_T6030_GPU_PMP_LINK))
++			KUNIT_EXPECT_PTR_EQ(test, linked, pmp);
++		else
++			KUNIT_EXPECT_NULL(test, linked);
++		of_node_put(linked);
++	}
+ 
+ 	/* Its DART and mailbox interrupt through the DCP mailbox's parent. */
+ 	aic = gt_node(test, s->aic);
+@@ -336,6 +350,9 @@
+ 	if (!s->soc->reuse_pmp) {
+ 		KUNIT_EXPECT_FALSE(test, of_device_is_available(dart));
+ 		KUNIT_EXPECT_FALSE(test, of_device_is_available(mbox));
++	} else if (s == &gt_t6030) {
++		KUNIT_EXPECT_TRUE(test, of_device_is_available(dart));
++		KUNIT_EXPECT_TRUE(test, of_device_is_available(mbox));
+ 	}
+ 	KUNIT_EXPECT_EQ(test, of_property_read_u32(dart, "interrupt-parent", &parent), 0);
+ 	KUNIT_EXPECT_EQ(test, parent, aic->phandle);
+@@ -657,7 +674,7 @@
+ 	gate_t6031_enabled(test);
+ }
+ 
+-/* T6030: unchanged */
++/* T6030: on by default, with the device tree's own PMP. */
+ 
+ /* On by default: the T6031 switch, set or not, does not matter. */
+ static void __init gate_t6030_default_on(struct kunit *test)
+@@ -704,6 +721,34 @@
+ 		      "3B18C886-4C70-349B-B1C4-70F35DE2C5CD");
+ 	gt_run(test);
+ 	gt_expect_untouched(test);
++}
++
++static void __init gate_t6030_no_pmp_values(struct kunit *test)
++{
++	gt_detach(test, gt_t6030.values);
++	gt_run(test);
++	gt_expect_untouched(test);
++}
++
++static void __init gate_t6030_no_report_pmp_link(struct kunit *test)
++{
++	gt_remove(test, gt_t6030.report, "apple,pmp");
++	gt_run(test);
++	gt_expect_untouched(test);
++}
++
++static void __init gate_t6030_no_dcp_report_link(struct kunit *test)
++{
++	gt_remove(test, gt_t6030.dcp, "apple,pmp-report");
++	gt_run(test);
++	gt_expect_untouched(test);
++}
++
++static void __init gate_t6030_no_storage_request(struct kunit *test)
++{
++	gt_set_string(test, gt_t6030.ans, "status", "disabled");
++	gt_run(test);
++	gt_expect_refused(test);
+ }
+ 
+ static void __init gate_t6030_enabled_again(struct kunit *test)
+@@ -865,6 +910,10 @@
+ 	KUNIT_CASE(gate_t6030_no_marker),
+ 	KUNIT_CASE(gate_t6030_t6031_power_layout),
+ 	KUNIT_CASE(gate_t6030_other_pmp_image),
++	KUNIT_CASE(gate_t6030_no_pmp_values),
++	KUNIT_CASE(gate_t6030_no_report_pmp_link),
++	KUNIT_CASE(gate_t6030_no_dcp_report_link),
++	KUNIT_CASE(gate_t6030_no_storage_request),
+ 	KUNIT_CASE(gate_t6030_enabled_again),
+ 	{}
+ };
+diff --git a/drivers/soc/apple/t6030-gate-test.dtso b/drivers/soc/apple/t6030-gate-test.dtso
+--- a/drivers/soc/apple/t6030-gate-test.dtso
++++ b/drivers/soc/apple/t6030-gate-test.dtso
+@@ -3,8 +3,9 @@
+  * Test device tree for the display gate KUnit test: the T6030 display nodes
+  * of t6030-dcp.dtsi with the boot loader's handoff applied, the power states
+  * they hang from (DISP_CPU under DISP_FE under DISP_SYS, the PMP states in
+- * the same PMGR block), and PMP values. The values are made up. It shares
+- * the disabled /soc of the T6031 test tree, so its node names differ.
++ * the same PMGR block), its static PMP topology, a GPU awaiting its PMP
++ * supplier, and PMP values. The values are made up. It shares the disabled
++ * /soc of the T6031 test tree, so its node names differ.
+  */
+ 
+ /dts-v1/;
+@@ -57,14 +58,14 @@
+ 						apple,inherited-on;
+ 					};
+ 
+-					power-controller@4c8 {
++					t6030_ps_pmp: power-controller@4c8 {
+ 						compatible = "apple,t6030-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+ 						reg = <0x4c8 4>;
+ 						#power-domain-cells = <0>;
+ 						label = "pmp";
+ 					};
+ 
+-					power-controller@4d0 {
++					t6030_ps_pms_sram: power-controller@4d0 {
+ 						compatible = "apple,t6030-pmgr-pwrstate", "apple,t8103-pmgr-pwrstate";
+ 						reg = <0x4d0 4>;
+ 						#power-domain-cells = <0>;
+@@ -116,6 +117,7 @@
+ 
+ 				dcp@28ec00000 {
+ 					compatible = "apple,t6030-dcp";
++					apple,pmp-report = <&t6030_pmp_report_disp>;
+ 					mboxes = <&t6030_dcp_mbox>;
+ 					mbox-names = "mbox";
+ 					iommus = <&t6030_dcp_dart 5>;
+@@ -135,6 +137,70 @@
+ 					};
+ 				};
+ 
++				t6030_pmp_dart: iommu@350300000 {
++					compatible = "apple,t6030-dart", "apple,t8110-dart";
++					reg = <0x3 0x50300000 0x0 0x4000>;
++					#iommu-cells = <1>;
++					interrupt-parent = <&t6030_aic>;
++					interrupts = <0 734 4>;
++					power-domains = <&t6030_ps_pmp>;
++				};
++
++				pmp_report@3503c0000 {
++					compatible = "apple,t6030-pmp-v2-report";
++					reg = <0x3 0x503c0000 0x0 0x20000>;
++					power-domains = <&t6030_ps_pms_sram>;
++					#address-cells = <1>;
++					#size-cells = <0>;
++					apple,pmp = <&t6030_pmp>;
++
++					t6030_pmp_report_disp: report@7 {
++						compatible = "apple,t6030-pmp-v2-report-entry",
++							     "apple,t6000-pmp-v2-report-entry";
++						reg = <0x7>;
++						label = "pmp-disp";
++						#power-domain-cells = <0>;
++						power-domains = <&t6030_ps_disp_cpu>;
++						apple,always-on;
++					};
++
++					report@10 {
++						compatible = "apple,t6030-pmp-v2-report-entry",
++							     "apple,t6000-pmp-v2-report-entry";
++						reg = <0x10>;
++						label = "pmp-ans";
++						#power-domain-cells = <0>;
++					};
++				};
++
++				t6030_pmp: pmp@350500000 {
++					compatible = "apple,t6030-pmp-v2", "apple,t6000-pmp-v2";
++					reg = <0x3 0x50500000 0x0 0x80000>,
++					      <0x3 0x50c00000 0x0 0x4000>;
++					reg-names = "pmp", "asc";
++					mboxes = <&t6030_pmp_mbox>;
++					mbox-names = "mbox";
++					iommus = <&t6030_pmp_dart 0>;
++					power-domains = <&t6030_ps_pmp>;
++					status = "disabled";
++				};
++
++				t6030_pmp_mbox: mbox@350c08000 {
++					compatible = "apple,t6030-asc-mailbox", "apple,asc-mailbox-v4";
++					reg = <0x3 0x50c08000 0x0 0x4000>;
++					interrupt-parent = <&t6030_aic>;
++					interrupts = <0 730 4>, <0 731 4>, <0 732 4>, <0 733 4>;
++					interrupt-names = "send-empty", "send-not-empty",
++							  "recv-empty", "recv-not-empty";
++					#mbox-cells = <0>;
++					power-domains = <&t6030_ps_pmp>, <&t6030_ps_pms_sram>;
++				};
++
++				gpu@206400000 {
++					compatible = "apple,agx-t6030";
++					reg = <0x2 0x6400000 0x0 0x10000>;
++				};
++
+ 				display-subsystem-t6030 {
+ 					compatible = "apple,t6030-display-subsystem";
+ 					iommus = <&t6030_disp0_dart 0>;
+diff --git a/arch/arm64/boot/dts/apple/t6030.dtsi b/arch/arm64/boot/dts/apple/t6030.dtsi
+--- a/arch/arm64/boot/dts/apple/t6030.dtsi
++++ b/arch/arm64/boot/dts/apple/t6030.dtsi
+@@ -847,6 +847,7 @@
+ 
+ 		pmp_report: pmp_report@3503c0000 {
+ 			compatible = "apple,t6030-pmp-v2-report";
++			apple,pmp = <&pmp>;
+ 			reg = <0x3 0x503c0000 0x0 0x20000>;
+ 			power-domains = <&ps_pms_sram>;
+ 			#address-cells = <1>;
+diff --git a/arch/arm64/boot/dts/apple/t6030-dcp.dtsi b/arch/arm64/boot/dts/apple/t6030-dcp.dtsi
+--- a/arch/arm64/boot/dts/apple/t6030-dcp.dtsi
++++ b/arch/arm64/boot/dts/apple/t6030-dcp.dtsi
+@@ -78,6 +78,7 @@
+ 
+ 	dcp: dcp@28ec00000 {
+ 		compatible = "apple,t6030-dcp";
++		apple,pmp-report = <&pmp_report_disp>;
+ 		mboxes = <&dcp_mbox>;
+ 		mbox-names = "mbox";
+ 		iommus = <&dcp_dart 5>;

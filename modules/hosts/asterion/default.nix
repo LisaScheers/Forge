@@ -9,7 +9,14 @@
   };
   nixos.asterion = {
     networking.hostName = "asterion";
-    imports = [config.nixos.apple-silicon config.nixos.asterion-hardware config.nixos.home-manager];
+    imports = [
+      config.nixos.apple-silicon
+      config.nixos.asterion-hardware
+      config.nixos.asterion-gpu
+      config.nixos.asterion-gpu-boot
+      config.nixos.asterion-audio
+      config.nixos.home-manager
+    ];
     home-manager.users.lisa = config.home.lisa-asterion;
   };
   ci.targets = [

@@ -8,17 +8,10 @@
     modules = [
       inputs.nixos-apple-silicon.nixosModules.apple-silicon-installer
       config.nixos.asterion-installer-common
+      config.nixos.asterion-gpu-test
+      config.nixos.asterion-gpu-boot
     ];
   };
-  tether = inputs.nixpkgs.lib.nixosSystem {
-    system = "aarch64-linux";
-    modules = [
-      inputs.nixos-apple-silicon.nixosModules.apple-silicon-support
-      config.nixos.asterion-installer-common
-      config.nixos.asterion-tether
-    ];
-  };
-  inherit (tether) pkgs;
 in {
   ci.targets = map (name: {
     target = "packages.aarch64-linux." + name;
@@ -49,19 +42,9 @@ in {
   };
 
   flake.packages.aarch64-linux.asterion-installer = installer.config.system.build.isoImage;
+  # The installable RAM image is the same stack qualified on the laptop.
   flake.packages.aarch64-linux.asterion-tethered-installer =
-    pkgs.runCommand "asterion-tethered-installer" {
-      nativeBuildInputs = [pkgs.gzip];
-    } ''
-      set -o pipefail
-      mkdir -p "$out"
-      gzip -n -1 -c ${tether.config.system.build.kernel}/${tether.config.system.boot.loader.kernelFile} > "$out/Image.gz"
-      cp ${tether.config.system.build.kernel}/dtbs/apple/t6030-j516s.dtb "$out/t6030-j516s.dtb"
-      cp ${pkgs.m1n1}/lib/m1n1/m1n1.bin "$out/m1n1.bin"
-      # Collapse the netboot initrd's gzip members into one stream for m1n1.
-      gzip -dc ${tether.config.system.build.netbootRamdisk}/initrd | gzip -n -1 > "$out/initrd.gz"
-      echo 'init=${tether.config.system.build.toplevel}/init ${toString tether.config.boot.kernelParams}' > "$out/bootargs"
-    '';
+    config.flake.packages.aarch64-linux.asterion-gpu-test;
 
   perSystem = {pkgs, ...}: let
     python = pkgs.python3.withPackages (p: [p.construct p.pyserial]);
