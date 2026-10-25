@@ -295,6 +295,37 @@ Kernel, modules, Mesa and boot firmware form a qualified set. Use a reboot for
 changes to that set; do not unload the active display/GPU or rebind it live.
 The GPU readiness service does not restart during ordinary configuration switches.
 
+## Wi-Fi
+
+Lisa IOT is restricted to 2.4 GHz by the UniFi configuration. The installed
+BCM4388 driver detects Lisa Ent and Lisa VPN on 5 GHz channel 40. NetworkManager's
+IWD backend reports placeholder frequencies for inactive networks, so use
+`iwctl station wlan0 show` to check the actual connected band.
+
+The native Lisa Ent profile uses PEAP/MSCHAPv2 as `uid-lisa@scheers.tech`, requires
+protected management frames, and validates `standard.ui.com` against the public
+UniFi CA exported from Vega's existing configuration. That CA expires on
+24 May 2031; its SHA-256 fingerprint is
+`F0:4C:3D:ED:82:71:83:CE:81:E6:BC:D1:9E:40:80:E6:53:29:F2:FD:78:E6:27:B8:04:5F:65:F1:05:98:B6:AB`.
+It is trusted only for this Wi-Fi connection. Passwords are agent-owned and
+enrolled locally through the desktop's NetworkManager secret agent.
+
+The Nix-generated profile was installed at
+`/etc/NetworkManager/system-connections/asterion-lisa-ent.nmconnection`, with a
+GC root at `/nix/var/nix/gcroots/asterion-wifi-profile` retaining its public CA.
+Its UUID matches the declarative profile in `modules/desktop/asterion/wifi.nix`.
+The active Steam generation was preserved during this profile-only update.
+NetworkManager accepted the profile and mirrored it into IWD. On 25 October,
+Lisa completed local password enrollment. The declared UUID then connected at
+5200 MHz (5 GHz channel 40), with a negotiated transmit rate of 648.5 Mb/s.
+Certificate validation, the server-name constraint, agent-owned password storage
+and required protected management frames remained active. This rate is the
+wireless link rate, not an Internet speed test.
+
+UniFi Endpoint's current official Linux package (1.1.7-28) declares `amd64`, and
+Ubiquiti offers no ARM Linux build. It was not installed. Lisa Ent's native
+802.1X connection does not require that application once credentials are known.
+
 ## Steam
 
 The [steam-asahi NixOS module](https://github.com/sm-idk/steam-asahi) installs
