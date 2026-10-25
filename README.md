@@ -146,13 +146,17 @@ Atlas needs one bootstrap from its existing auto-updater after this change reach
 ssh atlas 'nix config show trusted-users'
 ```
 
-Vega remains local and manual. From Zed's terminal, run:
+Vega and Asterion remain local and manual. On either host, run:
 
 ```sh
 just switch
 ```
 
-This opens Apple Terminal and switches Vega using this checkout. Enter your sudo
+On Asterion, this runs `sudo nixos-rebuild switch` using this checkout in the
+current terminal. Reboot after kernel, GPU driver, Mesa or boot firmware changes;
+see the [Asterion guide](docs/asterion.md).
+
+On Vega, this opens Apple Terminal and switches Vega using this checkout. Enter your sudo
 password or use Touch ID there. The command in Zed returns when Terminal opens;
 the activation result appears in Terminal. No prior rebuild is needed to use it.
 

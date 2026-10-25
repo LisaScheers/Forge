@@ -276,7 +276,14 @@ removed. Idle locking, idle display blanking and lid-triggered locking are off.
 | Command+brightness keys | Keyboard backlight in 10% steps |
 | Command+Shift+K | Keyboard backlight on/off |
 
-From `/etc/nixos/forge`, build first and install the next boot generation:
+From `/etc/nixos/forge`, apply ordinary configuration changes in the current terminal:
+
+```sh
+just switch
+```
+
+For kernel, GPU driver, Mesa or boot firmware changes, build first and install
+the next boot generation:
 
 ```sh
 sudo nixos-rebuild build --flake path:.#asterion
@@ -287,6 +294,22 @@ sudo reboot
 Kernel, modules, Mesa and boot firmware form a qualified set. Use a reboot for
 changes to that set; do not unload the active display/GPU or rebind it live.
 The GPU readiness service does not restart during ordinary configuration switches.
+
+## Steam
+
+The [steam-asahi NixOS module](https://github.com/sm-idk/steam-asahi) installs
+**Steam (Asahi)** in the launcher. Run `steam-asahi` from a terminal for logs.
+It runs Steam through muvm and FEX, providing the 4 KiB guest pages and x86
+translation required on Asterion's 16 KiB ARM system. The ordinary
+`programs.steam` module and host 32-bit graphics stay disabled.
+
+After applying the configuration with `just switch`, log out and back in to pick
+up the `kvm` group. The first launch downloads a FEX root filesystem (about
+1.3 GB) and Steam's client files. Game compatibility and performance vary under
+translation; this setup has not yet been tested with a game on Asterion.
+
+For diagnostics, run `steam-asahi --fex 'uname -m'` (expected: `x86_64`) and
+`steam-asahi --fex 'vulkaninfo --summary'` to check GPU visibility.
 
 ## Peripheral support
 

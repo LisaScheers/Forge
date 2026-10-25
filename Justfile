@@ -46,10 +46,20 @@ tree:
 dev:
     nix develop --no-pure-eval
 
-# Switch Vega in Apple Terminal; activation results appear there.
+# Switch the local host: Vega in Apple Terminal, Asterion in this terminal.
 [group('system')]
 switch:
-    /usr/bin/open -b com.apple.Terminal "{{ justfile_directory() }}/scripts/switch-vega.command"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "$(uname -s):$(hostname -s)" in
+      Darwin:vega)
+        open -b com.apple.Terminal "{{ justfile_directory() }}/scripts/switch-vega.command"
+        ;;
+      Linux:asterion)
+        /run/wrappers/bin/sudo nixos-rebuild switch --flake "path:{{ justfile_directory() }}#asterion"
+        ;;
+      *) echo 'just switch must run on Vega or Asterion.' >&2; exit 2 ;;
+    esac
 
 # Delete old generations and collect garbage in Apple Terminal.
 [group('system')]

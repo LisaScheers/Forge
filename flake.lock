@@ -1731,6 +1731,7 @@
         "personal-website": "personal-website",
         "sops-nix": "sops-nix",
         "spotaui": "spotaui",
+        "steam-asahi": "steam-asahi",
         "systems": "systems_11",
         "t3-code-nix": "t3-code-nix",
         "zed": "zed"
@@ -1836,6 +1837,26 @@
       "original": {
         "owner": "LargeModGames",
         "repo": "spotatui",
+        "type": "github"
+      }
+    },
+    "steam-asahi": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1783937169,
+        "narHash": "sha256-d+0Bfwtt7HmLW2Usnw9XHA/uyNVHy3G1wT1yNQWuyCs=",
+        "owner": "sm-idk",
+        "repo": "steam-asahi",
+        "rev": "5e538015e267bfd57ccf49e5ed0660ac7fd9f8ea",
+        "type": "github"
+      },
+      "original": {
+        "owner": "sm-idk",
+        "repo": "steam-asahi",
         "type": "github"
       }
     },
