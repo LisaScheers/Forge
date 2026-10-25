@@ -157,6 +157,11 @@ preserve m1n1's populated DTB, rather than loading a fresh disk DTB.
 The initrd leaves native GPU/display drivers blacklisted so the firmware console
 can show the LUKS prompt. After root mounts, `asterion-gpu-ready` takes over the
 display, requires an actual 200-nit readback, loads the GPU and starts greetd.
+After creating the panel, it waits for udev and explicitly finishes systemd's
+saved-brightness restore before setting 200 nits. Without that synchronization,
+the restore could replace 200 with a saved value during the readback check and
+prevent the GPU and greeter from starting. A failed brightness check reports
+both the requested and actual values in the journal.
 Noctalia Greeter uses the matching Mesa environment, the Asterion palette and
 2× scaling on `eDP-1`. Idle display blanking is disabled. Lisa and the Asterion
 session are preselected; enter the existing login password to start the qualified

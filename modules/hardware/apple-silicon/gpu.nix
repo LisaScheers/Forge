@@ -46,6 +46,10 @@
           sleep .1
         done
         test -f "$panel/brightness"
+        # Loading appledrm creates the panel and queues its brightness restore.
+        # Finish that restore before requesting the level checked below.
+        udevadm settle --timeout=20
+        systemctl start systemd-backlight@backlight:apple-panel-bl.service
         if test -w /sys/class/graphics/fb0/blank; then
           echo 0 > /sys/class/graphics/fb0/blank
         fi
@@ -55,7 +59,10 @@
           test "$actual" != 200 || break
           sleep .1
         done
-        test "$(cat "$panel/actual_brightness")" = 200
+        if test "$(cat "$panel/actual_brightness")" != 200; then
+          echo "Native panel brightness check failed: requested $(cat "$panel/brightness"), actual $(cat "$panel/actual_brightness"), expected 200 nits." >&2
+          exit 1
+        fi
         modprobe asahi
         for attempt in $(seq 1 100); do
           test ! -c /dev/dri/renderD128 || break
