@@ -41,6 +41,55 @@ class CheckpointTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "escapes checkpoint"):
             restore.verify_checkpoint(self.source)
 
+    def test_unlisted_stale_media_fails(self):
+        directory = self.source / "synapse/media_store/local_content/ab/cd"
+        directory.mkdir(parents=True)
+        (directory / "stale-original").write_bytes(b"old payload")
+        with self.assertRaisesRegex(RuntimeError, "file set differs"):
+            restore.verify_checkpoint(self.source)
+
+    def test_missing_listed_file_fails(self):
+        (self.source / "payload").unlink()
+        with self.assertRaisesRegex(RuntimeError, "file set differs"):
+            restore.verify_checkpoint(self.source)
+
+    def test_duplicate_normalized_paths_fail(self):
+        line = (self.source / "SHA256SUMS").read_text()
+        (self.source / "SHA256SUMS").write_text(line + line.replace("./payload", "payload"))
+        with self.assertRaisesRegex(RuntimeError, "duplicate paths"):
+            restore.verify_checkpoint(self.source)
+
+    def test_absolute_path_inside_checkpoint_is_rejected(self):
+        digest = hashlib.sha256(b"database fixture").hexdigest()
+        (self.source / "SHA256SUMS").write_text(digest + "  " + str(self.source / "payload") + "\n")
+        with self.assertRaisesRegex(RuntimeError, "escapes checkpoint"):
+            restore.verify_checkpoint(self.source)
+
+    def test_symlink_file_fails(self):
+        (self.source / "alias").symlink_to(self.source / "payload")
+        with self.assertRaisesRegex(RuntimeError, "nonregular file"):
+            restore.verify_checkpoint(self.source)
+
+    def test_symlink_directory_fails(self):
+        (self.source / "alias-directory").symlink_to(self.source, target_is_directory=True)
+        with self.assertRaisesRegex(RuntimeError, "nonregular directory"):
+            restore.verify_checkpoint(self.source)
+
+    def test_fifo_fails_without_opening_it(self):
+        os.mkfifo(self.source / "pipe")
+        with self.assertRaisesRegex(RuntimeError, "nonregular file"):
+            restore.verify_checkpoint(self.source)
+
+    def test_invalid_digest_fails(self):
+        (self.source / "SHA256SUMS").write_text("invalid  ./payload\n")
+        with self.assertRaisesRegex(RuntimeError, "digest is invalid"):
+            restore.verify_checkpoint(self.source)
+
+    def test_markers_are_only_permitted_unlisted_files(self):
+        (self.source / "extra-marker").write_text("not allowed")
+        with self.assertRaisesRegex(RuntimeError, "file set differs"):
+            restore.verify_checkpoint(self.source)
+
     def test_external_network_fails_closed(self):
         with patch.object(Path, "read_text", return_value="header\nheader\n lo: 0\n eth0: 0\n"):
             with self.assertRaisesRegex(RuntimeError, "private network"):

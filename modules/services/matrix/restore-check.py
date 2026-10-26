@@ -2,7 +2,9 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
+import stat
 import subprocess
 import time
 from urllib.parse import quote, urlencode
@@ -33,22 +35,47 @@ def thumbnail_cache_omitted(source):
 def verify_checkpoint(source):
     if not (source / "COMPLETE").is_file():
         raise RuntimeError("Checkpoint has no completion marker")
-    count = 0
+    if source.is_symlink() or not source.is_dir():
+        raise RuntimeError("Checkpoint source is not a regular directory")
+    actual_files = set()
+    def walk_error(error):
+        raise error
+    for directory, subdirectories, files in os.walk(source, followlinks=False, onerror=walk_error):
+        for name in subdirectories:
+            entry = Path(directory) / name
+            if entry.is_symlink() or not stat.S_ISDIR(entry.lstat().st_mode):
+                raise RuntimeError("Checkpoint contains a nonregular directory")
+        for name in files:
+            entry = Path(directory) / name
+            if entry.is_symlink() or not stat.S_ISREG(entry.lstat().st_mode):
+                raise RuntimeError("Checkpoint contains a nonregular file")
+            actual_files.add(entry.relative_to(source).as_posix())
+    expected = {}
     for line in (source / "SHA256SUMS").read_text().splitlines():
         digest, relative = line.split("  ", 1)
+        if not re.fullmatch("[a-f0-9]{64}", digest):
+            raise RuntimeError("Checkpoint checksum digest is invalid")
+        if Path(relative).is_absolute():
+            raise RuntimeError("Checksum path escapes checkpoint")
         candidate = (source / relative).resolve()
         if not candidate.is_relative_to(source.resolve()):
             raise RuntimeError("Checksum path escapes checkpoint")
+        normalized = candidate.relative_to(source.resolve()).as_posix()
+        if normalized in expected:
+            raise RuntimeError("Checkpoint checksum manifest contains duplicate paths")
+        expected[normalized] = (candidate, digest)
+    if not expected:
+        raise RuntimeError("Checkpoint checksum manifest is empty")
+    if actual_files != set(expected) | {"SHA256SUMS", "COMPLETE"}:
+        raise RuntimeError("Checkpoint file set differs from checksum manifest")
+    for candidate, digest in expected.values():
         hasher = hashlib.sha256()
         with candidate.open("rb") as stream:
             for block in iter(lambda: stream.read(1024 * 1024), b""):
                 hasher.update(block)
         if hasher.hexdigest() != digest:
             raise RuntimeError("Checkpoint checksum mismatch")
-        count += 1
-    if count == 0:
-        raise RuntimeError("Checkpoint checksum manifest is empty")
-    return count
+    return len(expected)
 
 
 def require_isolated_network():
