@@ -3,7 +3,7 @@
   inputs,
   ...
 }: let
-  pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux.extend config.overlays.matrix-synapse;
+  pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
 in {
   flake.checks.x86_64-linux.matrix-volume = pkgs.testers.runNixOSTest {
     name = "matrix-volume";

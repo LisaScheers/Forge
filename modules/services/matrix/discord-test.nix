@@ -3,7 +3,7 @@
   inputs,
   ...
 }: let
-  pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux.extend config.overlays.matrix-synapse;
+  pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
 in {
   flake.checks.x86_64-linux.discord-bridge = pkgs.testers.runNixOSTest {
     name = "discord-bridge-foundation";

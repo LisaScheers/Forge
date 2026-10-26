@@ -3,7 +3,7 @@
   inputs,
   ...
 }: let
-  pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux.extend config.overlays.matrix-synapse;
+  pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
   testKeys = import (inputs.nixpkgs + "/nixos/tests/ssh-keys.nix") pkgs;
 in {
   flake.checks.x86_64-linux.matrix-media = pkgs.testers.runNixOSTest {
