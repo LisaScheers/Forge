@@ -65,6 +65,7 @@
       fileSystems.${cfg.mountPoint} = {
         device = cfg.device;
         fsType = "ext4";
+        autoResize = true;
         options = ["nofail" "nodev" "nosuid" "noexec" "x-systemd.device-timeout=30s"];
       };
       systemd.services.matrix-volume-layout = {
