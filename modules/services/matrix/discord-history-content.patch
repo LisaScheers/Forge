@@ -46,6 +46,9 @@
  	redactions := zerolog.Dict()
  	attachmentMap := map[string]*database.Message{}
  	for _, existingPart := range existing {
+@@ -902 +903 @@
+-		if getEmbedType(nil, remainingEmbed) != EmbedVideo {
++		if getEmbedType(msg, remainingEmbed) != EmbedVideo {
 --- /dev/null
 +++ b/history_content.go
 @@ -0,0 +1,131 @@
@@ -268,5 +271,133 @@
 +	}
 +	if componentMediaLink("javascript:bad()", "x") != "" {
 +		t.Fatal("unsafe component link")
++	}
++}
+--- /dev/null
++++ b/gif_update_test.go
+@@ -0,0 +1,125 @@
++package main
++
++import (
++	"database/sql"
++	"encoding/json"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/bwmarrin/discordgo"
++	"github.com/rs/zerolog"
++	"go.mau.fi/util/dbutil"
++	"go.mau.fi/util/exsync"
++	"maunium.net/go/maulogger/v2"
++	"maunium.net/go/mautrix/appservice"
++	"maunium.net/go/mautrix/event"
++	"maunium.net/go/mautrix/id"
++
++	"go.mau.fi/mautrix-discord/config"
++	"go.mau.fi/mautrix-discord/database"
++)
++
++func TestPlainGIFMetadataUpdatePreservesNativeMapping(t *testing.T) {
++	raw, err := sql.Open("sqlite3", ":memory:")
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer raw.Close()
++	raw.SetMaxOpenConns(1)
++	base, err := dbutil.NewWithDB(raw, "sqlite3")
++	if err != nil {
++		t.Fatal(err)
++	}
++	for _, statement := range []string{
++		"CREATE TABLE message (dcid TEXT, dc_attachment_id TEXT, dc_chan_id TEXT, dc_chan_receiver TEXT, dc_sender TEXT, timestamp BIGINT, dc_edit_timestamp BIGINT, dc_thread_id TEXT, mxid TEXT, sender_mxid TEXT)",
++		"CREATE TABLE discord_file (url TEXT, encrypted BOOLEAN, mxc TEXT, id TEXT, emoji_name TEXT, size BIGINT, width INTEGER, height INTEGER, mime_type TEXT, decryption_info TEXT, timestamp BIGINT)",
++	} {
++		if _, err = raw.Exec(statement); err != nil {
++			t.Fatal(err)
++		}
++	}
++
++	var lock sync.Mutex
++	redactions := 0
++	var edits []map[string]any
++	hs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		w.Header().Set("Content-Type", "application/json")
++		switch {
++		case r.Method == http.MethodPut && strings.Contains(r.URL.Path, "/typing/"):
++			_, _ = w.Write([]byte("{}"))
++		case r.Method == http.MethodPut && strings.Contains(r.URL.Path, "/redact/"):
++			lock.Lock()
++			redactions++
++			lock.Unlock()
++			_ = json.NewEncoder(w).Encode(map[string]string{"event_id": "$redaction:test"})
++		case r.Method == http.MethodPut && strings.Contains(r.URL.Path, "/send/m.room.message/"):
++			var content map[string]any
++			if err := json.NewDecoder(r.Body).Decode(&content); err != nil {
++				t.Error(err)
++				http.Error(w, "invalid test message", http.StatusBadRequest)
++				return
++			}
++			lock.Lock()
++			edits = append(edits, content)
++			lock.Unlock()
++			_ = json.NewEncoder(w).Encode(map[string]string{"event_id": "$edit:test"})
++		default:
++			t.Errorf("unexpected homeserver request: %s %s", r.Method, r.URL.Path)
++			http.Error(w, "unexpected test request", http.StatusBadRequest)
++		}
++	}))
++	defer hs.Close()
++	as := appservice.Create()
++	as.HomeserverDomain = "test"
++	as.Registration = &appservice.Registration{AppToken: "test-only", SenderLocalpart: "bot"}
++	if err = as.SetHomeserverURL(hs.URL); err != nil {
++		t.Fatal(err)
++	}
++	room := id.RoomID("!room:test")
++	ghost := id.UserID("@discord_actor:test")
++	as.StateStore.MarkRegistered(ghost)
++	as.StateStore.SetMembership(room, ghost, event.MembershipJoin)
++	br := &DiscordBridge{Config: &config.Config{}, DB: database.New(base, maulogger.Create()), puppets: make(map[string]*Puppet)}
++	br.AS = as
++	br.Bot = as.Intent("@bot:test")
++	puppet := &Puppet{Puppet: &database.Puppet{ID: "actor"}, bridge: br, MXID: ghost}
++	br.puppets["actor"] = puppet
++	portal := &Portal{Portal: &database.Portal{Key: database.NewPortalKey("channel", ""), MXID: room, GuildID: "guild"}, bridge: br, log: zerolog.Nop(), recentMessages: exsync.NewRingBuffer[string, *discordgo.Message](2)}
++
++	gifURL := "https://example.test/animation.gif"
++	proxyURL := hs.URL + "/cached.gif"
++	file := br.DB.File.New()
++	file.URL, file.MXC, file.MimeType, file.Size = proxyURL, id.ContentURI{Homeserver: "test", FileID: "gif"}, "image/gif", 42
++	file.Insert(nil)
++	original := br.DB.Message.New()
++	original.DiscordID, original.Channel, original.SenderID = "message", portal.Key, "actor"
++	original.Timestamp, original.SenderMXID = time.UnixMilli(42), ghost
++	original.MassInsertParts([]database.MessagePart{{AttachmentID: "video_" + gifURL, MXID: "$original:test"}})
++	embed := &discordgo.MessageEmbed{Type: discordgo.EmbedTypeImage, URL: gifURL, Thumbnail: &discordgo.MessageEmbedThumbnail{ProxyURL: proxyURL, Width: 8, Height: 8}}
++	message := &discordgo.Message{ID: "message", ChannelID: "channel", GuildID: "guild", Author: &discordgo.User{ID: "actor"}, Content: gifURL, Embeds: []*discordgo.MessageEmbed{embed}}
++	portal.recentMessages.Push(message.ID, message)
++
++	portal.handleDiscordMessageUpdate(nil, message)
++	portal.handleDiscordMessageUpdate(nil, &discordgo.Message{ID: message.ID, Embeds: []*discordgo.MessageEmbed{embed}})
++
++	mapped := br.DB.Message.GetByDiscordID(portal.Key, message.ID)
++	lock.Lock()
++	defer lock.Unlock()
++	if redactions != 0 || len(mapped) != 1 || len(edits) != 2 {
++		t.Fatalf("GIF metadata update damaged history: redactions=%d mappings=%d edits=%d", redactions, len(mapped), len(edits))
++	}
++	if mapped[0].MXID != "$original:test" || mapped[0].AttachmentID != "video_"+gifURL || mapped[0].Timestamp.UnixMilli() != 42 {
++		t.Fatal("metadata update changed the original mapping or timestamp")
++	}
++	for _, edit := range edits {
++		relation, _ := edit["m.relates_to"].(map[string]any)
++		content, _ := edit["m.new_content"].(map[string]any)
++		if relation["rel_type"] != "m.replace" || relation["event_id"] != "$original:test" || content["url"] != "mxc://test/gif" {
++			t.Fatal("metadata update did not edit the existing GIF")
++		}
 +	}
 +}
