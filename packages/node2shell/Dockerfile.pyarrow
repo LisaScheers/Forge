@@ -1,0 +1,25 @@
+# Build the existing Cognee wheel version with the Brotli security release.
+# Arrow's wheel builder supplies compatible static Flight/cloud/OpenTelemetry
+# dependencies. Keep Brotli source-built so its decoder receives the fix.
+FROM apache/arrow-dev@sha256:68c6cb1eeed66d1bf5faf5401dd35d007c53d45497bf886520631e1051bc7320 AS build
+SHELL ["/bin/bash", "-c"]
+ADD --checksum=sha256:01ee19d023775e70692cf52e0efa2b8cc7b9b7257d17983b5f6c36a06288ce02 https://github.com/apache/arrow/archive/refs/tags/apache-arrow-25.0.1.tar.gz /tmp/arrow.tar.gz
+RUN mkdir -p /arrow && tar -xf /tmp/arrow.tar.gz -C /arrow --strip-components=1
+WORKDIR /arrow
+RUN sed -i \
+    -e 's/ARROW_BROTLI_BUILD_VERSION=v1.0.9/ARROW_BROTLI_BUILD_VERSION=v1.0.10/' \
+    -e 's/ARROW_BROTLI_BUILD_SHA256_CHECKSUM=f9e8d81d0405ba66d181529af42a3354f838c939095ff99930da6aa9cdf6fe46/ARROW_BROTLI_BUILD_SHA256_CHECKSUM=b517ebdb5266b963d28d6e639b973479874ec72086deb6ee4a2d639e1b13606b/' \
+    cpp/thirdparty/versions.txt
+ENV PATH=/opt/python/cp312-cp312/bin:$PATH \
+    PYTHON_VERSION=3.12 PYTHON_ABI_TAG=cp312 \
+    CMAKE_BUILD_PARALLEL_LEVEL=4 CMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF \
+    ARROW_EXTRA_CMAKE_FLAGS="-DBrotli_SOURCE=BUNDLED"
+RUN pip install -r python/requirements-wheel-build.txt
+# Curl is statically linked into the wheel too; reject a second Brotli decoder
+# arriving through its prebuilt dependencies.
+RUN test -f /opt/vcpkg/installed/amd64-linux-static-release/lib/libcurl.a && \
+    nm -u /opt/vcpkg/installed/amd64-linux-static-release/lib/libcurl.a > /tmp/curl-symbols && \
+    ! grep -q Brotli /tmp/curl-symbols
+RUN bash ci/scripts/python_wheel_xlinux_build.sh
+FROM scratch
+COPY --from=build /arrow/python/repaired_wheels/ /
