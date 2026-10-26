@@ -12,6 +12,73 @@ Permanent rooms: federation enabled; encryption disabled (Lisa, 2026-10-18).
 This supersedes Lisa's earlier encryption requirement. No rooms existed when the
 preference changed. Discord and Matrix servers can read bridged content.
 
+## Current checkpoint, 2026-10-27
+
+At 23:11 UTC on 2026-10-26 (27 October in Brussels), **52 of 61 in-scope text
+rooms are complete and live**. Each opened room passed its frozen source-ID,
+author, timestamp, reply, public-thread and attachment checks. The live hierarchy
+audit passes: root Space membership is the sole join condition, posting and
+reactions remain enabled, and PluralMatrix and webhook relays are configured.
+The requested administrator has power level 100 in all 52 live rooms and all ten
+registered Spaces. Eight Spaces are currently linked; the remaining categories
+stay staged until their first room completes. The four hidden text channels and
+eight voice-channel text histories remain excluded by Lisa's decision.
+
+**The remaining nine rooms are blocked by storage capacity.** During the last
+import, the 100 GiB volume held about 43 GiB of live media and 27 GiB in its older
+coordinated recovery copy. Updating that copy and importing the remaining media
+cannot preserve the working reserve. The controller stopped before pausing any
+production service; all three applications remain healthy. Its exact reason is
+`Recovery-copy delta needs storage review before pausing services`. The reaction
+follow-on also stopped while waiting for the message queue. No native import is
+left running.
+
+Lisa has been asked to expand the existing Hetzner volume `107199635` to 200 GB.
+This is additional paid capacity and remains pending. Nix now declares
+`fileSystems."/srv/matrix".autoResize = true`, producing `x-systemd.growfs` for the
+same ext4 device. The three Atlas deployment gates and volume safety/reboot VM
+pass. The prepared growth helper verifies the device, existing UUID and marker,
+five ordinary authenticated media hashes, and all application PIDs; its check-only
+run passes against the current 100 GiB device. After provider expansion, the stock
+`systemd-growfs@srv-matrix.service` grows the mounted filesystem without formatting.
+Verify that it ran explicitly when the mount was already active.
+
+Two other tested changes await the same safe maintenance deployment: plain-GIF
+metadata updates retain their original bridge mapping, and the obsolete Authlib
+overlay is removed because the current Nixpkgs Synapse package already contains
+the byte-identical patch. Package tests, the bridge foundation VM and deployment
+gates pass; these changes are prepared on `main`, not yet activated on Atlas.
+
+The latest completed off-host checkpoint is `f9647d13`, captured on 26 October.
+Its separate encrypted recovery copy transferred 223,865 files/directories and
+26.167 GiB. Its slow verification was deliberately interrupted so it could not
+block the remaining imports; **full verification and the expanded restore remain
+pending**. The original storage copies and encrypted snapshots remain intact.
+Current-ID auditing additionally covers messages newer than the original exports;
+the first 31 completed tail receipts verify 2,457 messages, 527 reply links and
+65 new file references (66,057,291 actual bytes). Thirteen inaccurate Discord size
+fields have a second fresh source download reproducing the exact Matrix bytes.
+
+The older-history audit distinguishes two confirmed source deletions from one
+real GIF-update defect. The deleted messages remain redacted. The GIF is restored
+as a source-ghost image at its restoration time, with its original date in the
+caption/metadata and its original timestamp in the repaired native mapping.
+Existing structural notices and forwarded/failed-media supplements retain their
+precise provenance; they are not invented original events.
+
+After expansion: grow and verify the filesystem; resume the controller into a
+coordinated checkpoint; deploy through `scripts/deploy.sh atlas switch --maintenance`
+only at a verified native-idle drain; repeat the authorized pilot text/deletion
+checks; import the remaining nine rooms; finish current-ID/file/reaction proofs;
+capture and restore the final coordinated checkpoint. The full restore verifier
+checks all 61 rooms, current public threads, actor mappings, replies, file hashes,
+Space access and administrator grants. Its private recovered-media COW view keeps
+the recovered input read-only while avoiding a second media transfer. Capability,
+network, path and COW isolation fixtures pass; this is preparation, not a completed
+full-server restore. Restore the held timers only after final verification.
+
+The dated sections below retain the earlier rollout evidence and limitations.
+
 ## Encryption decision
 
 The pinned mautrix-discord 0.7.7 depends on `libolm-3.2.16`. Nix refuses to build
