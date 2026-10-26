@@ -11,6 +11,25 @@ from urllib.request import ProxyHandler, Request, build_opener
 import yaml
 
 
+def thumbnail_cache_omitted(source):
+    policy_file = source / "media-backup-policy.json"
+    if not policy_file.exists():
+        return False
+    expected = {
+        "version": 1,
+        "omitted_generated_media_directories": ["local_thumbnails", "remote_thumbnail", "url_cache_thumbnails"],
+        "original_media": "preserved",
+        "thumbnail_database_metadata": "preserved",
+    }
+    if json.loads(policy_file.read_text()) != expected:
+        raise RuntimeError("Unsupported media backup policy")
+    for name in expected["omitted_generated_media_directories"]:
+        directory = source / "synapse/media_store" / name
+        if directory.exists() and (not directory.is_dir() or any(directory.iterdir())):
+            raise RuntimeError("Checkpoint contains omitted thumbnail cache")
+    return True
+
+
 def verify_checkpoint(source):
     if not (source / "COMPLETE").is_file():
         raise RuntimeError("Checkpoint has no completion marker")
@@ -90,12 +109,28 @@ def verify_history(base, source):
         data = get("/_matrix/client/v1/media/download/" + mxc, raw=True)
         if len(data) != attachment["bytes"] or hashlib.sha256(data).hexdigest() != attachment["sha256"]:
             raise RuntimeError("Restored media differs from independent archive")
+    thumbnail_regenerated = False
+    if thumbnail_cache_omitted(source):
+        image = next((attachment for attachment in manifest["attachments"]
+                      if events[attachment["event_id"]]["content"].get("info", {}).get("mimetype")
+                      in {"image/png", "image/jpeg", "image/gif", "image/webp"}), None)
+        if image is None:
+            raise RuntimeError("Restore has no image for thumbnail regeneration check")
+        mxc = events[image["event_id"]]["content"]["url"].removeprefix("mxc://")
+        thumbnail = get("/_matrix/client/v1/media/thumbnail/" + mxc + "?width=32&height=32&method=scale", raw=True)
+        if not thumbnail:
+            raise RuntimeError("Restored thumbnail did not regenerate")
+        original = get("/_matrix/client/v1/media/download/" + mxc, raw=True)
+        if len(original) != image["bytes"] or hashlib.sha256(original).hexdigest() != image["sha256"]:
+            raise RuntimeError("Thumbnail regeneration changed original media")
+        thumbnail_regenerated = True
     for reply in manifest["replies"]:
         expected = manifest["primary_events"].get(reply["reference"]["messageId"])
         actual = events[reply["event_id"]]["content"].get("m.relates_to", {}).get("m.in_reply_to", {}).get("event_id")
         if not expected or actual != expected:
             raise RuntimeError("Restored reply relation mismatch")
-    return {"message_parts": len(events), "attachments": len(manifest["attachments"]), "replies": len(manifest["replies"])}
+    return {"message_parts": len(events), "attachments": len(manifest["attachments"]), "replies": len(manifest["replies"]),
+            "thumbnail_regenerated_from_original": thumbnail_regenerated}
 
 
 def main():

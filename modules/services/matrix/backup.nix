@@ -68,6 +68,11 @@ in {
       runtimeInputs = [pkgs.coreutils pkgs.findutils pkgs.rsync pkgs.util-linux pkgs.systemd config.services.postgresql.package];
       runtimeEnv.SYNAPSE_CONFIG = pkgs.writeText "matrix-backup-synapse-config.json" (builtins.toJSON config.services.matrix-synapse.settings);
       runtimeEnv.RESUME_COMMAND = lib.getExe resume;
+      runtimeEnv.MEDIA_COPY_COMMAND = lib.getExe (pkgs.writeShellApplication {
+        name = "matrix-backup-copy-media";
+        runtimeInputs = [pkgs.rsync];
+        text = builtins.readFile ./backup-copy-media.sh;
+      });
       runtimeEnv.PLURAL_ENABLED =
         if config.matrix.plural.enable
         then "1"

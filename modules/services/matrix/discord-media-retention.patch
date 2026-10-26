@@ -1,0 +1,545 @@
+--- a/config/bridge.go
++++ b/config/bridge.go
+@@ -21,0 +22 @@
++	"strconv"
+@@ -23,0 +25 @@
++	"time"
+@@ -62,0 +65,2 @@
++	MediaRetentionBefore map[string]string `yaml:"media_retention_before"`
++
+@@ -137,0 +142,8 @@
++	for guild, raw := range bc.MediaRetentionBefore {
++		if id, err := strconv.ParseUint(guild, 10, 64); err != nil || id == 0 {
++			return errors.New("bridge.media_retention_before requires numeric guild IDs")
++		}
++		if cutoff, err := time.Parse(time.RFC3339, raw); err != nil || cutoff.IsZero() {
++			return errors.New("bridge.media_retention_before requires nonzero RFC3339 cutoffs")
++		}
++	}
+--- a/config/upgrade.go
++++ b/config/upgrade.go
+@@ -67,0 +68 @@
++	helper.Copy(up.Map, "bridge", "media_retention_before")
+--- a/example-config.yaml
++++ b/example-config.yaml
+@@ -182,0 +183,2 @@
++    # Optional guild ID -> fixed RFC3339 cutoff for message images/videos.
++    media_retention_before: {}
+--- a/portal_convert.go
++++ b/portal_convert.go
+@@ -108 +108 @@
+-func (portal *Portal) convertDiscordSticker(ctx context.Context, intent *appservice.IntentAPI, sticker *discordgo.StickerItem) *ConvertedMessage {
++func (portal *Portal) convertDiscordSticker(ctx context.Context, intent *appservice.IntentAPI, msg *discordgo.Message, sticker *discordgo.StickerItem) *ConvertedMessage {
+@@ -124,0 +125,5 @@
++	if mime != "" {
++		if omission := portal.mediaOmission(msg, "sticker", sticker.ID, sticker.URL()); omission != nil {
++			return portal.omittedMediaPart(msg, sticker.ID, *omission)
++		}
++	}
+@@ -147 +152,6 @@
+-func (portal *Portal) convertDiscordAttachment(ctx context.Context, intent *appservice.IntentAPI, messageID string, att *discordgo.MessageAttachment) *ConvertedMessage {
++func (portal *Portal) convertDiscordAttachment(ctx context.Context, intent *appservice.IntentAPI, msg *discordgo.Message, att *discordgo.MessageAttachment) *ConvertedMessage {
++	if imageVideoAttachment(att) {
++		if omission := portal.mediaOmission(msg, "attachment", att.ID, att.URL, att.ProxyURL); omission != nil {
++			return portal.omittedMediaPart(msg, att.ID, *omission)
++		}
++	}
+@@ -188 +198 @@
+-	mxc := portal.bridge.DMA.AttachmentMXC(portal.Key.ChannelID, messageID, att)
++	mxc := portal.bridge.DMA.AttachmentMXC(portal.Key.ChannelID, msg.ID, att)
+@@ -202 +212 @@
+-func (portal *Portal) convertDiscordVideoEmbed(ctx context.Context, intent *appservice.IntentAPI, embed *discordgo.MessageEmbed) *ConvertedMessage {
++func (portal *Portal) convertDiscordVideoEmbed(ctx context.Context, intent *appservice.IntentAPI, msg *discordgo.Message, embed *discordgo.MessageEmbed, index int) *ConvertedMessage {
+@@ -204,0 +215 @@
++	kind, slot := "embed_video", "video"
+@@ -207,0 +219 @@
++		kind, slot = "embed_thumbnail", "thumbnail"
+@@ -219,0 +232,3 @@
++	if omission := portal.mediaOmission(msg, kind, fmt.Sprintf("embed:%d:%s", index, slot), proxyURL, embed.URL); omission != nil {
++		return portal.omittedMediaPart(msg, attachmentID, *omission)
++	}
+@@ -295 +310 @@
+-		if part := portal.convertDiscordAttachment(log.WithContext(ctx), intent, msg.ID, att); part != nil {
++		if part := portal.convertDiscordAttachment(log.WithContext(ctx), intent, msg, att); part != nil {
+@@ -305 +320 @@
+-		if part := portal.convertDiscordSticker(log.WithContext(ctx), intent, sticker); part != nil {
++		if part := portal.convertDiscordSticker(log.WithContext(ctx), intent, msg, sticker); part != nil {
+@@ -324 +339 @@
+-		part := portal.convertDiscordVideoEmbed(log.WithContext(ctx), intent, embed)
++		part := portal.convertDiscordVideoEmbed(log.WithContext(ctx), intent, msg, embed, i)
+@@ -747,0 +763 @@
++	var omissions []mediaOmission
+@@ -755 +771,8 @@
+-		switch getEmbedType(msg, embed) {
++		embedType := getEmbedType(msg, embed)
++		filtered, omitted := portal.retainedEmbed(msg, embed, i, embedType)
++		if len(omitted) > 0 {
++			omissions = append(omissions, omitted...)
++			htmlParts = append(htmlParts, "<p>"+html.EscapeString(portal.mediaOmissionBody(msg))+"</p>")
++		}
++		embed = filtered
++		switch embedType {
+@@ -786,0 +810,3 @@
++	if len(omissions) > 0 {
++		extraContent[mediaRetentionKey] = portal.mediaReceipt(msg, omissions)
++	}
+--- a/portal.go
++++ b/portal.go
+@@ -865,0 +866,3 @@
++		if msg.EditedTimestamp != nil {
++			creationMessage.EditedTimestamp = msg.EditedTimestamp
++		}
+@@ -927 +930 @@
+-		converted = portal.convertDiscordVideoEmbed(ctx, intent, msg.Embeds[0])
++		converted = portal.convertDiscordVideoEmbed(ctx, intent, msg, msg.Embeds[0], 0)
+--- a/gif_update_test.go
++++ b/gif_update_test.go
+@@ -97,0 +98 @@
++	messageID := retentionTestID(retentionTestCutoff.Add(-time.Hour))
+@@ -99 +100 @@
+-	original.DiscordID, original.Channel, original.SenderID = "message", portal.Key, "actor"
++	original.DiscordID, original.Channel, original.SenderID = messageID, portal.Key, "actor"
+@@ -103 +104 @@
+-	message := &discordgo.Message{ID: "message", ChannelID: "channel", GuildID: "guild", Author: &discordgo.User{ID: "actor"}, Content: gifURL, Embeds: []*discordgo.MessageEmbed{embed}}
++	message := &discordgo.Message{ID: messageID, ChannelID: "channel", GuildID: "guild", Author: &discordgo.User{ID: "actor"}, Content: gifURL, Embeds: []*discordgo.MessageEmbed{embed}}
+@@ -108,0 +110,5 @@
++	// A newer authorless source edit must protect older GIF media from retention.
++	portal.GuildID = "1293572131086667827"
++	br.Config.Bridge.MediaRetentionBefore = map[string]string{portal.GuildID: retentionTestCutoff.Format(time.RFC3339)}
++	portal.handleDiscordMessageUpdate(nil, &discordgo.Message{ID: messageID, Embeds: []*discordgo.MessageEmbed{embed}, EditedTimestamp: &retentionTestCutoff})
++
+@@ -112 +118 @@
+-	if redactions != 0 || len(mapped) != 1 || len(edits) != 2 {
++	if redactions != 0 || len(mapped) != 1 || len(edits) != 3 {
+@@ -121 +127 @@
+-		if relation["rel_type"] != "m.replace" || relation["event_id"] != "$original:test" || content["url"] != "mxc://test/gif" {
++		if relation["rel_type"] != "m.replace" || relation["event_id"] != "$original:test" || content["url"] != "mxc://test/gif" || content[mediaRetentionKey] != nil {
+--- /dev/null
++++ b/media_retention.go
+@@ -0,0 +1,209 @@
++package main
++
++import (
++	"crypto/sha256"
++	"encoding/hex"
++	"fmt"
++	"net/url"
++	"path"
++	"strconv"
++	"strings"
++	"time"
++
++	"github.com/bwmarrin/discordgo"
++	"maunium.net/go/mautrix/event"
++)
++
++const mediaRetentionKey = "dev.bylisa.sec_hive.media_retention"
++
++type mediaOmission struct {
++	Kind               string `json:"kind"`
++	AssetID            string `json:"asset_id"`
++	URLSHA256          string `json:"url_sha256"`
++	EffectiveTimestamp string `json:"effective_timestamp"`
++}
++
++type mediaRetentionReceipt struct {
++	Version   int             `json:"version"`
++	GuildID   string          `json:"guild_id"`
++	ChannelID string          `json:"channel_id"`
++	MessageID string          `json:"message_id"`
++	Cutoff    string          `json:"cutoff"`
++	Permalink string          `json:"permalink"`
++	Omissions []mediaOmission `json:"omissions"`
++}
++
++func snowflakeMediaTime(value string) (time.Time, bool) {
++	snowflake, err := strconv.ParseUint(value, 10, 64)
++	if err != nil || snowflake == 0 {
++		return time.Time{}, false
++	}
++	return time.UnixMilli(int64(snowflake>>22) + 1420070400000).UTC(), true
++}
++
++func latestMediaTime(current time.Time, candidate time.Time) time.Time {
++	if candidate.After(current) {
++		return candidate
++	}
++	return current
++}
++
++func messageMediaTime(msg *discordgo.Message) (time.Time, bool) {
++	if msg == nil {
++		return time.Time{}, false
++	}
++	timestamp, known := snowflakeMediaTime(msg.ID)
++	if !known {
++		return time.Time{}, false
++	}
++	timestamp = latestMediaTime(timestamp, msg.Timestamp)
++	if msg.EditedTimestamp != nil {
++		timestamp = latestMediaTime(timestamp, *msg.EditedTimestamp)
++	}
++	// A new forwarding message or a newer source edit protects reused old media.
++	for _, snapshot := range msg.MessageSnapshots {
++		if source := snapshot.Message; source != nil {
++			if sourceTime, ok := snowflakeMediaTime(source.ID); ok {
++				timestamp = latestMediaTime(timestamp, sourceTime)
++			}
++			timestamp = latestMediaTime(timestamp, source.Timestamp)
++			if source.EditedTimestamp != nil {
++				timestamp = latestMediaTime(timestamp, *source.EditedTimestamp)
++			}
++		}
++	}
++	if msg.MessageReference != nil && msg.MessageReference.Type == discordgo.MessageReferenceTypeForward {
++		if sourceTime, ok := snowflakeMediaTime(msg.MessageReference.MessageID); ok {
++			timestamp = latestMediaTime(timestamp, sourceTime)
++		}
++	}
++	return timestamp, true
++}
++
++func canonicalMediaURL(raw string) string {
++	parsed, err := url.Parse(raw)
++	if err != nil || (!strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https")) || parsed.Hostname() == "" {
++		return ""
++	}
++	parsed.RawQuery, parsed.Fragment, parsed.RawFragment, parsed.ForceQuery, parsed.User = "", "", "", false, nil
++	parsed.Scheme, parsed.Host = strings.ToLower(parsed.Scheme), strings.ToLower(parsed.Host)
++	return parsed.String()
++}
++
++func mediaURLAttachmentID(raw string) string {
++	parsed, err := url.Parse(raw)
++	if err != nil {
++		return ""
++	}
++	switch strings.ToLower(parsed.Hostname()) {
++	case "cdn.discordapp.com", "media.discordapp.net", "cdn.discordapp.net":
++	default:
++		return ""
++	}
++	segments := strings.Split(strings.Trim(parsed.Path, "/"), "/")
++	if len(segments) >= 4 && (segments[0] == "attachments" || segments[0] == "ephemeral-attachments") {
++		return segments[2]
++	}
++	return ""
++}
++
++func imageVideoAttachment(att *discordgo.MessageAttachment) bool {
++	mime := strings.ToLower(strings.TrimSpace(strings.SplitN(att.ContentType, ";", 2)[0]))
++	if strings.HasPrefix(mime, "image/") || strings.HasPrefix(mime, "video/") {
++		return true
++	}
++	if mime != "" && mime != "application/octet-stream" {
++		return false
++	}
++	if att.Width > 0 || att.Height > 0 {
++		return true
++	}
++	switch strings.ToLower(path.Ext(att.Filename)) {
++	case ".png", ".apng", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".bmp", ".ico", ".heic", ".heif", ".svg", ".tif", ".tiff", ".mp4", ".webm", ".mov", ".m4v", ".mkv", ".avi", ".mpeg", ".mpg", ".3gp":
++		return true
++	default:
++		return false
++	}
++}
++
++func (portal *Portal) mediaCutoff() (time.Time, bool) {
++	if portal.bridge == nil || portal.bridge.Config == nil || portal.GuildID == "" {
++		return time.Time{}, false
++	}
++	raw, configured := portal.bridge.Config.Bridge.MediaRetentionBefore[portal.GuildID]
++	if !configured {
++		return time.Time{}, false
++	}
++	cutoff, err := time.Parse(time.RFC3339, raw)
++	return cutoff.UTC(), err == nil && !cutoff.IsZero()
++}
++
++func (portal *Portal) mediaOmission(msg *discordgo.Message, kind, assetID, sourceURL string, otherURLs ...string) *mediaOmission {
++	cutoff, enabled := portal.mediaCutoff()
++	timestamp, known := messageMediaTime(msg)
++	if !enabled || !known {
++		return nil
++	}
++	if assetTime, ok := snowflakeMediaTime(assetID); ok {
++		timestamp = latestMediaTime(timestamp, assetTime)
++	}
++	for _, assetURL := range append([]string{sourceURL}, otherURLs...) {
++		if assetTime, ok := snowflakeMediaTime(mediaURLAttachmentID(assetURL)); ok {
++			timestamp = latestMediaTime(timestamp, assetTime)
++		}
++	}
++	if !timestamp.Before(cutoff) {
++		return nil
++	}
++	var assetURL string
++	for _, candidate := range append([]string{sourceURL}, otherURLs...) {
++		if assetURL = canonicalMediaURL(candidate); assetURL != "" {
++			break
++		}
++	}
++	digest := sha256.Sum256([]byte(assetURL))
++	return &mediaOmission{Kind: kind, AssetID: assetID, URLSHA256: hex.EncodeToString(digest[:]), EffectiveTimestamp: timestamp.UTC().Format(time.RFC3339Nano)}
++}
++
++func (portal *Portal) mediaReceipt(msg *discordgo.Message, omissions []mediaOmission) mediaRetentionReceipt {
++	cutoff, _ := portal.mediaCutoff()
++	channelID := msg.ChannelID
++	if channelID == "" {
++		channelID = portal.Key.ChannelID
++	}
++	return mediaRetentionReceipt{Version: 1, GuildID: portal.GuildID, ChannelID: channelID, MessageID: msg.ID, Cutoff: cutoff.Format(time.RFC3339), Permalink: fmt.Sprintf("https://discord.com/channels/%s/%s/%s", portal.GuildID, channelID, msg.ID), Omissions: omissions}
++}
++
++func (portal *Portal) mediaOmissionBody(msg *discordgo.Message) string {
++	receipt := portal.mediaReceipt(msg, nil)
++	return fmt.Sprintf("[SEC-Hive media cutoff %s] Image/video omitted. Original: %s", receipt.Cutoff, receipt.Permalink)
++}
++
++func (portal *Portal) omittedMediaPart(msg *discordgo.Message, nativeID string, omission mediaOmission) *ConvertedMessage {
++	return &ConvertedMessage{AttachmentID: nativeID, Type: event.EventMessage, Content: &event.MessageEventContent{MsgType: event.MsgNotice, Body: portal.mediaOmissionBody(msg)}, Extra: map[string]any{mediaRetentionKey: portal.mediaReceipt(msg, []mediaOmission{omission})}}
++}
++
++// Only images actually rendered by rich/link embeds are filtered. Author/footer
++// icons remain reusable identity assets and never inherit message retention.
++func (portal *Portal) retainedEmbed(msg *discordgo.Message, embed *discordgo.MessageEmbed, index int, embedType BridgeEmbedType) (*discordgo.MessageEmbed, []mediaOmission) {
++	filtered := *embed
++	var omissions []mediaOmission
++	if embedType != EmbedRich && embedType != EmbedLinkPreview {
++		return embed, nil
++	}
++	if embed.Image != nil {
++		if omission := portal.mediaOmission(msg, "embed_image", fmt.Sprintf("embed:%d:image", index), embed.Image.ProxyURL, embed.Image.URL, embed.URL); omission != nil {
++			filtered.Image = nil
++			omissions = append(omissions, *omission)
++		}
++	}
++	// An omitted image makes a thumbnail eligible for rendering. Apply the same
++	// cutoff to that fallback, while preserving a newer attachment thumbnail.
++	if embedType == EmbedLinkPreview && filtered.Image == nil && embed.Thumbnail != nil {
++		if omission := portal.mediaOmission(msg, "embed_thumbnail", fmt.Sprintf("embed:%d:thumbnail", index), embed.Thumbnail.ProxyURL, embed.Thumbnail.URL, embed.URL); omission != nil {
++			filtered.Thumbnail = nil
++			omissions = append(omissions, *omission)
++		}
++	}
++	return &filtered, omissions
++}
+--- /dev/null
++++ b/media_retention_test.go
+@@ -0,0 +1,214 @@
++package main
++
++import (
++	"context"
++	"crypto/sha256"
++	"database/sql"
++	"encoding/hex"
++	"encoding/json"
++	"fmt"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/bwmarrin/discordgo"
++	"go.mau.fi/util/dbutil"
++	"maunium.net/go/maulogger/v2"
++	"maunium.net/go/mautrix/event"
++	"maunium.net/go/mautrix/id"
++
++	"go.mau.fi/mautrix-discord/config"
++	"go.mau.fi/mautrix-discord/database"
++)
++
++var retentionTestCutoff = time.Date(2024, 10, 26, 22, 0, 0, 0, time.UTC)
++
++func retentionTestID(timestamp time.Time) string {
++	return fmt.Sprint((uint64(timestamp.UnixMilli()-1420070400000) << 22) | 1)
++}
++
++func retentionTestPortal(t *testing.T, assetURL string) *Portal {
++	t.Helper()
++	raw, err := sql.Open("sqlite3", ":memory:")
++	if err != nil {
++		t.Fatal(err)
++	}
++	t.Cleanup(func() { _ = raw.Close() })
++	raw.SetMaxOpenConns(1)
++	base, err := dbutil.NewWithDB(raw, "sqlite3")
++	if err != nil {
++		t.Fatal(err)
++	}
++	if _, err = raw.Exec("CREATE TABLE discord_file (url TEXT, encrypted BOOLEAN, mxc TEXT, id TEXT, emoji_name TEXT, size BIGINT, width INTEGER, height INTEGER, mime_type TEXT, decryption_info TEXT, timestamp BIGINT)"); err != nil {
++		t.Fatal(err)
++	}
++	br := &DiscordBridge{Config: &config.Config{}, DB: database.New(base, maulogger.Create())}
++	br.Config.Bridge.MediaRetentionBefore = map[string]string{"1293572131086667827": retentionTestCutoff.Format(time.RFC3339)}
++	br.Config.Bridge.CacheMedia = "always"
++	file := br.DB.File.New()
++	file.URL, file.MXC, file.MimeType, file.Size = assetURL, id.ContentURI{Homeserver: "test", FileID: "reused-old-media"}, "image/png", 42
++	file.Insert(nil)
++	return &Portal{Portal: &database.Portal{Key: database.NewPortalKey("1293576317773676584", ""), GuildID: "1293572131086667827"}, bridge: br}
++}
++
++func TestMediaRetentionBoundaryAndConservativeAge(t *testing.T) {
++	assetURL := "https://cdn.discordapp.com/attachments/1293576317773676584/1000000000000000000/image.png?ex=signed&hm=must-not-leak"
++	oldID := retentionTestID(retentionTestCutoff.Add(-time.Hour))
++	newID := retentionTestID(retentionTestCutoff.Add(time.Millisecond))
++	for _, test := range []struct {
++		name                                     string
++		messageTime                              time.Time
++		edit                                     *time.Time
++		attachmentID, guild, messageID, assetURL string
++		omitted                                  bool
++	}{
++		{name: "one millisecond before", messageTime: retentionTestCutoff.Add(-time.Millisecond), omitted: true},
++		{name: "exact cutoff", messageTime: retentionTestCutoff},
++		{name: "one millisecond after", messageTime: retentionTestCutoff.Add(time.Millisecond)},
++		{name: "new message reuses old attachment", messageTime: retentionTestCutoff.Add(time.Hour), attachmentID: oldID},
++		{name: "new attachment on old message", messageTime: retentionTestCutoff.Add(-time.Hour), attachmentID: newID},
++		{name: "new edit on old message", messageTime: retentionTestCutoff.Add(-time.Hour), edit: &retentionTestCutoff},
++		{name: "CDN attachment ID protects newer asset", messageTime: retentionTestCutoff.Add(-time.Hour), assetURL: "https://cdn.discordapp.com/attachments/1293576317773676584/" + newID + "/image.png"},
++		{name: "unrelated guild", messageTime: retentionTestCutoff.Add(-time.Hour), guild: "999999999999999999"},
++		{name: "unknown message age", messageID: "unknown"},
++	} {
++		t.Run(test.name, func(t *testing.T) {
++			sourceURL := assetURL
++			if test.assetURL != "" {
++				sourceURL = test.assetURL
++			}
++			portal := retentionTestPortal(t, sourceURL)
++			if test.guild != "" {
++				portal.GuildID = test.guild
++			}
++			messageID := test.messageID
++			if messageID == "" {
++				messageID = retentionTestID(test.messageTime)
++			}
++			attachmentID := test.attachmentID
++			if attachmentID == "" {
++				attachmentID = oldID
++			}
++			msg := &discordgo.Message{ID: messageID, EditedTimestamp: test.edit}
++			part := portal.convertDiscordAttachment(context.Background(), nil, msg, &discordgo.MessageAttachment{ID: attachmentID, URL: sourceURL, ContentType: "image/png", Filename: "image.png"})
++			if test.omitted {
++				if part.Content.MsgType != event.MsgNotice || part.Content.URL != "" || part.Content.File != nil || part.AttachmentID != attachmentID {
++					t.Fatal("old cached image was not replaced by its native notice")
++				}
++				receipt, ok := part.Extra[mediaRetentionKey].(mediaRetentionReceipt)
++				if !ok || receipt.MessageID != msg.ID || receipt.ChannelID != portal.Key.ChannelID || receipt.Cutoff != "2024-10-26T22:00:00Z" || len(receipt.Omissions) != 1 || receipt.Omissions[0].AssetID != attachmentID {
++					t.Fatal("missing exact omission receipt")
++				}
++				if !strings.Contains(part.Content.Body, "[SEC-Hive media cutoff 2024-10-26T22:00:00Z]") || !strings.Contains(part.Content.Body, receipt.Permalink) {
++					t.Fatal("omission notice lacks cutoff or durable source permalink")
++				}
++				encoded, err := json.Marshal(receipt)
++				if err != nil || strings.Contains(string(encoded), "must-not-leak") || strings.Contains(string(encoded), "signed") {
++					t.Fatal("receipt leaked signed asset URL")
++				}
++			} else if part.Content.MsgType != event.MsgImage || part.Content.URL != "mxc://test/reused-old-media" || part.Extra[mediaRetentionKey] != nil {
++				t.Fatal("retained asset lost its ordinary cached conversion")
++			}
++		})
++	}
++}
++
++func TestMediaRetentionRealMessageMediaPaths(t *testing.T) {
++	assetURL := "https://media.example.test/cached.gif?signature=not-a-credential"
++	portal := retentionTestPortal(t, assetURL)
++	oldID := retentionTestID(retentionTestCutoff.Add(-time.Hour))
++	image := &discordgo.MessageEmbedImage{URL: assetURL, ProxyURL: assetURL}
++	thumbnail := &discordgo.MessageEmbedThumbnail{URL: assetURL, ProxyURL: assetURL}
++	msg := &discordgo.Message{ID: oldID, Content: "Preserved text", Attachments: []*discordgo.MessageAttachment{{ID: oldID, URL: assetURL, Filename: "clip.webm", ContentType: "video/webm"}}, StickerItems: []*discordgo.StickerItem{{ID: retentionTestID(retentionTestCutoff.Add(-2 * time.Hour)), Name: "Sticker", FormatType: discordgo.StickerFormatTypeGIF}}, Embeds: []*discordgo.MessageEmbed{
++		{Type: discordgo.EmbedTypeRich, Title: "Preserved embed title", Description: "Preserved description", Image: image, Author: &discordgo.MessageEmbedAuthor{Name: "Preserved author", ProxyIconURL: assetURL}, Footer: &discordgo.MessageEmbedFooter{Text: "Preserved footer", ProxyIconURL: assetURL}},
++		{Type: discordgo.EmbedTypeLink, URL: "https://example.test/article", Title: "Preserved link title", Image: image, Thumbnail: thumbnail},
++		{Type: discordgo.EmbedTypeGifv, URL: "https://example.test/gif", Video: &discordgo.MessageEmbedVideo{ProxyURL: assetURL}},
++	}}
++	parts := portal.convertDiscordMessage(context.Background(), nil, nil, msg)
++	if len(parts) != 4 {
++		t.Fatalf("expected text plus attachment, sticker and GIF notices, got %d", len(parts))
++	}
++	text := parts[0]
++	if !strings.Contains(text.Content.Body, "Preserved text") || !strings.Contains(text.Content.Body, "Preserved embed title") || !strings.Contains(text.Content.Body, "Preserved description") || !strings.Contains(text.Content.Body, "Preserved footer") {
++		t.Fatal("text or embed metadata was lost")
++	}
++	if !strings.Contains(text.Content.FormattedBody, "mxc://test/reused-old-media") {
++		t.Fatal("identity icons should remain available")
++	}
++	receipt := text.Extra[mediaRetentionKey].(mediaRetentionReceipt)
++	if len(receipt.Omissions) != 3 || receipt.Omissions[0].Kind != "embed_image" || receipt.Omissions[1].AssetID != "embed:1:image" {
++		t.Fatal("rich/link media omission receipts are incomplete")
++	}
++	previews := text.Extra["com.beeper.linkpreviews"].([]*BeeperLinkPreview)
++	if len(previews) != 1 || previews[0].Title != "Preserved link title" || previews[0].ImageURL != "" {
++		t.Fatal("preview text or omitted image is wrong")
++	}
++	for _, part := range parts[1:] {
++		if part.Content.MsgType != event.MsgNotice || part.Content.URL != "" || part.Extra[mediaRetentionKey] == nil {
++			t.Fatal("message media bypassed the cutoff")
++		}
++	}
++	if msg.Embeds[0].Image != image || msg.Embeds[1].Thumbnail != thumbnail {
++		t.Fatal("retention mutated the cached source message")
++	}
++	// A new forward must preserve the original old media even though its asset ID is old.
++	forward := &discordgo.Message{ID: retentionTestID(retentionTestCutoff.Add(time.Hour)), Content: "Forwarded text", MessageReference: &discordgo.MessageReference{Type: discordgo.MessageReferenceTypeForward, MessageID: oldID}, MessageSnapshots: []discordgo.MessageSnapshot{{Message: &discordgo.Message{ID: oldID, Attachments: []*discordgo.MessageAttachment{{ID: oldID, URL: assetURL, ContentType: "image/gif", Filename: "old.gif"}}}}}}
++	forwarded := portal.convertDiscordMessage(context.Background(), nil, nil, forward)
++	if len(forwarded) != 2 || forwarded[1].Content.URL != "mxc://test/reused-old-media" {
++		t.Fatal("new forward lost reusable old media")
++	}
++	forward.ID = retentionTestID(retentionTestCutoff.Add(-time.Minute))
++	forwarded = portal.convertDiscordMessage(context.Background(), nil, nil, forward)
++	if len(forwarded) != 2 || forwarded[1].Content.MsgType != event.MsgNotice || forwarded[1].AttachmentID != oldID {
++		t.Fatal("old forwarded media bypassed the cutoff or lost its native mapping")
++	}
++	audio := portal.convertDiscordAttachment(context.Background(), nil, msg, &discordgo.MessageAttachment{ID: oldID, URL: assetURL, ContentType: "audio/ogg", Filename: "voice.ogg"})
++	if audio.Content.MsgType != event.MsgAudio || audio.Content.URL != "mxc://test/reused-old-media" {
++		t.Fatal("retention changed non-image/video attachment conversion")
++	}
++}
++
++func TestMediaRetentionURLIdentityAndNonMedia(t *testing.T) {
++	first := "HTTPS://CDN.DISCORDAPP.COM/attachments/1/2/a.png?ex=one&hm=first#fragment"
++	second := "https://cdn.discordapp.com/attachments/1/2/a.png?ex=two&hm=second"
++	if canonicalMediaURL(first) != canonicalMediaURL(second) || strings.Contains(canonicalMediaURL(first), "?") {
++		t.Fatal("signed URL changes altered asset identity")
++	}
++	for _, att := range []*discordgo.MessageAttachment{{ContentType: "audio/ogg", Filename: "voice.ogg"}, {ContentType: "text/plain", Filename: "notes.txt"}, {ContentType: "application/pdf", Filename: "guide.pdf"}} {
++		if imageVideoAttachment(att) {
++			t.Fatal("non-image/video attachment selected")
++		}
++	}
++	if !imageVideoAttachment(&discordgo.MessageAttachment{Filename: "animation.GIF"}) || !imageVideoAttachment(&discordgo.MessageAttachment{ContentType: "application/octet-stream", Filename: "video.MP4"}) {
++		t.Fatal("missing MIME fallback missed media")
++	}
++}
++
++func TestMediaRetentionThreadReceiptAndMissingProxyURL(t *testing.T) {
++	assetURL := "https://cdn.discordapp.com/attachments/1293576317773676584/1000000000000000000/image.png?ex=signed&hm=not-a-credential"
++	portal := retentionTestPortal(t, assetURL)
++	msg := &discordgo.Message{ID: retentionTestID(retentionTestCutoff.Add(-time.Hour)), ChannelID: "1293576317773676585", Content: "Preserved thread text", Embeds: []*discordgo.MessageEmbed{{Type: discordgo.EmbedTypeRich, Image: &discordgo.MessageEmbedImage{URL: assetURL}}}}
++	part := portal.convertDiscordTextMessage(context.Background(), nil, msg)
++	receipt := part.Extra[mediaRetentionKey].(mediaRetentionReceipt)
++	expectedLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", portal.GuildID, msg.ChannelID, msg.ID)
++	if receipt.ChannelID != msg.ChannelID || receipt.Permalink != expectedLink || !strings.Contains(part.Content.Body, expectedLink) {
++		t.Fatal("thread omission lost its actual Discord channel permalink")
++	}
++	expectedHash := sha256.Sum256([]byte(canonicalMediaURL(assetURL)))
++	if len(receipt.Omissions) != 1 || receipt.Omissions[0].URLSHA256 != hex.EncodeToString(expectedHash[:]) {
++		t.Fatal("missing proxy URL did not fall back to actual media URL identity")
++	}
++}
++
++func TestMediaRetentionPreservesNewerThumbnailFallback(t *testing.T) {
++	oldURL := "https://cdn.discordapp.com/attachments/1293576317773676584/1000000000000000000/old.png"
++	newURL := "https://cdn.discordapp.com/attachments/1293576317773676584/" + retentionTestID(retentionTestCutoff) + "/new.png"
++	portal := retentionTestPortal(t, newURL)
++	msg := &discordgo.Message{ID: retentionTestID(retentionTestCutoff.Add(-time.Hour)), Content: "Preserved link", Embeds: []*discordgo.MessageEmbed{{Type: discordgo.EmbedTypeLink, URL: "https://example.test/article", Image: &discordgo.MessageEmbedImage{URL: oldURL, ProxyURL: oldURL}, Thumbnail: &discordgo.MessageEmbedThumbnail{URL: newURL, ProxyURL: newURL}}}}
++	part := portal.convertDiscordTextMessage(context.Background(), nil, msg)
++	receipt := part.Extra[mediaRetentionKey].(mediaRetentionReceipt)
++	previews := part.Extra["com.beeper.linkpreviews"].([]*BeeperLinkPreview)
++	if len(receipt.Omissions) != 1 || receipt.Omissions[0].Kind != "embed_image" || len(previews) != 1 || previews[0].ImageURL != "mxc://test/reused-old-media" {
++		t.Fatal("new thumbnail fallback was omitted with its older embed image")
++	}
++}

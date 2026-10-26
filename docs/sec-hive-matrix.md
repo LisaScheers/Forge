@@ -1,8 +1,8 @@
 # SEC-Hive: Discord ↔ Matrix
 
 Target: Shiny Entity Collection (SEC-Hive). Both platforms remain equal indefinitely.
-History: all accessible messages and attachments. An external export does not replace
-the required Matrix import.
+History: accessible messages and files, except Lisa's 27 October age policy below.
+An external export does not replace the required Matrix import for retained files.
 
 Discord application: `1561338659536375828` (SEC-Hive Matrix Bridge). Server Members
 and Message Content intents enabled. No personal Discord account tokens.
@@ -33,15 +33,35 @@ production service; all three applications remain healthy. Its exact reason is
 follow-on also stopped while waiting for the message queue. No native import is
 left running.
 
-Lisa has been asked to expand the existing Hetzner volume `107199635` to 200 GB.
-This is additional paid capacity and remains pending. Nix now declares
-`fileSystems."/srv/matrix".autoResize = true`, producing `x-systemd.growfs` for the
-same ext4 device. The three Atlas deployment gates and volume safety/reboot VM
-pass. The prepared growth helper verifies the device, existing UUID and marker,
-five ordinary authenticated media hashes, and all application PIDs; its check-only
-run passes against the current 100 GiB device. After provider expansion, the stock
-`systemd-growfs@srv-matrix.service` grows the mounted filesystem without formatting.
-Verify that it ran explicitly when the mount was already active.
+Lisa declined paid volume expansion on 27 October and authorized removing local
+Matrix images and videos older than two years, with no size threshold. Use original
+Discord dates before **2024-10-27 00:00 Europe/Brussels** (2024-10-26 22:00 UTC).
+Preserve newer edits and attachments, media shared with newer or unrelated messages,
+unknown references and current profile/room assets. Preserve Discord originals and
+verify encrypted off-host archive copies before local removal. Visible omission
+markers and a guild-specific bridge cutoff prevent silent losses and re-downloads.
+Inventory, archival verification and the bridge policy are in progress; no files
+have been removed. Initial source dating shows only 434 early native parts before
+the cutoff, so reclaimable bytes may be limited. Backup capacity is under review.
+Keep the existing 100 GiB volume; no provider resize is authorized. Nix's prepared
+`autoResize = true` does not purchase or enlarge a provider volume.
+
+The capacity change omits only generated `local_thumbnails`, `remote_thumbnail`
+and `url_cache_thumbnails` from future coordinated checkpoints. Original media
+and thumbnail database rows remain; live thumbnail files are untouched. The
+checkpoint records its exact policy. Synapse regenerates missing previews from
+originals on demand. A real Synapse 1.163 test passed with only loopback networking,
+including authenticated regeneration and an unchanged original-file hash. Nine
+backup boundary tests and independent-copy checks pass. Existing encrypted
+snapshots retain their cached thumbnails. The current staging copy contains about
+4.0 GiB of generated thumbnails; omitting these before catching up originals is
+expected to leave about 16.4 GiB free before the final imports. The remaining nine
+source archives contain 3,325,557,362 attachment bytes. Actual capacity guards keep
+the 8 GiB reserve; these estimates do not replace live checks.
+
+The fixed-cutoff bridge policy and thumbnail backup change pass the canonical
+bridge package tests, foundation VM and all three Atlas deployment gates. They
+remain prepared until the maintenance deployment and live backup checks finish.
 
 Two other tested changes await the same safe maintenance deployment: plain-GIF
 metadata updates retain their original bridge mapping, and the obsolete Authlib
@@ -55,9 +75,10 @@ Its separate encrypted recovery copy transferred 223,865 files/directories and
 block the remaining imports; **full verification and the expanded restore remain
 pending**. The original storage copies and encrypted snapshots remain intact.
 Current-ID auditing additionally covers messages newer than the original exports;
-the first 31 completed tail receipts verify 2,457 messages, 527 reply links and
-65 new file references (66,057,291 actual bytes). Thirteen inaccurate Discord size
-fields have a second fresh source download reproducing the exact Matrix bytes.
+50 completed tail receipts verify 3,941 native parts, 788 reply links and
+178 file references (270,223,109 actual bytes). Inaccurate Discord size fields
+require a second fresh source download reproducing the exact Matrix bytes. The
+current-source scan covers all 61 roots and 241 public threads.
 
 The older-history audit distinguishes two confirmed source deletions from one
 real GIF-update defect. The deleted messages remain redacted. The GIF is restored
@@ -66,16 +87,16 @@ caption/metadata and its original timestamp in the repaired native mapping.
 Existing structural notices and forwarded/failed-media supplements retain their
 precise provenance; they are not invented original events.
 
-After expansion: grow and verify the filesystem; resume the controller into a
-coordinated checkpoint; deploy through `scripts/deploy.sh atlas switch --maintenance`
+Next: finish the authorized age-based media archive and cleanup; establish enough
+capacity for a coherent backup; deploy through `scripts/deploy.sh atlas switch --maintenance`
 only at a verified native-idle drain; repeat the authorized pilot text/deletion
 checks; import the remaining nine rooms; finish current-ID/file/reaction proofs;
 capture and restore the final coordinated checkpoint. The full restore verifier
-checks all 61 rooms, current public threads, actor mappings, replies, file hashes,
-Space access and administrator grants. Its private recovered-media COW view keeps
-the recovered input read-only while avoiding a second media transfer. Capability,
-network, path and COW isolation fixtures pass; this is preparation, not a completed
-full-server restore. Restore the held timers only after final verification.
+checks all 61 rooms, current public threads, actor mappings, replies, retained file
+hashes, precise archived omissions, Space access and administrator grants. Its
+private recovered-media COW view keeps input read-only while avoiding a second media
+transfer. Isolation fixtures pass; the full-server restore remains pending.
+Restore held timers only after final verification.
 
 The dated sections below retain the earlier rollout evidence and limitations.
 

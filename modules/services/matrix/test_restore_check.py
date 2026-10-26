@@ -1,5 +1,6 @@
 import hashlib
 import importlib.util
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -44,6 +45,35 @@ class CheckpointTest(unittest.TestCase):
         with patch.object(Path, "read_text", return_value="header\nheader\n lo: 0\n eth0: 0\n"):
             with self.assertRaisesRegex(RuntimeError, "private network"):
                 restore.require_isolated_network()
+
+    def write_media_policy(self):
+        policy = {"version": 1,
+                  "omitted_generated_media_directories": ["local_thumbnails", "remote_thumbnail", "url_cache_thumbnails"],
+                  "original_media": "preserved", "thumbnail_database_metadata": "preserved"}
+        (self.source / "media-backup-policy.json").write_text(json.dumps(policy))
+        return policy
+
+    def test_older_complete_media_checkpoint_is_supported(self):
+        self.assertFalse(restore.thumbnail_cache_omitted(self.source))
+
+    def test_generated_cache_omission_policy_is_supported(self):
+        self.write_media_policy()
+        self.assertTrue(restore.thumbnail_cache_omitted(self.source))
+
+    def test_policy_cannot_omit_originals(self):
+        policy = self.write_media_policy()
+        policy["omitted_generated_media_directories"].append("local_content")
+        (self.source / "media-backup-policy.json").write_text(json.dumps(policy))
+        with self.assertRaisesRegex(RuntimeError, "Unsupported media backup policy"):
+            restore.thumbnail_cache_omitted(self.source)
+
+    def test_policy_must_match_actual_checkpoint(self):
+        self.write_media_policy()
+        directory = self.source / "synapse/media_store/local_thumbnails"
+        directory.mkdir(parents=True)
+        (directory / "unexpected").write_bytes(b"thumbnail")
+        with self.assertRaisesRegex(RuntimeError, "contains omitted thumbnail cache"):
+            restore.thumbnail_cache_omitted(self.source)
 
 
 if __name__ == "__main__":

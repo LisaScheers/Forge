@@ -11,20 +11,23 @@ rm -f "$checkpoint/COMPLETE"
 install -d -m 0700 "$checkpoint/synapse" "$checkpoint/bridge" "$checkpoint/runtime" "$checkpoint/verification"
 
 copy_synapse() {
+  rsync -a --delete --exclude=/media_store/ /var/lib/matrix-synapse/ "$checkpoint/synapse/"
+  install -d -m 0700 "$checkpoint/synapse/media_store"
   if [[ -n "${MEDIA_RSYNC_SSH:-}" ]]; then
     # The local recovery copy stays independent of Nook's live media disk.
     # Fetch its file list through restricted rsync, avoiding per-file NFS RTTs.
-    rsync -a --delete --exclude=/media_store/ /var/lib/matrix-synapse/ "$checkpoint/synapse/"
-    install -d -m 0700 "$checkpoint/synapse/media_store"
-    rsync -a --delete -e "$MEDIA_RSYNC_SSH" matrix-backup:. "$checkpoint/synapse/media_store/"
+    "$MEDIA_COPY_COMMAND" matrix-backup:. "$checkpoint/synapse/media_store"
   else
-    rsync -a --delete /var/lib/matrix-synapse/ "$checkpoint/synapse/"
+    "$MEDIA_COPY_COMMAND" /var/lib/matrix-synapse/media_store "$checkpoint/synapse/media_store"
   fi
 }
 
 # Copy media first; only the final delta and database dumps require a pause.
 # --delete affects the generated local staging copy, never Nook's live store.
 copy_synapse
+cat > "$checkpoint/media-backup-policy.json" <<'JSON'
+{"version":1,"omitted_generated_media_directories":["local_thumbnails","remote_thumbnail","url_cache_thumbnails"],"original_media":"preserved","thumbnail_database_metadata":"preserved"}
+JSON
 restart_synapse=0
 restart_bridge=0
 restart_plural=0

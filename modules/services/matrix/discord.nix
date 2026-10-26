@@ -9,6 +9,7 @@
       # General: 78,978 audited messages plus 51 newer arrivals fit this bound.
       # Each portal still requires its own access and history review.
       initialBackfillLimit = 90000;
+      mediaRetentionBefore."1293572131086667827" = "2024-10-26T22:00:00Z";
     };
     age.secrets.discord-bridge-env = lib.mkIf config.matrix.discord.enable {
       file = ../../security/agenix/secrets/atlas/discord-bridge-env.age;
@@ -51,6 +52,11 @@
         default = [];
         description = "Discord channel IDs mirrored into Matrix without outbound writes";
       };
+      mediaRetentionBefore = lib.mkOption {
+        type = lib.types.attrsOf lib.types.str;
+        default = {};
+        description = "Guild IDs and fixed RFC3339 cutoffs for message images/videos; newer messages, edits and attachments remain available";
+      };
     };
 
     config = lib.mkIf cfg.enable {
@@ -79,6 +85,7 @@
             ./discord-reaction-history.patch
             ./discord-history-content.patch
             ./discord-missing-thread-starter.patch
+            ./discord-media-retention.patch
           ];
           doCheck = true;
         };
@@ -99,6 +106,7 @@
             };
           };
           bridge = {
+            media_retention_before = cfg.mediaRetentionBefore;
             permissions = {
               "*" = "relay";
               "@lisa:${domain}" = "admin";
