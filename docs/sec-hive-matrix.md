@@ -23,16 +23,16 @@ IDs. Keep text, authors, original timestamps, replies and native mappings; repla
 direct media with explicit notices and remove only image fields from link previews.
 
 Lisa also explicitly requested deleting the Matrix `#pics-selfies` room and its
-files. Its Discord channel and encrypted archives remain. Remove the portal binding
-while the bridge is stopped, purge/block the local Matrix room, unlink managed
-Space references and cold-restart with `if-portal-exists`. This existing mode drops
+files. Its Discord channel and encrypted archives remain. The portal was unmapped
+while the bridge was stopped; the local room is purged/blocked and its managed
+Space edge removed. A cold restart with `if-portal-exists` did not recreate it. This existing mode drops
 unbound root/thread events; every active planner must exclude this channel. Local
 files referenced elsewhere or by current profiles stay protected. The similarly
 named hidden `#nsfw-selfies` has no Matrix room and remains excluded.
 
 The active target is **60 text roots and 240 public threads**, retaining the original
-61-root/241-thread evidence separately. At the latest completed live audit, 52 rooms
-were open; removing selfies leaves 51, with the same nine rooms still staged. The
+61-root/241-thread evidence separately. There are now 51 live rooms after removing
+selfies, with the same nine rooms still staged. The
 root Space remains the sole room-join condition. The requested administrator has
 power level 100 in all previously opened rooms and all ten registered Spaces; new
 verified rooms receive the same grant. Four originally hidden text channels and
@@ -41,10 +41,19 @@ all eight voice-channel histories remain excluded.
 The first 18-month inventory identifies 3,883 eligible objects: 5,898,569,481 original
 bytes and 865,470,294 thumbnail bytes. Two additional old pilot images totaling
 3,555,340 bytes have exact current-source and frozen-archive proofs; their source
-metadata loader is corrected. Recompute the authoritative inventory after selfies
-is removed, then freeze it for archive and cleanup. Nothing has been deleted yet.
-The preliminary inventory has 1,962 protected objects, including files shared with
-selfies; shared-source classification may change after that room is purged.
+metadata loader is corrected. The final inventory after selfies removal identifies
+3,887 eligible objects: 5,902,335,914 original bytes and 866,359,082 thumbnail bytes.
+Its policy-bound SHA starts `c0223c2e`; archive and age-based cleanup remain pending.
+The preliminary inventory had 1,962 protected objects, including files shared with
+selfies. The final global scan re-evaluates those references after the room purge.
+
+Selfies exclusive-file cleanup is complete: 1,092 originals and 5,093 thumbnails,
+6,185 paths / 1,388,500,326 bytes removed from live Matrix storage. Every deleted
+original returns authenticated 404 through the ordinary relay account; all 519
+protected originals retain their hashes. The independently read-back encrypted
+archive is `9f96d6e5`. All three applications resumed. Preserve the distinct room
+removal and file-purge receipts; the earlier room receipt correctly records the
+file cleanup as pending at its own capture time.
 
 The existing 100 GiB volume stays. Lisa declined paid expansion. Coordinated backups
 now omit only regenerable local/remote/URL-preview thumbnails while preserving all
@@ -70,19 +79,27 @@ captures and receipts remain unchanged. Actor backfill uses three independent
 channel workers with exact command completion receipts, deterministic retries,
 per-channel results and strict reduction; the pass has not started.
 
-Prepared source changes include the fixed cutoff, GIF metadata correction, Lottie
+Deployed source changes include the fixed cutoff, GIF metadata correction, Lottie
 cached-conversion correction, tested unbound-channel guards and reaction receipt/
-kind-refresh support. The normal Atlas gates must pass for the final commit before
-maintenance deployment. No new policy has been activated yet. Stage archive proof
+kind-refresh support. Normal Atlas gates passed before maintenance deployment.
+Commit `56c9b77` is deployed; the actual bridge package and
+live configuration verify the 18-month cutoff and excluded PluralMatrix room. Stage archive proof
 objects beside the final restored input so an isolated verifier can hash intentional
 omissions while requiring ordinary authenticated Matrix 404 responses.
 
-Next: finish the reviewed selfies archive/removal and exclusive-file cleanup;
-recompute/freeze/archive the 18-month inventory; deploy at a native-idle maintenance
-window; apply reviewed media cleanup; archive old pending-channel media and import
+Next: archive the final 18-month inventory and apply reviewed media cleanup;
+archive old pending-channel media and import
 the final nine rooms. Then finish source/file/reaction proofs, capture the final
 coordinated checkpoint and run the full isolated restore. Keep normal updater and
 backup timers held until final verification.
+
+The final reaction checkpoint uses paired backup hooks. The authoritative audit
+runs after the first media copy. After all three applications stop and their
+database connections drain, the cold hook compares the exact native, redaction,
+Matrix-only, portal and puppet digests before any dump. A mismatch aborts the
+capture and resumes the original services. The exact audit and boundary receipt
+join the checkpoint checksum manifest. Ordinary backups leave the hooks unset
+and clear only these two optional generated proof copies, preventing stale claims.
 
 The dated sections below retain the earlier rollout evidence and limitations.
 

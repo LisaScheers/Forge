@@ -65,7 +65,7 @@ in {
     '';
     prepare = pkgs.writeShellApplication {
       name = "matrix-backup-prepare";
-      runtimeInputs = [pkgs.coreutils pkgs.findutils pkgs.rsync pkgs.util-linux pkgs.systemd config.services.postgresql.package];
+      runtimeInputs = [pkgs.coreutils pkgs.findutils pkgs.rsync pkgs.util-linux pkgs.systemd pkgs.sudo config.services.postgresql.package];
       runtimeEnv.SYNAPSE_CONFIG = pkgs.writeText "matrix-backup-synapse-config.json" (builtins.toJSON config.services.matrix-synapse.settings);
       runtimeEnv.RESUME_COMMAND = lib.getExe resume;
       runtimeEnv.MEDIA_COPY_COMMAND = lib.getExe (pkgs.writeShellApplication {

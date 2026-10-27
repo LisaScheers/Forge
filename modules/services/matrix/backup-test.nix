@@ -7,6 +7,9 @@
         python -B -c 'import yaml, hashlib, unittest'
         export RESTORE_CHECK_SCRIPT=${./restore-check.py}
         python -B ${./test_restore_check.py}
+        export BACKUP_PREPARE_SCRIPT=${./backup-prepare.sh}
+        export BACKUP_RESUME_SCRIPT=${./backup-resume.sh}
+        python -B ${./test_backup_prepare.py}
 
         mkdir -p media/local_content media/local_thumbnails media/remote_thumbnail media/url_cache_thumbnails media/nested/local_thumbnails
         printf original > media/local_content/payload

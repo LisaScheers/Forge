@@ -8,7 +8,40 @@ exec 8>/run/nix-auto-sync-update.lock
 flock -n 8
 test ! -e /var/lib/postgresql/.forge-maintenance
 rm -f "$checkpoint/COMPLETE"
+rm -f "$checkpoint/verification/post-wave-reaction-changes.json" "$checkpoint/verification/post-wave-snapshot-boundary.json"
 install -d -m 0700 "$checkpoint/synapse" "$checkpoint/bridge" "$checkpoint/runtime" "$checkpoint/verification"
+
+# A one-run capture can require the same audit before and after the pause.
+# Resolve once, preserving argv[0] for multicall executables, without parsing
+# command strings. Only root-controlled targets and ancestors are accepted.
+validated_hook() {
+  local resolved current permissions
+  [[ "$1" == /* && -f "$1" && -x "$1" ]] || return 1
+  resolved=$(readlink -f -- "$1") || return 1
+  [[ "$resolved" == /* ]] || return 1
+  current=$resolved
+  while true; do
+    [[ $(stat -c %u -- "$current") == 0 ]] || return 1
+    permissions=$(stat -c %a -- "$current") || return 1
+    if (( (8#$permissions & 022) != 0 )); then
+      # Sticky root-owned directories (including /nix/store) cannot replace
+      # the root-owned child already checked on the preceding iteration.
+      [[ -d "$current" ]] && (( (8#$permissions & 01000) != 0 )) || return 1
+    fi
+    [[ "$current" != / ]] || break
+    current=$(dirname -- "$current") || return 1
+  done
+  printf '%s\n' "$resolved"
+}
+warm_hook=
+cold_hook=
+if [[ -n "${MATRIX_BACKUP_WARM_HOOK:-}" || -n "${MATRIX_BACKUP_COLD_HOOK:-}" ]]; then
+  test -n "${MATRIX_BACKUP_WARM_HOOK:-}"
+  test -n "${MATRIX_BACKUP_COLD_HOOK:-}"
+  warm_hook=$(validated_hook "$MATRIX_BACKUP_WARM_HOOK")
+  cold_hook=$(validated_hook "$MATRIX_BACKUP_COLD_HOOK")
+fi
+export MATRIX_BACKUP_CHECKPOINT="$checkpoint"
 
 copy_synapse() {
   rsync -a --delete --exclude=/media_store/ /var/lib/matrix-synapse/ "$checkpoint/synapse/"
@@ -28,6 +61,9 @@ copy_synapse
 cat > "$checkpoint/media-backup-policy.json" <<'JSON'
 {"version":1,"omitted_generated_media_directories":["local_thumbnails","remote_thumbnail","url_cache_thumbnails"],"original_media":"preserved","thumbnail_database_metadata":"preserved"}
 JSON
+if [[ -n "$warm_hook" ]]; then
+  (exec -a "$MATRIX_BACKUP_WARM_HOOK" "$warm_hook")
+fi
 restart_synapse=0
 restart_bridge=0
 restart_plural=0
@@ -67,6 +103,9 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 test "$connections" == 0
+if [[ -n "$cold_hook" ]]; then
+  (exec -a "$MATRIX_BACKUP_COLD_HOOK" "$cold_hook")
+fi
 # COMPLETE was removed before updating this generated staging directory.
 # Direct writes avoid a second database-sized copy; only the verified full
 # checksum manifest and a new COMPLETE mark the checkpoint coherent again.
