@@ -9,7 +9,7 @@
       # General: 78,978 audited messages plus 51 newer arrivals fit this bound.
       # Each portal still requires its own access and history review.
       initialBackfillLimit = 90000;
-      mediaRetentionBefore."1293572131086667827" = "2024-10-26T22:00:00Z";
+      mediaRetentionBefore."1293572131086667827" = "2025-04-26T22:00:00Z";
     };
     age.secrets.discord-bridge-env = lib.mkIf config.matrix.discord.enable {
       file = ../../security/agenix/secrets/atlas/discord-bridge-env.age;

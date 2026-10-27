@@ -52,7 +52,6 @@
         "!vLrywIZyQuwUbQsRvk:bylisa.dev"
         "!iQeOSRpGiiJFlyqkhF:bylisa.dev"
         "!iuKwIdFyvmDwmpvWxf:bylisa.dev"
-        "!OQQNgBcCMjHWfdxawi:bylisa.dev"
         "!RdzeyeQWFrWGSdSpuE:bylisa.dev"
         "!yCAXEsHXLmXcZtWIGC:bylisa.dev"
         "!qRpddWHRUyTsbzZKob:bylisa.dev"

@@ -16,7 +16,7 @@ in {
           enable = true;
           initialBackfillLimit = 100;
           federateRooms = false;
-          mediaRetentionBefore."1293572131086667827" = "2024-10-26T22:00:00Z";
+          mediaRetentionBefore."1293572131086667827" = "2025-04-26T22:00:00Z";
           environmentFile = toString (pkgs.writeText "discord-test-env" ''
             DISCORD_PROVISIONING_SECRET=isolated-test-only
           '');
@@ -63,7 +63,7 @@ in {
 
       with subtest("media cutoff survives bridge configuration upgrade"):
           settings = json.loads(machine.succeed("yq -j .bridge.media_retention_before /var/lib/mautrix-discord/config.yaml"))
-          assert settings == {"1293572131086667827": "2024-10-26T22:00:00Z"}
+          assert settings == {"1293572131086667827": "2025-04-26T22:00:00Z"}
 
       with subtest("provisioning is authenticated and loopback-only"):
           machine.succeed("test $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:29334/_matrix/provision/v1/ping) = 401")

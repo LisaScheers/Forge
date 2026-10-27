@@ -97,7 +97,7 @@ def wait_for(check, description, timeout=120):
     raise RuntimeError("Timed out: " + description)
 
 
-def verify_history(base, source):
+def verify_history(base, source, validated_omitted_media=None):
     opener = build_opener(ProxyHandler({}))
     token = json.loads((source / "verification/sec-hive-pilot.json").read_text())["access_token"]
     manifest = json.loads((source / "verification/history-manifest.json").read_text())
@@ -131,8 +131,17 @@ def verify_history(base, source):
         event = events[part["event_id"]]
         if event["origin_server_ts"] != part["timestamp"] or event["sender"] != part["sender"]:
             raise RuntimeError("Restored author/timestamp mismatch")
+    archived_mxcs = set()
+    archived_attachments = 0
     for attachment in manifest["attachments"]:
-        mxc = events[attachment["event_id"]]["content"]["url"].removeprefix("mxc://")
+        original_url = events[attachment["event_id"]]["content"]["url"]
+        mxc = original_url.removeprefix("mxc://")
+        # The caller must first validate exact retention edits, archived bytes
+        # and the authenticated 404 for each accepted original URL.
+        if validated_omitted_media is not None and validated_omitted_media(original_url, attachment["bytes"], attachment["sha256"]) is True:
+            archived_mxcs.add(mxc)
+            archived_attachments += 1
+            continue
         data = get("/_matrix/client/v1/media/download/" + mxc, raw=True)
         if len(data) != attachment["bytes"] or hashlib.sha256(data).hexdigest() != attachment["sha256"]:
             raise RuntimeError("Restored media differs from independent archive")
@@ -140,9 +149,10 @@ def verify_history(base, source):
     if thumbnail_cache_omitted(source):
         image = next((attachment for attachment in manifest["attachments"]
                       if events[attachment["event_id"]]["content"].get("info", {}).get("mimetype")
-                      in {"image/png", "image/jpeg", "image/gif", "image/webp"}), None)
+                      in {"image/png", "image/jpeg", "image/gif", "image/webp"}
+                      and events[attachment["event_id"]]["content"]["url"].removeprefix("mxc://") not in archived_mxcs), None)
         if image is None:
-            raise RuntimeError("Restore has no image for thumbnail regeneration check")
+            raise RuntimeError("Restore has no retained image for thumbnail regeneration check")
         mxc = events[image["event_id"]]["content"]["url"].removeprefix("mxc://")
         thumbnail = get("/_matrix/client/v1/media/thumbnail/" + mxc + "?width=32&height=32&method=scale", raw=True)
         if not thumbnail:
@@ -157,6 +167,8 @@ def verify_history(base, source):
         if not expected or actual != expected:
             raise RuntimeError("Restored reply relation mismatch")
     return {"message_parts": len(events), "attachments": len(manifest["attachments"]), "replies": len(manifest["replies"]),
+            "attachments_downloaded": len(manifest["attachments"]) - archived_attachments,
+            "attachments_archived_by_policy": archived_attachments,
             "thumbnail_regenerated_from_original": thumbnail_regenerated}
 
 

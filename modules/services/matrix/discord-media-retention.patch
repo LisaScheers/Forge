@@ -31,11 +31,14 @@
 -func (portal *Portal) convertDiscordSticker(ctx context.Context, intent *appservice.IntentAPI, sticker *discordgo.StickerItem) *ConvertedMessage {
 +func (portal *Portal) convertDiscordSticker(ctx context.Context, intent *appservice.IntentAPI, msg *discordgo.Message, sticker *discordgo.StickerItem) *ConvertedMessage {
 @@ -124,0 +125,5 @@
-+	if mime != "" {
++	if strings.HasPrefix(mime, "image/") || strings.HasPrefix(mime, "video/") {
 +		if omission := portal.mediaOmission(msg, "sticker", sticker.ID, sticker.URL()); omission != nil {
 +			return portal.omittedMediaPart(msg, sticker.ID, *omission)
 +		}
 +	}
+@@ -134 +139 @@
+-	if mxc.IsEmpty() && mime != "application/json" {
++	if mxc.IsEmpty() || mime == "application/json" {
 @@ -147 +152,6 @@
 -func (portal *Portal) convertDiscordAttachment(ctx context.Context, intent *appservice.IntentAPI, messageID string, att *discordgo.MessageAttachment) *ConvertedMessage {
 +func (portal *Portal) convertDiscordAttachment(ctx context.Context, intent *appservice.IntentAPI, msg *discordgo.Message, att *discordgo.MessageAttachment) *ConvertedMessage {
@@ -328,7 +331,7 @@
 +}
 --- /dev/null
 +++ b/media_retention_test.go
-@@ -0,0 +1,214 @@
+@@ -0,0 +1,228 @@
 +package main
 +
 +import (
@@ -352,7 +355,7 @@
 +	"go.mau.fi/mautrix-discord/database"
 +)
 +
-+var retentionTestCutoff = time.Date(2024, 10, 26, 22, 0, 0, 0, time.UTC)
++var retentionTestCutoff = time.Date(2025, 4, 26, 22, 0, 0, 0, time.UTC)
 +
 +func retentionTestID(timestamp time.Time) string {
 +	return fmt.Sprint((uint64(timestamp.UnixMilli()-1420070400000) << 22) | 1)
@@ -427,10 +430,10 @@
 +					t.Fatal("old cached image was not replaced by its native notice")
 +				}
 +				receipt, ok := part.Extra[mediaRetentionKey].(mediaRetentionReceipt)
-+				if !ok || receipt.MessageID != msg.ID || receipt.ChannelID != portal.Key.ChannelID || receipt.Cutoff != "2024-10-26T22:00:00Z" || len(receipt.Omissions) != 1 || receipt.Omissions[0].AssetID != attachmentID {
++				if !ok || receipt.MessageID != msg.ID || receipt.ChannelID != portal.Key.ChannelID || receipt.Cutoff != "2025-04-26T22:00:00Z" || len(receipt.Omissions) != 1 || receipt.Omissions[0].AssetID != attachmentID {
 +					t.Fatal("missing exact omission receipt")
 +				}
-+				if !strings.Contains(part.Content.Body, "[SEC-Hive media cutoff 2024-10-26T22:00:00Z]") || !strings.Contains(part.Content.Body, receipt.Permalink) {
++				if !strings.Contains(part.Content.Body, "[SEC-Hive media cutoff 2025-04-26T22:00:00Z]") || !strings.Contains(part.Content.Body, receipt.Permalink) {
 +					t.Fatal("omission notice lacks cutoff or durable source permalink")
 +				}
 +				encoded, err := json.Marshal(receipt)
@@ -541,5 +544,71 @@
 +	previews := part.Extra["com.beeper.linkpreviews"].([]*BeeperLinkPreview)
 +	if len(receipt.Omissions) != 1 || receipt.Omissions[0].Kind != "embed_image" || len(previews) != 1 || previews[0].ImageURL != "mxc://test/reused-old-media" {
 +		t.Fatal("new thumbnail fallback was omitted with its older embed image")
++	}
++}
++
++func TestMediaRetentionPreservesCachedLottieJSONConversion(t *testing.T) {
++	sticker := &discordgo.StickerItem{ID: retentionTestID(retentionTestCutoff.Add(-time.Hour)), Name: "Preserved Lottie", FormatType: discordgo.StickerFormatTypeLottie}
++	portal := retentionTestPortal(t, sticker.URL())
++	if _, err := portal.bridge.DB.Exec("UPDATE discord_file SET mime_type='image/webp' WHERE url=$1", sticker.URL()); err != nil {
++		t.Fatal(err)
++	}
++	msg := &discordgo.Message{ID: retentionTestID(retentionTestCutoff.Add(-time.Hour))}
++	// No downloader/conversion runtime is configured: a miss would fail the test.
++	part := portal.convertDiscordSticker(context.Background(), nil, msg, sticker)
++	if part.Type != event.EventSticker || part.Content.URL != "mxc://test/reused-old-media" || part.Content.Info.MimeType != "image/webp" || part.Extra[mediaRetentionKey] != nil {
++		t.Fatal("JSON source cutoff exemption did not preserve its cached converted sticker")
++	}
++}
+--- /dev/null
++++ b/unbound_portal_test.go
+@@ -0,0 +1,49 @@
++package main
++
++import (
++	"testing"
++
++	"github.com/bwmarrin/discordgo"
++	"github.com/rs/zerolog"
++	"maunium.net/go/mautrix/id"
++
++	"go.mau.fi/mautrix-discord/database"
++)
++
++// Unmapping must happen while the old bridge process is drained: already queued
++// messages do not recheck guild mode. A cold process with an empty binding does.
++func TestUnboundIfPortalExistsDoesNotRecreateRoom(t *testing.T) {
++	portal := retentionTestPortal(t, "https://example.test/unused")
++	portal.Key = database.NewPortalKey("1304855606342979675", "")
++	portal.discordMessages = make(chan portalDiscordMessage, 8)
++	br := portal.bridge
++	br.Config.Bridge.Backfill.Limits.Missed.Channel = -1
++	br.Config.Bridge.Backfill.Limits.Missed.Thread = -1
++	br.portalsByID = map[database.PortalKey]*Portal{portal.Key: portal}
++	br.guildsByID = map[string]*Guild{portal.GuildID: {Guild: &database.Guild{ID: portal.GuildID, BridgingMode: database.GuildBridgeIfPortalExists}}}
++	thread := &Thread{Thread: &database.Thread{ID: "1304855606342979676", ParentID: portal.Key.ChannelID}, Parent: portal}
++	br.threadsByID = map[string]*Thread{thread.ID: thread}
++	// An absent channel lookup must really fall through to the known thread.
++	if _, err := br.DB.Exec("CREATE TABLE portal (dcid TEXT, receiver TEXT, type TEXT, other_user_id TEXT, dc_guild_id TEXT, dc_parent_id TEXT, mxid TEXT, plain_name TEXT, name TEXT, name_set TEXT, friend_nick TEXT, topic TEXT, topic_set TEXT, avatar TEXT, avatar_url TEXT, avatar_set TEXT, encrypted TEXT, in_space TEXT, first_event_id TEXT, relay_webhook_id TEXT, relay_webhook_secret TEXT)"); err != nil {
++		t.Fatal(err)
++	}
++	user := &User{User: &database.User{DiscordID: "123456789012345678"}, bridge: br, log: zerolog.Nop()}
++	for _, channelID := range []string{portal.Key.ChannelID, thread.ID} {
++		for _, kind := range []string{"message create", "message update", "reaction add"} {
++			user.pushPortalMessage(&discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: channelID}}, kind, channelID, portal.GuildID)
++		}
++	}
++	user.channelCreateHandler(&discordgo.ChannelCreate{Channel: &discordgo.Channel{ID: portal.Key.ChannelID, GuildID: portal.GuildID, Type: discordgo.ChannelTypeGuildText}})
++	user.threadListSyncHandler(&discordgo.ThreadListSync{GuildID: portal.GuildID, Threads: []*discordgo.Channel{{ID: thread.ID, ParentID: portal.Key.ChannelID}}})
++	portal.ForwardBackfillMissed(user, "1304855606342979677", nil)
++	portal.ForwardBackfillMissed(user, "1304855606342979677", thread)
++	if portal.MXID != "" || len(portal.discordMessages) != 0 {
++		t.Fatal("unbound portal received work capable of recreating its room")
++	}
++	// The same guild mode still relays other rooms whose binding remains active.
++	portal.MXID = id.RoomID("!existing:test")
++	user.pushPortalMessage(&discordgo.MessageCreate{Message: &discordgo.Message{ChannelID: portal.Key.ChannelID}}, "message create", portal.Key.ChannelID, portal.GuildID)
++	if len(portal.discordMessages) != 1 {
++		t.Fatal("if-portal-exists stopped relaying an existing room")
 +	}
 +}

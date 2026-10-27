@@ -1,11 +1,14 @@
 import hashlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+from urllib.error import HTTPError
+from urllib.request import Request
 
 spec = importlib.util.spec_from_file_location("restore", os.environ["RESTORE_CHECK_SCRIPT"])
 restore = importlib.util.module_from_spec(spec)
@@ -123,6 +126,111 @@ class CheckpointTest(unittest.TestCase):
         (directory / "unexpected").write_bytes(b"thumbnail")
         with self.assertRaisesRegex(RuntimeError, "contains omitted thumbnail cache"):
             restore.thumbnail_cache_omitted(self.source)
+
+    def history_fixture(self, old_available=False):
+        verification = self.source / "verification"
+        verification.mkdir()
+        (verification / "sec-hive-pilot.json").write_text(json.dumps({"access_token": "isolated-test-token"}))
+        payloads = {"old": b"old-image", "new": b"new-image"}
+        events = [{"event_id": "$new", "origin_server_ts": 2, "sender": "@new:test",
+                   "content": {"url": "mxc://bylisa.dev/new", "info": {"mimetype": "image/png"},
+                               "m.relates_to": {"m.in_reply_to": {"event_id": "$old"}}}},
+                  {"event_id": "$old", "origin_server_ts": 1, "sender": "@old:test",
+                   "content": {"url": "mxc://bylisa.dev/old", "info": {"mimetype": "image/png"}}}]
+        attachments = [{"event_id": "$" + name, "bytes": len(payload), "sha256": hashlib.sha256(payload).hexdigest()}
+                       for name, payload in payloads.items()]
+        manifest = {"room_id": "!room:test", "parts": [{"event_id": event["event_id"],
+                    "timestamp": event["origin_server_ts"], "sender": event["sender"]} for event in events],
+                    "attachments": attachments, "replies": [{"event_id": "$new", "reference": {"messageId": "old"}}],
+                    "primary_events": {"old": "$old"}}
+        (verification / "history-manifest.json").write_text(json.dumps(manifest))
+        self.write_media_policy()
+        requests = []
+
+        class Opener:
+            def open(self, request, timeout=45):
+                url = request.full_url
+                requests.append(url)
+                if "/messages?" in url:
+                    return io.BytesIO(json.dumps({"chunk": events}).encode())
+                if "/thumbnail/" in url:
+                    return io.BytesIO(b"generated-thumbnail")
+                name = url.rsplit("/", 1)[-1]
+                if name == "old" and not old_available:
+                    raise HTTPError(url, 404, "Not found", {}, io.BytesIO(b"{}"))
+                return io.BytesIO(payloads[name])
+
+        opener = Opener()
+        archived = self.source / "archived-old-image"
+        archived.write_bytes(payloads["old"])
+
+        def validated(mxc, expected_bytes, expected_sha256):
+            if mxc != "mxc://bylisa.dev/old":
+                return False
+            actual = archived.read_bytes()
+            if len(actual) != expected_bytes or hashlib.sha256(actual).hexdigest() != expected_sha256:
+                raise RuntimeError("Validated archive differs")
+            try:
+                opener.open(Request("http://restore.test/_matrix/client/v1/media/download/" + mxc.removeprefix("mxc://")))
+            except HTTPError as error:
+                if error.code != 404:
+                    raise
+                error.close()
+                return True
+            raise RuntimeError("Expected authenticated media 404")
+
+        return opener, validated, requests, events, archived
+
+    def test_default_history_still_requires_each_download(self):
+        opener, _, _, _, _ = self.history_fixture()
+        with patch.object(restore, "build_opener", return_value=opener), self.assertRaises(HTTPError) as failure:
+            restore.verify_history("http://restore.test", self.source)
+        failure.exception.close()
+
+    def test_default_history_retains_normal_media_and_thumbnail_checks(self):
+        opener, _, requests, _, _ = self.history_fixture(old_available=True)
+        with patch.object(restore, "build_opener", return_value=opener):
+            result = restore.verify_history("http://restore.test", self.source)
+        self.assertEqual(result["attachments_downloaded"], 2)
+        self.assertEqual(result["attachments_archived_by_policy"], 0)
+        self.assertTrue(result["thumbnail_regenerated_from_original"])
+        self.assertTrue(any("/thumbnail/bylisa.dev/old?" in url for url in requests))
+
+    def test_validated_omission_rechecks_bytes_and_404_then_uses_retained_thumbnail(self):
+        opener, validated, requests, _, _ = self.history_fixture()
+        with patch.object(restore, "build_opener", return_value=opener):
+            result = restore.verify_history("http://restore.test", self.source, validated)
+        self.assertEqual(result["attachments_downloaded"], 1)
+        self.assertEqual(result["attachments_archived_by_policy"], 1)
+        self.assertTrue(any("/thumbnail/bylisa.dev/new?" in url for url in requests))
+        self.assertFalse(any("/thumbnail/bylisa.dev/old?" in url for url in requests))
+
+    def test_changed_archived_bytes_fail(self):
+        opener, validated, _, _, archived = self.history_fixture()
+        archived.write_bytes(b"corrupt archive")
+        with patch.object(restore, "build_opener", return_value=opener), self.assertRaisesRegex(RuntimeError, "Validated archive differs"):
+            restore.verify_history("http://restore.test", self.source, validated)
+
+    def test_callback_cannot_broadly_accept_truthy_nonboolean(self):
+        opener, _, _, _, _ = self.history_fixture()
+        with patch.object(restore, "build_opener", return_value=opener), self.assertRaises(HTTPError) as failure:
+            restore.verify_history("http://restore.test", self.source, lambda *arguments: 1)
+        failure.exception.close()
+
+    def test_thumbnail_check_requires_a_retained_image(self):
+        opener, _, _, _, _ = self.history_fixture()
+        with patch.object(restore, "build_opener", return_value=opener), self.assertRaisesRegex(RuntimeError, "no retained image"):
+            restore.verify_history("http://restore.test", self.source, lambda *arguments: True)
+
+    def test_archive_callback_preserves_author_timestamp_and_reply_checks(self):
+        opener, validated, _, events, _ = self.history_fixture()
+        events[0]["origin_server_ts"] = 99
+        with patch.object(restore, "build_opener", return_value=opener), self.assertRaisesRegex(RuntimeError, "author/timestamp mismatch"):
+            restore.verify_history("http://restore.test", self.source, validated)
+        events[0]["origin_server_ts"] = 2
+        events[0]["content"]["m.relates_to"]["m.in_reply_to"]["event_id"] = "$wrong"
+        with patch.object(restore, "build_opener", return_value=opener), self.assertRaisesRegex(RuntimeError, "reply relation mismatch"):
+            restore.verify_history("http://restore.test", self.source, validated)
 
 
 if __name__ == "__main__":
