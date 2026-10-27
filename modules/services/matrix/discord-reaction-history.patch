@@ -10,48 +10,25 @@
  		cmdGuilds,
 --- a/portal.go
 +++ b/portal.go
-@@ -563,6 +563,9 @@
- }
- 
- func (portal *Portal) handleDiscordMessages(msg portalDiscordMessage) {
+@@ -565,0 +566,3 @@
 +	if request, ok := msg.msg.(*historicalReaction); ok {
 +		defer close(request.Done)
 +	}
- 	if portal.MXID == "" {
- 		msgCreate, ok := msg.msg.(*discordgo.MessageCreate)
- 		if !ok {
-@@ -582,6 +585,9 @@
- 	defer portal.forwardBackfillLock.Unlock()
- 
- 	switch convertedMsg := msg.msg.(type) {
+@@ -584,0 +588,3 @@
 +	case *historicalReaction:
 +		portal.handleDiscordReactionWithHistory(msg.user, convertedMsg.Reaction, true, msg.thread, &discordgo.Member{User: convertedMsg.Actor}, convertedMsg.Kinds)
 +		convertedMsg.Applied = true
- 	case *discordgo.MessageCreate:
- 		portal.handleDiscordMessageCreate(msg.user, convertedMsg.Message, msg.thread)
- 	case *discordgo.MessageUpdate:
-@@ -2062,11 +2068,15 @@
- }
- 
- func (portal *Portal) handleDiscordReaction(user *User, reaction *discordgo.MessageReaction, add bool, thread *Thread, member *discordgo.Member) {
+@@ -2064,0 +2071,4 @@
 +	portal.handleDiscordReactionWithHistory(user, reaction, add, thread, member, nil)
 +}
 +
 +func (portal *Portal) handleDiscordReactionWithHistory(user *User, reaction *discordgo.MessageReaction, add bool, thread *Thread, member *discordgo.Member, historicalKinds []int) {
- 	puppet := portal.bridge.GetPuppetByID(reaction.UserID)
- 	if member != nil {
- 		puppet.UpdateInfo(user, member.User, nil)
- 	}
+@@ -2069 +2079 @@
 -	intent := puppet.IntentFor(portal)
 +	intent := puppet.messageIntent(portal, len(historicalKinds) > 0)
- 
- 	log := portal.log.With().
- 		Str("message_id", reaction.MessageID).
-@@ -2098,16 +2108,45 @@
- 	}
- 
- 	// Lookup an existing reaction
+@@ -2101 +2111,22 @@
 -	existing := portal.bridge.DB.Reaction.GetByDiscordID(portal.Key, message[0].DiscordID, reaction.UserID, discordID)
++	reactionTarget := message[0]
 +	existing := portal.reactionMapping(message[0].DiscordID, reaction.UserID, reaction.Emoji)
 +	if add && existing != nil && len(historicalKinds) > 0 {
 +		original, err := portal.MainIntent().GetEvent(portal.MXID, existing.MXID)
@@ -62,15 +39,18 @@
 +		if original.Unsigned.RedactedBecause != nil {
 +			existing.Delete()
 +			existing = nil
++		} else if refreshedTarget := historicalReactionKindRefresh(original, puppet.MXID, message, reaction.Emoji, matrixReaction, historicalKinds); refreshedTarget != nil {
++			if _, err = intent.RedactEvent(portal.MXID, existing.MXID); err != nil {
++				log.Err(err).Msg("Failed to refresh historical reaction kinds; preserving its mapping")
++				return
++			}
++			existing.Delete()
++			existing = nil
++			reactionTarget = refreshedTarget
 +		}
 +	}
 +
- 	if !add {
- 		if existing == nil {
- 			log.Debug().Msg("Failed to remove reaction: reaction not found")
- 			return
- 		}
- 
+@@ -2107,0 +2139,16 @@
 +		original, err := portal.MainIntent().GetEvent(portal.MXID, existing.MXID)
 +		if err != nil {
 +			log.Err(err).Msg("Failed to read reaction author; preserving its mapping")
@@ -87,28 +67,23 @@
 +			}
 +		}
 +		intent = puppet.reactionRemovalIntent(portal, original.Sender)
- 		resp, err := intent.RedactEvent(portal.MXID, existing.MXID)
- 		if err != nil {
- 			log.Err(err).Msg("Failed to remove reaction")
+@@ -2110,0 +2158 @@
 +			return
- 		} else {
- 			go portal.sendDeliveryReceipt(resp.EventID)
- 		}
-@@ -2126,7 +2165,10 @@
- 			Key:     matrixReaction,
- 		},
- 	}
+@@ -2124 +2172 @@
+-			EventID: message[0].MXID,
++			EventID: reactionTarget.MXID,
+@@ -2129 +2177,4 @@
 -	extraContent := map[string]any{}
 +	extraContent := map[string]any{"fi.mau.discord.source_reaction": true}
 +	if len(historicalKinds) > 0 {
 +		extraContent["fi.mau.discord.imported_reaction"] = map[string]any{"types": historicalKinds, "original_timestamp_available": false}
 +	}
- 	if reaction.Emoji.ID != "" {
- 		extraContent["fi.mau.discord.reaction"] = map[string]any{
- 			"id":   reaction.Emoji.ID,
+@@ -2156 +2207 @@
+-		dbReaction.FirstAttachmentID = message[0].AttachmentID
++		dbReaction.FirstAttachmentID = reactionTarget.AttachmentID
 --- /dev/null
 +++ b/reaction_history.go
-@@ -0,0 +1,250 @@
+@@ -0,0 +1,342 @@
 +package main
 +
 +import (
@@ -122,9 +97,11 @@
 +	"time"
 +
 +	"github.com/bwmarrin/discordgo"
++	"golang.org/x/text/unicode/norm"
 +	"maunium.net/go/mautrix/appservice"
 +	"maunium.net/go/mautrix/bridge/bridgeconfig"
 +	"maunium.net/go/mautrix/bridge/commands"
++	"maunium.net/go/mautrix/event"
 +	"maunium.net/go/mautrix/id"
 +)
 +
@@ -139,6 +116,96 @@
 +type reactionActor struct {
 +	User  *discordgo.User
 +	Kinds []int
++}
++
++type reactionImportReceipt struct {
++	Version             int        `json:"version"`
++	CommandEventID      id.EventID `json:"command_event_id"`
++	ChannelID           string     `json:"channel_id"`
++	RequestedMessageIDs []string   `json:"requested_message_ids"`
++	Status              string     `json:"status"`
++	ReactorMappings     int        `json:"reactor_mappings"`
++}
++
++type reactionImportNotice struct {
++	MsgType event.MessageType     `json:"msgtype"`
++	Body    string                `json:"body"`
++	Receipt reactionImportReceipt `json:"dev.bylisa.sec_hive.reaction_import"`
++}
++
++func reactionImportReplyContent(commandID id.EventID, channelID string, requested []string, mappings int, importError error) reactionImportNotice {
++	receipt := reactionImportReceipt{Version: 1, CommandEventID: commandID, ChannelID: channelID, RequestedMessageIDs: append([]string(nil), requested...), Status: "complete", ReactorMappings: mappings}
++	body := fmt.Sprintf("Verified %d Discord reactor mappings. Reaction times are unavailable; imported events use the import time.", mappings)
++	if importError != nil {
++		receipt.Status = "error"
++		body = fmt.Sprintf("Reaction import stopped after %d mappings: %v", mappings, importError)
++	}
++	return reactionImportNotice{MsgType: event.MsgNotice, Body: body, Receipt: receipt}
++}
++
++func replyReactionImport(ce *WrappedCommandEvent, mappings int, importError error) {
++	content := reactionImportReplyContent(ce.EventID, ce.Portal.Key.ChannelID, ce.Args, mappings, importError)
++	if _, err := ce.MainIntent().SendMessageEvent(ce.RoomID, event.EventMessage, content); err != nil {
++		ce.ZLog.Error().Err(err).Msg("Failed to send reaction import completion receipt")
++	}
++}
++
++// Only explicit history imports may replace a bridge-created ghost reaction
++// whose normal/burst set changed. Preserve its exact native message part.
++func historicalReactionKindRefresh(original *event.Event, ghost id.UserID, messages []*database.Message, emoji discordgo.Emoji, matrixEmoji string, kinds []int) *database.Message {
++	if original == nil || original.Type != event.EventReaction || original.Sender != ghost || original.Content.Raw["fi.mau.discord.source_reaction"] != true {
++		return nil
++	}
++	var content struct {
++		Relation struct {
++			Type    string     `json:"rel_type"`
++			EventID id.EventID `json:"event_id"`
++			Key     string     `json:"key"`
++		} `json:"m.relates_to"`
++		Imported *struct {
++			Types                      []int `json:"types"`
++			OriginalTimestampAvailable *bool `json:"original_timestamp_available"`
++		} `json:"fi.mau.discord.imported_reaction"`
++		Custom *struct {
++			ID string `json:"id"`
++		} `json:"fi.mau.discord.reaction"`
++	}
++	data, err := json.Marshal(original.Content.Raw)
++	if err != nil || json.Unmarshal(data, &content) != nil || content.Imported == nil || content.Imported.OriginalTimestampAvailable == nil || *content.Imported.OriginalTimestampAvailable || content.Relation.Type != "m.annotation" {
++		return nil
++	}
++	if emoji.ID != "" {
++		if content.Custom == nil || content.Custom.ID != emoji.ID {
++			return nil
++		}
++	} else {
++		normalize := func(value string) string {
++			return norm.NFC.String(strings.ReplaceAll(strings.ReplaceAll(value, "\ufe0f", ""), "\ufe0e", ""))
++		}
++		if normalize(content.Relation.Key) != normalize(matrixEmoji) {
++			return nil
++		}
++	}
++	validKinds := func(values []int) int {
++		mask := 0
++		for _, kind := range values {
++			if kind < 0 || kind > 1 || mask&(1<<kind) != 0 {
++				return 0
++			}
++			mask |= 1 << kind
++		}
++		return mask
++	}
++	oldMask, newMask := validKinds(content.Imported.Types), validKinds(kinds)
++	if oldMask == 0 || newMask == 0 || oldMask == newMask {
++		return nil
++	}
++	for _, message := range messages {
++		if message.MXID == content.Relation.EventID {
++			return message
++		}
++	}
++	return nil
 +}
 +
 +type sourceReaction struct {
@@ -244,16 +311,16 @@
 +
 +func fnImportReactions(ce *WrappedCommandEvent) {
 +	if ce.User.PermissionLevel < bridgeconfig.PermissionLevelAdmin || ce.Portal.GuildID == "" || len(ce.Args) == 0 || len(ce.Args) > 20 {
-+		ce.Reply("Bridge administrators may specify 1–20 already bridged guild message IDs")
++		replyReactionImport(ce, 0, fmt.Errorf("bridge administrators may specify 1–20 already bridged guild message IDs"))
 +		return
 +	}
 +	for _, messageID := range ce.Args {
 +		if _, err := strconv.ParseUint(messageID, 10, 64); err != nil {
-+			ce.Reply("Invalid message ID")
++			replyReactionImport(ce, 0, fmt.Errorf("invalid message ID"))
 +			return
 +		}
 +		if ce.Bridge.DB.Message.GetFirstByDiscordID(ce.Portal.Key, messageID) == nil {
-+			ce.Reply("Import and verify every target message first")
++			replyReactionImport(ce, 0, fmt.Errorf("import and verify every target message first"))
 +			return
 +		}
 +	}
@@ -264,12 +331,12 @@
 +		for _, messageID := range ce.Args {
 +			count, err := ce.Portal.importMessageReactions(ctx, ce.User, messageID)
 +			if err != nil {
-+				ce.Reply("Reaction import stopped after %d mappings: %v", imported, err)
++				replyReactionImport(ce, imported, err)
 +				return
 +			}
 +			imported += count
 +		}
-+		ce.Reply("Verified %d Discord reactor mappings. Reaction times are unavailable; imported events use the import time.", imported)
++		replyReactionImport(ce, imported, nil)
 +	}()
 +}
 +
@@ -361,18 +428,177 @@
 +}
 --- /dev/null
 +++ b/reaction_history_test.go
-@@ -0,0 +1,83 @@
+@@ -0,0 +1,242 @@
 +package main
 +
 +import (
++	"database/sql"
 +	"encoding/json"
 +	"fmt"
++	"net/http"
++	"net/http/httptest"
++	"strings"
 +	"testing"
++	"time"
 +
 +	"github.com/bwmarrin/discordgo"
++	"github.com/rs/zerolog"
++	"go.mau.fi/mautrix-discord/config"
 +	"go.mau.fi/mautrix-discord/database"
++	"go.mau.fi/util/dbutil"
++	"maunium.net/go/maulogger/v2"
 +	"maunium.net/go/mautrix/appservice"
++	"maunium.net/go/mautrix/event"
++	"maunium.net/go/mautrix/id"
 +)
++
++func TestHistoricalReactionKindRefreshPreservesActorEmojiAndTarget(t *testing.T) {
++	for _, test := range []struct {
++		name    string
++		kinds   []int
++		change  string
++		refresh bool
++	}{
++		{name: "changed imported kinds", kinds: []int{1}, refresh: true},
++		{name: "matching kinds", kinds: []int{0}},
++		{name: "ordinary live request", kinds: nil},
++		{name: "ordinary live event", kinds: []int{1}, change: "live"},
++		{name: "human sender", kinds: []int{1}, change: "human"},
++		{name: "invalid imported tag", kinds: []int{1}, change: "invalid"},
++		{name: "wrong native target", kinds: []int{1}, change: "target"},
++		{name: "wrong emoji", kinds: []int{1}, change: "emoji"},
++	} {
++		t.Run(test.name, func(t *testing.T) {
++			raw, err := sql.Open("sqlite3", ":memory:")
++			if err != nil {
++				t.Fatal(err)
++			}
++			defer raw.Close()
++			raw.SetMaxOpenConns(1)
++			base, err := dbutil.NewWithDB(raw, "sqlite3")
++			if err != nil {
++				t.Fatal(err)
++			}
++			for _, statement := range []string{
++				"CREATE TABLE message (dcid TEXT, dc_attachment_id TEXT, dc_chan_id TEXT, dc_chan_receiver TEXT, dc_sender TEXT, timestamp BIGINT, dc_edit_timestamp BIGINT, dc_thread_id TEXT, mxid TEXT, sender_mxid TEXT)",
++				"CREATE TABLE reaction (dc_msg_id TEXT, dc_first_attachment_id TEXT, dc_sender TEXT, dc_emoji_name TEXT, dc_chan_id TEXT, dc_chan_receiver TEXT, dc_thread_id TEXT, mxid TEXT)",
++			} {
++				if _, err = raw.Exec(statement); err != nil {
++					t.Fatal(err)
++				}
++			}
++			room, ghost := id.RoomID("!room:test"), id.UserID("@discord_actor:test")
++			original := map[string]any{"event_id": "$old:test", "room_id": room, "type": "m.reaction", "sender": ghost,
++				"content": map[string]any{"m.relates_to": map[string]any{"rel_type": "m.annotation", "event_id": "$part:test", "key": "👍"},
++					"fi.mau.discord.source_reaction": true, "fi.mau.discord.imported_reaction": map[string]any{"types": []int{0}, "original_timestamp_available": false}}}
++			content := original["content"].(map[string]any)
++			switch test.change {
++			case "live":
++				delete(content, "fi.mau.discord.imported_reaction")
++			case "human":
++				original["sender"] = "@human:test"
++			case "invalid":
++				content["fi.mau.discord.imported_reaction"] = map[string]any{"types": []int{0, 0}, "original_timestamp_available": false}
++			case "target":
++				content["m.relates_to"].(map[string]any)["event_id"] = "$outside:test"
++			case "emoji":
++				content["m.relates_to"].(map[string]any)["key"] = "other"
++			}
++			redactions, sends, unexpected := 0, 0, 0
++			var sent map[string]any
++			hs := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
++				w.Header().Set("Content-Type", "application/json")
++				switch {
++				case request.Method == http.MethodGet && strings.Contains(request.URL.Path, "/event/"):
++					_ = json.NewEncoder(w).Encode(original)
++				case request.Method == http.MethodPut && strings.Contains(request.URL.Path, "/redact/"):
++					redactions++
++					if request.URL.Query().Get("user_id") != string(ghost) {
++						t.Error("refresh redacted as a different actor")
++					}
++					_ = json.NewEncoder(w).Encode(map[string]string{"event_id": "$redaction:test"})
++				case request.Method == http.MethodPut && strings.Contains(request.URL.Path, "/send/m.reaction/"):
++					sends++
++					if request.URL.Query().Get("user_id") != string(ghost) {
++						t.Error("refresh sent as a different actor")
++					}
++					if err := json.NewDecoder(request.Body).Decode(&sent); err != nil {
++						t.Error(err)
++					}
++					_ = json.NewEncoder(w).Encode(map[string]string{"event_id": "$new:test"})
++				default:
++					unexpected++
++					http.Error(w, "unexpected membership or external request", http.StatusBadRequest)
++				}
++			}))
++			defer hs.Close()
++			as := appservice.Create()
++			as.HomeserverDomain = "test"
++			as.Registration = &appservice.Registration{AppToken: "test-only", SenderLocalpart: "bot"}
++			if err = as.SetHomeserverURL(hs.URL); err != nil {
++				t.Fatal(err)
++			}
++			for _, actor := range []id.UserID{ghost, "@bot:test"} {
++				as.StateStore.MarkRegistered(actor)
++				as.StateStore.SetMembership(room, actor, event.MembershipJoin)
++			}
++			br := &DiscordBridge{Config: &config.Config{}, DB: database.New(base, maulogger.Create()), puppets: make(map[string]*Puppet)}
++			br.AS, br.Bot = as, as.Intent("@bot:test")
++			br.puppets["actor"] = &Puppet{Puppet: &database.Puppet{ID: "actor"}, bridge: br, MXID: ghost}
++			portal := &Portal{Portal: &database.Portal{Key: database.NewPortalKey("channel", ""), MXID: room, GuildID: "guild"}, bridge: br, log: zerolog.Nop()}
++			message := br.DB.Message.New()
++			message.DiscordID, message.Channel, message.SenderID = "message", portal.Key, "author"
++			message.Timestamp, message.SenderMXID = time.UnixMilli(42), ghost
++			message.MassInsertParts([]database.MessagePart{{AttachmentID: "", MXID: "$primary:test"}, {AttachmentID: "file", MXID: "$part:test"}})
++			reaction := br.DB.Reaction.New()
++			reaction.Channel, reaction.MessageID, reaction.FirstAttachmentID, reaction.Sender, reaction.EmojiName, reaction.MXID = portal.Key, "message", "file", "actor", "👍", "$old:test"
++			reaction.Insert()
++			portal.handleDiscordReactionWithHistory(nil, &discordgo.MessageReaction{UserID: "actor", MessageID: "message", ChannelID: "channel", GuildID: "guild", Emoji: discordgo.Emoji{Name: "👍"}}, true, nil, nil, test.kinds)
++			mapped := portal.reactionMapping("message", "actor", discordgo.Emoji{Name: "👍"})
++			if unexpected != 0 {
++				t.Fatal("kind refresh changed membership or made an unrelated request")
++			}
++			if test.refresh {
++				if redactions != 1 || sends != 1 || mapped == nil || mapped.MXID != "$new:test" {
++					t.Fatal("changed kinds were not replaced exactly once")
++				}
++				relation := sent["m.relates_to"].(map[string]any)
++				metadata := sent["fi.mau.discord.imported_reaction"].(map[string]any)
++				if relation["event_id"] != "$part:test" || strings.ReplaceAll(relation["key"].(string), "\ufe0f", "") != "👍" || len(metadata["types"].([]any)) != 1 || metadata["types"].([]any)[0] != float64(1) {
++					t.Fatal("refresh changed native part, emoji or current kinds")
++				}
++			} else if redactions != 0 || sends != 0 || mapped == nil || mapped.MXID != "$old:test" {
++				t.Fatal("matching, ordinary or unproven reaction was changed")
++			}
++		})
++	}
++}
++
++func TestReactionImportCompletionBindsExactCommandAndTargets(t *testing.T) {
++	for _, failure := range []error{nil, fmt.Errorf("source changed")} {
++		requested := []string{"100", "200"}
++		content := reactionImportReplyContent("$command:test", "channel", requested, 7, failure)
++		requested[0] = "different"
++		payload, err := json.Marshal(content)
++		if err != nil {
++			t.Fatal(err)
++		}
++		var decoded struct {
++			MsgType event.MessageType     `json:"msgtype"`
++			Receipt reactionImportReceipt `json:"dev.bylisa.sec_hive.reaction_import"`
++		}
++		if err = json.Unmarshal(payload, &decoded); err != nil {
++			t.Fatal(err)
++		}
++		wantStatus := "complete"
++		if failure != nil {
++			wantStatus = "error"
++		}
++		if decoded.MsgType != event.MsgNotice || decoded.Receipt.Version != 1 || decoded.Receipt.CommandEventID != "$command:test" || decoded.Receipt.ChannelID != "channel" || decoded.Receipt.Status != wantStatus || decoded.Receipt.ReactorMappings != 7 || len(decoded.Receipt.RequestedMessageIDs) != 2 || decoded.Receipt.RequestedMessageIDs[0] != "100" || decoded.Receipt.RequestedMessageIDs[1] != "200" {
++			t.Fatal("completion receipt lost exact command, target, status or count binding")
++		}
++	}
++}
 +
 +func TestReactionHistoryIncludesEveryPageAndBothKinds(t *testing.T) {
 +	calls := 0
