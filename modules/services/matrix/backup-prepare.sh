@@ -67,10 +67,13 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 test "$connections" == 0
-runuser -u postgres -- pg_dump -Fc --compress=lz4 matrix-synapse > "$checkpoint/synapse.dump.tmp"
-runuser -u postgres -- pg_dump -Fc --compress=lz4 mautrix-discord > "$checkpoint/bridge.dump.tmp"
+# COMPLETE was removed before updating this generated staging directory.
+# Direct writes avoid a second database-sized copy; only the verified full
+# checksum manifest and a new COMPLETE mark the checkpoint coherent again.
+runuser -u postgres -- pg_dump -Fc --compress=lz4 matrix-synapse > "$checkpoint/synapse.dump"
+runuser -u postgres -- pg_dump -Fc --compress=lz4 mautrix-discord > "$checkpoint/bridge.dump"
 if [[ "${PLURAL_ENABLED:-0}" == 1 ]]; then
-  runuser -u postgres -- pg_dump -Fc --compress=lz4 pluralmatrix > "$checkpoint/plural.dump.tmp"
+  runuser -u postgres -- pg_dump -Fc --compress=lz4 pluralmatrix > "$checkpoint/plural.dump"
   runuser -u postgres -- psql -XAt -v ON_ERROR_STOP=1 -d pluralmatrix > "$checkpoint/plural-counts.json" <<'SQL'
 SELECT json_build_object('systems', (SELECT count(*) FROM "System"), 'members', (SELECT count(*) FROM "Member"),
   'switches', (SELECT count(*) FROM "Switch"), 'journal', (SELECT count(*) FROM "InboundEvent"));
@@ -80,7 +83,6 @@ SQL
   rsync -a --delete /var/lib/pluralmatrix-registration/ "$checkpoint/plural-registration/"
   install -m 0600 "$PLURAL_CONFIG" "$checkpoint/plural-config.json"
   runuser -u postgres -- psql -XAt -v ON_ERROR_STOP=1 -d mautrix-discord -c 'SELECT count(*) FROM sec_hive_plural_pending' > "$checkpoint/plural-bridge-pending-count"
-  mv "$checkpoint/plural.dump.tmp" "$checkpoint/plural.dump"
 fi
 printf '%s\n' "${PLURAL_ENABLED:-0}" > "$checkpoint/plural-enabled"
 runuser -u postgres -- psql -XAt -v ON_ERROR_STOP=1 -d mautrix-discord > "$checkpoint/bridge-counts.json" <<'SQL'
@@ -97,8 +99,6 @@ done
 for evidence_name in history-manifest.json sec-hive-pilot.json; do
   install -m 0600 "/var/lib/sec-hive-migration/$evidence_name" "$checkpoint/verification/$evidence_name"
 done
-mv "$checkpoint/synapse.dump.tmp" "$checkpoint/synapse.dump"
-mv "$checkpoint/bridge.dump.tmp" "$checkpoint/bridge.dump"
 readlink -f /run/current-system > "$checkpoint/system-generation"
 date --utc --iso-8601=seconds > "$checkpoint/captured-at"
 
