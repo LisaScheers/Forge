@@ -27,6 +27,7 @@
 
     boot.loader.grub = {
       enable = true;
+      configurationLimit = 10;
       efiSupport = true;
       efiInstallAsRemovable = true;
     };
