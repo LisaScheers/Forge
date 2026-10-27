@@ -7,22 +7,24 @@ migration and indefinite-sync plan.
 The 74 remaining SEC-Hive channel, staging, operational and Space rooms have been
 purged and blocked locally. Their events and native SEC guild mappings are gone;
 46 unrelated Matrix rooms and historical Discord DM mappings are preserved. The
-previously removed selfies room remains absent. SEC media/profile cleanup and
-mixed historical backup handling are still in progress.
+previously removed selfies room remains absent. Exclusive media and cached room
+data cleanup is still in progress.
 
-PluralMatrix is disabled. The shared Discord appservice, Synapse, PostgreSQL,
-Nook backup/media endpoints and Matrix volume remain for unrelated use. SEC's
-cutoff, room allowlist and dedicated relay administrator grant are removed.
-The SEC bot login must be removed locally before the shared bridge resumes;
-removal must never call Discord logout, webhook deletion or server/channel APIs.
+The SEC bot login has been removed from the local bridge database. This did not
+call Discord logout, webhook deletion or server/channel APIs. The shared bridge
+and PluralMatrix remain stopped during media cleanup. The replacement configuration
+disables PluralMatrix and removes SEC's cutoff, allowlist and relay admin grant;
+shared Synapse, PostgreSQL, Discord appservice and live media volume remain.
 
-Generic coordinated backups no longer depend on SEC migration files. Optional
-`matrix.backup.historyVerificationDirectory` defaults to `null`. Without an
-explicit history account/manifest, restore checks still verify complete checksums,
-databases, bridge mappings/tokens, signing key, copied media and isolated startup.
-Generated SEC proof copies and disabled Plural staging artifacts are cleared before
-new captures.
+Lisa answered the mixed-backup question with “preserve no backup.” Remove all
+Matrix backup snapshots, archives, coordinated staging and restore copies; do not
+create a replacement. Disable the Matrix backup job and exclude the three Matrix
+databases from future global PostgreSQL dumps. Preserve other-service backup data
+and unrelated live Matrix data. Generic backup/restore tooling may remain dormant.
 
-Keep shared assets and unrelated recovery data. Old whole-homeserver snapshots
-contain both SEC-Hive and unrelated history; discarding those restore points needs
-Lisa's explicit choice, otherwise sanitization must preserve unrelated data.
+Eight local raw export trees have been removed (168,636 regular files,
+133,622,774,531 logical bytes; cloned copies mean this is not reclaimed disk space).
+Encrypted test recovery images and keys were removed. Three SEC-only snapshot
+references were forgotten; physical repository removal and all other Matrix
+backup deletion are in progress. Completion requires verification of absent
+SEC rooms, exclusive media, local payloads, credentials and backup data.

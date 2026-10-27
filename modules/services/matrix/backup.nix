@@ -1,50 +1,14 @@
 {config, ...}: let
-  repositoryRoot = "/srv/disks/western-digital-hdd/backups/atlas-matrix";
   nookKey = config.secrets.pubkeys.hosts.nook;
 in {
   nixos.matrix = {lib, ...}: {
+    options.matrix.backup.enable = lib.mkEnableOption "coordinated Matrix backups";
     options.matrix.backup.historyVerificationDirectory = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = null;
       description = "Optional runtime directory containing history-manifest.json and history-account.json for authenticated restore checks";
     };
   };
-  nixos.nook = {pkgs, ...}: {
-    users.groups.matrix-backup = {};
-    users.users.matrix-backup = {
-      isSystemUser = true;
-      group = "matrix-backup";
-      home = "/repository";
-      shell = "${pkgs.shadow}/bin/nologin";
-      openssh.authorizedKeys.keys = [
-        ''from="100.87.26.75",restrict ${builtins.readFile ./backup.pub}''
-      ];
-    };
-    systemd.services.matrix-backup-repository = {
-      description = "Prepare the Matrix backup repository on Nook's mounted HDD";
-      wantedBy = ["multi-user.target"];
-      unitConfig.RequiresMountsFor = repositoryRoot;
-      path = [pkgs.coreutils pkgs.util-linux];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-      };
-      script = ''
-        mountpoint -q /srv/disks/western-digital-hdd
-        install -d -m 0755 /srv/disks/western-digital-hdd/backups ${repositoryRoot}
-        install -d -m 0700 -o matrix-backup -g matrix-backup ${repositoryRoot}/repository
-      '';
-    };
-    services.openssh.extraConfig = ''
-      Match User matrix-backup
-        ChrootDirectory ${repositoryRoot}
-        ForceCommand internal-sftp -u 0077
-        DisableForwarding yes
-        PermitTTY no
-      Match all
-    '';
-  };
-
   nixos.atlas = {
     config,
     lib,
@@ -108,7 +72,7 @@ in {
       '';
     };
   in
-    lib.mkIf config.matrix.discord.enable {
+    lib.mkIf (config.matrix.backup.enable && config.matrix.discord.enable) {
       age.secrets = {
         matrix-backup-password = {
           file = ../../security/agenix/secrets/atlas/matrix-backup-password.age;

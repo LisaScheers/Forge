@@ -7,6 +7,7 @@
     ...
   }: let
     cfg = config.matrix.volume;
+    backupEnabled = config.services.restic.backups ? matrix;
     media = "${config.services.matrix-synapse.dataDir}/media_store";
     recovery = "/var/backup/matrix-coordinated";
     diskUnit = "${utils.escapeSystemdPath cfg.mountPoint}.mount";
@@ -85,10 +86,12 @@
         script = ''
           ${pkgs.coreutils}/bin/chmod 0711 ${lib.escapeShellArg cfg.mountPoint}
           ${pkgs.coreutils}/bin/install -d -m 0700 -o matrix-synapse -g matrix-synapse ${lib.escapeShellArg "${cfg.mountPoint}/media_store"}
-          ${pkgs.coreutils}/bin/install -d -m 0700 -o root -g root ${lib.escapeShellArg "${cfg.mountPoint}/recovery"}
+          ${lib.optionalString backupEnabled ''
+            ${pkgs.coreutils}/bin/install -d -m 0700 -o root -g root ${lib.escapeShellArg "${cfg.mountPoint}/recovery"}
+          ''}
         '';
       };
-      systemd.mounts = [(bind "media_store" media) (bind "recovery" recovery)];
+      systemd.mounts = [(bind "media_store" media)] ++ lib.optional backupEnabled (bind "recovery" recovery);
       services.matrix-synapse.settings = {
         media_store_path = media;
         max_upload_size = "512M";
@@ -100,7 +103,7 @@
         # The device identity is hidden by Synapse's PrivateDevices sandbox.
         serviceConfig.ExecStartPre = ["+${requireMedia}"];
       };
-      systemd.services.restic-backups-matrix = {
+      systemd.services.restic-backups-matrix = lib.mkIf backupEnabled {
         requires = [mediaUnit recoveryUnit];
         after = [mediaUnit recoveryUnit];
         bindsTo = [diskUnit recoveryUnit];

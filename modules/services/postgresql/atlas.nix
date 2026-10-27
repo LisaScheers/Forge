@@ -2,7 +2,11 @@
   # Keep the deployed application version fixed through the PostgreSQL cutover.
   flake-file.inputs.nixpkgs-atlas-apps.url = "github:NixOS/nixpkgs/67b5cf9be1c8d2170270509db4ed12e904a768b0";
 
-  nixos.atlas = {lib, pkgs, ...}: {
+  nixos.atlas = {
+    lib,
+    pkgs,
+    ...
+  }: {
     services.forgejo.package = inputs.nixpkgs-atlas-apps.legacyPackages.x86_64-linux.forgejo-lts;
     # Pin the running major independently of system.stateVersion.
     services.postgresql = {
@@ -17,10 +21,11 @@
       test -f /var/lib/postgresql/18/.forge-upgrade-complete
     '';
 
-    # pg_dumpall includes every database and cluster roles/permissions.
+    # Keep cluster roles and other databases while omitting Matrix backups.
     services.postgresqlBackup = {
       enable = true;
       backupAll = true;
+      pgdumpAllOptions = "--exclude-database=matrix-synapse --exclude-database=mautrix-discord --exclude-database=pluralmatrix";
       compression = "zstd";
       startAt = "*-*-* 03:00:00";
     };

@@ -31,9 +31,13 @@ in {
           ];
         };
       };
-      systemd.services.restic-backups-matrix = {
-        serviceConfig.Type = "oneshot";
-        script = "test -d /var/backup/matrix-coordinated";
+      environment.etc."matrix-volume-test-password".text = "isolated-test-only";
+      services.restic.backups.matrix = {
+        repository = "/var/lib/matrix-volume-test-repository";
+        passwordFile = "/etc/matrix-volume-test-password";
+        initialize = true;
+        paths = ["/etc/hostname"];
+        timerConfig = null;
       };
       environment.systemPackages = [pkgs.python3 pkgs.curl pkgs.e2fsprogs];
       virtualisation.emptyDiskImages = [512];

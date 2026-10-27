@@ -1,28 +1,12 @@
 {config, ...}: let
   features = config.nixos;
 in {
-  nixos.nook = {
-    imports = [features.matrix-media-server];
-    matrix.mediaServer = {
-      enable = true;
-      migrationPublicKeys = [(builtins.readFile ./backup.pub)];
-    };
-  };
-
-  nixos.atlas = {
-    config,
-    lib,
-    ...
-  }: {
+  nixos.atlas = {config, ...}: {
     imports = [features.matrix-media-client features.matrix-volume];
     matrix.volume = {
       enable = true;
       device = "/dev/disk/by-id/scsi-0HC_Volume_107199635";
     };
-    # Keep the cutover pause across activation and an unexpected reboot.
-    systemd.services = lib.genAttrs (["matrix-synapse" "mautrix-discord" "restic-backups-matrix"] ++ lib.optional config.matrix.plural.enable "pluralmatrix") (_: {
-      unitConfig.ConditionPathExists = "!/var/lib/sec-hive-migration/MEDIA-CUTOVER-PAUSED";
-    });
     services.nginx.virtualHosts."${config.matrix.subDomain}.${config.matrix.rootDomain}".locations."/_matrix".extraConfig = ''
       client_max_body_size 512m;
     '';
