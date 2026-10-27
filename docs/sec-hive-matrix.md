@@ -1,30 +1,26 @@
 # SEC-Hive Matrix decommission
 
-Lisa cancelled SEC-Hive Matrix hosting on 2026-10-27 and requested removal of its
-rooms, files and backups. Discord must remain untouched. This replaces the earlier
-migration and indefinite-sync plan.
+Completed 2026-10-27 after Lisa cancelled SEC-Hive Matrix hosting. Discord was not
+modified. The migration and indefinite-sync plan are cancelled.
 
-The 74 remaining SEC-Hive channel, staging, operational and Space rooms have been
-purged and blocked locally. Their events and native SEC guild mappings are gone;
-46 unrelated Matrix rooms and historical Discord DM mappings are preserved. The
-previously removed selfies room remains absent. Exclusive media and cached room
-data cleanup is still in progress.
+- All 75 SEC-Hive rooms/Spaces, including the previously removed selfies room,
+  are gone. Their content is absent across all 65 Synapse tables with room IDs;
+  intentional blocks prevent those room IDs from being recreated locally.
+- Removed 198,219 live files (43,820,878,253 bytes); all 39,305 selected media IDs
+  return authenticated 404. Verified 24,346 unrelated files by hash.
+- Removed local exports, migration working copies, PluralMatrix database/state,
+  registration files and credentials. Seven SEC service accounts were erased
+  and deactivated, with all access tokens revoked.
+- Removed all Matrix snapshots, recovery/staging copies and Nook's retired media
+  duplicate. Removed Matrix sections from both combined PostgreSQL backups while
+  preserving other services' sections byte for byte.
 
-The SEC bot login has been removed from the local bridge database. This did not
-call Discord logout, webhook deletion or server/channel APIs. The shared bridge
-and PluralMatrix remain stopped during media cleanup. The replacement configuration
-disables PluralMatrix and removes SEC's cutoff, allowlist and relay admin grant;
-shared Synapse, PostgreSQL, Discord appservice and live media volume remain.
+Lisa explicitly chose “preserve no backup.” Matrix backup jobs, restore services,
+credentials and recovery bind are disabled/removed. Global PostgreSQL backups
+exclude `matrix-synapse`, `mautrix-discord` and `pluralmatrix`; other services'
+backups continue. Nook's dedicated Matrix storage endpoints and keys are removed.
 
-Lisa answered the mixed-backup question with “preserve no backup.” Remove all
-Matrix backup snapshots, archives, coordinated staging and restore copies; do not
-create a replacement. Disable the Matrix backup job and exclude the three Matrix
-databases from future global PostgreSQL dumps. Preserve other-service backup data
-and unrelated live Matrix data. Generic backup/restore tooling may remain dormant.
-
-Eight local raw export trees have been removed (168,636 regular files,
-133,622,774,531 logical bytes; cloned copies mean this is not reclaimed disk space).
-Encrypted test recovery images and keys were removed. Three SEC-only snapshot
-references were forgotten; physical repository removal and all other Matrix
-backup deletion are in progress. Completion requires verification of absent
-SEC rooms, exclusive media, local payloads, credentials and backup data.
+The shared homeserver, live Atlas media volume, generic Discord appservice,
+46 unrelated Matrix rooms and six mapped Discord DM rooms remain. Synapse,
+PostgreSQL, nginx and the generic bridge are healthy; the public Matrix endpoint
+returns HTTP 200. Configuration was deployed from `49419f2` on Atlas and Nook.
