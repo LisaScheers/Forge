@@ -9,7 +9,21 @@ flock -n 8
 test ! -e /var/lib/postgresql/.forge-maintenance
 rm -f "$checkpoint/COMPLETE"
 rm -f "$checkpoint/verification/post-wave-reaction-changes.json" "$checkpoint/verification/post-wave-snapshot-boundary.json"
+rm -f "$checkpoint/verification/history-manifest.json" "$checkpoint/verification/history-account.json" "$checkpoint/verification/sec-hive-pilot.json"
+[[ "${PLURAL_ENABLED:-0}" == 0 || "${PLURAL_ENABLED:-0}" == 1 ]]
+if [[ "${PLURAL_ENABLED:-0}" == 0 ]]; then
+  rm -f "$checkpoint/plural.dump" "$checkpoint/plural-counts.json" "$checkpoint/plural-config.json" "$checkpoint/plural-bridge-pending-count"
+  rm -rf "$checkpoint/plural" "$checkpoint/plural-registration"
+fi
 install -d -m 0700 "$checkpoint/synapse" "$checkpoint/bridge" "$checkpoint/runtime" "$checkpoint/verification"
+history_verification=false
+if [[ -n "${HISTORY_VERIFICATION_SOURCE:-}" ]]; then
+  [[ "$HISTORY_VERIFICATION_SOURCE" == /* ]]
+  test -f "$HISTORY_VERIFICATION_SOURCE/history-manifest.json"
+  test -f "$HISTORY_VERIFICATION_SOURCE/history-account.json"
+  history_verification=true
+fi
+printf '{"version":1,"enabled":%s}\n' "$history_verification" > "$checkpoint/history-verification-policy.json"
 
 # A one-run capture can require the same audit before and after the pause.
 # Resolve once, preserving argv[0] for multicall executables, without parsing
@@ -135,9 +149,11 @@ install -m 0600 "$SYNAPSE_CONFIG" "$checkpoint/synapse-config.json"
 for secret_name in matrix-registration-secret matrix-turn-secret discord-bridge-env; do
   install -m 0600 "/run/agenix/$secret_name" "$checkpoint/runtime/$secret_name"
 done
-for evidence_name in history-manifest.json sec-hive-pilot.json; do
-  install -m 0600 "/var/lib/sec-hive-migration/$evidence_name" "$checkpoint/verification/$evidence_name"
-done
+if [[ "$history_verification" == true ]]; then
+  for evidence_name in history-manifest.json history-account.json; do
+    install -m 0600 "$HISTORY_VERIFICATION_SOURCE/$evidence_name" "$checkpoint/verification/$evidence_name"
+  done
+fi
 readlink -f /run/current-system > "$checkpoint/system-generation"
 date --utc --iso-8601=seconds > "$checkpoint/captured-at"
 

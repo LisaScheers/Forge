@@ -6,10 +6,7 @@
   }: {
     matrix.discord = {
       enable = true;
-      # General: 78,978 audited messages plus 51 newer arrivals fit this bound.
-      # Each portal still requires its own access and history review.
       initialBackfillLimit = 90000;
-      mediaRetentionBefore."1293572131086667827" = "2025-04-26T22:00:00Z";
     };
     age.secrets.discord-bridge-env = lib.mkIf config.matrix.discord.enable {
       file = ../../security/agenix/secrets/atlas/discord-bridge-env.age;
@@ -31,7 +28,7 @@
     domain = config.networking.domain;
   in {
     options.matrix.discord = {
-      enable = lib.mkEnableOption "the SEC-Hive Discord bridge";
+      enable = lib.mkEnableOption "the Discord bridge";
       environmentFile = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = null;
@@ -67,7 +64,7 @@
         }
         {
           assertion = cfg.initialBackfillLimit > 0;
-          message = "Inventory SEC-Hive and set matrix.discord.initialBackfillLimit before creating portals";
+          message = "Inventory Discord channels and set matrix.discord.initialBackfillLimit before creating portals";
         }
       ];
 
@@ -110,7 +107,6 @@
             permissions = {
               "*" = "relay";
               "@lisa:${domain}" = "admin";
-              "@sec-hive-relay:${domain}" = "admin";
             };
             # No guilds are linked by enabling the service. Each portal needs an
             # explicit access/history review before it is created.

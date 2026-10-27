@@ -1,10 +1,13 @@
 import hashlib
+import contextlib
 import importlib.util
 import io
 import json
 import os
 from pathlib import Path
 import tempfile
+import shutil
+import types
 import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError
@@ -227,10 +230,157 @@ class CheckpointTest(unittest.TestCase):
         events[0]["origin_server_ts"] = 99
         with patch.object(restore, "build_opener", return_value=opener), self.assertRaisesRegex(RuntimeError, "author/timestamp mismatch"):
             restore.verify_history("http://restore.test", self.source, validated)
+
         events[0]["origin_server_ts"] = 2
         events[0]["content"]["m.relates_to"]["m.in_reply_to"]["event_id"] = "$wrong"
         with patch.object(restore, "build_opener", return_value=opener), self.assertRaisesRegex(RuntimeError, "reply relation mismatch"):
             restore.verify_history("http://restore.test", self.source, validated)
+
+    def test_history_verification_can_be_explicitly_disabled_without_proofs(self):
+        (self.source / "history-verification-policy.json").write_text('{"version":1,"enabled":false}')
+        with patch.object(restore, "verify_history", side_effect=AssertionError("History must remain optional")):
+            self.assertEqual(restore.verify_optional_history("http://restore.test", self.source),
+                             {"verified_rooms": 0, "history_verification_enabled": False})
+            (self.source / "history-verification-policy.json").unlink()
+            self.assertEqual(restore.verify_optional_history("http://restore.test", self.source)["verified_rooms"], 0)
+
+    def test_disabled_history_rejects_stale_migration_proofs(self):
+        self.history_fixture()
+        (self.source / "history-verification-policy.json").write_text('{"version":1,"enabled":false}')
+        with self.assertRaisesRegex(RuntimeError, "stale proofs"):
+            restore.verify_optional_history("http://restore.test", self.source)
+
+    def test_explicit_generic_history_retains_full_room_and_media_checks(self):
+        opener, _, _, _, _ = self.history_fixture(old_available=True)
+        (self.source / "verification/sec-hive-pilot.json").rename(self.source / "verification/history-account.json")
+        (self.source / "history-verification-policy.json").write_text('{"version":1,"enabled":true}')
+        with patch.object(restore, "build_opener", return_value=opener):
+            result = restore.verify_optional_history("http://restore.test", self.source)
+        self.assertEqual(result["verified_rooms"], 1)
+        self.assertEqual(result["attachments_downloaded"], 2)
+        self.assertTrue(result["thumbnail_regenerated_from_original"])
+
+    def test_legacy_complete_proofs_remain_verifiable(self):
+        opener, _, _, _, _ = self.history_fixture(old_available=True)
+        with patch.object(restore, "build_opener", return_value=opener):
+            self.assertEqual(restore.verify_optional_history("http://restore.test", self.source)["verified_rooms"], 1)
+
+    def test_incomplete_or_invalid_history_policy_cannot_silently_skip_checks(self):
+        verification = self.source / "verification"
+        verification.mkdir(); (verification / "history-manifest.json").write_text("{}")
+        with self.assertRaisesRegex(RuntimeError, "incomplete"):
+            restore.verify_optional_history("http://restore.test", self.source)
+        policy = self.source / "history-verification-policy.json"
+        policy.write_text('{"version":1,"enabled":true}')
+        with self.assertRaisesRegex(RuntimeError, "incomplete"):
+            restore.verify_optional_history("http://restore.test", self.source)
+        policy.write_text('{"version":1,"enabled":"false"}')
+        with self.assertRaisesRegex(RuntimeError, "Unsupported"):
+            restore.verify_optional_history("http://restore.test", self.source)
+
+    def generic_restore_fixture(self):
+        synapse = self.source / "synapse"
+        media = synapse / "media_store/local_content/ab/cd/original"
+        media.parent.mkdir(parents=True); media.write_bytes(b"original fixture image")
+        (synapse / "homeserver.signing.key").write_bytes(b"isolated signing key")
+        bridge = self.source / "bridge"
+        bridge.mkdir()
+        registration = {"as_token": "isolated-as-token", "hs_token": "isolated-hs-token"}
+        (bridge / "discord-registration.yaml").write_text(json.dumps(registration))
+        bridge_config = {"homeserver": {}, "appservice": {**registration, "database": {}},
+                         "bridge": {"provisioning": {}}}
+        (bridge / "config.yaml").write_text(json.dumps(bridge_config))
+        (self.source / "synapse-config.json").write_text('{"server_name":"restore.test"}')
+        for name in ["synapse.dump", "bridge.dump"]:
+            (self.source / name).write_bytes(b"isolated database dump")
+        (self.source / "bridge-counts.json").write_text('{"portals":0,"messages":0,"threads":0,"users":0}')
+        (self.source / "plural-enabled").write_text("0\n")
+        runtime = self.source / "runtime"
+        runtime.mkdir()
+        for name in ["matrix-registration-secret", "matrix-turn-secret"]:
+            (runtime / name).write_bytes(b"isolated runtime secret")
+        (self.source / "history-verification-policy.json").write_text('{"version":1,"enabled":false}')
+        self.write_media_policy()
+        self.reseal()
+
+    def reseal(self):
+        lines = []
+        for filename in sorted(self.source.rglob("*")):
+            if filename.is_file() and filename.name not in {"COMPLETE", "SHA256SUMS"}:
+                lines.append(hashlib.sha256(filename.read_bytes()).hexdigest() + "  ./" + filename.relative_to(self.source).as_posix())
+        (self.source / "SHA256SUMS").write_text("\n".join(lines) + "\n")
+
+    def test_generic_copy_checks_signing_key_and_every_media_file(self):
+        self.generic_restore_fixture()
+        copied = Path(self.temporary.name) / "copied-synapse"
+        shutil.copytree(self.source / "synapse", copied)
+        self.assertEqual(restore.verify_synapse_copy(self.source, copied), {"signing_key_preserved": True, "media_files_checked": 1})
+        key = copied / "homeserver.signing.key"; key.write_bytes(b"changed key")
+        with self.assertRaisesRegex(RuntimeError, "checksum differs"):
+            restore.verify_synapse_copy(self.source, copied)
+        key.write_bytes((self.source / "synapse/homeserver.signing.key").read_bytes())
+        (copied / "media_store/unlisted").write_bytes(b"unexpected")
+        with self.assertRaisesRegex(RuntimeError, "file set differs"):
+            restore.verify_synapse_copy(self.source, copied)
+
+    def run_generic_main(self, counts=None):
+        self.reseal()
+        directory = Path(self.temporary.name) / "main"
+        directory.mkdir(); shutil.copytree(self.source, directory / "input")
+        commands, starts, requests = [], [], []
+        class Process:
+            def terminate(self): pass
+            def wait(self, timeout=30): return 0
+        def run(command, **kwargs):
+            commands.append(command)
+            output = counts or {"portals": 0, "messages": 0, "threads": 0, "users": 0}
+            return types.SimpleNamespace(stdout=json.dumps(output).encode())
+        def start(command, **kwargs):
+            starts.append(command[0]); return Process()
+        class Opener:
+            def open(self, url, timeout=5):
+                requests.append(url)
+                return contextlib.nullcontext(types.SimpleNamespace(status=200))
+        previous = Path.cwd()
+        try:
+            os.chdir(directory)
+            with patch.object(restore, "require_isolated_network"), patch.object(restore.subprocess, "run", side_effect=run), \
+                 patch.object(restore.subprocess, "Popen", side_effect=start), patch.object(restore, "build_opener", return_value=Opener()), \
+                 patch.object(restore, "verify_history", side_effect=AssertionError("No pilot proof should be needed")), contextlib.redirect_stdout(io.StringIO()):
+                restore.main()
+            result = json.loads((directory / "work/result.json").read_text())
+            return result, commands, starts, requests
+        finally:
+            os.chdir(previous)
+
+    def test_main_without_pilot_still_restores_databases_media_keys_and_services(self):
+        self.generic_restore_fixture()
+        result, commands, starts, requests = self.run_generic_main()
+        self.assertEqual(result["verified_rooms"], 0)
+        self.assertTrue(result["bridge_counts_match"] and result["application_service_tokens_match"] and result["signing_key_preserved"])
+        self.assertEqual(result["media_files_checked"], 1)
+        self.assertEqual(sum(command[0] == "pg_restore" for command in commands), 2)
+        self.assertEqual(starts, ["synapse_homeserver", "mautrix-discord"])
+        self.assertEqual(len(requests), 2)
+
+    def test_no_pilot_does_not_bypass_database_count_mismatch(self):
+        self.generic_restore_fixture()
+        with self.assertRaisesRegex(RuntimeError, "bridge mappings differ"):
+            self.run_generic_main({"portals": 99})
+
+    def test_no_pilot_does_not_bypass_missing_signing_key(self):
+        self.generic_restore_fixture()
+        (self.source / "synapse/homeserver.signing.key").unlink()
+        with self.assertRaisesRegex(RuntimeError, "no signing key"):
+            self.run_generic_main()
+
+    def test_no_pilot_does_not_bypass_application_service_token_mismatch(self):
+        self.generic_restore_fixture()
+        filename = self.source / "bridge/config.yaml"
+        bridge = json.loads(filename.read_text()); bridge["appservice"]["as_token"] = "mismatched-isolated-token"
+        filename.write_text(json.dumps(bridge))
+        with self.assertRaisesRegex(RuntimeError, "tokens do not match"):
+            self.run_generic_main()
 
 
 if __name__ == "__main__":

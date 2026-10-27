@@ -41,7 +41,7 @@ class PrepareTests(unittest.TestCase):
         self.env = dict(os.environ, PATH=str(self.bin) + os.pathsep + os.environ["PATH"], PLURAL_ENABLED="1",
                         FIXTURE_ROOT=str(self.root), FIXTURE_SERVICES=str(self.state), FIXTURE_EVENTS=str(self.events),
                         FIXTURE_AUDIT=str(self.audit))
-        for name in ["MATRIX_BACKUP_WARM_HOOK", "MATRIX_BACKUP_COLD_HOOK", "MEDIA_RSYNC_SSH", "MATRIX_BACKUP_STATE_FILE"]:
+        for name in ["MATRIX_BACKUP_WARM_HOOK", "MATRIX_BACKUP_COLD_HOOK", "MEDIA_RSYNC_SSH", "MATRIX_BACKUP_STATE_FILE", "HISTORY_VERIFICATION_SOURCE"]:
             self.env.pop(name, None)
         config = self.root / "config.json"
         config.write_text("{}")
@@ -209,10 +209,60 @@ verification = Path(os.environ['MATRIX_BACKUP_CHECKPOINT']) / 'verification'
         self.assertTrue((self.checkpoint / "COMPLETE").exists())
         self.assertFalse((self.checkpoint / "verification/post-wave-reaction-changes.json").exists())
         self.assertFalse((self.checkpoint / "verification/post-wave-snapshot-boundary.json").exists())
-        self.assertTrue((self.checkpoint / "verification/history-manifest.json").is_file())
+        self.assertFalse((self.checkpoint / "verification/history-manifest.json").exists())
         self.assertEqual(self.audit.read_bytes(), audit)
         self.assertEqual((self.root / "warm-audit.json").read_bytes(), audit)
         self.assertNotIn("post-wave-", (self.checkpoint / "SHA256SUMS").read_text())
+
+    def test_daily_backup_does_not_need_migration_files_or_keep_stale_proofs(self):
+        shutil.rmtree(self.root / "var/lib/sec-hive-migration")
+        verification = self.checkpoint / "verification"
+        verification.mkdir()
+        for name in ["history-manifest.json", "history-account.json", "sec-hive-pilot.json"]:
+            (verification / name).write_text("stale proof")
+        result = self.run_prepare(hooks=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads((self.checkpoint / "history-verification-policy.json").read_text()), {"version": 1, "enabled": False})
+        self.assertFalse(any(verification.iterdir()))
+        self.assertTrue((self.checkpoint / "COMPLETE").is_file())
+
+    def test_configured_generic_history_proofs_are_captured_and_hashed(self):
+        source = self.root / "configured-history"
+        source.mkdir()
+        for name, data in [("history-manifest.json", '{"room_id":"!fixture:test"}'), ("history-account.json", '{"access_token":"isolated-test-token"}')]:
+            (source / name).write_text(data)
+        self.env["HISTORY_VERIFICATION_SOURCE"] = str(source)
+        result = self.run_prepare(hooks=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads((self.checkpoint / "history-verification-policy.json").read_text()), {"version": 1, "enabled": True})
+        for name in ["history-manifest.json", "history-account.json"]:
+            self.assertEqual((self.checkpoint / "verification" / name).read_bytes(), (source / name).read_bytes())
+            self.assertIn("./verification/" + name, (self.checkpoint / "SHA256SUMS").read_text())
+
+    def test_incomplete_configured_history_fails_before_pause(self):
+        source = self.root / "configured-history"
+        source.mkdir(); (source / "history-manifest.json").write_text("{}")
+        self.env["HISTORY_VERIFICATION_SOURCE"] = str(source)
+        self.assert_failed_capture(self.run_prepare(hooks=False), resumed=False)
+        self.assertEqual(self.records(), [])
+
+    def test_disabled_plural_clears_only_generated_staging_payloads(self):
+        self.initial["pluralmatrix.service"] = False
+        self.state.write_text(json.dumps(self.initial))
+        self.env["PLURAL_ENABLED"] = "0"
+        files = ["plural.dump", "plural-counts.json", "plural-config.json", "plural-bridge-pending-count"]
+        for name in files:
+            (self.checkpoint / name).write_text("stale profile payload")
+        for directory in ["plural", "plural-registration"]:
+            (self.checkpoint / directory).mkdir()
+            (self.checkpoint / directory / "state").write_text("stale profile state")
+        live = self.root / "var/lib/pluralmatrix/untouched"
+        live.write_text("live source outside generated staging")
+        result = self.run_prepare(hooks=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(all(not (self.checkpoint / name).exists() for name in files + ["plural", "plural-registration"]))
+        self.assertEqual(live.read_text(), "live source outside generated staging")
+        self.assertEqual((self.checkpoint / "plural-enabled").read_text().strip(), "0")
 
     def test_half_configured_hooks_fail_before_copy_or_pause(self):
         for variable, value in [("MATRIX_BACKUP_WARM_HOOK", str(self.warm)), ("MATRIX_BACKUP_COLD_HOOK", str(self.cold))]:

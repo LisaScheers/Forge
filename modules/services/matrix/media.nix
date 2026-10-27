@@ -20,7 +20,7 @@ in {
       device = "/dev/disk/by-id/scsi-0HC_Volume_107199635";
     };
     # Keep the cutover pause across activation and an unexpected reboot.
-    systemd.services = lib.genAttrs ["matrix-synapse" "mautrix-discord" "pluralmatrix" "restic-backups-matrix"] (_: {
+    systemd.services = lib.genAttrs (["matrix-synapse" "mautrix-discord" "restic-backups-matrix"] ++ lib.optional config.matrix.plural.enable "pluralmatrix") (_: {
       unitConfig.ConditionPathExists = "!/var/lib/sec-hive-migration/MEDIA-CUTOVER-PAUSED";
     });
     services.nginx.virtualHosts."${config.matrix.subDomain}.${config.matrix.rootDomain}".locations."/_matrix".extraConfig = ''

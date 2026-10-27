@@ -2,6 +2,13 @@
   repositoryRoot = "/srv/disks/western-digital-hdd/backups/atlas-matrix";
   nookKey = config.secrets.pubkeys.hosts.nook;
 in {
+  nixos.matrix = {lib, ...}: {
+    options.matrix.backup.historyVerificationDirectory = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Optional runtime directory containing history-manifest.json and history-account.json for authenticated restore checks";
+    };
+  };
   nixos.nook = {pkgs, ...}: {
     users.groups.matrix-backup = {};
     users.users.matrix-backup = {
@@ -68,6 +75,7 @@ in {
       runtimeInputs = [pkgs.coreutils pkgs.findutils pkgs.rsync pkgs.util-linux pkgs.systemd pkgs.sudo config.services.postgresql.package];
       runtimeEnv.SYNAPSE_CONFIG = pkgs.writeText "matrix-backup-synapse-config.json" (builtins.toJSON config.services.matrix-synapse.settings);
       runtimeEnv.RESUME_COMMAND = lib.getExe resume;
+      runtimeEnv.HISTORY_VERIFICATION_SOURCE = lib.optionalString (config.matrix.backup.historyVerificationDirectory != null) config.matrix.backup.historyVerificationDirectory;
       runtimeEnv.MEDIA_COPY_COMMAND = lib.getExe (pkgs.writeShellApplication {
         name = "matrix-backup-copy-media";
         runtimeInputs = [pkgs.rsync];

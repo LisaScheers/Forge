@@ -67,7 +67,7 @@ in {
 
       with subtest("provisioning is authenticated and loopback-only"):
           machine.succeed("test $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:29334/_matrix/provision/v1/ping) = 401")
-          machine.succeed("curl -fsS -H 'Authorization: Bearer isolated-test-only' 'http://127.0.0.1:29334/_matrix/provision/v1/ping?user_id=%40sec-hive-relay%3Abridge.test'")
+          machine.succeed("curl -fsS -H 'Authorization: Bearer isolated-test-only' 'http://127.0.0.1:29334/_matrix/provision/v1/ping?user_id=%40lisa%3Abridge.test'")
           machine.succeed("ss -ltn | grep -F '127.0.0.1:29334'")
           machine.fail("ss -ltn | grep -E '(0.0.0.0|\\*|\\[::\\]):29334'")
 

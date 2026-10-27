@@ -84,6 +84,55 @@ def require_isolated_network():
         raise RuntimeError("Restore requires a private network with loopback only")
 
 
+def verify_synapse_copy(source, restored):
+    expected = {}
+    for line in (source / "SHA256SUMS").read_text().splitlines():
+        digest, relative = line.split("  ", 1)
+        expected[Path(relative).as_posix()] = digest
+    signing_key = "synapse/homeserver.signing.key"
+    if signing_key not in expected or not (source / signing_key).stat().st_size:
+        raise RuntimeError("Checkpoint has no signing key")
+    media_prefix = "synapse/media_store/"
+    media = {name: digest for name, digest in expected.items() if name.startswith(media_prefix)}
+    actual_media = {"synapse/" + entry.relative_to(restored).as_posix()
+                    for entry in (restored / "media_store").rglob("*") if entry.is_file()}
+    if set(media) != actual_media:
+        raise RuntimeError("Restored media file set differs from checkpoint")
+    for relative, digest in {signing_key: expected[signing_key], **media}.items():
+        filename = restored / Path(relative).relative_to("synapse")
+        if filename.is_symlink() or not filename.is_file():
+            raise RuntimeError("Restored Synapse file is not regular")
+        with filename.open("rb") as stream:
+            actual = hashlib.file_digest(stream, "sha256").hexdigest()
+        if actual != digest:
+            raise RuntimeError("Restored signing key or media checksum differs")
+    return {"signing_key_preserved": True, "media_files_checked": len(media)}
+
+
+def verify_optional_history(base, source):
+    verification = source / "verification"
+    manifest = verification / "history-manifest.json"
+    account = verification / "history-account.json"
+    legacy_account = verification / "sec-hive-pilot.json"
+    policy_file = source / "history-verification-policy.json"
+    if policy_file.exists():
+        policy = json.loads(policy_file.read_text())
+        if set(policy) != {"version", "enabled"} or type(policy["version"]) is not int or policy["version"] != 1 or type(policy["enabled"]) is not bool:
+            raise RuntimeError("Unsupported history verification policy")
+        if not policy["enabled"]:
+            if any(filename.exists() for filename in [manifest, account, legacy_account]):
+                raise RuntimeError("Disabled history verification contains stale proofs")
+            return {"verified_rooms": 0, "history_verification_enabled": False}
+        if not manifest.is_file() or not account.is_file() or legacy_account.exists():
+            raise RuntimeError("Configured history verification proofs are incomplete")
+    elif not any(filename.exists() for filename in [manifest, account, legacy_account]):
+        return {"verified_rooms": 0, "history_verification_enabled": False}
+    elif not manifest.is_file() or (account.is_file() == legacy_account.is_file()):
+        raise RuntimeError("Legacy history verification proofs are incomplete or ambiguous")
+    result = verify_history(base, source)
+    return {**result, "verified_rooms": 1, "history_verification_enabled": True}
+
+
 def wait_for(check, description, timeout=120):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -99,7 +148,10 @@ def wait_for(check, description, timeout=120):
 
 def verify_history(base, source, validated_omitted_media=None):
     opener = build_opener(ProxyHandler({}))
-    token = json.loads((source / "verification/sec-hive-pilot.json").read_text())["access_token"]
+    account = source / "verification/history-account.json"
+    if not account.is_file():
+        account = source / "verification/sec-hive-pilot.json"
+    token = json.loads(account.read_text())["access_token"]
     manifest = json.loads((source / "verification/history-manifest.json").read_text())
     room = quote(manifest["room_id"], safe="")
 
@@ -176,6 +228,7 @@ def main():
     require_isolated_network()
     source = Path.cwd() / "input"
     files_checked = verify_checkpoint(source)
+    thumbnail_cache_omitted(source)
     work = Path.cwd() / "work"
     work.mkdir(mode=0o700)
     socket_dir = work / "socket"
@@ -222,6 +275,7 @@ def main():
         # The real encrypted backup and production credentials remain unchanged.
         run("psql", "-X", "-v", "ON_ERROR_STOP=1", "-d", "mautrix-discord", "-c", 'UPDATE "user" SET discord_token=NULL')
         shutil.copytree(source / "synapse", work / "synapse")
+        copied_files = verify_synapse_copy(source, work / "synapse")
         for entry in (work / "synapse").rglob("*"):
             entry.chmod(0o700 if entry.is_dir() else 0o600)
         (work / "synapse").chmod(0o700)
@@ -293,8 +347,10 @@ def main():
             wait_for(lambda: live("http://127.0.0.1:29335/health"), "restored PluralMatrix startup")
         start("bridge", ["mautrix-discord", "--config", str(bridge_file), "--registration", str(registration_file)], bridge_environment)
         wait_for(lambda: live("http://127.0.0.1:19334/_matrix/mau/live"), "restored bridge startup")
-        result = verify_history("http://[::1]:18008", source)
-        result.update({"checkpoint_files_checked": files_checked, "bridge_counts_match": True, "bridge_started": True, "external_network": False})
+        result = verify_optional_history("http://[::1]:18008", source)
+        result.update(copied_files)
+        result.update({"checkpoint_files_checked": files_checked, "bridge_counts_match": True, "bridge_started": True,
+                       "application_service_tokens_match": True, "external_network": False})
         if plural_enabled:
             result.update({"plural_counts_match": True, "plural_started": True, "plural_backlog_count_matches": True})
         (work / "result.json").write_text(json.dumps(result, indent=2) + "\n")
