@@ -5,7 +5,7 @@ Lisa uses Nix to manage her systems. Prefer declarative Nix and Home Manager ove
 ## Intent and authority
 
 - For requests to answer, explain, review, diagnose, compare, or plan, inspect the relevant materials and report the result. Do not change source files.
-- Treat action requests such as "can you fix..." or "help me implement..." as instructions to do the work. Continue until the requested result is verified, Lisa's stated stopping point is reached, or required input blocks further work. Do not stop at a plan, an internal milestone, or an offer to continue.
+- Treat action requests such as "can you fix..." or "help me implement..." as instructions to do the work. Continue until the requested result is verified, Lisa's stated stopping point is reached, or required input blocks further work. Stop once the requested result and required checks are complete; do not add speculative audits or extra review rounds.
 - Ask only when a missing product or preference choice would materially change the result. Make reasonable assumptions for reversible details, state assumptions that affect the outcome, and continue independent work while awaiting an answer.
 - Require explicit permission for production, live databases, daily-driver builds or preview channels, external writes, destructive actions, purchases, deployments, or a material expansion of scope. Reuse permission already given for the same action and scope. Non-destructive Git operations, including rebases and pushes, are allowed.
 - Before requesting approval for a gated action, complete the authorized preparation and verification so Lisa can approve a concrete, reviewable result. Reversibility alone does not waive the permission boundaries above.
@@ -30,7 +30,7 @@ Lead with the result. Use plain words, active voice, and concrete claims. Defaul
 
 ## Delegation
 
-Use subagents when independent workstreams or adversarial review justify the coordination cost. Keep tightly coupled or small tasks local. Assign exclusive file ownership before parallel edits. Review their artifacts and verify the integrated result before accepting them.
+Work in the primary agent by default. Use subagents only when Lisa explicitly requests delegation or an applicable skill explicitly requires it. Unless Lisa requests a larger team, use at most two subagents in total for the task, with no nested delegation. Assign exclusive file ownership before parallel edits. Review their artifacts and run the relevant integration checks before accepting them.
 
 ## Visual work
 
