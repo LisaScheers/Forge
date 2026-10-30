@@ -1,0 +1,7 @@
+diff --git a/src/widgets/AddressableItemList.h b/src/widgets/AddressableItemList.h
+--- a/src/widgets/AddressableItemList.h
++++ b/src/widgets/AddressableItemList.h
+@@ -119 +119,3 @@
++using DefaultAddressableItemList = AddressableItemList<>;
++
+ #endif // ADDRESSABLE_ITEM_LIST_H

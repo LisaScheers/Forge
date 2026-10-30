@@ -67,6 +67,9 @@ The helper wraps the generated configuration in `nixos.<host>-hardware`.
 
 ## Package lookup
 
+[Aurora Viewer on macOS](docs/aurora-viewer.md) documents Vega's source-built
+Second Life viewer, its Metal port, and the current validation limits.
+
 The shared shell composition installs `nix-locate` and comma (`,`), backed by the
 locked [nix-index-database](https://github.com/nix-community/nix-index-database)
 input. No local database generation is needed. Bash, Zsh, and enabled Nushell

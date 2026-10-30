@@ -15,9 +15,9 @@
     '';
     home.activation.syncCogneeConfig = lib.hm.dag.entryAfter ["seedCodexConfig"] ''
       run ${pkgs.python3.withPackages (ps: [ps.tomlkit])}/bin/python3 \
-        ${./sync-cognee-config.py} \
+        ${./sync-mcp-config.py} \
         ${lib.escapeShellArg config.home.homeDirectory}/.codex/config.toml \
-        ${config.home.file.".codex/config.toml".source}
+        ${config.home.file.".codex/config.toml".source} cognee
     '';
 
     programs = {
@@ -67,5 +67,16 @@
   flake-file.inputs.codex-cli-nix = {
     url = "github:sadjow/codex-cli-nix";
     inputs.nixpkgs.follows = "nixpkgs";
+  };
+  perSystem = {pkgs, ...}: {
+    checks.codex-mcp-config =
+      pkgs.runCommand "codex-mcp-config" {
+        nativeBuildInputs = [(pkgs.python3.withPackages (ps: [ps.tomlkit]))];
+      } ''
+        cp ${./test_sync_mcp_config.py} test_sync_mcp_config.py
+        cp ${./sync-mcp-config.py} sync-mcp-config.py
+        python3 test_sync_mcp_config.py
+        touch "$out"
+      '';
   };
 }

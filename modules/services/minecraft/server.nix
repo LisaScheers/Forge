@@ -19,8 +19,9 @@
         launcher = "startserver.sh";
       };
       ftb-skies-2-aero = {
+        # Keep the existing installation path across in-place pack updates.
         directory = "${minecraftRoot}/ftb-skies-2-aero-1.13.0";
-        description = "FTB Skies 2: Aero 1.13.0";
+        description = "FTB Skies 2: Aero 1.14.0";
         launcher = "run.sh";
       };
     };

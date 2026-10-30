@@ -6,13 +6,13 @@ Nook's Minecraft services use its Kingston SSD and are manual-only:
 | --- | --- | --- |
 | `atm10-8-0` | All the Mods 10 8.1 (original world) | `atm10-8.0` |
 | `atm10-aero` | All the Mods 10 Aeronautics 0.7.1 | `atm10-aero-0.7.1` |
-| `ftb-skies-2-aero` | FTB Skies 2: Aero 1.13.0 | `ftb-skies-2-aero-1.13.0` |
+| `ftb-skies-2-aero` | FTB Skies 2: Aero 1.14.0 | `ftb-skies-2-aero-1.13.0` |
 
 FTB Skies 2: Aero first started at Lisa's request on 2026-10-20; ATM10 Aero
-has never been started. Both use Minecraft 1.21.1, NeoForge
-21.1.250 and Nix-provided Java 21, with an 8–15 GiB heap and 20 GiB service
-memory limit. Dedicated service users own each installation. A `.prepared`
-marker gates startup. Neither unit is wanted by a boot target; starting one
+has never been started. Both use Minecraft 1.21.1 and Nix-provided Java 21,
+with an 8–15 GiB heap and 20 GiB service memory limit. ATM10 Aero uses
+NeoForge 21.1.250; FTB uses 21.1.262. Dedicated service users own each
+installation. A `.prepared` marker gates startup. Neither unit is wanted by a boot target; starting one
 stops the other because they share TCP 25565. RCON is disabled. Existing
 operator identities were retained; no old world or extra mods were copied.
 
@@ -28,6 +28,45 @@ FTB Skies 2: Aero generated its new world and reported ready at 14:40:17
 Europe/Brussels on 2026-10-20. Direct Nook and `mc.bylisa.dev:25565` status
 requests returned Minecraft 1.21.1, protocol 767; both ATM10 services were
 stopped. Joining and island generation have not been tested.
+
+## FTB update, 2026-10-28
+
+Updated FTB Skies 2: Aero from 1.13.0 to the latest official release,
+[1.14.0](https://www.feed-the-beast.com/modpacks/134-modpack/versions)
+(pack `134`, version `100576`), using FTB Server Installer 1.0.53 and the
+existing Nix Java 21. NeoForge updated from 21.1.250 to 21.1.262.
+
+The service keeps its original `ftb-skies-2-aero-1.13.0` installation path.
+The updated installation was prepared separately and moved into that path;
+no whole-system NixOS activation was needed. The Nix service description is
+updated for the next deployment; the currently loaded description still says
+1.13.0. The installed `.manifest.json` records 1.14.0.
+
+Zero players were online before stopping. The existing launcher's SIGINT
+stop exited 130 without a final-save message; `world/level.dat` contained the
+21:01:28 CET autosave. All processes were stopped before backup. The full
+archive passed GNU tar content and metadata comparison; its SHA256 is recorded
+beside it:
+
+`/srv/disks/western-digital-hdd/minecraft/backups/ftb-skies-2-aero-before-1.14.0-2026-10-28/server-1.13.0.tar`
+
+An additional untouched rollback installation remains on the SSD at
+`ftb-skies-2-aero-1.13.0-before-update-2026-10-28`. Stop the service before
+restoring either backup; never run both world copies.
+
+Before startup, all 11,426 installed pack files were present and matched
+the manifest except the retained Ultimine `exhaustion_per_block: 0.0d`
+customization. SHA256 comparison also confirmed that all 446 files outside
+the pack manifest and generated launcher/library files were unchanged,
+including the world, player data, server settings and JVM heap settings.
+The installer log and pack verification results are retained beside the archive.
+
+Started at 21:07:19 CET and reported ready at 21:08:31 CET (Europe/Brussels).
+Direct Nook and `mc.bylisa.dev:25565` status requests both returned Minecraft
+1.21.1, protocol 767, with zero players; the service had zero restarts. The
+running Java command uses NeoForge 21.1.262 in the existing installation path.
+Both ATM10 services remain stopped. A player join has not been tested; clients
+must also update to FTB Skies 2: Aero 1.14.0.
 
 ## Original ATM10 world recovery, 2026-10-20
 
