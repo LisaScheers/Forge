@@ -64,4 +64,24 @@
       url = "github:LargeModGames/spotatui";
     };
   };
+
+  home.lisa-vega.forge.mutablePreferences = {
+    ".config/spotatui/config.yml" = {
+      settings = {
+        behavior = {
+          enable_global_song_count = true;
+        };
+      };
+      format = "yaml";
+    };
+    ".config/spotatui/client.yml" = {
+      settings = {
+        enable_streaming = true;
+        streaming_device_name = "spotatui";
+        streaming_bitrate = 320;
+        streaming_audio_cache = false;
+      };
+      format = "yaml";
+    };
+  };
 }

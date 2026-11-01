@@ -59,22 +59,7 @@ in {
       '';
   };
 
-  home.lisa = {
-    config,
-    lib,
-    pkgs,
-    ...
-  }: {
-    imports = [reaModule];
-    home.activation.syncReaConfig = lib.mkIf config.programs.codex.enable (
-      lib.hm.dag.entryAfter ["seedCodexConfig"] ''
-        run ${pkgs.python3.withPackages (ps: [ps.tomlkit])}/bin/python3 \
-          ${./codex/sync-mcp-config.py} \
-          ${lib.escapeShellArg config.home.homeDirectory}/.codex/config.toml \
-          ${config.home.file.".codex/config.toml".source} rea
-      ''
-    );
-  };
+  home.lisa.imports = [reaModule];
 
   home.rea = {
     config,

@@ -2,6 +2,7 @@
   home.lisa-vega = {pkgs, ...}: {
     programs.gpg = {
       enable = true;
+      dirmngrSettings.keyserver = "hkps://keys.openpgp.org";
       scdaemonSettings = {
         # Share macOS's smartcard service with other YubiKey applications.
         disable-ccid = true;

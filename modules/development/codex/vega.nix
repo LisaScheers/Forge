@@ -19,15 +19,31 @@
       "/Users/lisa/obsidian/brain"
     ];
   in {
+    # Home Manager exposes Codex config, but not desktop keybindings.
+    forge.mutablePreferences = {
+      ".codex/keybindings.json" = {
+        settings = [
+          {
+            command = "openAvatarOverlay";
+            key = null;
+          }
+        ];
+      };
+    };
+
     programs.codex.settings = {
+      model = "gpt-6.1-sol";
+      model_reasoning_effort = "high";
+      approvals_reviewer = "user";
+      service_tier = "priority";
       desktop = {
         conversationDetailMode = "STEPS_COMMANDS";
-        sansFontSize = 14;
-        codeFontSize = 13;
+        sansFontSize = 12;
+        codeFontSize = 11;
         "ambient-suggestions-enabled" = false;
         followUpQueueMode = "queue";
         "hotkey-window-projectless-default-enabled" = true;
-        "dock-icon-preference" = "codex-system";
+        "dock-icon-preference" = "space-system";
         "show-context-window-usage" = true;
         "open-local-url-in-target-preference" = "external-browser";
         "enabled-reasoning-efforts" = [
@@ -40,7 +56,26 @@
         ];
         "show-ultra-in-model-picker-slider" = false;
         keepRemoteControlAwakeWhilePluggedIn = true;
-        "open-in-target-preferences".global = "vscode";
+        "open-in-target-preferences".global = "fileManager";
+        "toys-confetti-enabled" = true;
+        "avatar-overlay-pet-visible" = false;
+        pagesFullWidth = true;
+        pagesFontSize = 12;
+        appearanceDarkCodeThemeId = "catppuccin";
+        appearanceDarkChromeTheme = {
+          accent = "#f5c2e7";
+          accentSource = "custom";
+          contrast = 60;
+          ink = "#cdd6f4";
+          opaqueWindows = false;
+          surface = "#1e1e2e";
+          fonts.ui = "\"ComicCode Nerd Font\"";
+          semanticColors = {
+            diffAdded = "#a6e3a1";
+            diffRemoved = "#f38ba8";
+            skill = "#cba6f7";
+          };
+        };
       };
 
       projects = builtins.listToAttrs (

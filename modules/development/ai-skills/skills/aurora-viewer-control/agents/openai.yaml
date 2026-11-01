@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aurora Viewer Control"
+  short_description: "Control Aurora through its native API or MCP"
+  default_prompt: "Use $aurora-viewer-control to inspect the second-life viewer and carry out in game actions."
