@@ -10,7 +10,7 @@
 }:
 rustPlatform.buildRustPackage {
   pname = "aurora-viewer";
-  version = "0.8.3-unstable-2026-10-29";
+  version = "0.8.3-unstable-2026-10-29-browser1";
 
   src = fetchFromGitHub {
     owner = "Aurora-Viewer";
@@ -20,7 +20,8 @@ rustPlatform.buildRustPackage {
   };
 
   cargoHash = "sha256-SAzmELDacDCQwANlZeKZyqjfX4IwmtfCwaXl5c6pQDY=";
-  patches = [./macos.patch];
+  # macOS media support and pack selection, backported from upstream #1500/#1525.
+  patches = [./macos.patch ./browser.patch];
 
   nativeBuildInputs = [cmake pkg-config (python3.withPackages (ps: [ps.pillow]))];
   buildInputs = [apple-sdk_15];
@@ -31,7 +32,7 @@ rustPlatform.buildRustPackage {
   checkFlags = ["--skip" "viewer_statistics_leave_on_arrival_every_five_minutes_and_at_logout"];
   dontUseCargoParallelTests = true;
   buildType = "debug";
-  AURORA_VERSION_TAG = "v0.8.3+macos.77d8c70c";
+  AURORA_VERSION_TAG = "v0.8.3+macos.77d8c70c.browser1";
 
   postCheck = ''
     cargo test --workspace --locked --offline -j "$NIX_BUILD_CORES" \
@@ -54,7 +55,7 @@ rustPlatform.buildRustPackage {
   doInstallCheck = true;
   installCheckPhase = ''
     runHook preInstallCheck
-    test "$("$out/bin/aurora-viewer" --version)" = 'Aurora Viewer 0.8.3+macos.77d8c70c'
+    test "$("$out/bin/aurora-viewer" --version)" = 'Aurora Viewer 0.8.3+macos.77d8c70c.browser1'
     runHook postInstallCheck
   '';
 

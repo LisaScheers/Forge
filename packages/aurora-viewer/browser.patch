@@ -1,0 +1,695 @@
+diff --git a/crates/aurora-media/src/media.rs b/crates/aurora-media/src/media.rs
+index 825ba936e..86a1d54fa 100644
+--- a/crates/aurora-media/src/media.rs
++++ b/crates/aurora-media/src/media.rs
+@@ -85,12 +85,17 @@ pub struct Modifiers {
+     pub control: bool,
+     pub alt: bool,
+     pub shift: bool,
++    /// The Command key, on macOS only (always false elsewhere): the Legacy
++    /// Viewer counts it as Control (LLKeyboardMacOSX::translateModifiers,
++    /// indra/llwindow/llkeyboardmacosx.cpp), and its native key data
++    /// carries it apart.
++    pub command: bool,
+ }
+ 
+ impl Modifiers {
+     fn translate(self) -> String {
+         let mut s = String::new();
+-        if self.control {
++        if self.control || self.command {
+             s.push_str("control|");
+         }
+         if self.alt {
+@@ -626,6 +631,23 @@ impl MediaPlugin {
+         m
+     }
+ 
++    /// macOS native key data, as LLWindowMacOSX::getNativeKeyData
++    /// (indra/llwindow/llwindowmacosx.cpp): the NSEvent's type (10 key down,
++    /// 11 key up), its Cocoa modifier flags, its key code (kVK_*), its first
++    /// character and first character without modifiers (absent when there
++    /// is none), and whether it repeats.
++    pub fn native_key_data_mac(event_type: u32, modifiers: u32, keycode: u32, chars: u32, unmodified: u32, repeat: bool) -> Llsd {
++        let unit = |c: u32| if c == 0 { Llsd::Undef } else { Llsd::Integer(c as i32) };
++        let mut m = Llsd::new_map();
++        m.insert("event_type", Llsd::Integer(event_type as i32));
++        m.insert("event_modifiers", Llsd::Integer(modifiers as i32));
++        m.insert("event_keycode", Llsd::Integer(keycode as i32));
++        m.insert("event_chars", unit(chars));
++        m.insert("event_umodchars", unit(unmodified));
++        m.insert("event_isrepeat", Llsd::Boolean(repeat));
++        m
++    }
++
+     /// Linux native key data, as LLWindowSDL::getNativeKeyData of the SDL2
+     /// build (indra/llwindow/llwindowsdl2.cpp): the SDL keycode (or the typed
+     /// UTF-16 unit), its Windows virtual key, the GDK-like modifier mask
+@@ -930,25 +952,44 @@ pub const TIME_MEDIA_PLUGIN: &str = if cfg!(target_os = "linux") {
+     "media_plugin_libvlc"
+ };
+ 
+-/// Plugin for a MIME type (LLMIMETypes::implType over mime_types.xml, or
+-/// mime_types_linux.xml on Linux): unknown types go to the browser.
++/// The Legacy Viewer's MIME table of a system: mime_types.xml (Windows),
++/// mime_types_linux.xml, mime_types_mac.xml.
++#[derive(Clone, Copy, PartialEq, Eq)]
++enum MimeTable {
++    Windows,
++    Linux,
++    Mac,
++}
++
++const MIME_TABLE: MimeTable = if cfg!(target_os = "linux") {
++    MimeTable::Linux
++} else if cfg!(target_os = "macos") {
++    MimeTable::Mac
++} else {
++    MimeTable::Windows
++};
++
++/// Plugin for a MIME type (LLMIMETypes::implType over the system's
++/// mime_types table): unknown types go to the browser.
+ pub fn plugin_for_mime(mime: &str) -> &'static str {
+-    plugin_for_mime_on(mime, cfg!(target_os = "linux"))
++    plugin_for_mime_on(mime, MIME_TABLE)
+ }
+ 
+-fn plugin_for_mime_on(mime: &str, linux: bool) -> &'static str {
++fn plugin_for_mime_on(mime: &str, table: MimeTable) -> &'static str {
+     let mime = mime.trim().to_ascii_lowercase();
++    let linux = table == MimeTable::Linux;
+     let video = if linux { "media_plugin_gstreamer" } else { "media_plugin_libvlc" };
+-    // the Windows table sends these to the browser, the Linux one to GStreamer
++    // the Windows table sends these to the browser, the Linux and macOS
++    // ones to their video plugin
+     const CEF_ON_WINDOWS: [&str; 3] = ["application/ogg", "audio/mid", "video/x-ms-wmv"];
+-    if mime == "application/smil" || (!linux && CEF_ON_WINDOWS.contains(&mime.as_str())) {
++    if mime == "application/smil" || (table == MimeTable::Windows && CEF_ON_WINDOWS.contains(&mime.as_str())) {
+         return "media_plugin_cef";
+     }
+     if mime.starts_with("video/")
+         || mime.starts_with("audio/")
+         || mime == "application/octet-stream"
+         || mime == "rtsp"
+-        || (linux && mime == "application/ogg")
++        || (table != MimeTable::Windows && mime == "application/ogg")
+         || (!linux && mime == "libvlc")
+     {
+         return video;
+@@ -993,11 +1034,11 @@ mod tests {
+ 
+     #[test]
+     fn mime_routing() {
+-        assert_eq!(plugin_for_mime_on("text/html", false), "media_plugin_cef");
+-        assert_eq!(plugin_for_mime_on("video/mp4", false), "media_plugin_libvlc");
+-        assert_eq!(plugin_for_mime_on("audio/mpeg", false), "media_plugin_libvlc");
+-        assert_eq!(plugin_for_mime_on("video/x-ms-wmv", false), "media_plugin_cef");
+-        assert_eq!(plugin_for_mime_on("rtsp", false), "media_plugin_libvlc");
++        assert_eq!(plugin_for_mime_on("text/html", MimeTable::Windows), "media_plugin_cef");
++        assert_eq!(plugin_for_mime_on("video/mp4", MimeTable::Windows), "media_plugin_libvlc");
++        assert_eq!(plugin_for_mime_on("audio/mpeg", MimeTable::Windows), "media_plugin_libvlc");
++        assert_eq!(plugin_for_mime_on("video/x-ms-wmv", MimeTable::Windows), "media_plugin_cef");
++        assert_eq!(plugin_for_mime_on("rtsp", MimeTable::Windows), "media_plugin_libvlc");
+         assert_eq!(mime_from_scheme("rtsp://x/y").as_deref(), Some("rtsp"));
+         assert_eq!(mime_from_scheme("https://x/y"), None);
+         assert_eq!(mime_from_scheme("www.example.com"), None);
+@@ -1007,7 +1048,7 @@ mod tests {
+ 
+     #[test]
+     fn mime_routing_on_linux_follows_mime_types_linux_xml() {
+-        let linux = |m| plugin_for_mime_on(m, true);
++        let linux = |m| plugin_for_mime_on(m, MimeTable::Linux);
+         assert_eq!(linux("text/html"), "media_plugin_cef");
+         assert_eq!(linux("video/mp4"), "media_plugin_gstreamer");
+         assert_eq!(linux("audio/mpeg"), "media_plugin_gstreamer");
+@@ -1018,4 +1059,34 @@ mod tests {
+         assert_eq!(linux("rtsp"), "media_plugin_gstreamer");
+         assert_eq!(linux("libvlc"), "media_plugin_cef");
+     }
++
++    #[test]
++    fn mime_routing_on_macos_follows_mime_types_mac_xml() {
++        let mac = |m| plugin_for_mime_on(m, MimeTable::Mac);
++        assert_eq!(mac("text/html"), "media_plugin_cef");
++        assert_eq!(mac("video/mp4"), "media_plugin_libvlc");
++        // the three types the Windows table gives the browser
++        assert_eq!(mac("video/x-ms-wmv"), "media_plugin_libvlc");
++        assert_eq!(mac("application/ogg"), "media_plugin_libvlc");
++        assert_eq!(mac("audio/mid"), "media_plugin_libvlc");
++        assert_eq!(mac("application/smil"), "media_plugin_cef");
++        assert_eq!(mac("libvlc"), "media_plugin_libvlc");
++    }
++
++    #[test]
++    fn command_counts_as_control_in_the_modifiers() {
++        let command = Modifiers {
++            command: true,
++            ..Default::default()
++        };
++        assert_eq!(command.translate(), "control|");
++        let mac = MediaPlugin::native_key_data_mac(10, 1 << 20, 0x00, 'a' as u32, 'a' as u32, false);
++        assert_eq!(mac.get("event_keycode").as_i32(), 0);
++        assert_eq!(mac.get("event_modifiers").as_i32(), 1 << 20);
++        assert!(
++            MediaPlugin::native_key_data_mac(11, 0, 0x7B, 0, 0, false)
++                .get("event_chars")
++                .is_undef()
++        );
++    }
+ }
+diff --git a/crates/aurora-media/src/process.rs b/crates/aurora-media/src/process.rs
+index 013cfb4af..2cecdcc31 100644
+--- a/crates/aurora-media/src/process.rs
++++ b/crates/aurora-media/src/process.rs
+@@ -413,11 +413,13 @@ pub struct PluginPaths {
+ 
+ impl PluginPaths {
+     /// Path of a plugin library (`media_plugin_cef`, `media_plugin_libvlc`,
+-    /// `media_plugin_gstreamer`): `<name>.dll` on Windows, `lib<name>.so`
+-    /// elsewhere.
++    /// `media_plugin_gstreamer`): `<name>.dll` on Windows, `<name>.dylib` on
++    /// macOS (LLDir_Mac::getLLPluginFilename), `lib<name>.so` elsewhere.
+     pub fn plugin_file(&self, basename: &str) -> PathBuf {
+         let file = if cfg!(windows) {
+             format!("{basename}.dll")
++        } else if cfg!(target_os = "macos") {
++            format!("{basename}.dylib")
+         } else {
+             format!("lib{basename}.so")
+         };
+@@ -429,8 +431,12 @@ impl PluginPaths {
+     }
+ 
+     /// A folder holding `llplugin\` and SLPlugin (either inside `llplugin\`,
+-    /// as in Aurora's pack, or next to it, as in a Firestorm / SL install).
++    /// as in Aurora's pack, or next to it, as in a Firestorm / SL install);
++    /// on macOS, a folder holding SLPlugin.app ([`Self::bundle_in`]).
+     pub fn in_dir(dir: &Path) -> Option<PluginPaths> {
++        if cfg!(target_os = "macos") {
++            return Self::bundle_in(dir);
++        }
+         let plugin_dir = dir.join("llplugin");
+         if !plugin_dir.is_dir() {
+             return None;
+@@ -449,6 +455,28 @@ impl PluginPaths {
+         None
+     }
+ 
++    /// macOS: SLPlugin.app laid out as in the Legacy Viewer's application
++    /// (indra/llfilesystem/lldir_mac.cpp: the launcher in its Contents/MacOS,
++    /// the plugins, CEF's framework and helpers and LibVLC in its
++    /// Contents/Frameworks, the folder SLPlugin runs in). Found in
++    /// `llplugin/` (Aurora's pack), in the folder itself, or in the
++    /// Contents/Resources of an application chosen as the folder (an
++    /// installed Legacy Viewer's .app).
++    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
++    fn bundle_in(dir: &Path) -> Option<PluginPaths> {
++        [dir.join("llplugin"), dir.to_path_buf(), dir.join("Contents").join("Resources")]
++            .into_iter()
++            .map(|base| base.join("SLPlugin.app"))
++            .find_map(|app| {
++                let contents = app.join("Contents");
++                let launcher = contents.join("MacOS").join("SLPlugin");
++                launcher.is_file().then(|| PluginPaths {
++                    launcher,
++                    plugin_dir: contents.join("Frameworks"),
++                })
++            })
++    }
++
+     /// Search order: the folder chosen by the user, the viewer's own folder,
+     /// then Aurora's media plugins pack. The plugins of another program are
+     /// only used when the user names its folder: an installed Firestorm or
+@@ -472,6 +500,8 @@ mod tests {
+         dir
+     }
+ 
++    // (macOS looks for SLPlugin.app instead: the test below)
++    #[cfg(not(target_os = "macos"))]
+     #[test]
+     fn the_chosen_folder_comes_before_the_pack_and_nothing_else_is_searched() {
+         let root = std::env::temp_dir().join(format!("aurora-media-paths-{}", std::process::id()));
+@@ -500,4 +530,27 @@ mod tests {
+         assert!(PluginPaths::discover(None, None).is_none());
+         std::fs::remove_dir_all(&root).expect("cleanup");
+     }
++
++    #[test]
++    fn macos_finds_slplugin_app_in_the_pack_a_folder_or_an_application() {
++        let root = std::env::temp_dir().join(format!("aurora-media-bundle-{}", std::process::id()));
++        let _ = std::fs::remove_dir_all(&root);
++        let bundle = |base: &Path| {
++            let macos = base.join("SLPlugin.app").join("Contents").join("MacOS");
++            std::fs::create_dir_all(&macos).expect("fixture");
++            std::fs::write(macos.join("SLPlugin"), b"").expect("fixture");
++            base.join("SLPlugin.app").join("Contents")
++        };
++        let pack = root.join("pack");
++        let pack_contents = bundle(&pack.join("llplugin"));
++        let legacy = root.join("Legacy.app");
++        let legacy_contents = bundle(&legacy.join("Contents").join("Resources"));
++        let found = PluginPaths::bundle_in(&pack).expect("pack");
++        assert_eq!(found.launcher, pack_contents.join("MacOS").join("SLPlugin"));
++        assert_eq!(found.plugin_dir, pack_contents.join("Frameworks"));
++        let found = PluginPaths::bundle_in(&legacy).expect("an application");
++        assert_eq!(found.plugin_dir, legacy_contents.join("Frameworks"));
++        assert!(PluginPaths::bundle_in(&root).is_none(), "nothing directly in the root");
++        let _ = std::fs::remove_dir_all(&root);
++    }
+ }
+diff --git a/crates/aurora-viewer/src/app.rs b/crates/aurora-viewer/src/app.rs
+index 43fd171be..415a552cb 100644
+--- a/crates/aurora-viewer/src/app.rs
++++ b/crates/aurora-viewer/src/app.rs
+@@ -263,6 +263,8 @@ pub struct App {
+     down: HashSet<Input>,
+     shift: bool,
+     ctrl: bool,
++    /// Command held, on macOS only (aurora_media::Modifiers::command).
++    command: bool,
+     screen: Screen,
+     login_form: LoginForm,
+     // Bug report form (disabled, see main.rs):
+@@ -1100,6 +1102,7 @@ impl App {
+             down: HashSet::new(),
+             shift: false,
+             ctrl: false,
++            command: false,
+             screen: Screen::Login,
+             login_form: LoginForm::default(),
+             // Bug report form (disabled, see main.rs):
+@@ -4079,6 +4082,7 @@ impl App {
+                     control: false,
+                     alt: false,
+                     shift: false,
++                    command: false,
+                 };
+                 let distance = (point - hud_ray.0).dot(hud_ray.1);
+                 if self
+@@ -4154,6 +4158,7 @@ impl App {
+                     control: self.ctrl,
+                     alt: self.alt,
+                     shift: self.shift,
++                    command: self.command,
+                 };
+                 if self
+                     .media
+@@ -6248,6 +6253,7 @@ impl App {
+             control: self.ctrl,
+             alt: self.alt,
+             shift: self.shift,
++            command: self.command,
+         });
+         if self.mouse_mode != MouseMode::None {
+             self.mouse_mode = MouseMode::None;
+@@ -8618,6 +8624,7 @@ impl App {
+                         control: self.ctrl,
+                         alt: self.alt,
+                         shift: self.shift,
++                        command: self.command,
+                     };
+                     self.media.build_mode = self.build.open;
+                     let displayed = gfx.renderer.hover_pick(self.cursor_pos.0, self.cursor_pos.1);
+@@ -17956,6 +17963,7 @@ impl ApplicationHandler for App {
+                 self.shift = m.state().shift_key();
+                 self.ctrl = m.state().control_key();
+                 self.alt = m.state().alt_key();
++                self.command = cfg!(target_os = "macos") && m.state().super_key();
+                 if !self.ctrl || self.alt {
+                     self.build.reset_selection_wheel();
+                 }
+@@ -18128,6 +18136,7 @@ impl ApplicationHandler for App {
+                             control: self.ctrl,
+                             alt: self.alt,
+                             shift: self.shift,
++                            command: self.command,
+                         };
+                         if crate::media::keys::forward(p, code, scancode, pressed, ke.repeat, ke.text.as_deref(), mods) || pressed {
+                             return;
+@@ -18141,6 +18150,7 @@ impl ApplicationHandler for App {
+                             control: self.ctrl,
+                             alt: self.alt,
+                             shift: self.shift,
++                            command: self.command,
+                         };
+                         if self
+                             .media
+@@ -18269,6 +18279,7 @@ impl ApplicationHandler for App {
+                     control: self.ctrl,
+                     alt: self.alt,
+                     shift: self.shift,
++                    command: self.command,
+                 };
+                 let ray = if self.media.focus.is_some() {
+                     self.gfx
+diff --git a/crates/aurora-viewer/src/media/keys.rs b/crates/aurora-viewer/src/media/keys.rs
+index 59a29a20e..0fd13e5e7 100644
+--- a/crates/aurora-viewer/src/media/keys.rs
++++ b/crates/aurora-viewer/src/media/keys.rs
+@@ -5,17 +5,19 @@
+ //! keys, nativeKeyboardEvent for text) we send what the Legacy Viewer's SDL2
+ //! window sends: SDL keycodes, their Windows virtual keys and the typed
+ //! UTF-16 units (LLWindowSDL::getNativeKeyData, LLKeyboardSDL::mapSDL2toWin).
+-//! The helpers of both systems are built everywhere, so that their tests run
+-//! on either.
++//! On macOS (nativeKeyboardEventOSX) we send what the Legacy Viewer's Cocoa
++//! window reads from its NSEvent: key code, Cocoa modifier flags and
++//! characters (LLWindowMacOSX::getNativeKeyData). The helpers of every
++//! system are built everywhere, so that their tests run on any.
+ 
+ use aurora_media::{MediaPlugin, Modifiers};
+ use winit::keyboard::KeyCode;
+ 
+-#[cfg_attr(target_os = "linux", allow(dead_code))]
++#[cfg_attr(any(target_os = "linux", target_os = "macos"), allow(dead_code))]
+ pub const WM_KEYDOWN: u32 = 0x0100;
+-#[cfg_attr(target_os = "linux", allow(dead_code))]
++#[cfg_attr(any(target_os = "linux", target_os = "macos"), allow(dead_code))]
+ pub const WM_KEYUP: u32 = 0x0101;
+-#[cfg_attr(target_os = "linux", allow(dead_code))]
++#[cfg_attr(any(target_os = "linux", target_os = "macos"), allow(dead_code))]
+ pub const WM_CHAR: u32 = 0x0102;
+ 
+ /// Windows virtual-key code of a physical key.
+@@ -127,7 +129,7 @@ pub fn virtual_key(code: KeyCode) -> Option<u32> {
+     Some(vk)
+ }
+ 
+-#[cfg_attr(target_os = "linux", allow(dead_code))]
++#[cfg_attr(any(target_os = "linux", target_os = "macos"), allow(dead_code))]
+ /// lParam of a key message: repeat count 1, scan code, extended bit, and
+ /// for a release the previous-state and transition bits.
+ pub fn key_lparam(scancode: u32, up: bool, repeat: bool) -> u32 {
+@@ -152,7 +154,7 @@ pub fn char_units(text: &str) -> Vec<u32> {
+ 
+ /// Send a key (and the characters it types) to a plugin; false when the key
+ /// has no virtual-key code.
+-#[cfg(not(target_os = "linux"))]
++#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+ pub fn forward(
+     p: &mut MediaPlugin,
+     code: KeyCode,
+@@ -214,6 +216,144 @@ pub fn forward(
+     true
+ }
+ 
++/// Send a key (and the characters it types) to a plugin, as the Legacy
++/// Viewer's Cocoa window does (LLWindowMacOSX::getNativeKeyData,
++/// LLViewerMediaImpl::handleKeyHere / handleUnicodeCharHere); `scancode` is
++/// the key's macOS key code (winit's scancode there). The CEF plugin passes
++/// only non-printable keys on as keys (MediaPluginCEF::keyEvent); the
++/// characters arrive as text, with the native data of their key
++/// (MediaPluginCEF::unicodeInput). False when the key has no code.
++#[cfg(target_os = "macos")]
++pub fn forward(
++    p: &mut MediaPlugin,
++    code: KeyCode,
++    scancode: u32,
++    pressed: bool,
++    repeat: bool,
++    text: Option<&str>,
++    mods: Modifiers,
++) -> bool {
++    let Some(vk) = virtual_key(code) else {
++        return false;
++    };
++    let flags = mac::flags(mods);
++    let (ev, kind) = match (pressed, repeat) {
++        (false, _) => (aurora_media::KeyEvent::Up, mac::KEY_UP),
++        (true, true) => (aurora_media::KeyEvent::Repeat, mac::KEY_DOWN),
++        (true, false) => (aurora_media::KeyEvent::Down, mac::KEY_DOWN),
++    };
++    let (chars, unmodified) = mac::characters(code, text);
++    p.key_event(
++        ev,
++        vk as i32,
++        mods,
++        MediaPlugin::native_key_data_mac(kind, flags, scancode, chars, unmodified, repeat),
++    );
++    if pressed {
++        for (unit, unmodified) in mac::typed(text, mods) {
++            let native = MediaPlugin::native_key_data_mac(mac::KEY_DOWN, flags, scancode, unit, unmodified, repeat);
++            p.text_input(text.unwrap_or_default(), mods, native);
++        }
++    }
++    true
++}
++
++/// The Cocoa side of the macOS keyboard (pure functions, tested everywhere).
++#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
++mod mac {
++    use super::char_units;
++    use aurora_media::Modifiers;
++    use winit::keyboard::KeyCode;
++
++    /// NSEventType of a key press and of its release.
++    pub const KEY_DOWN: u32 = 10;
++    pub const KEY_UP: u32 = 11;
++
++    /// NSEventModifierFlags: Shift, Control, Option, Command.
++    pub fn flags(mods: Modifiers) -> u32 {
++        let mut f = 0;
++        if mods.shift {
++            f |= 1 << 17;
++        }
++        if mods.control {
++            f |= 1 << 18;
++        }
++        if mods.alt {
++            f |= 1 << 19;
++        }
++        if mods.command {
++            f |= 1 << 20;
++        }
++        f
++    }
++
++    /// The character Cocoa gives a key that types none: the control
++    /// characters of Return, Tab, Escape and Backspace, the private-use
++    /// codes of the function keys (NSUpArrowFunctionKey…).
++    pub fn function_char(code: KeyCode) -> Option<u32> {
++        use KeyCode::*;
++        Some(match code {
++            Enter => 0x0D,
++            NumpadEnter => 0x03,
++            Tab => 0x09,
++            Escape => 0x1B,
++            Backspace => 0x7F,
++            ArrowUp => 0xF700,
++            ArrowDown => 0xF701,
++            ArrowLeft => 0xF702,
++            ArrowRight => 0xF703,
++            F1 => 0xF704,
++            F2 => 0xF705,
++            F3 => 0xF706,
++            F4 => 0xF707,
++            F5 => 0xF708,
++            F6 => 0xF709,
++            F7 => 0xF70A,
++            F8 => 0xF70B,
++            F9 => 0xF70C,
++            F10 => 0xF70D,
++            F11 => 0xF70E,
++            F12 => 0xF70F,
++            Insert => 0xF727,
++            Delete => 0xF728,
++            Home => 0xF729,
++            End => 0xF72B,
++            PageUp => 0xF72C,
++            PageDown => 0xF72D,
++            _ => return None,
++        })
++    }
++
++    /// The event's first character and first character without
++    /// modifiers ([NSEvent characters] / charactersIgnoringModifiers):
++    /// what the key types, else its function character, else none (0). A
++    /// shifted letter is the lower-case one without modifiers.
++    pub fn characters(code: KeyCode, text: Option<&str>) -> (u32, u32) {
++        if let Some(c) = function_char(code) {
++            return (c, c);
++        }
++        let Some(first) = text.and_then(|t| t.chars().next()) else {
++            return (0, 0);
++        };
++        let unit = |c: char| char_units(&c.to_string()).first().copied().unwrap_or(0);
++        (unit(first), unit(first.to_lowercase().next().unwrap_or(first)))
++    }
++
++    /// The UTF-16 units a key press types, each with its unmodified unit.
++    /// With Control or Command down the Legacy Viewer's window types
++    /// nothing (the key is a shortcut), nor for the keys that type control
++    /// characters, which go as keys.
++    pub fn typed(text: Option<&str>, mods: Modifiers) -> Vec<(u32, u32)> {
++        let Some(text) = text.filter(|t| !t.is_empty()) else {
++            return Vec::new();
++        };
++        if mods.control || mods.command || text.chars().any(|c| c.is_control()) {
++            return Vec::new();
++        }
++        char_units(text).into_iter().map(|u| (u, u)).collect()
++    }
++}
++
+ /// The SDL2 side of the Linux keyboard (pure functions, tested everywhere).
+ #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+ mod sdl {
+@@ -393,6 +533,17 @@ mod tests {
+             ..none
+         };
+         assert_eq!(sdl::modifiers(ctrl_shift), 5);
++        // macOS: Cocoa flags, function characters, what a key types
++        let command = Modifiers { command: true, ..none };
++        assert_eq!(mac::flags(ctrl_shift), (1 << 17) | (1 << 18));
++        assert_eq!(mac::flags(command), 1 << 20);
++        assert_eq!(mac::characters(KeyCode::ArrowLeft, None), (0xF702, 0xF702));
++        assert_eq!(mac::characters(KeyCode::Backspace, None), (0x7F, 0x7F));
++        assert_eq!(mac::characters(KeyCode::KeyA, Some("A")), ('A' as u32, 'a' as u32));
++        assert_eq!(mac::characters(KeyCode::ShiftLeft, None), (0, 0));
++        assert_eq!(mac::typed(Some("é"), none), vec![(0xE9, 0xE9)]);
++        assert!(mac::typed(Some("a"), command).is_empty(), "Cmd+A is a shortcut");
++        assert!(mac::typed(Some("\r"), none).is_empty(), "Return goes as a key");
+         assert_eq!(sdl::typed(KeyCode::KeyE, Some("é"), none), vec![("é".to_string(), 0xE9)]);
+         assert_eq!(
+             sdl::typed(KeyCode::KeyE, Some("😀"), none),
+diff --git a/crates/aurora-viewer/src/ui/web_view.rs b/crates/aurora-viewer/src/ui/web_view.rs
+index 87bf16b75..4cf75e7e9 100644
+--- a/crates/aurora-viewer/src/ui/web_view.rs
++++ b/crates/aurora-viewer/src/ui/web_view.rs
+@@ -311,6 +311,8 @@ impl WebView {
+             control: i.modifiers.ctrl,
+             alt: i.modifiers.alt,
+             shift: i.modifiers.shift,
++            // (egui sets it on macOS only)
++            command: i.modifiers.mac_cmd,
+         });
+         let to_px = |pos: egui::Pos2| (((pos.x - rect.left()) * ppp) as i32, ((pos.y - rect.top()) * ppp) as i32);
+         if let Some(pos) = resp.hover_pos() {
+diff --git a/crates/aurora-updater/src/media_pack.rs b/crates/aurora-updater/src/media_pack.rs
+index c1be01b58..bb2e2fccd 100644
+--- a/crates/aurora-updater/src/media_pack.rs
++++ b/crates/aurora-updater/src/media_pack.rs
+@@ -29,7 +29,7 @@ pub struct Pack {
+ /// The pack this viewer uses, built by the "Media plugins" workflow
+ /// (.github/workflows/media-plugins.yml) and published under the tag
+ /// `media-plugins-<version>`, one archive per system.
+-#[cfg(not(target_os = "linux"))]
++#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+ pub const PACK: Pack = Pack {
+     version: "1",
+     size: 252_643_186,
+@@ -41,15 +41,27 @@ pub const PACK: Pack = Pack {
+     size: 206_114_621,
+     sha256: "11a41a1e6c6250bbc9875b3fdf2d3609f1dd1740707d9ee805eb245803bea687",
+ };
++#[cfg(target_os = "macos")]
++pub const PACK: Pack = Pack {
++    version: "3",
++    size: 334_919_416,
++    sha256: "28b21b12416459b67e7a5148d7a0239830b339db95267b517517b40ba68b15a0",
++};
+ 
+ /// The system part of the archive's name.
+-const SYSTEM: &str = if cfg!(target_os = "linux") { "linux-x64" } else { "windows-x64" };
++const SYSTEM: &str = if cfg!(target_os = "linux") {
++    "linux-x64"
++} else if cfg!(target_os = "macos") {
++    "macos-universal"
++} else {
++    "windows-x64"
++};
+ 
+ const MANIFEST: &str = "aurora-media-plugins.json";
+ /// Written next to the manifest once the archive is extracted: the SHA-256 of
+ /// that archive. A pack rebuilt under the same version is installed again.
+ const ORIGIN: &str = "archive.sha256";
+-#[cfg(not(target_os = "linux"))]
++#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+ const REQUIRED: [&str; 3] = [
+     "llplugin/SLPlugin.exe",
+     "llplugin/media_plugin_cef.dll",
+@@ -63,6 +75,14 @@ const REQUIRED: [&str; 3] = [
+     "llplugin/libmedia_plugin_cef.so",
+     "llplugin/libmedia_plugin_gstreamer.so",
+ ];
++/// SLPlugin.app as the Legacy Viewer's application holds it, its plugins
++/// in its Contents/Frameworks (DarwinManifest, viewer_manifest.py).
++#[cfg(target_os = "macos")]
++const REQUIRED: [&str; 3] = [
++    "llplugin/SLPlugin.app/Contents/MacOS/SLPlugin",
++    "llplugin/SLPlugin.app/Contents/Frameworks/media_plugin_cef.dylib",
++    "llplugin/SLPlugin.app/Contents/Frameworks/media_plugin_libvlc.dylib",
++];
+ 
+ #[derive(serde::Deserialize)]
+ struct Manifest {
+diff --git a/crates/aurora-updater/tests/updates.rs b/crates/aurora-updater/tests/updates.rs
+index 80d81a507..eb163eaee 100644
+--- a/crates/aurora-updater/tests/updates.rs
++++ b/crates/aurora-updater/tests/updates.rs
+@@ -298,6 +298,18 @@ fn os(path: &str) -> String {
+             .replace("SLPlugin.exe", "SLPlugin")
+             .replace("media_plugin_libvlc.dll", "libmedia_plugin_gstreamer.so")
+             .replace("media_plugin_cef.dll", "libmedia_plugin_cef.so")
++    } else if cfg!(target_os = "macos") {
++        // SLPlugin.app, its plugins in its Contents/Frameworks
++        path.replace("windows-x64", "macos-universal")
++            .replace("llplugin/SLPlugin.exe", "llplugin/SLPlugin.app/Contents/MacOS/SLPlugin")
++            .replace(
++                "llplugin/media_plugin_libvlc.dll",
++                "llplugin/SLPlugin.app/Contents/Frameworks/media_plugin_libvlc.dylib",
++            )
++            .replace(
++                "llplugin/media_plugin_cef.dll",
++                "llplugin/SLPlugin.app/Contents/Frameworks/media_plugin_cef.dylib",
++            )
+     } else {
+         path.to_string()
+     }
+@@ -354,8 +366,9 @@ fn media_pack_installs_once_and_replaces_what_older_viewers_left() {
+     let server = Server::new(HashMap::from([(pack_route(), bytes)]));
+     let temp = Temp::new();
+     let root = temp.0.join("media-plugins");
+-    fs::create_dir_all(root.join("1/llplugin")).expect("older pack");
+-    fs::write(root.join(os("1/llplugin/SLPlugin.exe")), b"old").expect("older pack");
++    let older = root.join(os("1/llplugin/SLPlugin.exe"));
++    fs::create_dir_all(older.parent().expect("folder")).expect("older pack");
++    fs::write(older, b"old").expect("older pack");
+     fs::create_dir_all(root.join(".staging-interrupted")).expect("leftover");
+     fs::write(root.join(".staging-interrupted/download.zip"), b"partial").expect("leftover");
+     assert!(media_pack::installed(&root, &pack).is_none());
+diff --git a/crates/aurora-viewer/src/media/pack.rs b/crates/aurora-viewer/src/media/pack.rs
+index 246f2d538..ec2547bda 100644
+--- a/crates/aurora-viewer/src/media/pack.rs
++++ b/crates/aurora-viewer/src/media/pack.rs
+@@ -72,13 +72,6 @@ impl PluginPack {
+             // tests no network at all
+             automatic: !cfg!(test) && aurora_updater::test_environment().is_none(),
+         };
+-        // No pack is built for macOS yet (TASKS.md): the Windows one would
+-        // download and never start. Plugins of a chosen folder still work.
+-        if cfg!(target_os = "macos") {
+-            this.automatic = false;
+-            this.dir = None;
+-            this.state = PackState::Failed(Failure::Unsupported);
+-        }
+         // AURORA_MEDIA_PACK_FEED: a pack served by a test server of this PC
+         // (loopback only), to try it before it is published. Its size and
+         // SHA-256 are still those this viewer was built for.
+@@ -217,14 +210,7 @@ mod tests {
+         let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("runtime");
+         let root = std::env::temp_dir().join(format!("aurora-media-pack-{}", uuid::Uuid::new_v4()));
+         let mut pack = PluginPack::new(root);
+-        // (macOS has no pack yet: unsupported from the start, never fetched)
+-        let missing = |state: PackState| {
+-            if cfg!(target_os = "macos") {
+-                matches!(state, PackState::Failed(Failure::Unsupported))
+-            } else {
+-                matches!(state, PackState::Idle)
+-            }
+-        };
++        let missing = |state: PackState| matches!(state, PackState::Idle);
+         assert!(pack.dir().is_none() && missing(pack.state()));
+         assert!(!pack.poll(true, runtime.handle()));
+         assert!(missing(pack.state()), "no download in a unit test");
