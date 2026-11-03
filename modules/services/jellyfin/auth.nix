@@ -33,6 +33,9 @@ in {
           attrs:
             backends:
               - authentik.core.auth.InbuiltBackend
+              # The Jellyfin LDAP search service authenticates with its
+              # Authentik app password, not a user database password.
+              - authentik.core.auth.TokenBackend
         - model: authentik_stages_identification.identificationstage
           identifiers:
             name: jellyfin-ldap-identification
