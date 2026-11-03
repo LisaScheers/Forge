@@ -1575,13 +1575,20 @@
               [
                 {
                   input = {
+                    Key = "KeyF";
+                  };
+                  ctrl = false;
+                  shift = false;
+                  alt = false;
+                }
+                {
+                  input = {
                     Key = "KeyR";
                   };
                   ctrl = true;
                   shift = false;
                   alt = false;
                 }
-                null
               ]
             ]
             [

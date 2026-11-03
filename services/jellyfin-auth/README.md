@@ -1,9 +1,10 @@
 # Jellyfin authentication
 
 Authentik LDAP through the official Jellyfin LDAP-Auth plugin v24 (Jellyfin 12).
-Username/password login works in the web UI and native clients. This does not
-add a browser SSO button. With the existing Authentik authentication flow, users
-with TOTP may need `password;123456` for LDAP authentication.
+Username/password login works in the web UI, native clients, and Seerr. This
+does not add a browser SSO button. LDAP binds use a dedicated password-only
+Authentik flow because the LDAP protocol cannot validate Lisa's WebAuthn MFA;
+Authentik's normal web sign-in flow still requires MFA.
 
 Explicit existing-account links: `lisa`, `rose`, `jade`, `esmee`. IDs are pinned
 in `link.py`. Lisa approved preparing new Authentik accounts for `jade` and

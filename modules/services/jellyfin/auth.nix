@@ -14,6 +14,47 @@ in {
       metadata:
         name: Jellyfin LDAP authentication
       entries:
+        # Jellyfin and Seerr authenticate through LDAP, which cannot use Lisa's
+        # WebAuthn-based MFA. Keep this password-only flow scoped to this LDAP
+        # provider; Authentik's normal web authentication flow still requires MFA.
+        - model: authentik_flows.flow
+          identifiers:
+            slug: jellyfin-ldap-authentication
+          id: jellyfin-ldap-authentication-flow
+          attrs:
+            name: Jellyfin LDAP authentication
+            title: Jellyfin LDAP authentication
+            designation: authentication
+            authentication: none
+        - model: authentik_stages_password.passwordstage
+          identifiers:
+            name: jellyfin-ldap-password
+          id: jellyfin-ldap-password-stage
+          attrs:
+            backends:
+              - authentik.core.auth.InbuiltBackend
+        - model: authentik_stages_identification.identificationstage
+          identifiers:
+            name: jellyfin-ldap-identification
+          id: jellyfin-ldap-identification-stage
+          attrs:
+            user_fields:
+              - username
+            password_stage: !KeyOf jellyfin-ldap-password-stage
+        - model: authentik_stages_user_login.userloginstage
+          identifiers:
+            name: jellyfin-ldap-login
+          id: jellyfin-ldap-login-stage
+        - model: authentik_flows.flowstagebinding
+          identifiers:
+            target: !KeyOf jellyfin-ldap-authentication-flow
+            stage: !KeyOf jellyfin-ldap-identification-stage
+            order: 10
+        - model: authentik_flows.flowstagebinding
+          identifiers:
+            target: !KeyOf jellyfin-ldap-authentication-flow
+            stage: !KeyOf jellyfin-ldap-login-stage
+            order: 100
         - model: authentik_core.user
           identifiers:
             username: jellyfin-ldap
@@ -45,14 +86,14 @@ in {
             name: Jellyfin LDAP
           id: jellyfin-provider
           attrs:
-            authorization_flow: !Find [authentik_flows.flow, [slug, default-authentication-flow]]
+            authorization_flow: !KeyOf jellyfin-ldap-authentication-flow
             invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
             base_dn: dc=jellyfin,dc=bylisa,dc=dev
             certificate: !Find [authentik_crypto.certificatekeypair, [name, auth.bylisa.dev]]
             tls_server_name: auth.bylisa.dev
             bind_mode: direct
             search_mode: direct
-            mfa_support: true
+            mfa_support: false
         - model: authentik_core.application
           identifiers:
             slug: jellyfin
