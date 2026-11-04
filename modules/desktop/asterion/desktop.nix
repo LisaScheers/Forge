@@ -7,7 +7,7 @@
     mesa =
       if osConfig != null
       then osConfig.hardware.graphics.package
-      else pkgs.callPackage ../../../packages/asterion-gpu-test-mesa/package.nix {};
+      else pkgs.callPackage ../../../packages/mesa-aurora/package.nix {};
     session = pkgs.callPackage ../../../packages/asterion-gpu-session/package.nix {
       inherit mesa;
       installed = true;

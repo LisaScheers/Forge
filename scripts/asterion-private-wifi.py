@@ -32,7 +32,7 @@ def cpio_entry(name, data, mode):
 
 def create_payload(base, output, password, ssh_public_key=None):
     manifest = json.loads((base / "manifest.json").read_text())
-    if manifest.get("kind") != "asterion-gpu-test" or manifest.get("target") != "J516s" or manifest.get("privateWifiSupport") is not True:
+    if manifest.get("kind") != "asterion-live" or manifest.get("target") != "J516s" or manifest.get("privateWifiSupport") is not True:
         raise ValueError("Base image lacks the private Wi-Fi bootstrap service")
     if not 8 <= len(password.encode()) <= 63:
         raise ValueError("WPA2 passphrase must contain 8 to 63 bytes")
@@ -55,7 +55,7 @@ def create_payload(base, output, password, ssh_public_key=None):
         decoded = base64.b64decode(fields[1], validate=True)
         if len(decoded) != 51 or not decoded.startswith(b"\0\0\0\x0bssh-ed25519\0\0\0\x20"):
             raise ValueError("Invalid Ed25519 public key")
-        archive += cpio_entry("asterion-test-authorized-key", (ssh_public_key.strip() + "\n").encode(), 0o100600)
+        archive += cpio_entry("asterion-authorized-key", (ssh_public_key.strip() + "\n").encode(), 0o100600)
     archive += cpio_entry("TRAILER!!!", b"", 0)
     archive += b"\0" * (-len(archive) % 512)
 

@@ -22,7 +22,7 @@ class PayloadChecks(unittest.TestCase):
         for name in ("Image.gz", "t6030-j516s.dtb", "initrd.gz", "m1n1.bin", "bootargs"):
             (self.payload / name).write_bytes(name.encode())
         (self.payload / "manifest.json").write_text(json.dumps({
-            "kind": "asterion-gpu-test",
+            "kind": "asterion-live",
             "target": "J516s",
             "m1n1Revision": REVISION,
         }))

@@ -25,7 +25,7 @@ class PrivateWifiTests(unittest.TestCase):
             for name in wifi.FILES:
                 (base / name).write_bytes(b"base-file")
             (base / "manifest.json").write_text(json.dumps({
-                "kind": "asterion-gpu-test", "target": "J516s",
+                "kind": "asterion-live", "target": "J516s",
                 "privateWifiSupport": True, "privateSshSupport": True,
             }))
             original = gzip.compress(b"base archive", mtime=0)
@@ -34,7 +34,7 @@ class PrivateWifiTests(unittest.TestCase):
             output = Path(directory) / "private"
             wifi.create_payload(base, output, "dummy-test-password", public_key)
             archive = gzip.decompress((output / "initrd.gz").read_bytes()[len(original):])
-            self.assertIn(b"asterion-test-authorized-key\0", archive)
+            self.assertIn(b"asterion-authorized-key\0", archive)
             self.assertIn(public_key.encode(), archive)
             self.assertTrue(json.loads((output / "manifest.json").read_text())["privateSsh"])
             with self.assertRaises(ValueError):
@@ -56,7 +56,7 @@ class PrivateWifiTests(unittest.TestCase):
             for name in wifi.FILES:
                 (base / name).write_bytes(b"base-file")
             (base / "manifest.json").write_text(json.dumps({
-                "kind": "asterion-gpu-test", "target": "J516s", "privateWifiSupport": True,
+                "kind": "asterion-live", "target": "J516s", "privateWifiSupport": True,
             }))
             original = gzip.compress(b"base archive", mtime=0)
             (base / "initrd.gz").write_bytes(original)
@@ -93,7 +93,7 @@ class PrivateWifiTests(unittest.TestCase):
     def test_old_image_is_rejected_before_writing(self):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
-            (base / "manifest.json").write_text('{"kind":"asterion-gpu-test","target":"J516s"}')
+            (base / "manifest.json").write_text('{"kind":"asterion-live","target":"J516s"}')
             with self.assertRaisesRegex(ValueError, "bootstrap"):
                 wifi.create_payload(base, base / "private", "dummy-test-password")
             self.assertFalse((base / "private").exists())

@@ -6,10 +6,10 @@
     ...
   }: let
     kernel = config.boot.kernelPackages.kernel;
-    m1n1 = pkgs.callPackage ../../../packages/asterion-gpu-test-m1n1/package.nix {
+    m1n1 = pkgs.callPackage ../../../packages/asterion-gpu-m1n1/package.nix {
       m1n1 = pkgs.m1n1;
     };
-    dtb = pkgs.callPackage ../../../packages/asterion-gpu-test-dtb/package.nix {inherit kernel;};
+    dtb = pkgs.callPackage ../../../packages/asterion-gpu-dtb/package.nix {inherit kernel;};
     uboot = config.hardware.asahi.pkgs.uboot-asahi.override {inherit m1n1;};
     bootOptions = pkgs.writeText "asterion-gpu-m1n1-options" (config.boot.m1n1ExtraOptions + "\n");
     bootImage =
@@ -26,7 +26,7 @@
           key=''${expected%%=*}
           test "$(awk -F= -v key="$key" '$1 == key { count++ } END { print count + 0 }' ${bootOptions})" = 1
         done
-        grep -aFq '##m1n1_ver##asterion-gpu-test-f5a82fdb6264' ${m1n1}/lib/m1n1/m1n1.bin
+        grep -aFq '##m1n1_ver##${m1n1.M1N1_VERSION_TAG}' ${m1n1}/lib/m1n1/m1n1.bin
         gzip -t ${uboot}/u-boot-nodtb.bin.gz
         cat ${m1n1}/lib/m1n1/m1n1.bin \
           ${dtb}/t6030-j516s.dtb \

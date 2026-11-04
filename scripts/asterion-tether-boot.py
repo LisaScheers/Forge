@@ -23,13 +23,13 @@ def main():
             parser.error(f"Missing payload file: {args.payload / name}")
 
     manifest_path = args.payload / "manifest.json"
-    gpu_test = manifest_path.exists() or (args.payload / "SHA256SUMS").exists() or "M1N1_SOURCE_REV" in os.environ
-    if gpu_test:
+    gpu_payload = manifest_path.exists() or (args.payload / "SHA256SUMS").exists() or "M1N1_SOURCE_REV" in os.environ
+    if gpu_payload:
         if not manifest_path.is_file():
             parser.error("GPU payload is missing manifest.json")
         manifest = json.loads(manifest_path.read_text())
-        if manifest["kind"] != "asterion-gpu-test" or manifest["target"] != "J516s":
-            parser.error("Unsupported test payload")
+        if manifest["kind"] != "asterion-live" or manifest["target"] != "J516s":
+            parser.error("Unsupported GPU payload")
         if os.environ.get("M1N1_SOURCE_REV") != manifest["m1n1Revision"]:
             parser.error("GPU payload requires its matching nix develop path:.#asahi-gpu-tether shell")
         expected_files = {"Image.gz", "t6030-j516s.dtb", "initrd.gz", "m1n1.bin", "bootargs", "manifest.json"}
@@ -77,7 +77,7 @@ def main():
     # A plain m1n1 chainload also loses that configuration. Restore the ESP
     # reference explicitly so the live installer can extract target firmware.
     p.kboot_set_chosen("asahi,efi-system-partition", str(args.esp_uuid))
-    if gpu_test:
+    if gpu_payload:
         # The handoff checks ASCII '1', not a device-tree u32. These markers
         # enable the pinned firmware handoff during kboot_prepare_dt().
         p.kboot_set_chosen("asahi,t6030-dcp", "1")

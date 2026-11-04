@@ -5,9 +5,9 @@
     pkgs,
     ...
   }: let
-    kernel = pkgs.callPackage ../../../packages/asterion-gpu-test-kernel/package.nix {};
-    mesa = pkgs.callPackage ../../../packages/asterion-gpu-test-mesa/package.nix {};
-    gpuModules = pkgs.callPackage ../../../packages/asterion-gpu-test-modules/package.nix {
+    kernel = pkgs.callPackage ../../../packages/asterion-gpu-kernel/package.nix {};
+    mesa = pkgs.callPackage ../../../packages/mesa-aurora/package.nix {};
+    gpuModules = pkgs.callPackage ../../../packages/asterion-gpu-modules/package.nix {
       kernel = config.boot.kernelPackages.kernel;
     };
   in {

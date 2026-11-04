@@ -49,7 +49,7 @@ The installed system and installer share these modules:
 | `modules/hardware/apple-silicon/audio.nix` | Upstream Asahi sound, DSP and speaker protection |
 | `packages/asterion-gpu-session/` | Validated Niri, Noctalia, terminal and pinned Mesa environment |
 
-The [RAM GPU guide](asterion-gpu-test.md) records exact source pins, firmware
+The [RAM GPU guide](asterion-live.md) records exact source pins, firmware
 admission, readback tests, private payload preparation and tether recovery.
 Firmware identity checks remain enforced. Do not add an identity override to
 force an unknown firmware revision through admission.
@@ -367,11 +367,15 @@ input, retained with the installed calibration package for future rebuilds;
 only its hash and extraction code belong in Git. Vega's backup is
 `/Users/lisa/.local/state/asterion-gpu/factory/asterion-factory-calibration.tar`.
 
-The 25 October source audit found m1n1 at the current integration revision.
-Newer kernel T6030 fixes overlap this setup's static PMP and normalized UAT
-integration. The newer Mesa branch changes kernel UAPI numbering and must be
-qualified with a matching kernel; a package-only upgrade would break the tested
-pair. The working GPU stack remains pinned together.
+On 4 November, the source configuration advanced the Aurora kernel, Mesa and
+m1n1 together to their latest integration revisions, plus the Asahi firmware
+extractor. The shared Mesa recipe is now `packages/mesa-aurora/`. Upstream
+supplies the panel-nits fixes and creates PMP through its admitted display-gate
+overlay, with the GPU supplier link enabled. The measured J516s firmware digest
+and opaque-X color fixes remain local. The [RAM guide](asterion-live.md)
+lists the exact pins and preserves the earlier hardware qualification record.
+The updated stack still needs a full system/image build and hardware qualification
+before installation; these source changes do not update the running system.
 
 ## Recovery
 

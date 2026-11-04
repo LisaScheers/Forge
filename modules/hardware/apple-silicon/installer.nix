@@ -8,7 +8,7 @@
     modules = [
       inputs.nixos-apple-silicon.nixosModules.apple-silicon-installer
       config.nixos.asterion-installer-common
-      config.nixos.asterion-gpu-test
+      config.nixos.asterion-live
       config.nixos.asterion-gpu-boot
     ];
   };
@@ -25,12 +25,12 @@ in {
     nixpkgs.overlays = [
       (final: prev: {
         asahi-fwextract = prev.asahi-fwextract.overrideAttrs {
-          version = "0.8.0-unstable-2026-09-01";
+          version = "0.8.0-unstable-2026-10-02";
           src = final.fetchFromGitHub {
             owner = "AsahiLinux";
             repo = "asahi-installer";
-            rev = "99dff2e968dafcabc2a940865b051e91ffcfafd3";
-            hash = "sha256-IbGH5pn65XL7tIbvwYLk1GLjjnp7wI1DV/4e94cySCc=";
+            rev = "e93743d52178b3e26e428fa05174ef549abf30cb";
+            hash = "sha256-KTl4GsCz/PdrzWmR/y12N1Lmw1f7Auzh2EYwcTjuCo0=";
           };
         };
       })
@@ -44,7 +44,7 @@ in {
   flake.packages.aarch64-linux.asterion-installer = installer.config.system.build.isoImage;
   # The installable RAM image is the same stack qualified on the laptop.
   flake.packages.aarch64-linux.asterion-tethered-installer =
-    config.flake.packages.aarch64-linux.asterion-gpu-test;
+    config.flake.packages.aarch64-linux.asterion-live;
 
   perSystem = {pkgs, ...}: let
     python = pkgs.python3.withPackages (p: [p.construct p.pyserial]);
