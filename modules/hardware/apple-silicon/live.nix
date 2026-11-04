@@ -54,7 +54,7 @@ in {
       text = ''
         if [[ $# != 1 || $1 != --run ]]; then
           echo 'Usage: sudo asterion-gpu-check --run'
-          echo 'Loads the experimental GPU and checks shader rendering and compute.'
+          echo 'Loads the native GPU driver and checks shader rendering and compute.'
           exit 2
         fi
         [[ $EUID == 0 ]] || { echo 'Run as root.' >&2; exit 1; }

@@ -1,11 +1,13 @@
-# Asterion RAM GPU desktop
+# Asterion live RAM desktop and installer
 
-Asterion (`Mac15,7`, 16-inch M3 Pro, `J516s/T6030/G15S B1`) now runs a
-hardware-accelerated Niri and Noctalia desktop in RAM. Native GLES and Vulkan
+Asterion (`Mac15,7`, 16-inch M3 Pro, `J516s/T6030/G15S B1`) runs an installed
+NixOS system with a hardware-accelerated Niri and Noctalia desktop. This guide
+covers its matching live RAM desktop for installation and recovery; see the
+[installed-system guide](asterion.md) for normal operation. Native GLES and Vulkan
 rendering and compute have passed exact readback tests. Native scanout,
 desktop screenshot readback and 200-nit backlight control pass.
 
-The final image passed a fresh tethered boot on 24 October 2026. GPU readiness,
+The RAM image passed a fresh tethered boot on 24 October 2026. GPU readiness,
 greetd, Niri and Noctalia started automatically. GLES and Vulkan readbacks
 passed again in that boot; no manual display or GPU startup was needed.
 

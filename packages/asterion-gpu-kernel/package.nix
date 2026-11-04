@@ -67,7 +67,7 @@ in
       DRM_APPLE = module;
       DRM_ASAHI = module;
       DRM_ASAHI_G15 = yes;
-      # The experiment has no reason to provision SEP keybags or touch xART.
+      # The Linux system does not need SEP keybags or xART access.
       APPLE_SEP = no;
     };
     features.rust = true;

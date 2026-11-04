@@ -2,13 +2,13 @@
 
 ## About
 
-This flake manages Nook, Atlas, and Vega. Altair no longer exists and is not a flake output.
+This flake manages Nook, Atlas, Vega, and Asterion. Altair no longer exists and is not a flake output.
 
-[Asterion](docs/asterion.md) is the experimental Asahi configuration for the
-16-inch M3 Pro MacBook Pro, with a dedicated installer image. Installation is
+[Asterion](docs/asterion.md) is the installed Asahi configuration for the
+16-inch M3 Pro MacBook Pro, with a dedicated live installer image. Installation is
 manual; it is not part of the server deployment or automatic update paths.
-Encrypted console boot is verified. Native niri remains blocked by M3 graphics
-support; the Home Manager desktop configuration is provided for future use.
+Encrypted boot, the native Niri/Noctalia desktop, GPU acceleration and protected
+speaker playback are verified on the installed system.
 
 ## Architecture
 
@@ -20,7 +20,7 @@ system settings, home settings, packages, checks, and inputs together.
 Features merge into named profiles such as `nixos.nook`, `darwin.vega`,
 `home.lisa-cli`, and `home.lisa`. The CLI profile supplies shared shell and home
 integration dependencies; Lisa's main profile adds her usual applications.
-Asterion selects the CLI profile and its own desktop settings.
+Asterion selects Lisa's portable profile and its own desktop settings.
 
 The layout follows the feature-oriented structure in Rose's and Esmee's
 configurations and [Vimjoyer's examples](https://vimjoyer.com/nix/):
