@@ -1,0 +1,65 @@
+diff --git a/drivers/gpu/drm/apple/iomfb_v14_7.c b/drivers/gpu/drm/apple/iomfb_v14_7.c
+--- a/drivers/gpu/drm/apple/iomfb_v14_7.c
++++ b/drivers/gpu/drm/apple/iomfb_v14_7.c
+@@ -234,6 +234,8 @@
+ 	u64 backlight_factor_updates;
+ 	u32 ctm_status, ctm_get_status;
+ 	u64 ctm_readback[9];
++	bool opaque_x_attempted, opaque_x_ready;
++	u32 opaque_x_status;
+ 	struct work_struct idle_work;
+ 	/* External: reports the display gone once the session stopped. */
+ 	struct work_struct stopped_work;
+@@ -2515,6 +2517,8 @@
+ 		   v14->started, v14->failed, v14->swaps, v14->swap_ns_max / NSEC_PER_USEC);
+ 	seq_printf(m, "active_fb %u\nimported %d\n", fb ? fb->base.id : 0,
+ 		   fb && fb->obj[0]->import_attach);
++	seq_printf(m, "opaque_x attempted %d ready %d status %#x\n",
++		   v14->opaque_x_attempted, v14->opaque_x_ready, v14->opaque_x_status);
+ 	seq_printf(m, "panel %ux%u\nboot_fb %ux%u stride %u\nclock %llu\n",
+ 		   v14->panel_width, v14->panel_height, v14->fb_width, v14->fb_height,
+ 		   v14->stride, v14->clock_rate);
+@@ -2598,6 +2602,32 @@
+ 	return 0;
+ }
+ 
++/*
++ * XR24 leaves X undefined. With GP alpha division enabled, this panel divides
++ * premultiplied RGB by X before blending; a zero X discards valid RGB. The
++ * installed 14.7 ABI uses A465 and runtime property 0x43 (enableGPAlphaDiv).
++ * Keep the premultiplied surface and black background, but disable division.
++ */
++static int dcp_v14_prepare_opaque_x(struct apple_dcp_v14 *v14)
++{
++	__le32 request[2] = { cpu_to_le32(0x43), 0 }, status = 0;
++	int ret;
++
++	lockdep_assert_held(&v14->lock);
++	if (v14->external || !of_machine_is_compatible("apple,j516s"))
++		return 0;
++	v14->opaque_x_attempted = true;
++	ret = dcp_v14_call(v14, A(465), request, sizeof(request),
++			   &status, sizeof(status), 0);
++	v14->opaque_x_status = le32_to_cpu(status);
++	v14->opaque_x_ready = !ret && !v14->opaque_x_status;
++	dev_info(v14->dev, "opaque X: A465 enableGPAlphaDiv=0 transport=%d status=%#x ready=%d\n",
++		 ret, v14->opaque_x_status, v14->opaque_x_ready);
++	if (ret)
++		return ret;
++	return v14->opaque_x_status ? -EIO : 0;
++}
++
+ int iomfb_v14_7_start(struct apple_dcp *dcp)
+ {
+ 	struct apple_dcp_v14 *v14 = dcp->v14;
+@@ -2629,6 +2659,10 @@
+ 	step = "panel mode";
+ 	mutex_lock(&v14->lock);
+ 	ret = dcp_v14_mode(dcp, v14);
++	if (!ret) {
++		step = "opaque X alpha division";
++		ret = dcp_v14_prepare_opaque_x(v14);
++	}
+ 	mutex_unlock(&v14->lock);
+ 	if (ret)
+ 		goto fail;
