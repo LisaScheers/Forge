@@ -97,7 +97,7 @@
   toolPackages =
     [
       browser
-      pkgs.jdk21
+      pkgs.jdk25
       jadx
       apktool
       pkgs.android-tools
@@ -126,7 +126,7 @@
 
   environment =
     {
-      JAVA_HOME = toString pkgs.jdk21.home;
+      JAVA_HOME = toString pkgs.jdk25.home;
       REA_ANALYSIS_PROVIDER =
         if ghidraSupported
         then "ghidra"

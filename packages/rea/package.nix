@@ -47,6 +47,12 @@ in
         url = "https://raw.githubusercontent.com/morluto/rea/160d821ac9a0310afcb8d1fc427862dd6508add5/package-lock.json";
         hash = "sha256-HY+g8zsxJdPmAeyDKxjZ01s3RT82NA3AUH8GWo3hWK0=";
       }} package-lock.json
+      # Admit the packaged Ghidra 12.2 while preserving upstream's verified version.
+      substituteInPlace dist/ghidra/GhidraReleasePolicy.js dist/cli-runtime/KunaCommand-*.js dist/mcp/binary-*.js \
+        --replace-fail 'version.major === verified.major && version.minor === verified.minor' \
+          '((version.major === verified.major && version.minor === verified.minor) || (version.major === 12 && version.minor === 2))' \
+        --replace-fail 'other ''${ghidraReleaseLine()} builds are accepted and the observed version is reported.' \
+          'this package also accepts Ghidra 12.2.x and reports the observed version.'
     '';
 
     nodejs = nodejs_26;

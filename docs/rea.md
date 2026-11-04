@@ -13,7 +13,7 @@ both the CLI and MCP server:
 
 | Tools | Availability |
 | --- | --- |
-| Ghidra 12.1.4, its pinned REA NativeAOT extension, and JDK 21 | Vega, Nook, Asterion |
+| Ghidra 12.2, its pinned REA NativeAOT extension, and JDK 25 | Vega, Nook, Asterion |
 | Kuna 1.833, Rizin, Cutter, GNU objdump, LLDB | All three hosts |
 | JADX CLI and headless MCP JAR 0.7.1, Apktool, ADB | All three hosts |
 | ILSpy CLI | All three hosts |
@@ -27,6 +27,8 @@ both the CLI and MCP server:
 
 Ghidra is the default native provider so installing Kuna alongside it does not
 make automatic provider selection ambiguous. Select Kuna explicitly when needed.
+The package extends REA 6.8's version check to accept Ghidra 12.2.x; sessions still
+report that upstream verified the bridge against 12.1.4.
 Kuna uses the exact release verified by REA, including its matching Sleigh specs.
 Home Manager installs the matching Cutter bridge in its user plugin directory;
 open a target in Cutter to make that GUI session available to REA.

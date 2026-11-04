@@ -54,7 +54,8 @@
       VISUAL = lib.mkForce "${lib.getExe zed} --wait";
     };
     xdg.dataFile = {
-      "java/8".source = "${pkgs.zulu8}";
+      # Java 8's optional GTK theme pulls in the retired GTK2 package.
+      "java/8".source = "${pkgs.zulu8.override {gtkSupport = false;}}";
       "java/17".source = "${pkgs.jdk17}";
       "java/21".source = "${pkgs.jdk21}";
       "java/25".source = "${pkgs.jdk25}";

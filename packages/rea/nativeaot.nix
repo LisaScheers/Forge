@@ -2,7 +2,7 @@
   lib,
   stdenvNoCC,
   fetchurl,
-  jdk21,
+  jdk25,
   ghidra,
 }: let
   reaSource = fetchurl {
@@ -17,7 +17,7 @@ in
       url = "https://github.com/Washi1337/ghidra-nativeaot/archive/effeb734fc570c32650f88b159608979dc7b423e.tar.gz";
       hash = "sha256-feMh3yFn9lsyRhNXK+DosmH7AhZklmdBtXXxA7I/xWY=";
     };
-    nativeBuildInputs = [jdk21];
+    nativeBuildInputs = [jdk25];
     buildPhase = ''
       runHook preBuild
       mkdir bridge classes

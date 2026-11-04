@@ -295,6 +295,38 @@ Kernel, modules, Mesa and boot firmware form a qualified set. Use a reboot for
 changes to that set; do not unload the active display/GPU or rebind it live.
 The GPU readiness service does not restart during ordinary configuration switches.
 
+## Fan curve
+
+`modules/hardware/apple-silicon/fans.nix` enables the driver's
+`macsmc_hwmon.fan_control=1` boot parameter and runs `asterion-fan-control`.
+This takes effect after installing the configuration and rebooting; changing
+the parameter on an already-probed driver does not recreate writable targets.
+The driver marks the kernel tainted when manual fan control is enabled.
+
+Both fans follow the hottest available `SoC die` sensor, sampled every two
+seconds, with linear interpolation between these points:
+
+| SoC temperature | Fan speed |
+| --- | --- |
+| 40°C and below | 30% |
+| 55°C | 50% |
+| 65°C | 75% |
+| 75°C and above | 100% |
+
+Percentages refer to each fan's maximum RPM, clamped to its supported minimum.
+An unreadable or invalid SoC temperature requests full speed until readings
+recover. While the service controls the fans, it replaces firmware fan policy.
+Stopping it restores firmware control, including after a forced termination
+through the service's `ExecStopPost`:
+
+```sh
+sudo systemctl stop asterion-fan-control
+```
+
+Edit `--curve` in the module to change the temperature:percentage points.
+The controller's fake-hardware tests cover interpolation, sensor failures and
+restoration; the curve has not yet been verified on the physical fans.
+
 ## Wi-Fi
 
 Lisa IOT is restricted to 2.4 GHz by the UniFi configuration. The installed

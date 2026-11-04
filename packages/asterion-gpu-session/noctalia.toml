@@ -13,7 +13,7 @@ enabled = false
 [shell.panel]
 transparency_mode = "solid"
 shadow = false
-border_color = "outline"
+border_color = "outline_variant"
 
 [shell.launcher]
 layout = "simple"
