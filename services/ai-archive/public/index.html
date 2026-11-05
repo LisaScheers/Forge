@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark"><title>AI Archive</title>
+  <link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#overview"><span class="brand-icon">A<span>↗</span></span><span>AI Archive<small>Your inference history</small></span></a>
+    <div class="nav-label">WORKSPACE</div>
+    <nav aria-label="Main navigation">
+      <a href="#overview" id="nav-overview"><span class="nav-icon">▥</span>Overview</a>
+      <a href="#conversations" id="nav-conversations"><span class="nav-icon">☷</span>Conversations<span id="nav-count" class="nav-count"></span></a>
+    </nav>
+    <div class="sidebar-bottom"><span class="source-dot"></span><span>Nook<small id="sync-state">Connecting to archive</small></span><button id="refresh" class="icon-button" title="Refresh archive" aria-label="Refresh archive">↻</button></div>
+  </aside>
+  <main>
+    <header class="page-header"><div><div class="eyebrow">YOUR AI, IN VIEW</div><h1 id="page-title">Overview</h1></div><div class="header-right"><span class="private-label">Private workspace</span><span class="avatar" title="Signed in as Lisa">L</span></div></header>
+    <section class="filter-bar" aria-label="Filters">
+      <label class="search-field"><span>⌕</span><input id="search" type="search" placeholder="Search prompts and responses…" aria-label="Search prompts and responses" maxlength="200"><kbd>/</kbd></label>
+      <label class="select-label"><span class="sr-only">Model</span><select id="model"><option value="">All models</option></select></label>
+      <label class="select-label"><span class="sr-only">Client</span><select id="client"><option value="">All clients</option></select></label>
+      <label class="select-label"><span class="sr-only">Date range</span><select id="days"><option value="1">Last 24 hours</option><option value="7" selected>Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="0">All time</option></select></label>
+    </section>
+    <div id="notice" class="notice" role="status" hidden></div>
+    <section id="overview" aria-label="Usage overview">
+      <div class="metrics" id="metrics"><div class="metric"><span>Reported tokens</span><strong>—</strong></div><div class="metric"><span>Requests / responses</span><strong>—</strong></div><div class="metric"><span>Cached input</span><strong>—</strong></div><div class="metric"><span>Reasoning tokens</span><strong>—</strong></div></div>
+      <div class="overview-grid">
+        <section class="panel activity-panel"><div class="panel-heading"><div><h2>Token activity</h2><p>Input and output, with cached input separated.</p></div><span id="chart-period" class="muted"></span></div><div id="activity" class="activity-chart" aria-label="Daily token usage"></div><div class="legend"><span><i class="uncached"></i>Uncached input</span><span><i class="cached"></i>Cached input</span><span><i class="output"></i>Output</span></div></section>
+        <section class="panel"><div class="panel-heading"><div><h2>By client</h2><p>Where requests originate.</p></div></div><div id="clients" class="client-breakdown"></div><div class="panel-foot" id="coverage"></div></section>
+      </div>
+      <section class="panel models-panel"><div class="panel-heading"><div><h2>Models</h2><p>Reported usage across your providers.</p></div><span id="model-count" class="muted"></span></div><div class="table-scroll"><table><thead><tr><th>Model</th><th>Provider</th><th>Requests</th><th>Input</th><th>Output</th><th>Cached</th><th>Total</th></tr></thead><tbody id="models"></tbody></table></div></section>
+      <div class="overview-grid lower-grid"><section class="panel"><div class="panel-heading"><div><h2>Recent conversations</h2><p>Pick up a thread or inspect a request.</p></div><a class="text-link" href="#conversations">View all ↗</a></div><div id="recent"></div></section><section class="panel"><div class="panel-heading"><div><h2>Reported counters</h2><p>Provider fields, including tool usage. Subsets overlap.</p></div></div><div id="categories" class="counter-table"></div></section></div>
+    </section>
+    <section id="conversations" class="conversation-workspace" aria-label="Conversation browser" hidden>
+      <aside class="conversation-list"><div class="list-heading"><strong id="list-count">Conversations</strong><label><span class="sr-only">Request status</span><select id="status"><option value="">All statuses</option><option value="error">Errors</option><option value="incomplete">Incomplete</option><option value="success">Successful</option></select></label></div><div id="conversation-items"></div><button id="load-more" class="load-more" hidden>Load more conversations</button></aside>
+      <section id="reader" class="reader"><div class="empty-reader"><div class="empty-icon">☷</div><h2>Your conversations, in context.</h2><p>Select a conversation to read its messages,<br>inspect requests, and see every reported token.</p></div></section>
+    </section>
+    <footer class="page-footer"><span id="archive-summary">Loading capture history…</span><span>Open requests appear after their capture closes.</span></footer>
+  </main>
+  <dialog id="request-dialog"><div class="dialog-header"><div><span class="eyebrow">REQUEST DETAILS</span><h2 id="request-model"></h2></div><button id="close-dialog" class="icon-button" aria-label="Close request details">×</button></div><div id="request-content"></div></dialog>
+</body>
+</html>

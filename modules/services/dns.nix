@@ -11,6 +11,8 @@
     upstreamAddress = "2a06:98c1:54::756a";
     upstreamTlsName = "nj004b71mp.cloudflare-gateway.com";
     localNames = [
+      "ai.local.bylisa.dev."
+      "cliproxy.local.bylisa.dev."
       "cognee.local.bylisa.dev."
       "home-server.local.bylisa.dev."
       "i2p.local.bylisa.dev."

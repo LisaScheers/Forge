@@ -1,0 +1,87 @@
+diff --git a/internal/logging/forge_capture_test.go b/internal/logging/forge_capture_test.go
+new file mode 100644
+index 0000000..7acfda0
+--- /dev/null
++++ b/internal/logging/forge_capture_test.go
+@@ -0,0 +1,33 @@
++package logging
++
++import (
++	"testing"
++	"time"
++)
++
++func TestForgeFullCaptureQueueAppliesBackpressure(t *testing.T) {
++	writer := &FileStreamingLogWriter{chunkChan: make(chan []byte, 1)}
++	writer.WriteChunkAsync([]byte("first"))
++	done := make(chan struct{})
++	go func() {
++		writer.WriteChunkAsync([]byte("second"))
++		close(done)
++	}()
++	select {
++	case <-done:
++		t.Fatal("full capture queue discarded a chunk")
++	case <-time.After(20 * time.Millisecond):
++	}
++	if got := string(<-writer.chunkChan); got != "first" {
++		t.Fatalf("first chunk = %q", got)
++	}
++	select {
++	case chunk := <-writer.chunkChan:
++		if string(chunk) != "second" {
++			t.Fatalf("second chunk = %q", chunk)
++		}
++	case <-time.After(time.Second):
++		t.Fatal("second chunk was not captured")
++	}
++	<-done
++}
+diff --git a/internal/logging/request_logger_streaming.go b/internal/logging/request_logger_streaming.go
+index 089843b..f185be8 100644
+--- a/internal/logging/request_logger_streaming.go
++++ b/internal/logging/request_logger_streaming.go
+@@ -80 +80 @@ type FileStreamingLogWriter struct {
+-// WriteChunkAsync writes a response chunk asynchronously (non-blocking).
++// WriteChunkAsync spools every response chunk, applying backpressure when necessary.
+@@ -93,6 +93,2 @@ func (w *FileStreamingLogWriter) WriteChunkAsync(chunk []byte) {
+-	// Non-blocking send
+-	select {
+-	case w.chunkChan <- chunkCopy:
+-	default:
+-		// Channel is full, skip this chunk to avoid blocking
+-	}
++	// Capture must not silently discard output when the disk is slower than inference.
++	w.chunkChan <- chunkCopy
+diff --git a/sdk/cliproxy/auth/empty_completion.go b/sdk/cliproxy/auth/empty_completion.go
+index 098af07..2ee7f8f 100644
+--- a/sdk/cliproxy/auth/empty_completion.go
++++ b/sdk/cliproxy/auth/empty_completion.go
+@@ -404 +404 @@ type openAIResponseChunk struct {
+-	Text      string                `json:"text"`
++	Text      json.RawMessage       `json:"text"`
+@@ -707 +707,3 @@ func (a *emptyCompletionAccum) evalOpenAIResponse(data []byte) bool {
+-		if strings.TrimSpace(chunk.Text) != "" {
++		var text string
++		_ = json.Unmarshal(chunk.Text, &text)
++		if strings.TrimSpace(text) != "" {
+diff --git a/sdk/cliproxy/auth/forge_capture_test.go b/sdk/cliproxy/auth/forge_capture_test.go
+new file mode 100644
+index 0000000..f50131b
+--- /dev/null
++++ b/sdk/cliproxy/auth/forge_capture_test.go
+@@ -0,0 +1,14 @@
++package auth
++
++import "testing"
++
++func TestForgeResponsesObjectTextConfiguration(t *testing.T) {
++	var accum emptyCompletionAccum
++	payload := []byte(`{"object":"response","status":"completed","text":{"format":{"type":"text"}},"output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"captured"}]}],"usage":{"input_tokens":2,"output_tokens":1}}`)
++	if !accum.evalOpenAIResponse(payload) {
++		t.Fatal("valid object-valued text configuration was not recognized")
++	}
++	if !accum.hasContent {
++		t.Fatal("completed response content was discarded")
++	}
++}

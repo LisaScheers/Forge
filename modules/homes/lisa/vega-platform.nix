@@ -15,6 +15,10 @@
       tile-type = "file-tile";
     };
   in {
+    # Symlinks avoid copying app bundles and the App Management permission loop.
+    targets.darwin.copyApps.enable = false;
+    targets.darwin.linkApps.enable = true;
+
     targets.darwin.defaults = {
       NSGlobalDomain = {
         AppleInterfaceStyle = "Dark";
