@@ -19,6 +19,7 @@
     ];
     home-manager.users.lisa = config.home.lisa-asterion;
   };
+  flake.checks.aarch64-linux.asterion = config.flake.nixosConfigurations.asterion.config.system.build.toplevel;
   ci.targets = [
     {
       target = "nixosConfigurations.\"asterion\".config.system.build.toplevel";

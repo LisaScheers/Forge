@@ -9,7 +9,7 @@ if [[ -n "$maintenance" && ( "$maintenance" != "--maintenance" || "$host" != "at
   exit 2
 fi
 case "$host" in
-  nook|atlas|vega) ;;
+  nook|atlas|asterion|vega) ;;
   *)
     echo "unknown deploy host: $host" >&2
     exit 2
@@ -58,6 +58,7 @@ fi
 
 case "$host" in
   nook|atlas) target_system="x86_64-linux" ;;
+  asterion) target_system="aarch64-linux" ;;
   vega) target_system="aarch64-darwin" ;;
 esac
 nix build --no-link \

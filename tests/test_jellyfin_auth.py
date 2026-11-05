@@ -50,13 +50,13 @@ class AccountLinks(unittest.TestCase):
     def test_links_only_selected_ids_preserving_all_other_policy_fields(self):
         original = copy.deepcopy(self.users)
         link.link_accounts(self.request)
-        self.assertEqual(len(self.writes), 4)
-        for before, after in zip(original[:4], self.users[:4]):
+        self.assertEqual(len(self.writes), len(link.ACCOUNTS))
+        for before, after in zip(original[:-1], self.users[:-1]):
             expected = {**before["Policy"], "AuthenticationProviderId": link.LDAP_PROVIDER}
             self.assertEqual(after, {**before, "Policy": expected})
-        self.assertEqual(self.users[4], original[4])
+        self.assertEqual(self.users[-1], original[-1])
         link.link_accounts(self.request)
-        self.assertEqual(len(self.writes), 4)
+        self.assertEqual(len(self.writes), len(link.ACCOUNTS))
 
     def test_identity_mismatch_prevents_every_policy_change(self):
         self.users[1]["Name"] = "someone-else"

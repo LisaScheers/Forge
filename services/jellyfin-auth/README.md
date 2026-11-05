@@ -6,7 +6,7 @@ does not add a browser SSO button. LDAP binds use a dedicated password-only
 Authentik flow because the LDAP protocol cannot validate Lisa's WebAuthn MFA;
 Authentik's normal web sign-in flow still requires MFA.
 
-Explicit existing-account links: `lisa`, `rose`, `jade`, `esmee`. IDs are pinned
+Explicit existing-account links: `lisa`, `rose`, `jade`, `esmee`, `circe`. IDs are pinned
 in `link.py`. Lisa approved preparing new Authentik accounts for `jade` and
 `esmee` on 2026-10-09. Atlas creates these only if missing, with random initial
 passwords encrypted in `secrets/atlas/jellyfin-bootstrap-env.age`. Existing
@@ -16,6 +16,10 @@ set their passwords in Authentik before switching Nook to LDAP authentication.
 Jellyfin account creation and LDAP administrator synchronization are disabled. Library
 permissions, administrator flags, passwords, user IDs, and watch history remain
 in Jellyfin. This integration changes only the selected authentication provider.
+
+Circe's Jellyfin account was created and linked to her existing Authentik account
+on 2026-11-05, with the same library and playback permissions as the other
+non-administrator users. Her Authentik password was preserved.
 
 The Atlas blueprint creates a dedicated LDAP provider, search service account,
 application password, and access group. It adds the provider to the existing

@@ -29,6 +29,15 @@
         };
       };
 
+      asterion = {
+        hostname = "asterion";
+        sshUser = "root";
+        profiles.system = {
+          user = "root";
+          path = inputs.deploy-rs.lib.aarch64-linux.activate.nixos config.flake.nixosConfigurations.asterion;
+        };
+      };
+
       vega = {
         hostname = "localhost";
         sshUser = "lisa";
@@ -57,7 +66,16 @@
       };
     };
 
+  asterionDeploy =
+    deploy
+    // {
+      nodes = {
+        inherit (deploy.nodes) asterion;
+      };
+    };
+
   linuxDeployChecks = inputs.deploy-rs.lib.x86_64-linux.deployChecks linuxDeploy;
+  asterionDeployChecks = inputs.deploy-rs.lib.aarch64-linux.deployChecks asterionDeploy;
   darwinDeployChecks = inputs.deploy-rs.lib.aarch64-darwin.deployChecks darwinDeploy;
   nookDeployChecks = inputs.deploy-rs.lib.x86_64-linux.deployChecks (
     deploy
@@ -91,6 +109,12 @@ in {
       deploy-activate-nook = nookDeployChecks.deploy-activate;
       deploy-activate-atlas = atlasDeployChecks.deploy-activate;
     };
+  flake.checks.aarch64-linux =
+    asterionDeployChecks
+    // {
+      deploy-schema-asterion = asterionDeployChecks.deploy-schema;
+      deploy-activate-asterion = asterionDeployChecks.deploy-activate;
+    };
   flake.checks.aarch64-darwin =
     darwinDeployChecks
     // {
@@ -99,7 +123,7 @@ in {
     };
 
   perSystem = {system, ...}: {
-    apps = lib.optionalAttrs (builtins.elem system ["aarch64-darwin" "x86_64-linux"]) {
+    apps = lib.optionalAttrs (builtins.elem system ["aarch64-darwin" "aarch64-linux" "x86_64-linux"]) {
       deploy = inputs.deploy-rs.apps.${system}.deploy-rs;
     };
   };

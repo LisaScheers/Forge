@@ -146,7 +146,23 @@ Atlas needs one bootstrap from its existing auto-updater after this change reach
 ssh atlas 'nix config show trusted-users'
 ```
 
-Vega and Asterion remain local and manual. On either host, run:
+Asterion also supports manual remote deployment from Vega:
+
+```sh
+just deploy-build asterion
+just deploy asterion dry
+just deploy asterion test
+just deploy asterion
+```
+
+Its deploy-rs node connects as `root` to the SSH hostname `asterion`, using the
+existing Vega management key authorized by its configuration. Configure that
+hostname and file key in your SSH client and confirm `ssh root@asterion true`
+works first; disable the SSH agent for this file key. An `aarch64-linux` builder
+is required. Reboot after kernel, GPU driver, Mesa or boot firmware changes;
+see the [Asterion guide](docs/asterion.md).
+
+Vega and Asterion also support local manual switches. On either host, run:
 
 ```sh
 just switch

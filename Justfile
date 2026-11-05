@@ -77,6 +77,7 @@ deploy-build host:
     set -euo pipefail
     case "$1" in
       nook|atlas) target_system=x86_64-linux ;;
+      asterion) target_system=aarch64-linux ;;
       vega) target_system=aarch64-darwin ;;
       *) echo "unknown deploy host: $1" >&2; exit 2 ;;
     esac

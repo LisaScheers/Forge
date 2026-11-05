@@ -17,6 +17,7 @@ ACCOUNTS = {
     "rose": "35b31cb4-09f9-4d8a-8803-b8d8b6d8fe5d",
     "jade": "f35f8038-8cbe-4f2c-b31f-9dc14b927013",
     "esmee": "f8415972-20d5-4a12-9a55-221108b27637",
+    "circe": "1bc84d52-3617-47a2-99e7-144f9a6da009",
 }
 
 

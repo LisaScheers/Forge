@@ -84,6 +84,7 @@ in {
               - !Find [authentik_core.user, [username, rose]]
               - !Find [authentik_core.user, [username, jade]]
               - !Find [authentik_core.user, [username, esmee]]
+              - !Find [authentik_core.user, [username, circe]]
         - model: authentik_providers_ldap.ldapprovider
           identifiers:
             name: Jellyfin LDAP

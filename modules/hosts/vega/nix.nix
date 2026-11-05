@@ -9,9 +9,11 @@
       distributedBuilds = true;
       buildMachines = [
         {
-          hostName = "orbstack-builder";
+          # The VM has 16 GiB RAM; Mozilla builds exhaust it at all 18 cores.
+          hostName = "orbstack-builder?remote-program=nix-daemon%20--option%20cores%204";
           protocol = "ssh-ng";
           system = "aarch64-linux";
+          supportedFeatures = ["big-parallel"];
         }
         {
           hostName = "nook-builder";
@@ -71,7 +73,8 @@
         Host orbstack-builder
           HostName 127.0.0.1
           Port 32222
-          User default
+          # The remote daemon must trust the connection to accept generated inputs.
+          User root@default
           IdentityFile ${orbStackSshDir}/id_ed25519
           IdentitiesOnly yes
           UserKnownHostsFile ${orbStackSshDir}/known_hosts
