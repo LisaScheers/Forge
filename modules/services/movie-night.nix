@@ -3,7 +3,7 @@
   inputs,
   ...
 }: {
-  flake-file.inputs.movie-night.url = "github:LisaScheers/movie-night/2b8e06fb40eaef4267f8986e408518dbf841f932";
+  flake-file.inputs.movie-night.url = "github:LisaScheers/movie-night/c34f91eb9fdfc2c01473cc6acb125d129188c8f3";
   flake-file.nixConfig = {
     extra-substituters = ["https://kixelated.cachix.org"];
     extra-trusted-public-keys = ["kixelated.cachix.org-1:CmFcV0lyM6KuVM2m9mih0q4SrAa0XyCsiM7GHrz3KKk="];
