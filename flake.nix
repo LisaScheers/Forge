@@ -8,8 +8,14 @@
   outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./modules);
 
   nixConfig = {
-    extra-substituters = [ "https://zed.cachix.org" ];
-    extra-trusted-public-keys = [ "zed.cachix.org-1:/pHQ6dpMsAZk2DiP4WCL0p9YDNKWj2Q5FL20bNmw1cU=" ];
+    extra-substituters = [
+      "https://kixelated.cachix.org"
+      "https://zed.cachix.org"
+    ];
+    extra-trusted-public-keys = [
+      "kixelated.cachix.org-1:CmFcV0lyM6KuVM2m9mih0q4SrAa0XyCsiM7GHrz3KKk="
+      "zed.cachix.org-1:/pHQ6dpMsAZk2DiP4WCL0p9YDNKWj2Q5FL20bNmw1cU="
+    ];
   };
 
   inputs = {
@@ -77,6 +83,7 @@
         nixpkgs.follows = "nixpkgs";
       };
     };
+    movie-night.url = "github:LisaScheers/movie-night/d47567424aa88d842a9d3a4ae53f63dd3b1594fe";
     nix-auto-follow = {
       url = "github:fzakaria/nix-auto-follow";
       inputs.nixpkgs.follows = "nixpkgs";
