@@ -1270,17 +1270,17 @@
         ]
       },
       "locked": {
-        "lastModified": 1793850211,
-        "narHash": "sha256-k+3ZS8nO4J6gmm0SEnoUolO0RtsMt4nZxWdNp75aqnw=",
+        "lastModified": 1793851236,
+        "narHash": "sha256-qHK/v6Mra5McjZ6U6g9e1EGqPspcjsVQ0neUMGRAVmo=",
         "owner": "LisaScheers",
         "repo": "movie-night",
-        "rev": "d47567424aa88d842a9d3a4ae53f63dd3b1594fe",
+        "rev": "4504349f9bc8e2c0e46f07bec94e934861b63320",
         "type": "github"
       },
       "original": {
         "owner": "LisaScheers",
         "repo": "movie-night",
-        "rev": "d47567424aa88d842a9d3a4ae53f63dd3b1594fe",
+        "rev": "4504349f9bc8e2c0e46f07bec94e934861b63320",
         "type": "github"
       }
     },
