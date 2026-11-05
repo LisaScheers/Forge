@@ -83,7 +83,7 @@
         nixpkgs.follows = "nixpkgs";
       };
     };
-    movie-night.url = "github:LisaScheers/movie-night/0a4c2bb0d7f93c2cf0e13c8eabe11a7b28dc3c29";
+    movie-night.url = "github:LisaScheers/movie-night/2b8e06fb40eaef4267f8986e408518dbf841f932";
     nix-auto-follow = {
       url = "github:fzakaria/nix-auto-follow";
       inputs.nixpkgs.follows = "nixpkgs";
