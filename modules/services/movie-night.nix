@@ -3,7 +3,7 @@
   inputs,
   ...
 }: {
-  flake-file.inputs.movie-night.url = "github:LisaScheers/movie-night/c34f91eb9fdfc2c01473cc6acb125d129188c8f3";
+  flake-file.inputs.movie-night.url = "github:LisaScheers/movie-night/c2b5613c537aac5af7e786e791ddc9994f733f27";
   flake-file.nixConfig = {
     extra-substituters = ["https://kixelated.cachix.org"];
     extra-trusted-public-keys = ["kixelated.cachix.org-1:CmFcV0lyM6KuVM2m9mih0q4SrAa0XyCsiM7GHrz3KKk="];
@@ -44,7 +44,6 @@
       internalPeers = ["100.87.26.75"];
       adminUsers = ["lisa"];
       openTailscaleFirewall = true;
-      vaapiDevice = "/dev/dri/renderD128";
       rooms = [
         {
           id = "movie-night";
