@@ -216,7 +216,7 @@ diff --git a/crates/aurora-render/src/alpha_tests.rs b/crates/aurora-render/src/
 +    let readback = |size| {
 +        device.create_buffer(&wgpu::BufferDescriptor {
 +            label: None,
-+            size,
++            size: crate::readback::readback_size(size),
 +            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
 +            mapped_at_creation: false,
 +        })
@@ -310,7 +310,7 @@ diff --git a/crates/aurora-render/src/alpha_tests.rs b/crates/aurora-render/src/
 +                device.poll(wgpu::PollType::wait_indefinitely()).expect("GPU completion");
 +                let bytes = pixels.get_mapped_range(..).expect("pixels");
 +                let cost_bytes = counters.get_mapped_range(..).expect("costs");
-+                let counts: &[u32] = bytemuck::cast_slice(&cost_bytes);
++                let counts = crate::readback::u32s(&cost_bytes);
 +                for (i, &(kind, tex_alpha, face_alpha, cutoff, bits)) in fixtures.iter().enumerate() {
 +                    let raw = tex_alpha * face_alpha;
 +                    let alpha = if bits & flags::EMISSIVE_MASK != 0 { face_alpha } else { raw };

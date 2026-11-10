@@ -9,7 +9,6 @@ kernel.stdenv.mkDerivation {
   version = "${kernel.version}-aurora-opaque1";
   src = kernel.src;
   patches = [
-    ../asterion-gpu-kernel/g15-firmware-qualification.patch
     ../asterion-gpu-kernel/j516s-opaque-x.patch
   ];
   nativeBuildInputs = kernel.moduleBuildDependencies ++ [kmod];
@@ -36,5 +35,5 @@ kernel.stdenv.mkDerivation {
     test -f "$out/lib/modules/${kernel.modDirVersion}/updates/appledrm.ko"
     runHook postInstall
   '';
-  passthru.integrationRevision = "g15-qualified1-upstream-panel-nits-opaque1";
+  passthru.integrationRevision = "upstream-g15-qualified-panel-nits-opaque1";
 }

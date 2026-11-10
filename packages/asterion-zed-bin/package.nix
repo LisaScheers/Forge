@@ -19,16 +19,16 @@
   ncurses,
   ghostty,
 }: let
-  sourceCommit = "b5cd310b3b54dfc659fcc06453e6358843dfe216";
-  sourceVersion = "1.29.0+nightly.3504.${sourceCommit}";
+  sourceCommit = "f0d896f2c18a543335eb155f729d36b624695591";
+  sourceVersion = "1.29.0+nightly.3509.${sourceCommit}";
 in
   stdenvNoCC.mkDerivation (finalAttrs: {
     pname = "asterion-zed-bin";
-    version = "1.29.0-nightly.3504";
+    version = "1.29.0-nightly.3509";
     src = fetchurl {
       name = "${finalAttrs.pname}-${finalAttrs.version}.tar.gz";
       url = "https://zed-nightly-host.nyc3.digitaloceanspaces.com/${sourceVersion}/zed-linux-aarch64.tar.gz";
-      hash = "sha256-ufNeblU1+cp4/O9FAL4M+50j4KpIkXHrUwMBpt2ngM0=";
+      hash = "sha256-aFsMU6wa4CKN33F6yDO4L+hn7GidT4twIr4sO7Zc/Es=";
     };
     nativeBuildInputs = [autoPatchelfHook makeWrapper];
     buildInputs = [gcc.cc.lib glib alsa-lib libxkbcommon libxcb libx11];
@@ -64,7 +64,7 @@ in
       version_output=$("$out/bin/zed" --version)
       echo "$version_output"
       echo "$version_output" | grep -F '1.29.0'
-      echo "$version_output" | grep -F 'b5cd310'
+      echo "$version_output" | grep -F 'f0d896f'
       ldd "$out/libexec/.zed-editor-wrapped" > dependencies.txt
       cat dependencies.txt
       if grep -F 'not found' dependencies.txt; then

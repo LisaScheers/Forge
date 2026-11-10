@@ -10,16 +10,16 @@
 }:
 rustPlatform.buildRustPackage {
   pname = "aurora-viewer";
-  version = "0.9.3-unstable-2026-11-08";
+  version = "0.9.5-unstable-2026-11-10";
 
   src = fetchFromGitHub {
     owner = "Aurora-Viewer";
     repo = "Aurora-Viewer";
-    rev = "24fe0e77c292068d6b2f01ab457b77efbc9b3ccf";
-    hash = "sha256-PSwjRJ5TTY6PPbP+fRz1+H4cDwvj+fXTO7L2YyELbi4=";
+    rev = "a211db389e335f815ca6f1b9b4a4e2271cea000e";
+    hash = "sha256-hIfMrSjuzB9IYsHAyCclo8RjvUu6BR4EM+h7WlRjbr4=";
   };
 
-  cargoHash = "sha256-DNDjIaz7J2iBE7A+HIL7Iq8dYGnsE5kltowoH37Kh+E=";
+  cargoHash = "sha256-SQHMcrjGR1PkBhFQ8ysQPB+UQeErp72Y/CC4hye9Y7k=";
   # Reject transparent blended texels before fetching the remaining material maps.
   patches = [./macos.patch];
 
@@ -32,7 +32,7 @@ rustPlatform.buildRustPackage {
   checkFlags = ["--skip" "viewer_statistics_leave_on_arrival_every_five_minutes_and_at_logout"];
   dontUseCargoParallelTests = true;
   buildType = "debug";
-  AURORA_VERSION_TAG = "v0.9.3+macos.24fe0e77";
+  AURORA_VERSION_TAG = "v0.9.5+macos.a211db38";
 
   postCheck = ''
     cargo test --workspace --locked --offline -j "$NIX_BUILD_CORES" \
@@ -55,7 +55,7 @@ rustPlatform.buildRustPackage {
   doInstallCheck = true;
   installCheckPhase = ''
     runHook preInstallCheck
-    test "$("$out/bin/aurora-viewer" --version)" = 'Aurora Viewer 0.9.3+macos.24fe0e77'
+    test "$("$out/bin/aurora-viewer" --version)" = 'Aurora Viewer 0.9.5+macos.a211db38'
     runHook postInstallCheck
   '';
 

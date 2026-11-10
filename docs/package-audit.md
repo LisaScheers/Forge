@@ -1,3 +1,48 @@
+# Package pins and patches — 10 November 2026 recheck
+
+This follows the 8 November audit below. The recheck covers the remaining custom
+versions, forks, local patches, and inline workarounds. Ordinary flake and package
+lockfiles remain reproducibility records; this does not advance unrelated inputs.
+
+| Item | Current finding |
+| --- | --- |
+| Asterion kernel | Advances to `bed544bd` on the existing Linux 7.2.11 integration branch. Reconstructed source matches upstream Git tree `1a4a19850574ad55685fcf224b4b6537b2523f6f`. |
+| J516S firmware qualification | Deleted `g15-firmware-qualification.patch`: [upstream commit `455b498d`](https://github.com/omacom/linux-aurora/commit/455b498d8de6dc82aecd5c893f4a3f2314b8f3ae) now admits the same `cd05af6a…61363e` firmware TEXT digest on J516S. The subsequent 4118 qualification is upstream too. |
+| J516S display alpha fix | Still required. The new kernel lacks the local A465 `enableGPAlphaDiv=0` setup for opaque-X scanout. It remains the only local kernel-module patch. |
+| m1n1 | Advances to integration commit `ba130ffb`; existing vendor hash retained. Build and 495 tests pass (19 skipped). Local proxy heap sizes and DTB normalization are still installation requirements. |
+| Aurora Mesa | Advances to `28bd46b3`. The split Clang-library substitution still matches and remains necessary. Package build passes. |
+| Aurora Viewer | Advances to `a211db38`, after release 0.9.5. The blended-alpha early-rejection optimization remains absent upstream, so its patch stays. Its GPU fixture now uses upstream's aligned readback allocations and alignment-independent word decoder. Source/vendor hashes and bundle version are refreshed. Build, GPU regressions and installed version pass; 8,272 tests pass (54 ignored), including the separately run unchanged HTTP fixture. |
+| Asterion Zed binary | Advances from nightly 3504 to 3509 (`f0d896f2`). The official download endpoint resolves to the immutable 1.29.0 asset. ARM Linux build, exact version/commit and shared-library checks pass. |
+| REA | 6.8.0 is still the latest published GitHub and NPM release. The exact pwndbg, pwntools, pyelftools, Unicorn and mitmproxy contracts are unchanged; their pins remain. Kuna advances to 1.994 with its matching specs (selected through `KUNA_SPECS`): the old 1.833 verification label is advisory. REA still reports it honestly as unverified upstream; ARM macOS and x86 Linux packages build. Local ARM Mach-O and x86 ELF fixtures validate inventory, pseudocode, assembly, call-graph schema, complete two-function exports and reading from the completed project cache. |
+| CLIProxyAPIPlus | 8.0.56-0 remains the latest release; both lossless logging and structured response-text patches are still required. |
+| mautrix-discord | Latest release remains 0.7.7. Main has only three subsequent changes (category-space condition, sticker reupload condition and dependency/CI updates), none replacing the eight local patches. |
+| Pluralmatrix / Gotify Authentik plugin / Anatomy | Upstream heads are unchanged: `d10e51a4`, `2c167190`, and `1482e846` respectively. Pluralmatrix's three patches and matching dependency selections remain. |
+| Firestorm | Retains 7.2.5.81788, still listed as the current public release in [freshly crawled release coverage](https://modemworld.me/tag/firestorm-reviews/). The official download pages return HTTP 403 to this client; no later release was established. |
+| Cutter / debugpy / installer firmware parser | Latest releases/selected source remain Cutter 2.5.0, debugpy 1.8.22 and asahi-installer `e93743d5`. Their local compatibility fixes remain necessary. Nixpkgs master still packages the older firmware parser. |
+| Nushell | 0.117.0 was released on 10 November, but even current Nixpkgs master still packages 0.116.1. There is no custom version pin to remove; the existing Darwin builder-test workaround still applies to the selected package. |
+| Cognee | Stable API/MCP image digests are unchanged. The newer API `1.6.7.dev20261109` is a development canary. Existing Ladybug storage compatibility, Fastembed/MCP integrations, Arrow and Pillow/system Brotli replacements remain applicable to the same images. |
+| Brotli / Arrow / .NET / hls.js / D3 / Jellyfin LDAP | Latest selected releases remain Brotli 1.2.1, Arrow 26.0.1, .NET 8.0.33/10.0.14, hls.js 1.7.4, D3 7.9.2 and LDAP 24.0.0.0. Older application closures and containers still require the ABI-compatible replacements. |
+| OrbStack | Official release notes include 2.2.5, while current Nixpkgs master still has 2.2.4. Keep the conditional 2.2.5 fallback. |
+| Lix | Advances to main `6b316c8a`: unit tests and all functional suites pass, including 3,189 functional2 subtests. `/dev/full` is still present in its export test, so the Darwin test patch remains necessary. Canonical archives time out; the lock uses the official GitHub mirror at the identical commit, while the input continues to track canonical main. The unchanged lix-module main still emits its pre-existing 2.96/2.97 development-version warning. |
+| Other retained policies | PostgreSQL major 18, board-specific Apple firmware, licensed fonts, Steam GPU/CEF settings, WebCord update policy, certificate-trust exclusions and Darwin output wrappers remain intentional constraints. No new migration holds were added. Mozilla derivations remain unmodified and cache eligible. |
+
+The kernel and patched GPU/display modules build and report matching vermagic.
+Lix passes its unit tests and all functional suites (56 suites passed, six
+skipped; functional2 contains 3,189 passing subtests). m1n1 passes 495 tests
+(19 skipped). Aurora passes 8,272 tests (54 ignored), its patched GPU
+regression, the isolated statistics HTTP fixture and the installed version check.
+
+REA with Kuna 1.994 builds and initializes MCP (229 tools). Both native package
+builds and the Mach-O/ELF integration checks pass. Changed Nix files pass Alejandra
+4.1.0 using a temporary Nix environment; `git diff --check` and the Aurora bundle
+property-list check pass. The full flake check remains blocked by the existing
+devenv `nix2container` / `mk-shell-bin` input error.
+
+No configuration was activated, no live database was opened, and no changes were
+pushed or deployed.
+
+---
+
 # Package pins and patches — 8 November 2026
 
 This audit covers explicit package-version overrides, immutable source selections,
