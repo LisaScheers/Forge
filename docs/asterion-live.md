@@ -30,21 +30,21 @@ on reboot unless copied to Vega.
 
 | Component | Pinned source or local integration |
 | --- | --- |
-| Kernel | `omacom/linux-aurora` `396f2d63edcfd3d1939e7cab857dffbc388043a9` |
+| Kernel | `omacom/linux-aurora` `8eddf5aeb6acfb07ec3ca7bdcb62170685493b28` |
 | Kernel integration/version | Upstream PMP overlay, GPU supplier link enabled; `7.2.11-asterion-aurora` |
 | Updated modules | `g15-qualified1-upstream-panel-nits-opaque1`, built against that exact `kernel.dev` |
-| Mesa | `mesa-aurora`; `aurora-silicon/mesa` `05ddb00f5ca9d0e153d987fed6454f21902ee1c8` |
-| m1n1 | `omacom/m1n1` `121fcbf35d4501814b58ca5347926a4173b6a512` |
+| Mesa | `mesa-aurora`; `aurora-silicon/mesa` `8ac88a263afc40ade915c7dfa2f0399f2e4b5558` |
+| m1n1 | `omacom/m1n1` `7f6df96591b72c6ac9009cfa7e991dc5eafc7def` |
 | Firmware extractor | `AsahiLinux/asahi-installer` `e93743d52178b3e26e428fa05174ef549abf30cb` |
 | Desktop | Niri 26.04; Noctalia 5.3.0, its native C++ implementation |
 
 The kernel source is reconstructed from hashed Linux 7.2.11 and an immutable
 fork diff, with base Git tree
-`8e3217fc031a31913718efb367305a12451ec62f` checked before local patches.
+`f6a78458d22f771c89af804c4f82ac4723362c06` checked before local patches.
 An archive preserves case-distinct Linux paths while passing through macOS.
 
 The source pins above track the latest Aurora integration branches checked on
-4 November 2026. This update has not been booted or qualified on Asterion.
+8 November 2026. This update has not been booted or qualified on Asterion.
 The October hardware results in this guide apply to kernel `b6f070c91193`,
 Mesa `d859e435edc4`, m1n1 `f5a82fdb6264` and the earlier local patch set.
 Upstream supplies the panel-nits fixes and now defaults to creating the PMP

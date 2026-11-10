@@ -5,8 +5,7 @@
 }: {
   nixos.atlas.imports = [config.nixos.authentik];
   flake-file.inputs.authentik-nix = {
-    # 2026.8.3 packaging; return to the default branch once upstream PR #193 is merged.
-    url = "github:nix-community/authentik-nix/a22b8f03bff0e04e9cee3221114fae1d0f1bec50";
+    url = "github:nix-community/authentik-nix";
   };
 
   nixos.authentik = {

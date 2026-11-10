@@ -6,8 +6,7 @@
   errorPage = config.nginxErrorPage;
   deployedPackages = inputs.nixpkgs-nook-apps.legacyPackages.x86_64-linux;
 in {
-  # Advance database-backed applications separately from infrastructure cleanup.
-  flake-file.inputs.nixpkgs-nook-apps.url = "github:NixOS/nixpkgs/67b5cf9be1c8d2170270509db4ed12e904a768b0";
+  flake-file.inputs.nixpkgs-nook-apps.url = "github:NixOS/nixpkgs/master";
 
   nixos.nook = {
     lib,

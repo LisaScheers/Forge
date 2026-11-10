@@ -36,11 +36,11 @@
 }:
 stdenv.mkDerivation {
   pname = "mesa-aurora";
-  version = "26.3.0-devel-05ddb00f";
+  version = "26.3.0-devel-8ac88a26";
 
   src = fetchzip {
-    url = "https://github.com/aurora-silicon/mesa/archive/05ddb00f5ca9d0e153d987fed6454f21902ee1c8.tar.gz";
-    hash = "sha256-WGwp3sx7Hkm5s836FBle1DKXce/AfUZHLOjaGX/0H84=";
+    url = "https://github.com/aurora-silicon/mesa/archive/8ac88a263afc40ade915c7dfa2f0399f2e4b5558.tar.gz";
+    hash = "sha256-PVeOSZTvyb4YTcm81orIyyPkcpneNv3P9Psz+Z7nfHE=";
   };
 
   strictDeps = true;
@@ -128,8 +128,8 @@ stdenv.mkDerivation {
   '';
 
   passthru = {
-    sourceRevision = "05ddb00f5ca9d0e153d987fed6454f21902ee1c8";
-    kernelRevision = "396f2d63edcfd3d1939e7cab857dffbc388043a9";
+    sourceRevision = "8ac88a263afc40ade915c7dfa2f0399f2e4b5558";
+    kernelRevision = "8eddf5aeb6acfb07ec3ca7bdcb62170685493b28";
   };
 
   meta = {

@@ -59,6 +59,11 @@ exceeds the container's memory limit and caused a graph-worker OOM on 2026-10-02
 The API image's Ladybug 0.19.0 is overridden with hash-pinned 0.21.0 and its
 matching JSON extension. This fixes the [large-record WAL checksum bug](https://github.com/LadybugDB/ladybug/pull/959).
 Both artifacts are read-only Nix mounts; no runtime package installation is used.
+The 8 November 2026 source update advances both images to the 6 November builds
+of Cognee 1.6.7. The API uses an upstream Arrow 26.0.1 wheel in place of its
+25.0.1 wheel; the MCP image already includes 26.0.1 and needs no Arrow overlay.
+Pillow still needs the Brotli 1.2.1 mounts. Ladybug stays at 0.21.0 with its
+matching extension; later releases require a separate storage compatibility check.
 
 ## Graph storage recovery
 
@@ -243,10 +248,13 @@ fetch arbitrary URLs. The data volume and image filesystem are the only mounts
 visible to the API; OpenAI credentials are not mounted into it. The model's
 first-use download and normal LLM traffic remain allowed.
 
-The pinned API has an ingestion bug: disabling client-supplied file paths also
-blocks its internal loader from reading uploaded files. `services/cognee/api.py`
-enables paths only in that internal loader. The initial input boundary remains
-disabled, and both path rejection and successful text upload were verified live.
+The 1.6.7 API fixes the duplicate local-file gate for stored uploads. The local
+loader workaround has been removed; client-supplied paths remain disabled.
+The newer query proxy also supplies `select` and `limit`, so the private query
+builder workaround has been removed.
+`services/cognee/api.py` still limits Fastembed threads and installs the email
+index. The API and MCP image updates were checked in isolated local containers;
+these checks did not use the deployed datasets.
 
 Encrypted backend secrets are limited to Lisa and Nook. The Authentik OIDC secret
 and MCP signing key are limited to Lisa, Nook and Atlas. No plaintext secret is

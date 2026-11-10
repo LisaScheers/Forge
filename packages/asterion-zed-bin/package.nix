@@ -19,16 +19,16 @@
   ncurses,
   ghostty,
 }: let
-  sourceCommit = "79fe6a645f68f8c9230578f154bf99852d9f716f";
-  sourceVersion = "1.27.0+nightly.3474.${sourceCommit}";
+  sourceCommit = "b5cd310b3b54dfc659fcc06453e6358843dfe216";
+  sourceVersion = "1.29.0+nightly.3504.${sourceCommit}";
 in
   stdenvNoCC.mkDerivation (finalAttrs: {
     pname = "asterion-zed-bin";
-    version = "1.27.0-nightly.3474";
+    version = "1.29.0-nightly.3504";
     src = fetchurl {
       name = "${finalAttrs.pname}-${finalAttrs.version}.tar.gz";
       url = "https://zed-nightly-host.nyc3.digitaloceanspaces.com/${sourceVersion}/zed-linux-aarch64.tar.gz";
-      hash = "sha256-KWo8rWglAhWD0IWcIbi3MtPYdv9mqzB/R5h7SQ4Y3sw=";
+      hash = "sha256-ufNeblU1+cp4/O9FAL4M+50j4KpIkXHrUwMBpt2ngM0=";
     };
     nativeBuildInputs = [autoPatchelfHook makeWrapper];
     buildInputs = [gcc.cc.lib glib alsa-lib libxkbcommon libxcb libx11];
@@ -63,8 +63,8 @@ in
       runHook preInstallCheck
       version_output=$("$out/bin/zed" --version)
       echo "$version_output"
-      echo "$version_output" | grep -F '1.27.0'
-      echo "$version_output" | grep -F '79fe6a6'
+      echo "$version_output" | grep -F '1.29.0'
+      echo "$version_output" | grep -F 'b5cd310'
       ldd "$out/libexec/.zed-editor-wrapped" > dependencies.txt
       cat dependencies.txt
       if grep -F 'not found' dependencies.txt; then

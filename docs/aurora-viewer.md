@@ -25,24 +25,21 @@ the configuration. Log in manually.
 ## Port and package
 
 The source is pinned to upstream commit
-`77d8c70c8bf7075aef66698544764d623abff346` (29 October 2026).
-Upstream PR #1463 includes the native Metal port, visible startup window,
-water-shader compiler workaround, Metal memory-budget queries and native
-Command-Q handling. Windows and Linux retain Vulkan.
-`packages/aurora-viewer/macos.patch` carries the remaining rendering performance
-work: binding-array page limits, world scaling and early alpha rejection.
-The binding-array page limit is separate from ordinary texture slots. The patch
-removes the incorrect 79-page ceiling on Metal. Preferences › Graphics ›
-Smoothness includes a 50–100% 3D render scale: the world is spatially upscaled,
-while controls, labels and HUDs stay at native resolution. Saved photos bypass
-this scale. Use 67% or 50% when full Retina resolution is GPU-bound; 100% is the
-default. `AURORA_RENDER_SCALE` and `AURORA_TEXTURE_BUDGET_MB` allow isolated
-comparisons without activating a new system configuration.
+`24fe0e77c292068d6b2f01ab457b77efbc9b3ccf` (8 November 2026), after release 0.9.3.
+Upstream now includes the macOS browser integration, media-pack selection,
+binding-array page-limit fixes, world render scaling, and masked-pixel rejection.
+`packages/aurora-viewer/macos.patch` retains only the early rejection of transparent
+blended texels before the remaining material maps are sampled, with its GPU
+regression test. The separate browser patch has been removed.
 
-The package uses upstream's optimized development profile, which disables
-debug assertions and overflow checks and builds dependencies with full
-optimization. It identifies itself as `0.8.3+macos.77d8c70c`. The app bundle
-contains an icon and a microphone usage description for voice chat.
+Preferences › Graphics › Smoothness includes a 50–100% 3D render scale.
+The interface and HUDs stay at native resolution, and saved photos bypass scaling.
+`AURORA_RENDER_SCALE` and `AURORA_TEXTURE_BUDGET_MB` allow isolated comparisons.
+
+The package uses upstream's optimized development profile. It identifies itself
+as `0.9.3+macos.24fe0e77`. The app bundle includes an icon and microphone usage
+description. Earlier performance measurements below describe the October build;
+they have not been repeated for this source revision.
 
 ## Measured on Apple M5 Pro
 
@@ -66,12 +63,10 @@ live trace measured 21.05 ms GPU active per frame, with vertex work higher too
 (8.28 vs 7.19 ms); the changing live workload prevents attributing that
 difference to the alpha change. The candidate remains experimental.
 
-The previous packaged build passed 6,102 workspace tests (30 ignored), with the
-existing intermittent viewer-statistics HTTP fixture run separately. The updated
-source passed 6,151 tests (30 ignored), formatting and Clippy, including native
-Metal sampling/upscaling and alpha-work rejection checks. The updated Nix package
-also passed its full test run, isolated HTTP fixture and version check. It is
-built without activating Vega's configuration.
+The 8 November package passed 7,920 workspace tests (52 ignored), including
+the rebased GPU alpha tests and the separately executed statistics HTTP fixture.
+The Nix package build and application version check also passed. These checks
+ran without activating Vega's configuration.
 
 ## Limits
 
@@ -79,10 +74,8 @@ This packages upstream's macOS port of an early-development viewer. Grid login,
 voice, teleporting and prolonged sessions need manual validation. Tests and
 the offline demo do not establish live-grid compatibility.
 
-CEF/video media plugins are not bundled. Upstream's downloadable media packs
-target Windows and Linux; this package does not provide a macOS media pack.
-URL-scheme registration is also not implemented on macOS upstream, so opening
-Second Life links from other applications is not configured by this package.
+CEF/video media plugins are not bundled. Upstream handles macOS media packs; this package does not bundle one.
+The package does not configure system-wide Second Life URL-scheme registration.
 
 Updates remain declarative: advance the pinned source and Cargo hashes,
 refresh the patch, rebuild and validate the demo before applying the new

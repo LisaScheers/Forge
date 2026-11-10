@@ -5,14 +5,14 @@
 }:
 buildGoModule rec {
   pname = "cli-proxy-api-plus-capture";
-  version = "8.0.53-0";
+  version = "8.0.56-0";
   src = fetchFromGitHub {
     owner = "kaitranntt";
     repo = "CLIProxyAPIPlus";
-    rev = "5eddd91445a959145ebbc05df7e26b9758dbebd6";
-    hash = "sha256-wirkT0GlLBZfh9huFvDK4j2G+9DuNGIPCW32vCYrw+c=";
+    rev = "0341bcc440583738d7d0e673abefc63bbe99e131";
+    hash = "sha256-j7F90QSAQ4sndd/Av2wuEGAtANOJ9uxu69sYdy6Biuo=";
   };
-  vendorHash = "sha256-SiMleE0Kamux8jm7pLTFzG3apOPjr0p+sYomcsNPb9Y=";
+  vendorHash = "sha256-Z2+PAoD6Mbh5dYwfe7bPamG6vHG45vJnenIqYSHkQDY=";
   patches = [./cli-proxy-api-plus-capture.patch];
   subPackages = ["cmd/server"];
   tags = ["no_plugin"];

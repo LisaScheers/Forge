@@ -1,5 +1,6 @@
 {
   nixos.nook = {
+    config,
     lib,
     pkgs,
     ...
@@ -14,9 +15,9 @@
         requiredFile = "world/level.dat";
       };
       atm10-aero = {
-        directory = "${minecraftRoot}/atm10-aero-0.7.1";
-        description = "All the Mods 10 Aeronautics 0.7.1";
-        launcher = "startserver.sh";
+        directory = "${minecraftRoot}/cutiecraft-0.8.0";
+        description = "CutieCraft 0.8.0-cutiecraft.1 (ATM10: Aeronautics)";
+        launcher = "run.sh";
       };
       ftb-skies-2-aero = {
         # Keep the existing installation path across in-place pack updates.
@@ -35,8 +36,15 @@
       })
       servers;
 
-    services.cloudflare-dyndns.domains = ["mc.bylisa.dev"];
+    services.cloudflare-dyndns.domains = ["mc.bylisa.dev" "cutiecraft.bylisa.dev"];
     networking.firewall.allowedTCPPorts = [25565];
+    networking.firewall.allowedUDPPorts = [24454];
+
+    # Keep scoped unit activation persistent without replacing Nook's full system.
+    environment.etc."systemd/system.control/atm10-aero.service".source =
+      "${config.systemd.units."atm10-aero.service".unit}/atm10-aero.service";
+    environment.etc."systemd/system.control/cloudflare-dyndns.service".source =
+      "${config.systemd.units."cloudflare-dyndns.service".unit}/cloudflare-dyndns.service";
 
     systemd.services =
       lib.mapAttrs (name: server: {

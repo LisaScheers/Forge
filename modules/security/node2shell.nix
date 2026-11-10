@@ -4,16 +4,20 @@
   ...
 }: let
   patchedBrotli = pkgs:
-    pkgs.brotli.overrideAttrs (old: {
-      patches =
-        (old.patches or [])
-        ++ [
-          (pkgs.fetchurl {
-            url = "https://github.com/google/brotli/commit/0ed4268a4401abcb4472096340477cf4af7d1a2b.patch?full_index=1";
-            hash = "sha256-1vliUJAAIj3vcGKVgim9CEV+XgMuftDR2U+3kLBUsfw=";
-          })
-        ];
-    });
+    if lib.versionAtLeast pkgs.brotli.version "1.2.1"
+    then pkgs.brotli
+    else
+      pkgs.brotli.overrideAttrs {
+        version = "1.2.1";
+        src = pkgs.fetchFromGitHub {
+          owner = "google";
+          repo = "brotli";
+          tag = "v1.2.1";
+          hash = "sha256-llY72cYffDv0ugsH0p89xIPEbElV4L8u7U/Fe8hT3gI=";
+        };
+        # Both the decoder fix and Nixpkgs' platform fix are in this release.
+        patches = [];
+      };
   containerBrotli = pkgs:
     pkgs.runCommand "container-brotli-node2shell" {nativeBuildInputs = [pkgs.patchelf];} ''
       mkdir -p "$out"
@@ -29,6 +33,8 @@
   in [
     "${patched}/pyarrow:${sitePackages}/pyarrow:ro"
     "${patched}/pyarrow.libs:${sitePackages}/pyarrow.libs:ro"
+    # Replace the image's distribution metadata together with its Python modules.
+    "${patched}/pyarrow-26.0.1.dist-info:${sitePackages}/pyarrow-25.0.1.dist-info:ro"
   ];
   # The images bundle additional copies outside the host's Nix closure.
   pillowVolumes = pkgs: let
@@ -79,11 +85,11 @@ in {
       }) [
         {
           name = "cognee";
-          image = "docker.io/cognee/cognee@sha256:05ac5ca16f0308190e06771c35d9be0d666c313ad1deb587228ec26179f2336e";
+          image = "docker.io/cognee/cognee@sha256:84584eade25cd9526ef4fe8dd550be69fb974fb1083bde9e498da451fad0dfc6";
         }
         {
           name = "cognee-mcp";
-          image = "docker.io/cognee/cognee-mcp@sha256:240b49174b5dcf5906e8e5a6d46b24b947361866be93956032d7e88c0876bafa";
+          image = "docker.io/cognee/cognee-mcp@sha256:32ddfdf969dd6c910d36372af6b50a8de079d2f0880620691acebcda89c6ff30";
         }
       ];
     system.replaceDependencies.replacements =
@@ -91,7 +97,7 @@ in {
       ++ runtimeReplacements;
     virtualisation.oci-containers.containers = {
       cognee.volumes = pillowVolumes pkgs ++ systemVolumes pkgs ++ pyarrowVolumes pkgs;
-      cognee-mcp.volumes = pillowVolumes pkgs ++ pyarrowVolumes pkgs;
+      cognee-mcp.volumes = pillowVolumes pkgs;
     };
   };
   perSystem = {

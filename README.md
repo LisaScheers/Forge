@@ -132,11 +132,10 @@ Atlas uses PostgreSQL 18 at `/var/lib/postgresql/18`. Startup requires its
 successful `pg_upgrade` or a verified full restore. Keep the PostgreSQL 16
 directory and its system generation for recovery. Returning to it after new
 writes requires reconciling those writes or restoring a current backup.
-The `nixpkgs-atlas-apps` input holds Forgejo at its deployed 15.0.9 during the
-database migration; advance that application pin separately from PostgreSQL.
-The `nixpkgs-nook-apps` input holds Home Assistant and Sonarr at their deployed
-versions. Advance it separately from infrastructure changes that do not need
-application database migrations.
+The `nixpkgs-atlas-apps` and `nixpkgs-nook-apps` inputs track Nixpkgs master
+for Forgejo, Home Assistant and Sonarr. Their migration holds were removed after
+Lisa confirmed migration and recovery checks were complete on 8 November 2026.
+Their lock entries still allow application updates separately from infrastructure.
 
 The recipe builds the host closure plus host-specific deploy-rs schema and activation checks before it opens the deployment connection. Nix may still use the remote builders declared by this flake during that build. The recipe then passes `--skip-checks` to deploy-rs because Forge's full-flake check has pre-existing development-shell check failures. Do not use `--skip-checks` without those targeted builds.
 

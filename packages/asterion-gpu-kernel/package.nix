@@ -6,14 +6,14 @@
   buildPackages,
   ...
 } @ args: let
-  revision = "396f2d63edcfd3d1939e7cab857dffbc388043a9";
+  revision = "8eddf5aeb6acfb07ec3ca7bdcb62170685493b28";
   upstream = fetchurl {
     url = "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.11.tar.xz";
     hash = "sha256-/Q/EefmDqMBTE/E+nDYzD+ZlHPclOWdIxA1c2T+h5qQ=";
   };
   forkDiff = fetchurl {
     url = "https://github.com/omacom/linux-aurora/compare/a2de78ee6ed8bf8cd99d177c74865a6e8c3cb6ea...${revision}.diff";
-    hash = "sha256-vYZADvOnZwS9PBP5Vpa8A7XYX7waJk9RATePhTzsDjA=";
+    hash = "sha256-8vYX36c3mWLwNXFhaOC1wkM+FTNR42EuT6Op5slggrA=";
   };
 in
   buildLinux (lib.recursiveUpdate {
@@ -39,7 +39,7 @@ in
         git --git-dir="$TMPDIR/source.git" --work-tree="$PWD" \
           -c core.fileMode=true add --force --all
         kernel_tree=$(git --git-dir="$TMPDIR/source.git" --work-tree="$PWD" write-tree)
-        test "$kernel_tree" = 8e3217fc031a31913718efb367305a12451ec62f
+        test "$kernel_tree" = f6a78458d22f771c89af804c4f82ac4723362c06
         # Keep case-distinct Linux paths inside an archive when this output is
         # copied through the macOS store before the Linux kernel build.
         cd ..

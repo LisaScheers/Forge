@@ -27,7 +27,7 @@
       url = "github:selfhost-it/antigravity-cli-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    authentik-nix.url = "github:nix-community/authentik-nix/a22b8f03bff0e04e9cee3221114fae1d0f1bec50";
+    authentik-nix.url = "github:nix-community/authentik-nix";
     catppuccin = {
       url = "github:catppuccin/nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -41,7 +41,7 @@
       flake = false;
     };
     deploy-rs = {
-      url = "github:serokell/deploy-rs/c03082a563c010c03a5c3d5e1507ccd9dd53d341";
+      url = "github:serokell/deploy-rs";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     devenv.url = "github:cachix/devenv";
@@ -53,14 +53,14 @@
     flake-file.url = "github:denful/flake-file";
     flake-parts.url = "github:hercules-ci/flake-parts";
     helium = {
-      url = "github:schembriaiden/helium-browser-nix-flake/ebac6e7f4af50aa48200ae77ea6606061e2d3e84";
+      url = "github:schembriaiden/helium-browser-nix-flake";
       inputs = {
         nixpkgs.follows = "nixpkgs";
         nixpkgs-darwin.follows = "nixpkgs";
       };
     };
     home-manager = {
-      url = "github:LisaScheers/home-manager/agent/nushell-session-environment";
+      url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     homebrew-cask = {
@@ -83,7 +83,7 @@
         nixpkgs.follows = "nixpkgs";
       };
     };
-    movie-night.url = "github:LisaScheers/movie-night/c2b5613c537aac5af7e786e791ddc9994f733f27";
+    movie-night.url = "github:LisaScheers/movie-night";
     nix-auto-follow = {
       url = "github:fzakaria/nix-auto-follow";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -103,8 +103,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nixpkgs.url = "github:NixOS/nixpkgs/master";
-    nixpkgs-atlas-apps.url = "github:NixOS/nixpkgs/67b5cf9be1c8d2170270509db4ed12e904a768b0";
-    nixpkgs-nook-apps.url = "github:NixOS/nixpkgs/67b5cf9be1c8d2170270509db4ed12e904a768b0";
+    nixpkgs-atlas-apps.url = "github:NixOS/nixpkgs/master";
+    nixpkgs-nook-apps.url = "github:NixOS/nixpkgs/master";
     nixvim.url = "github:nix-community/nixvim";
     onepassword-shell-plugins = {
       url = "github:1Password/shell-plugins";

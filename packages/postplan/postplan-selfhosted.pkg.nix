@@ -6,10 +6,10 @@
   nodejs,
   stdenvNoCC,
 }: let
-  version = "0.0.4";
+  version = "0.0.6";
   upstream = fetchurl {
     url = "https://registry.npmjs.org/postplan/-/postplan-${version}.tgz";
-    hash = "sha512-ctOrqRP+MhkhbUi9xCPO8k9lYLbwzWs7IfKnBy1nTiFeLtWVLntWdvII4kIhtNJSioa+b4nOx/8+qAYN2aBUvg==";
+    hash = "sha512-NwbMCPIa6lj1YkzqBKTzVBGDFgB3VV54KXkhTSZdOy2G/hr/XUUB/jh496tqY8vamDPEeMPCoxkhodaYXtyKLw==";
   };
   source = stdenvNoCC.mkDerivation {
     pname = "postplan-source";
@@ -31,7 +31,7 @@ in
     inherit version;
     src = source;
 
-    npmDepsHash = "sha256-OuvS2ojMw2Sn6GC0FzGm2MqXrW1ZIeg0z7Ci9pgtNqE=";
+    npmDepsHash = "sha256-IpP2obHvpFCBC+oWaLd9lgOntFeMCJoKMJCX0cWI9hg=";
     dontNpmBuild = true;
     nativeBuildInputs = [makeWrapper];
 

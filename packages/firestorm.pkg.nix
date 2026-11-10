@@ -4,8 +4,8 @@
   fetchurl,
   buildFHSEnv,
 }: let
-  version = "7.2.4.80712";
-  releaseName = "Phoenix-Firestorm-Releasex64_AVX2-7-2-4-80712";
+  version = "7.2.5.81788";
+  releaseName = "Phoenix-Firestorm-Releasex64_AVX2-7-2-5-81788";
 
   firestorm-unwrapped = stdenvNoCC.mkDerivation {
     pname = "firestorm-unwrapped";
@@ -13,7 +13,7 @@
 
     src = fetchurl {
       url = "https://downloads.firestormviewer.org/release/linux/${releaseName}.tar.xz";
-      hash = "sha256-QF/o/FmElNcRRaSOf+rj4fAvdJL3MBfu66b6B3pfIag=";
+      hash = "sha256-yaDbscQHbxd6wv9eG2LY/cWCVPBN64VLrrNSDFO1s9o=";
     };
 
     sourceRoot = releaseName;
@@ -46,7 +46,7 @@ in
       pkgs.fontconfig
       pkgs.freetype
       pkgs.glib
-      pkgs.gtk2
+      pkgs.gtk3
       pkgs.libGL
       pkgs.libGLU
       pkgs.libX11

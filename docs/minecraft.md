@@ -5,11 +5,12 @@ Nook's Minecraft services use its Kingston SSD and are manual-only:
 | Service | Pack | Directory under `/srv/disks/second-life-cache/minecraft` |
 | --- | --- | --- |
 | `atm10-8-0` | All the Mods 10 8.1 (original world) | `atm10-8.0` |
-| `atm10-aero` | All the Mods 10 Aeronautics 0.7.1 | `atm10-aero-0.7.1` |
+| `atm10-aero` | CutieCraft 0.8.0-cutiecraft.1 (ATM10: Aeronautics) | `cutiecraft-0.8.0` |
 | `ftb-skies-2-aero` | FTB Skies 2: Aero 1.14.0 | `ftb-skies-2-aero-1.13.0` |
 
-FTB Skies 2: Aero first started at Lisa's request on 2026-10-20; ATM10 Aero
-has never been started. Both use Minecraft 1.21.1 and Nix-provided Java 21,
+FTB Skies 2: Aero first started at Lisa's request on 2026-10-20. The original
+ATM10 Aero 0.7.1 installation was never started and remains on disk. Both Aero
+packs use Minecraft 1.21.1 and Nix-provided Java 21,
 with an 8–15 GiB heap and 20 GiB service memory limit. ATM10 Aero uses
 NeoForge 21.1.250; FTB uses 21.1.262. Dedicated service users own each
 installation. A `.prepared` marker gates startup. Neither unit is wanted by a boot target; starting one
@@ -20,7 +21,8 @@ Do not start either Aero server until Lisa requests it. Start exactly one pack:
 
 ```sh
 ssh nook sudo systemctl start atm10-aero.service
-# Or: ssh nook sudo systemctl start ftb-skies-2-aero.service
+# CutieCraft uses the atm10-aero service; alternatively start the old FTB pack:
+ssh nook sudo systemctl start ftb-skies-2-aero.service
 # Original world: ssh nook sudo systemctl start atm10-8-0.service
 ```
 
@@ -28,6 +30,61 @@ FTB Skies 2: Aero generated its new world and reported ready at 14:40:17
 Europe/Brussels on 2026-10-20. Direct Nook and `mc.bylisa.dev:25565` status
 requests returned Minecraft 1.21.1, protocol 767; both ATM10 services were
 stopped. Joining and island generation have not been tested.
+
+## CutieCraft, 2026-11-08
+
+Lisa requested replacing the current pack with her local CutieCraft instance,
+a fresh world seeded with `CutieCraft`, and disabled spawn protection. Join at
+`cutiecraft.bylisa.dev:25565`; `mc.bylisa.dev` reaches the same server.
+
+The official ATM10: Aeronautics 0.8.0 server archive (CurseForge file 9366712)
+provides the base. Local configuration, KubeJS, default configs and custom mods
+were overlaid from the CutieCraft instance. All 431 server JARs match the
+client's SHA256 hashes. Six client-only additions were omitted: Dark Mode
+Everywhere, Drippy Loading Screen, Iris, Not Enough Animations, Sodium Extra,
+and Sodium. The installed `cutiecraft-server-manifest.json` records exact hashes.
+NeoForge remains 21.1.250 and uses the existing Nix Java 21 installation.
+
+The fresh world's saved seed is `657777154`, Minecraft's numeric interpretation
+of `CutieCraft`. `server.properties` sets `spawn-protection=0`, online mode,
+disabled RCON, flight allowed, view distance 7 and simulation distance 4.
+The previous FTB server's operators and existing Minecraft EULA acceptance were
+retained. No previous world was copied or changed. The server reported ready at
+22:47:24 CET with zero restarts.
+
+Direct public IPv4 and IPv6 status requests returned Minecraft 1.21.1,
+protocol 767, and the CutieCraft MOTD. An independent mcsrvstat.us request also
+confirmed the IPv6 endpoint online. The seed was verified from the saved
+world's `level.dat`, and spawn protection from the running server's properties.
+
+Only the Nix-built Minecraft and Cloudflare DDNS units were activated; no
+whole-system configuration or unrelated pending Forge edits were deployed.
+NixOS's generated `/etc/systemd/system` directory is read-only, so the scoped
+units are linked through `/etc/systemd/system.control`. The same links are
+declared with `environment.etc` in the Minecraft module for future deployments.
+Their closures are rooted at `/nix/var/nix/gcroots/cutiecraft/`. The servers
+remain manual-only across boots, matching their previous policy.
+
+Cloudflare DDNS now maintains DNS-only A and AAAA records for
+`cutiecraft.bylisa.dev`, using the existing Minecraft TCP forwarding rules.
+Simple Voice Chat listens on UDP 24454. That port is declared in Nix and was
+opened in Nook's temporary firewall port set for this scoped activation;
+external voice connectivity and a player join have not been tested.
+
+The original FTB and ATM installations remain intact. Previous unit files and
+their store paths are saved under:
+
+`/srv/disks/western-digital-hdd/minecraft/backups/cutiecraft-before-2026-11-08/`
+
+To roll back the scoped deployment, stop `atm10-aero.service`, remove its and
+Cloudflare DDNS's two CutieCraft links from `/etc/systemd/system.control`, reload
+systemd, then start the chosen previous service. The original ATM10 Aero 0.7.1
+directory remains `atm10-aero-0.7.1`. Revert the Minecraft module before a later
+whole-system deployment if retaining the rollback.
+
+The targeted unit builds and systemd verification passed. The repository's
+broader `dendritic` check currently fails on the existing
+`modules/development/ai-skills/skills/visualize/_package.nix` module boundary.
 
 ## FTB update, 2026-10-28
 
@@ -160,7 +217,8 @@ Original ZIPs remain in Lisa's Downloads directory:
 
 ## Connection routing
 
-The existing address is `mc.bylisa.dev:25565`. Nook's Cloudflare DDNS updater
+The addresses are `cutiecraft.bylisa.dev:25565` and `mc.bylisa.dev:25565`.
+Nook's Cloudflare DDNS updater
 maintains DNS-only A and AAAA records. UniFi forwards WAN1 TCP 25565 to
 `192.168.111.2:25565`; its `Minecraft ATM10 IPv6` firewall rule allows the same
 port to `2a02:1810:515:c680:f22f:74ff:fe1d:7b9b`. Update that rule if the ISP

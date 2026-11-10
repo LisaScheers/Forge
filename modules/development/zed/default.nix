@@ -8,11 +8,6 @@
       cargo-bundle = final.cargo-bundle.overrideAttrs {
         patches = [];
       };
-      # Zed pins cargo-about to 0.8.2, which does not have the inherited `cli` feature.
-      cargo-about = final.cargo-about.overrideAttrs (_old: {
-        cargoBuildFeatures = [];
-        cargoCheckFeatures = [];
-      });
     };
   };
   flake-file.inputs.zed = {

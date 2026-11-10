@@ -1,6 +1,5 @@
 {inputs, ...}: {
-  # Keep the deployed application version fixed through the PostgreSQL cutover.
-  flake-file.inputs.nixpkgs-atlas-apps.url = "github:NixOS/nixpkgs/67b5cf9be1c8d2170270509db4ed12e904a768b0";
+  flake-file.inputs.nixpkgs-atlas-apps.url = "github:NixOS/nixpkgs/master";
 
   nixos.atlas = {
     lib,

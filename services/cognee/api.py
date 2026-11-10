@@ -1,19 +1,10 @@
-"""Keep input paths disabled while letting Cognee load its own stored uploads.
-
-Cognee 1.6.2 applies ACCEPT_LOCAL_FILE_PATH a second time after storing uploaded
-bytes, which rejects every upload with that setting disabled. The input gate in
-save_data_item_to_storage remains disabled; only the internal loader may read
-files, still constrained by COGNEE_ALLOWED_LOCAL_FILE_ROOTS.
-"""
+"""Limit Cognee's embedding threads and install the local email index."""
 
 import importlib
 import os
 import sys
 
 from gunicorn.app.wsgiapp import WSGIApplication
-
-loader = importlib.import_module("cognee.tasks.ingestion.data_item_to_text_file")
-loader.settings.accept_local_file_path = True
 
 # ONNX otherwise sizes its pools from all host CPUs, then spins against the
 # container quota. Fastembed exposes threads, but Cognee does not pass it.

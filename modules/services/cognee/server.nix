@@ -30,8 +30,8 @@ in {
     oidcEnvironment = config.age.secrets.cognee-oidc-env.path;
     mcpKeyFile = "${storageRoot}/credentials/mcp.env";
     d3 = pkgs.fetchurl {
-      url = "https://d3js.org/d3.v7.min.js";
-      hash = "sha256-8glLv2FBs1lyLE/kVOtsSw8OQswQzHr5IfwVj864ZTk=";
+      url = "https://cdn.jsdelivr.net/npm/d3@7.9.2/dist/d3.min.js";
+      hash = "sha256-kSERCY6plQOm9JZzYdK73J2/WM+cZ4yOJ+WwLRoH8ME=";
     };
     # The image's Ladybug 0.19 corrupts WAL records larger than 4 KiB.
     # 0.21 fixes both writer and reader: LadybugDB/ladybug#959.
@@ -98,7 +98,7 @@ in {
     virtualisation.oci-containers = {
       backend = "podman";
       containers.cognee = {
-        image = "docker.io/cognee/cognee@sha256:05ac5ca16f0308190e06771c35d9be0d666c313ad1deb587228ec26179f2336e";
+        image = "docker.io/cognee/cognee@sha256:84584eade25cd9526ef4fe8dd550be69fb974fb1083bde9e498da451fad0dfc6";
         user = "970:970";
         environmentFiles = [backendEnvironment];
         environment = {
@@ -169,7 +169,7 @@ in {
           ];
       };
       containers.cognee-mcp = {
-        image = "docker.io/cognee/cognee-mcp@sha256:240b49174b5dcf5906e8e5a6d46b24b947361866be93956032d7e88c0876bafa";
+        image = "docker.io/cognee/cognee-mcp@sha256:32ddfdf969dd6c910d36372af6b50a8de079d2f0880620691acebcda89c6ff30";
         user = "970:970";
         dependsOn = ["cognee"];
         environmentFiles = [oidcEnvironment mcpKeyFile];

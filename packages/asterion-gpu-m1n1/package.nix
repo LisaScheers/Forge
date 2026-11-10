@@ -3,22 +3,22 @@
   fetchFromGitHub,
   buildPackages,
 }: let
-  revision = "121fcbf35d4501814b58ca5347926a4173b6a512";
+  revision = "7f6df96591b72c6ac9009cfa7e991dc5eafc7def";
   source = fetchFromGitHub {
     owner = "omacom";
     repo = "m1n1";
     rev = revision;
-    hash = "sha256-//W1I5ZMD0LrEFcfGJYPoZW3xMVa4rbUyoC1THIPD1c=";
+    hash = "sha256-CQ/cbSUvM2pUYUiq1SexzY4LuAPXdscshLihDSwh0To=";
   };
 in
   (m1n1.override {customLogo = null;}).overrideAttrs (old: {
     pname = "asterion-gpu-m1n1";
-    version = "unstable-2026-11-03";
+    version = "unstable-2026-11-07";
     M1N1_VERSION_TAG = "asterion-gpu-${builtins.substring 0 12 revision}";
     src = source;
     cargoDeps = m1n1.rustPlatform.fetchCargoVendor {
       pname = "asterion-gpu-m1n1";
-      version = "unstable-2026-11-03";
+      version = "unstable-2026-11-07";
       src = "${source}/rust";
       sourceRoot = "rust";
       hash = "sha256-Rw9xhDAZx1YIiS62fKmSoq8FDZ1JJNhA7p/Wx35R7RQ=";

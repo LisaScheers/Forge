@@ -24,8 +24,7 @@ streams, and WebSocket transcripts. Its streaming logger is patched to apply
 backpressure instead of dropping chunks when its queue fills. Request logging
 stays enabled; log size cleanup and error-log expiry are disabled.
 
-The pinned Plus release is `kaitranntt/CLIProxyAPIPlus` **v8.0.53-0** at
-`5eddd91445a959145ebbc05df7e26b9758dbebd6`. It includes Codex
+The pinned Plus release is `kaitranntt/CLIProxyAPIPlus` **v8.0.56-0**. It includes Codex
 `response.interrupt` support and the late-interrupt fix. SSE framing is handled
 upstream. The local patch retains capture backpressure and fixes object-valued
 Responses `text` configuration in completion validation.

@@ -3,8 +3,8 @@
     python = pkgs.python3.withPackages (ps: [ps.aiohttp]);
     source = ../../../services/watch-room;
     hls = pkgs.fetchurl {
-      url = "https://cdn.jsdelivr.net/npm/hls.js@1.6.13/dist/hls.min.js";
-      sha256 = "01zv9hmmq5yp3h0c5q4582zg8nnllvcqxp93js6vkrx6sybwsivw";
+      url = "https://cdn.jsdelivr.net/npm/hls.js@1.7.4/dist/hls.min.js";
+      hash = "sha256-z8cMyen8Y9BxkZ4IdnCrx2DI/RvIibiFiAJuTSIZO74=";
     };
     hostProxy = {
       proxyPass = "http://unix:/run/watch-room/host.sock:";

@@ -1,6 +1,6 @@
 {inputs, ...}: {
   flake-file.inputs.helium = {
-    url = "github:schembriaiden/helium-browser-nix-flake/ebac6e7f4af50aa48200ae77ea6606061e2d3e84";
+    url = "github:schembriaiden/helium-browser-nix-flake";
     inputs.nixpkgs.follows = "nixpkgs";
     inputs.nixpkgs-darwin.follows = "nixpkgs";
   };

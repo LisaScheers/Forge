@@ -4,24 +4,24 @@
   stdenv,
   stdenvNoCC,
 }: let
-  version = "7.2.127-7";
+  version = "8.0.56-0";
 
   targets = {
     aarch64-darwin = {
       asset = "CLIProxyAPIPlus_${version}_darwin_aarch64_no-plugin.tar.gz";
-      hash = "sha256-1bhAetxWQ9hw//WMaR0k2wwifdjV0CJOU4JZu6SdEi4=";
+      hash = "sha256:5f418185e2f3e446433da03174bc114ad6694a1cc0d75309975badf911d78b84";
     };
     x86_64-darwin = {
       asset = "CLIProxyAPIPlus_${version}_darwin_amd64_no-plugin.tar.gz";
-      hash = "sha256-5idVe0m/ClXeQWypLvUBMlKpJms8b1O1JrX1P5m27SM=";
+      hash = "sha256:03f6293cf2b37868ff43d9685e33d12f693181a2310b47d19ca8f5cbe18b978c";
     };
     aarch64-linux = {
       asset = "CLIProxyAPIPlus_${version}_linux_aarch64_no-plugin.tar.gz";
-      hash = "sha256-hno9pE0vSM+nfqT4fqZso7goC2Zi/MbIxqcgXfx5ZHw=";
+      hash = "sha256:1418c8a6891fd1c0a070850e1a1b71d95b0711036c69dee99b10f69a04211b68";
     };
     x86_64-linux = {
       asset = "CLIProxyAPIPlus_${version}_linux_amd64_no-plugin.tar.gz";
-      hash = "sha256-bP5BVeAGRnXKyafnwTSu+5SLjpVR0MdiB6xnxf2jVGc=";
+      hash = "sha256:cc9fb004be10015a9de292b4fccde422a270ea7c27b200b129448717883261ff";
     };
   };
 

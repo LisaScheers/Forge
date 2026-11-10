@@ -1,4 +1,5 @@
 import importlib
+import importlib.metadata
 import tempfile
 
 import lancedb
@@ -6,7 +7,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from PIL import Image, ImageDraw, ImageFont
 
-assert pa.__version__ == "25.0.1"
+assert pa.__version__ == "26.0.1"
+assert importlib.metadata.version("pyarrow") == pa.__version__
 for module in ("csv", "dataset", "feather", "flight", "fs", "json", "orc", "parquet"):
     importlib.import_module(f"pyarrow.{module}")
 for filesystem in ("AzureFileSystem", "GcsFileSystem", "HadoopFileSystem", "S3FileSystem"):
@@ -39,4 +41,4 @@ with tempfile.TemporaryDirectory() as directory:
 
 image = Image.new("RGB", (200, 30))
 ImageDraw.Draw(image).text((0, 0), "Brotli regression", font=ImageFont.load_default())
-print("Patched Arrow rejects invalid blocks; Parquet, LanceDB and Pillow controls pass")
+print("Upstream Arrow rejects invalid blocks; Parquet, LanceDB and Pillow controls pass")

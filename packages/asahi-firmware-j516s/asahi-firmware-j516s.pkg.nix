@@ -41,8 +41,8 @@
   extractor = fetchFromGitHub {
     owner = "AsahiLinux";
     repo = "asahi-installer";
-    rev = "99dff2e968dafcabc2a940865b051e91ffcfafd3";
-    hash = "sha256-IbGH5pn65XL7tIbvwYLk1GLjjnp7wI1DV/4e94cySCc=";
+    rev = "e93743d52178b3e26e428fa05174ef549abf30cb";
+    hash = "sha256-KTl4GsCz/PdrzWmR/y12N1Lmw1f7Auzh2EYwcTjuCo0=";
   };
 in
   stdenvNoCC.mkDerivation {

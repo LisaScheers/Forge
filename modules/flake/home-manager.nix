@@ -23,7 +23,7 @@ in {
       home-manager = settings;
     };
     flake-file.inputs.home-manager = {
-      url = "github:LisaScheers/home-manager/agent/nushell-session-environment";
+      url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
