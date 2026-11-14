@@ -23,16 +23,31 @@ if [[ "$command_name" == ssh && "$1" == -S ]]; then shift 2; fi
 case "$command_name:$1" in
   git:rev-parse) echo revision ;;
   ssh:atlas)
-    if [[ "$*" == *'--property=ActiveState'* ]]; then echo inactive; fi
+    shift
+    case "$*" in
+      'sudo systemctl stop nix-auto-sync-update.timer')
+        if [[ "${DEPLOY_TEST_FAIL_HOLD:-0}" == 1 && -f "$DEPLOY_TEST_TIMER" && "$(cat "$DEPLOY_TEST_TIMER")" == active ]]; then
+          exit 1
+        fi
+        echo inactive > "$DEPLOY_TEST_TIMER"
+        ;;
+      'sudo systemctl start nix-auto-sync-update.timer') echo active > "$DEPLOY_TEST_TIMER" ;;
+      *'--property=ActiveState'*) echo inactive ;;
+    esac
     ;;
-  nix:run) exit "${DEPLOY_TEST_FAIL_ACTIVATION:-0}" ;;
+  nix:run)
+    # NixOS activation can start the wanted timer before failing or rolling back.
+    echo active > "$DEPLOY_TEST_TIMER"
+    exit "${DEPLOY_TEST_FAIL_ACTIVATION:-0}"
+    ;;
 esac
 """)
         mock.chmod(0o755)
         for command in ("git", "ssh", "nix"):
             (self.root / command).symlink_to(mock)
         self.env = dict(os.environ, PATH=f"{self.root}:{os.environ['PATH']}",
-                        DEPLOY_TEST_LOG=str(self.log))
+                        DEPLOY_TEST_LOG=str(self.log),
+                        DEPLOY_TEST_TIMER=str(self.root / "timer-state"))
 
     def run_deploy(self, *args, fail_activation=False):
         env = dict(self.env, DEPLOY_TEST_FAIL_ACTIVATION="1" if fail_activation else "0")
@@ -56,9 +71,27 @@ esac
         self.assertNotIn("systemctl start nix-auto-sync-update.timer", commands)
 
     def test_failed_activation_keeps_updater_stopped(self):
-        result, commands = self.run_deploy("atlas", "switch", "--maintenance", fail_activation=True)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertNotIn("systemctl start nix-auto-sync-update.timer", commands)
+        for extra_args in ((), ("--maintenance",)):
+            with self.subTest(extra_args=extra_args):
+                self.log.unlink(missing_ok=True)
+                result, commands = self.run_deploy("atlas", "switch", *extra_args, fail_activation=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual((self.root / "timer-state").read_text().strip(), "inactive")
+                self.assertEqual(commands.count("ssh atlas sudo systemctl stop nix-auto-sync-update.timer"), 2)
+                self.assertNotIn("systemctl start nix-auto-sync-update.timer", commands)
+
+    def test_failed_timer_hold_is_reported_without_claiming_it_is_stopped(self):
+        self.env["DEPLOY_TEST_FAIL_HOLD"] = "1"
+        for extra_args in ((), ("--maintenance",)):
+            with self.subTest(extra_args=extra_args):
+                self.log.unlink(missing_ok=True)
+                (self.root / "timer-state").unlink(missing_ok=True)
+                result, commands = self.run_deploy("atlas", "switch", *extra_args, fail_activation=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual((self.root / "timer-state").read_text().strip(), "active")
+                self.assertIn("failed to", result.stderr)
+                self.assertNotIn("timer remains stopped", result.stderr)
+                self.assertNotIn("systemctl start nix-auto-sync-update.timer", commands)
 
     def test_authenticated_channel_is_used_for_checks_and_activation(self):
         self.env["FORGE_DEPLOY_SSH_CONTROL"] = "/tmp/forge-test-socket"
