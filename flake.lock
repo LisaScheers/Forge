@@ -1377,6 +1377,32 @@
         "type": "github"
       }
     },
+    "nix-honeypot": {
+      "inputs": {
+        "flake-parts": [
+          "flake-parts"
+        ],
+        "import-tree": [
+          "import-tree"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1794635871,
+        "narHash": "sha256-YU3h+ukaY8g12Q00vqFNym9A/nPdt9TtBT+JOoEYdhs=",
+        "owner": "LisaScheers",
+        "repo": "nix-honeypot",
+        "rev": "8e3cbdbac14aaa6b5393862e494455ce956f1862",
+        "type": "github"
+      },
+      "original": {
+        "owner": "LisaScheers",
+        "repo": "nix-honeypot",
+        "type": "github"
+      }
+    },
     "nix-index-database": {
       "inputs": {
         "nixpkgs": [
@@ -2174,6 +2200,7 @@
         "nix-auto-follow": "nix-auto-follow",
         "nix-darwin": "nix-darwin",
         "nix-homebrew": "nix-homebrew",
+        "nix-honeypot": "nix-honeypot",
         "nix-index-database": "nix-index-database",
         "nix-output-monitor": "nix-output-monitor",
         "nixos-apple-silicon": "nixos-apple-silicon",

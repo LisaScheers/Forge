@@ -93,6 +93,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nix-homebrew.url = "github:zhaofengli/nix-homebrew";
+    nix-honeypot = {
+      url = "github:LisaScheers/nix-honeypot";
+      inputs = {
+        flake-parts.follows = "flake-parts";
+        import-tree.follows = "import-tree";
+        nixpkgs.follows = "nixpkgs";
+      };
+    };
     nix-index-database = {
       url = "github:nix-community/nix-index-database";
       inputs.nixpkgs.follows = "nixpkgs";

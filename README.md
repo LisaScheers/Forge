@@ -106,6 +106,22 @@ For writes, pass `-X POST` (or another method) and `-d '{"name":"example"}'`;
 A permission error does not discard the saved login or automatically open another
 sign-in window.
 
+## Atlas honeypots
+
+`modules/services/honeypot.nix` imports the public
+[`nix-honeypot`](https://github.com/LisaScheers/nix-honeypot) flake and enables
+SSH, HTTP, FTP and Redis decoys on Atlas. Their TCP ports are 2223, 8080, 2121
+and 6380 respectively, opened by the NixOS firewall. The SSH and Redis overrides
+avoid Forgejo SSH on 2222 and Authentik Redis on 6379. Administrative SSH keeps
+its existing configuration.
+
+The decoys capture credentials and application payloads in private, rotated
+JSONL files under `/var/log/honeypot`. Run `sudo honeypot-report` on Atlas for
+connection counts, source addresses and event summaries. Captured commands use
+inert responses; they never execute on the host. The default limits are 256 KiB
+of payload per connection, a 120-second session lifetime and approximately
+128 MiB of retained logs. Copy evidence before rotation for longer retention.
+
 ## Deployment
 
 Deployments use the locked `deploy-rs` input. Run the server commands from Vega, where the SSH aliases and builders are configured. Every command names one host; there is no fleet-wide deployment recipe.
