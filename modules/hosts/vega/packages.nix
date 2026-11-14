@@ -2,8 +2,8 @@
   # OrbStack 2.2.5 includes the Linux kernel fix for CVE-2026-98432.
   overlays.orbstack = final: prev: {
     orbstack =
-      if prev.lib.versionAtLeast prev.orbstack.version "2.2.5"
-      then prev.orbstack
+      if prev.lib.versionAtLeast prev.orbstack.version "2.2.5" then
+        prev.orbstack
       else
         prev.orbstack.overrideAttrs {
           version = "2.2.5-21124";
@@ -14,7 +14,7 @@
         };
   };
 
-  darwin.vega = {pkgs, ...}: {
+  darwin.vega = { pkgs, ... }: {
     environment.systemPackages = with pkgs; [
       just
       sops
@@ -36,6 +36,7 @@
       the-unarchiver
       oxfmt
       oxlint
+      zed-editor
     ];
   };
 }
