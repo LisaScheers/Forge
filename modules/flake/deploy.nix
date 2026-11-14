@@ -122,9 +122,22 @@ in {
       deploy-activate-vega = darwinDeployChecks.deploy-activate;
     };
 
-  perSystem = {system, ...}: {
+  perSystem = {system, ...}: let
+    deployPackage = inputs.deploy-rs.packages.${system}.deploy-rs.overrideAttrs (old: {
+      postPatch =
+        (old.postPatch or "")
+        + ''
+          # Lix removed the legacy nix-store --serve protocol used by ssh://.
+          substituteInPlace src/push.rs \
+            --replace-fail '"ssh://{}@{}"' '"ssh-ng://{}@{}"'
+        '';
+    });
+  in {
     apps = lib.optionalAttrs (builtins.elem system ["aarch64-darwin" "aarch64-linux" "x86_64-linux"]) {
-      deploy = inputs.deploy-rs.apps.${system}.deploy-rs;
+      deploy = {
+        type = "app";
+        program = lib.getExe deployPackage;
+      };
     };
   };
 }
