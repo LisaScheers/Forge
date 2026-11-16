@@ -49,6 +49,8 @@
   };
   mitmproxy = pkgs.mitmproxy.overridePythonAttrs (old: {
     version = "12.2.3";
+    # These TLS tests were added after the pinned release.
+    patches = builtins.filter (patch: !(lib.hasSuffix "-fix-test-emudhra.patch" (toString patch))) (old.patches or []);
     src = pkgs.fetchurl {
       url = "https://github.com/mitmproxy/mitmproxy/archive/refs/tags/v12.2.3.tar.gz";
       hash = "sha256-OQc/QUzbmgv0OLh12g55uzBry30TMbWAdjiG9Qn3jBs=";

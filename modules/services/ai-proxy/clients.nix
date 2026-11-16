@@ -40,19 +40,6 @@ in {
       then osConfig.age.secrets.ai-proxy-client-key.path
       else "${config.xdg.configHome}/cli-proxy-api-plus/client-api-key";
   in {
-    programs.codex.settings = {
-      model_provider = "nook";
-      model_providers.nook = {
-        name = "CLIProxy on Nook";
-        base_url = "${endpoint}/v1";
-        wire_api = "responses";
-        supports_websockets = true;
-        auth = {
-          command = "${pkgs.coreutils}/bin/cat";
-          args = [secretPath];
-        };
-      };
-    };
     programs.antigravity-cli = lib.mkIf config.programs.antigravity-cli.enable {
       package = pkgs.symlinkJoin {
         name = "antigravity-through-nook";
@@ -73,8 +60,8 @@ in {
       OPENAI_BASE_URL = "${endpoint}/v1";
       ANTHROPIC_BASE_URL = endpoint;
     };
-    # T3's active Codex driver reads the same Codex provider configuration.
+    # Keep T3 on Codex's native provider too.
     programs.t3code.userSettings.providerInstances.codex.config.launchArgs =
-      lib.mkForce "-c model_provider=\"nook\"";
+      lib.mkForce "-c model_provider=\"openai\"";
   };
 }

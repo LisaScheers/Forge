@@ -58,10 +58,10 @@ def messages(value, default_role="user"):
         if not isinstance(item, dict):
             continue
         kind = item.get("type", "message")
-        if kind in {"function_call", "tool_use"}:
+        if kind in {"function_call", "custom_tool_call", "tool_use"}:
             result.append({"role": "assistant", "kind": "tool_call", "tool": item.get("name", "tool"),
                            "text": content_text(item.get("arguments", item.get("input"))), "call_id": item.get("call_id", item.get("id", ""))})
-        elif kind in {"function_call_output", "tool_result"}:
+        elif kind in {"function_call_output", "custom_tool_call_output", "tool_result"}:
             result.append({"role": "tool", "kind": "tool_result", "text": content_text(item.get("output", item.get("content"))),
                            "call_id": item.get("call_id", item.get("tool_use_id", ""))})
         else:

@@ -1,0 +1,173 @@
+--- a/codex-api/src/telemetry.rs
++++ b/codex-api/src/telemetry.rs
+@@ -14,0 +15,3 @@
++/// Optional local recorder called before provider JSON is decoded.
++pub type RawResponseObserver = Arc<dyn Fn(&str) + Send + Sync>;
++
+--- a/codex-api/src/lib.rs
++++ b/codex-api/src/lib.rs
+@@ -21,0 +22 @@
++pub use crate::telemetry::RawResponseObserver;
+--- a/codex-api/src/endpoint/responses_websocket.rs
++++ b/codex-api/src/endpoint/responses_websocket.rs
+@@ -288,0 +289,10 @@
++        &self,
++        request: ResponsesWsRequest<'_>,
++        connection_reused: bool,
++        turn_state: Option<Arc<OnceLock<String>>>,
++    ) -> Result<ResponseStream, ApiError> {
++        self.stream_request_with_observer(request, connection_reused, turn_state, None)
++            .await
++    }
++
++    pub async fn stream_request_with_observer(
+@@ -292,0 +303 @@
++        raw_response_observer: Option<crate::telemetry::RawResponseObserver>,
+@@ -390,0 +402 @@
++                        raw_response_observer,
+@@ -823,0 +836 @@
++    raw_response_observer: Option<crate::telemetry::RawResponseObserver>,
+@@ -898,0 +912,3 @@
++                if let Some(observer) = raw_response_observer.as_ref() {
++                    observer(&text);
++                }
+--- a/core/src/client.rs
++++ b/core/src/client.rs
+@@ -2095,0 +2096,9 @@
++            let sse_telemetry: Arc<dyn SseTelemetry> =
++                if let Some(observer) = inference_trace_attempt.raw_response_observer() {
++                    Arc::new(CapturingSseTelemetry {
++                        inner: sse_telemetry,
++                        observer,
++                    })
++                } else {
++                    sse_telemetry
++                };
+@@ -2359,7 +2368 @@
+-            let inference_trace_attempt = if warmup {
+-                // Prewarm sends `generate=false`; it is connection setup, not a
+-                // model inference attempt that should appear in rollout traces.
+-                InferenceTraceAttempt::disabled()
+-            } else {
+-                inference_trace.start_attempt()
+-            };
++            let inference_trace_attempt = inference_trace.start_attempt();
+@@ -2451 +2454 @@
+-                .stream_request(
++                .stream_request_with_observer(
+@@ -2454,0 +2458 @@
++                    inference_trace_attempt.raw_response_observer(),
+@@ -2545,0 +2550,25 @@
++        self.prewarm_websocket_with_trace(
++            prompt,
++            model_info,
++            session_telemetry,
++            effort,
++            summary,
++            service_tier,
++            responses_metadata,
++            &InferenceTraceContext::disabled(),
++        )
++        .await
++    }
++
++    #[allow(clippy::too_many_arguments)]
++    pub async fn prewarm_websocket_with_trace(
++        &mut self,
++        prompt: &Prompt,
++        model_info: &ModelInfo,
++        session_telemetry: &SessionTelemetry,
++        effort: Option<ReasoningEffortConfig>,
++        summary: ReasoningSummaryConfig,
++        service_tier: Option<String>,
++        responses_metadata: &CodexResponsesMetadata,
++        trace: &InferenceTraceContext,
++    ) -> Result<()> {
+@@ -2553 +2581,0 @@
+-        let disabled_trace = InferenceTraceContext::disabled();
+@@ -2565 +2593 @@
+-                &disabled_trace,
++                trace,
+@@ -3219,0 +3248,21 @@
++    }
++}
++
++struct CapturingSseTelemetry {
++    inner: Arc<dyn SseTelemetry>,
++    observer: codex_api::RawResponseObserver,
++}
++
++impl SseTelemetry for CapturingSseTelemetry {
++    fn on_sse_poll(
++        &self,
++        result: &std::result::Result<
++            Option<std::result::Result<Event, EventStreamError<TransportError>>>,
++            tokio::time::error::Elapsed,
++        >,
++        duration: Duration,
++    ) {
++        if let Ok(Some(Ok(event))) = result {
++            (self.observer)(&event.data);
++        }
++        self.inner.on_sse_poll(result, duration);
+--- a/core/src/session/startup_prewarm.rs
++++ b/core/src/session/startup_prewarm.rs
+@@ -440,0 +441,8 @@
++    let trace = session
++        .services
++        .rollout_thread_trace
++        .inference_trace_context(
++            step_context.turn.sub_id.as_str(),
++            step_context.settings.model_info.slug.as_str(),
++            step_context.turn.provider.info().name.as_str(),
++        );
+@@ -443 +451 @@
+-        .prewarm_websocket(
++        .prewarm_websocket_with_trace(
+@@ -452,0 +461 @@
++            &trace,
+--- a/core/src/compact_remote_v2.rs
++++ b/core/src/compact_remote_v2.rs
+@@ -65 +64,0 @@
+-use codex_rollout_trace::InferenceTraceContext;
+@@ -299,0 +299,5 @@
++    let trace = sess.services.rollout_thread_trace.inference_trace_context(
++        turn_context.sub_id.as_str(),
++        step_context.settings.model_info.slug.as_str(),
++        turn_context.provider.info().name.as_str(),
++    );
+@@ -307 +310,0 @@
+-            let trace = InferenceTraceContext::disabled();
+@@ -348 +351 @@
+-                &InferenceTraceContext::disabled(),
++                &trace,
+--- a/rollout-trace/src/inference.rs
++++ b/rollout-trace/src/inference.rs
+@@ -141,0 +142,27 @@
++    /// Preserve original provider JSON, including deltas and future usage fields.
++    pub fn raw_response_observer(&self) -> Option<Arc<dyn Fn(&str) + Send + Sync>> {
++        let InferenceTraceAttemptState::Enabled(attempt) = &self.state else {
++            return None;
++        };
++        let context = attempt.context.clone();
++        let inference_call_id = attempt.inference_call_id.clone();
++        Some(Arc::new(move |data| {
++            let Some(payload) = write_json_payload_best_effort(
++                &context.writer,
++                RawPayloadKind::InferenceResponse,
++                &serde_json::json!({"data": data}),
++            ) else {
++                return;
++            };
++            append_with_context_best_effort(
++                &context,
++                RawTraceEventPayload::Other {
++                    kind: "raw_response".to_owned(),
++                    summary: String::new(),
++                    payloads: vec![payload],
++                    metadata: serde_json::json!({"inference_call_id": inference_call_id}),
++                },
++            );
++        }))
++    }
++

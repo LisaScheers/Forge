@@ -1,8 +1,17 @@
 {inputs, ...}: let
   deployedPackages = inputs.nixpkgs-nook-apps.legacyPackages.x86_64-linux;
+  authOidc = deployedPackages.home-assistant-custom-components.auth_oidc.overrideAttrs (old: {
+    postPatch =
+      (old.postPatch or "")
+      + ''
+        # Home Assistant 2026.11 stores person data in PersonData instead of a tuple.
+        substituteInPlace tests/test_hass_auth_provider.py \
+          --replace-fail 'hass.data[PERSON_DOMAIN][1]' 'hass.data[PERSON_DOMAIN].storage_collection'
+      '';
+  });
 in {
   nixos.nook.services.home-assistant = {
-    customComponents = [deployedPackages.home-assistant-custom-components.auth_oidc];
+    customComponents = [authOidc];
     config.auth_oidc = {
       client_id = "home-assistant";
       discovery_url = "https://auth.bylisa.dev/application/o/home-assistant/.well-known/openid-configuration";

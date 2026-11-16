@@ -115,17 +115,7 @@ in {
         enable = true;
         mutableSettings = true;
         settings = {
-          model_provider = "nook";
-          model_providers.nook = {
-            name = "CLIProxy on Nook";
-            base_url = "https://${domain}/v1";
-            wire_api = "responses";
-            supports_websockets = true;
-            auth = {
-              command = "${pkgs.coreutils}/bin/cat";
-              args = [config.age.secrets.ai-proxy-client-key.path];
-            };
-          };
+          model_provider = "openai";
         };
       };
     };
@@ -166,6 +156,8 @@ in {
       enable = true;
       serverConfig = {
         listen_host = "127.0.0.1";
+        # Home Assistant owns the default ClickHouse HTTP port, 8123.
+        http_port = 8124;
         path = "${databaseRoot}/";
         tmp_path = "${databaseRoot}/tmp/";
         user_files_path = "${databaseRoot}/user_files/";
@@ -182,6 +174,7 @@ in {
     systemd.services.clickhouse = {
       requires = ["ai-usage-secrets.service"];
       after = ["ai-usage-secrets.service" "systemd-tmpfiles-setup.service"];
+      restartTriggers = [config.environment.etc."clickhouse-server/config.d/100-nixos-module-config.yaml".source];
       unitConfig.RequiresMountsFor = ["/srv/disks/projects"];
       serviceConfig.EnvironmentFile = databaseEnv;
     };

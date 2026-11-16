@@ -42,6 +42,28 @@ class Backend:
 
 
 class ParserTests(unittest.TestCase):
+    def test_native_request_retains_custom_tools_and_usage_subsets(self):
+        row = capture()
+        request = {"model": "gpt-6.1-sol", "input": [
+            {"role": "user", "content": "Native prompt"},
+            {"type": "custom_tool_call", "name": "exec", "call_id": "cell", "input": "return 1"},
+            {"type": "custom_tool_call_output", "call_id": "cell", "output": "tool result"}]}
+        response = {"type": "response.completed", "response": {"id": "native-response", "output": [
+            {"type": "message", "role": "assistant", "content": "Native answer"}]}}
+        row["transcript"] = ("=== REQUEST INFO ===\nSession-Id: native-thread\n"
+                             "=== HEADERS ===\nUser-Agent: codex-native-capture\n"
+                             "=== REQUEST BODY ===\n" + json.dumps(request) +
+                             "\n=== RESPONSE ===\ndata: " + json.dumps(response))
+        turn, = parse_capture(row, {"native-response": {"input_tokens": 101, "output_tokens": 17,
+            "input_tokens_details.cached_tokens": 40, "output_tokens_details.reasoning_tokens": 5}})
+        self.assertEqual(turn["client"], "Codex")
+        self.assertEqual(turn["session_id"], "native-thread")
+        self.assertEqual([m["role"] for m in turn["input"]], ["user", "assistant", "tool"])
+        self.assertEqual(turn["input"][1]["text"], "return 1")
+        self.assertEqual(turn["output"][0]["text"], "Native answer")
+        self.assertEqual(turn["total_tokens"], 118)
+        self.assertEqual(turn["cached_tokens"], 40)
+
     def test_nonstreaming_response_object_keeps_text_and_usage_identity(self):
         row = capture()
         row["transcript"] = row["transcript"].split("=== RESPONSE ===")[0] + "=== RESPONSE ===\n" + json.dumps({

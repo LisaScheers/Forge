@@ -18,7 +18,7 @@ SECTION = re.compile(r"^=== (.+?) ===$")
 
 
 class ClickHouse:
-    def __init__(self, url="http://127.0.0.1:8123"):
+    def __init__(self, url="http://127.0.0.1:8124"):
         self.url = url
 
     def query(self, query, data=b""):
