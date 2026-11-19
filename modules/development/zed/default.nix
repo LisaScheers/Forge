@@ -4,16 +4,9 @@
     programs.zed-editor.package = null;
   };
   overlays.zed = final: _prev: {
-    zed-editor = inputs.zed.packages.${final.stdenv.hostPlatform.system}.default.override {
-      # Zed's older fork has no tests/common.rs for Nixpkgs' integration-test patch.
-      cargo-bundle = final.cargo-bundle.overrideAttrs {
-        patches = [ ];
-      };
-    };
+    # Use Zed's own Nixpkgs pin and build unchanged so zed.cachix.org has the result.
+    zed-editor = inputs.zed.packages.${final.stdenv.hostPlatform.system}.default;
   };
-  flake-file.inputs.zed = {
-    url = "github:zed-industries/zed";
-    inputs.nixpkgs.follows = "nixpkgs";
-  };
+  flake-file.inputs.zed.url = "github:zed-industries/zed";
   perSystem = { pkgs, ... }: { packages.zed-editor = pkgs.zed-editor; };
 }

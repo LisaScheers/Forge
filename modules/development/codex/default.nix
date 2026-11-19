@@ -1,5 +1,9 @@
-{ inputs, ... }: {
-  home."lisa" = { lib, ... }: {
+{inputs, ...}: {
+  home."lisa" = {
+    lib,
+    pkgs,
+    ...
+  }: {
     programs = {
       codex = {
         enable = true;
@@ -29,6 +33,12 @@
             startup_timeout_sec = 30;
             tool_timeout_sec = 600;
             tools.forget.approval_mode = "prompt";
+          };
+
+          mcp_servers.webmcp = {
+            command = "${pkgs.nodejs}/bin/npx";
+            args = ["-y" "@jason.today/webmcp@0.1.13" "--mcp"];
+            startup_timeout_sec = 60;
           };
         };
       };

@@ -7,7 +7,7 @@
     ...
   }: let
     editor = import ../../packages/nixvim/nixvim.pkg.nix {
-      inherit system;
+      inherit pkgs system;
       inherit (inputs) nixvim;
       nixd = pkgs.nixd;
       nixdSettings = inputs.self.lib.nixdSettings pkgs;

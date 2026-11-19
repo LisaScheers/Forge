@@ -7,17 +7,6 @@
 
   outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./modules);
 
-  nixConfig = {
-    extra-substituters = [
-      "https://kixelated.cachix.org"
-      "https://zed.cachix.org"
-    ];
-    extra-trusted-public-keys = [
-      "kixelated.cachix.org-1:CmFcV0lyM6KuVM2m9mih0q4SrAa0XyCsiM7GHrz3KKk="
-      "zed.cachix.org-1:/pHQ6dpMsAZk2DiP4WCL0p9YDNKWj2Q5FL20bNmw1cU="
-    ];
-  };
-
   inputs = {
     agenix = {
       url = "github:ryantm/agenix";
@@ -54,10 +43,7 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
     helium = {
       url = "github:schembriaiden/helium-browser-nix-flake";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        nixpkgs-darwin.follows = "nixpkgs";
-      };
+      inputs.nixpkgs.follows = "nixpkgs";
     };
     home-manager = {
       url = "github:nix-community/home-manager";
@@ -72,17 +58,6 @@
       flake = false;
     };
     import-tree.url = "github:denful/import-tree";
-    lix = {
-      url = "https://git.lix.systems/lix-project/lix/archive/main.tar.gz";
-      flake = false;
-    };
-    lix-module = {
-      url = "https://git.lix.systems/lix-project/nixos-module/archive/main.tar.gz";
-      inputs = {
-        lix.follows = "lix";
-        nixpkgs.follows = "nixpkgs";
-      };
-    };
     movie-night.url = "github:LisaScheers/movie-night";
     nix-auto-follow = {
       url = "github:fzakaria/nix-auto-follow";
@@ -130,7 +105,6 @@
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    spotaui.url = "github:LargeModGames/spotatui";
     steam-asahi = {
       url = "github:sm-idk/steam-asahi";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -140,9 +114,6 @@
       url = "github:LisaScheers/t3-code-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    zed = {
-      url = "github:zed-industries/zed";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    zed.url = "github:zed-industries/zed";
   };
 }

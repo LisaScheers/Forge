@@ -16,7 +16,7 @@
       settings.show_banner = false;
       extraEnv = ''
         $env.PATH = ([
-          ${pkgs.lib.optionalString pkgs.stdenv.isLinux ''"/run/wrappers/bin"''}
+          ${pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isLinux ''"/run/wrappers/bin"''}
           "/etc/profiles/per-user/${config.home.username}/bin"
           "/run/current-system/sw/bin"
           "/nix/var/nix/profiles/default/bin"

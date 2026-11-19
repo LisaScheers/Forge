@@ -2,20 +2,35 @@
   config,
   inputs,
   ...
-}: {
-  flake-file.inputs.movie-night.url = "github:LisaScheers/movie-night";
-  flake-file.nixConfig = {
+}: let
+  # The MoQ relay comes prebuilt from kixelated's cache. Configure it for the
+  # host that rebuilds atlas itself and for vega, which deploys it, rather than
+  # as flake nixConfig, which Nix ignores unless the flake is trusted.
+  kixelatedCache.nix.settings = {
     extra-substituters = ["https://kixelated.cachix.org"];
     extra-trusted-public-keys = ["kixelated.cachix.org-1:CmFcV0lyM6KuVM2m9mih0q4SrAa0XyCsiM7GHrz3KKk="];
   };
+in {
+  flake-file.inputs.movie-night.url = "github:LisaScheers/movie-night";
+  darwin.vega = kixelatedCache;
   flake.agenixRules."secrets/nook/movie-night-env.age".publicKeys = [
     config.secrets.pubkeys.users.lisa
     config.secrets.pubkeys.hosts.nook
   ];
-  nixos.atlas = {config, ...}: {
-    imports = [inputs.movie-night.nixosModules.atlas inputs.movie-night.nixosModules.authentik];
+  nixos.atlas = {
+    config,
+    options,
+    ...
+  }: {
+    imports = [kixelatedCache inputs.movie-night.nixosModules.atlas inputs.movie-night.nixosModules.authentik];
     services.movie-night-relay = {
       enable = true;
+      # moq-relay lacks meta.mainProgram, which the module's lib.getExe needs.
+      # Only meta changes, so the store path and the kixelated cache hit stay the same.
+      package = let
+        relay = options.services.movie-night-relay.package.default;
+      in
+        relay // {meta = relay.meta // {mainProgram = "moq-relay";};};
       domain = "watch.bylisa.dev";
       relayDomain = "moq.bylisa.dev";
       backendUrl = "http://100.106.233.104:3100";

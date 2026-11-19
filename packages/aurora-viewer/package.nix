@@ -5,6 +5,7 @@
   fetchFromGitHub,
   cmake,
   pkg-config,
+  aws-lc,
   python3,
   apple-sdk_15,
 }:
@@ -24,7 +25,7 @@ rustPlatform.buildRustPackage {
   patches = [./macos.patch];
 
   nativeBuildInputs = [cmake pkg-config (python3.withPackages (ps: [ps.pillow]))];
-  buildInputs = [apple-sdk_15];
+  buildInputs = [apple-sdk_15 aws-lc];
   cargoBuildFlags = ["-p" "aurora-viewer"];
   cargoTestFlags = ["--workspace"];
   # This existing HTTP fixture intermittently times out, including in isolation.

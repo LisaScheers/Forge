@@ -19,11 +19,22 @@
       name = skill;
       value = ./pstack/skills/${skill};
     }) (builtins.attrNames (builtins.readDir ./pstack/skills)));
+    tstack = pkgs.fetchFromGitHub {
+      owner = "t3dotgg";
+      repo = "tstack";
+      rev = "11e37a74d0a6868c121cd0910ab2b3bd9873b92a";
+      hash = "sha256-1N0fxvcM44NcGOZeYJiX/EAJuI9GoAj5rEXmu7mJc3w=";
+    };
+    # Bundled file-pr and babysit-pr replace tstack's versions, which full-send calls by name.
+    tstackSkills = lib.genAttrs ["council" "full-send" "full-stop" "sol-loop"] (skill: "${tstack}/skills/${skill}");
     effectiveSkills =
       lib.optionalAttrs cfg.enableBundledSkills bundledSkills
       // cfg.extraSkills;
+    effectiveAgentSkills =
+      lib.optionalAttrs cfg.enableTstackSkills tstackSkills
+      // effectiveSkills;
     effectiveCodexSkills =
-      effectiveSkills
+      effectiveAgentSkills
       // lib.optionalAttrs cfg.enablePstackSkills pstackSkills;
   in {
     options.forge.ai-skills = {
@@ -33,7 +44,7 @@
         type = lib.types.either lib.types.lines lib.types.path;
         default = ./AGENTS.md;
         defaultText = lib.literalExpression "./AGENTS.md";
-        description = "Global instructions shared by Codex and GitHub Copilot CLI.";
+        description = "Global instructions shared by Codex, Claude Code, and GitHub Copilot CLI.";
       };
 
       enableBundledSkills = lib.mkOption {
@@ -46,6 +57,12 @@
         type = lib.types.bool;
         default = true;
         description = "Whether to install the separately maintained pstack skills in Codex.";
+      };
+
+      enableTstackSkills = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        description = "Whether to install Theo's council, full-send, full-stop, and sol-loop skills in Codex and Claude Code.";
       };
 
       extraSkills = lib.mkOption {
@@ -63,6 +80,11 @@
         codex = {
           context = cfg.agentsFile;
           skills = effectiveCodexSkills;
+        };
+
+        claude-code = {
+          context = cfg.agentsFile;
+          skills = effectiveAgentSkills;
         };
 
         antigravity-cli = {

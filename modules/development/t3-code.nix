@@ -261,11 +261,11 @@
         providerInstances = {
           antigravity = {
             config = {
-              binaryPath = "";
+              binaryPath = "agy";
               customModels = [];
             };
             driver = "antigravity";
-            enabled = false;
+            enabled = true;
           };
           claudeAgent = {
             config = {
@@ -274,7 +274,7 @@
               launchArgs = "";
             };
             driver = "claudeAgent";
-            enabled = false;
+            enabled = true;
           };
           codex = {
             accentColor = "#0891b2";

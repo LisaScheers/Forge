@@ -10,6 +10,7 @@
     };
     systemd.services.minecraft = {
       requires = ["tailscaled.service"];
+      wants = ["network-online.target"];
       after = ["tailscaled.service" "network-online.target"];
       serviceConfig = {
         ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd 100.106.233.104:25565";

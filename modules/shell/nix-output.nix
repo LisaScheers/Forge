@@ -5,7 +5,7 @@
     lib,
     ...
   }: let
-    nom = inputs.nix-output-monitor.packages.${pkgs.system}.default;
+    nom = inputs.nix-output-monitor.packages.${pkgs.stdenv.hostPlatform.system}.default;
   in {
     system.tools.darwin-rebuild.enable = false;
     environment.systemPackages = [
@@ -32,9 +32,9 @@
       then osConfig.nix.package
       else pkgs.nix;
     nix-exe = lib.getExe nix-package;
-    nom-exe = lib.getExe' inputs.nix-output-monitor.packages.${pkgs.system}.default "nom";
-    nom-build-exe = lib.getExe' inputs.nix-output-monitor.packages.${pkgs.system}.default "nom-build";
-    nom-shell-exe = lib.getExe' inputs.nix-output-monitor.packages.${pkgs.system}.default "nom-shell";
+    nom-exe = lib.getExe' inputs.nix-output-monitor.packages.${pkgs.stdenv.hostPlatform.system}.default "nom";
+    nom-build-exe = lib.getExe' inputs.nix-output-monitor.packages.${pkgs.stdenv.hostPlatform.system}.default "nom-build";
+    nom-shell-exe = lib.getExe' inputs.nix-output-monitor.packages.${pkgs.stdenv.hostPlatform.system}.default "nom-shell";
 
     nom-nix-wrappers = pkgs.symlinkJoin {
       name = "nom-nix-wrappers";

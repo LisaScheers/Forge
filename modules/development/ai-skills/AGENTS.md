@@ -32,6 +32,10 @@ Lead with the result. Use plain words, active voice, and concrete claims. Defaul
 
 Work in the primary agent by default. Use subagents only when Lisa explicitly requests delegation or an applicable skill explicitly requires it. Unless Lisa requests a larger team, use at most two subagents in total for the task, with no nested delegation. Assign exclusive file ownership before parallel edits. Review their artifacts and run the relevant integration checks before accepting them.
 
+## Council
+
+A request for `council` asks for its three-member team. The members are Claude Opus through Claude Code, the latest GPT model through Codex, and the strongest Gemini model T3 Code lists for Antigravity, each at high reasoning effort. "Council 9" or "council 9.5" sets the minimum score every member must give before the work is done. Stop after three scored rounds, or earlier when a round makes no progress, and report the open disagreements instead of starting another round.
+
 ## Visual work
 
 Preserve the existing design system first. When a project has no visual direction, default to true black `#000`, white primary text, dense information, minimal copy. Avoid continuous repaint effects such as pulse, shimmer, or blur.

@@ -363,17 +363,7 @@
     dap-virtual-text.enable = true;
     dap-python = {
       enable = true;
-      adapterPythonPath = lib.getExe (pkgs.python3.withPackages (ps: [
-        (ps.debugpy.overridePythonAttrs (old: {
-          # The pinned Darwin patch fixes the LLDB command but misses its test.
-          postPatch =
-            (old.postPatch or "")
-            + lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
-              substituteInPlace tests/debugpy/server/test_add_code_to_python_process.py \
-                --replace-fail 'cmd.startswith("lldb --no-lldbinit' 'cmd.startswith("${pkgs.lldb}/bin/lldb --no-lldbinit'
-            '';
-        }))
-      ]));
+      adapterPythonPath = lib.getExe (pkgs.python3.withPackages (ps: [ps.debugpy]));
     };
   };
 

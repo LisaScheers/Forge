@@ -11,7 +11,8 @@
       packages.aurora-viewer = pkgs.aurora-viewer;
     };
 
-  home.lisa-vega.imports = [config.home.aurora-viewer];
+  # Disabled on vega: no binary cache has it, so every rebuild compiles it.
+  # Re-enable with: home.lisa-vega.imports = [config.home.aurora-viewer];
   home.aurora-viewer = {pkgs, ...}: {
     home.packages = [pkgs.aurora-viewer];
   };
