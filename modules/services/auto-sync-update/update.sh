@@ -227,24 +227,12 @@ run_update() {
   fi
 }
 
-# Set up Git credentials here rather than in the update subshell, so the
-# exported askpass settings reach every later Git call; a failure is mailed like
-# any other.
-set +e
-configure_git_auth 2>>"$log_file"
-status=$?
-set -e
-if [ "$status" -ne 0 ]; then
-  cat "$log_file" >&2
-  send_failure_mail "$status" || true
-  exit "$status"
-fi
-
 # Run the update in a subshell outside any condition: an `if` around the
 # call would disable errexit inside it and hide failed steps.
 set +e
 (
   set -e
+  configure_git_auth
   run_update
 ) 2>&1 | tee -a "$log_file"
 # A pipeline ends only after tee has written the whole log for the mail below.
