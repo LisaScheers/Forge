@@ -216,7 +216,8 @@ see the [Asterion guide](docs/asterion.md).
 ### Rotating the Nook builder key
 
 Vega reaches Nook's `nix-remote-builder` account with
-`secrets/vega/home-server-builder-ssh-key.age`, encrypted for Lisa and Vega only.
+`modules/security/agenix/secrets/vega/home-server-builder-ssh-key.age`, encrypted
+for Lisa and Vega only.
 Nook authorizes exactly one public key, in `modules/hosts/nook/users.nix`, so a
 one-sided switch stops Vega's remote builds. After replacing both halves, build
 both closures while the old key still works, switch them in one window, and

@@ -4,7 +4,7 @@
 
 Gotify uses native OIDC with Authentik. Atlas applies the Gotify provider and
 application blueprint; Nook reads the same client secret from
-`secrets/shared/gotify-oidc-env.age`. Only Lisa, Atlas, and Nook can decrypt it.
+`modules/security/agenix/secrets/shared/gotify-oidc-env.age`. Only Lisa, Atlas, and Nook can decrypt it.
 
 Deploy Atlas before Nook so the OIDC discovery endpoint exists when Gotify starts.
 Then choose **Login with Authentik** in Gotify. Browser and Android callback URLs
@@ -31,7 +31,7 @@ Authentik evaluates notification matchers with Any semantics. `send_once` avoids
 duplicate webhook deliveries when the group has several members.
 
 The destination is Lisa's enabled Gotify plugin instance. Its secret URL is stored
-as `GOTIFY_WEBHOOK_URL` in `secrets/atlas/gotify-webhook-env.age`, readable only by
+as `GOTIFY_WEBHOOK_URL` in `modules/security/agenix/secrets/atlas/gotify-webhook-env.age`, readable only by
 Lisa and Atlas. No custom payload mapping is needed.
 
 Plugin enablement and its token remain per-user Gotify database state. If the
