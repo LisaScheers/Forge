@@ -22,10 +22,6 @@
     keys.users.lisa
     keys.hosts.atlas
   ];
-  ponyTack = [
-    keys.users.lisa
-    keys.hosts.atlas
-  ];
   forgejo = [
     keys.users.lisa
     keys.hosts.atlas
@@ -49,33 +45,19 @@ in {
     "secrets/atlas/forgejo-mailer-password.age".publicKeys = forgejo;
     "secrets/atlas/forgejo-oidc-env.age".publicKeys = forgejo;
     "secrets/atlas/jellyfin-bootstrap-env.age".publicKeys = [keys.users.lisa keys.hosts.atlas];
-    "secrets/atlas/forgejo-runner-token.age".publicKeys = all;
     "secrets/atlas/matrix-registration-secret.age".publicKeys = all;
     "secrets/atlas/matrix-turn-secret.age".publicKeys = all;
     "secrets/atlas/discord-bridge-env.age".publicKeys = [keys.users.lisa keys.hosts.atlas];
-    "secrets/atlas/monitoring-otlp-env.age".publicKeys = all;
     "secrets/atlas/uptime-kuma-probes.age".publicKeys = [keys.users.lisa keys.hosts.atlas];
-    "secrets/atlas/pony-tack-deploy-key.age".publicKeys = ponyTack;
-    "secrets/atlas/pony-tack-env.age".publicKeys = ponyTack;
-    "secrets/atlas/shop-empty-track-env.age".publicKeys = all;
-    "secrets/atlas/sl-remote-credentials.age".publicKeys = all;
 
     "secrets/nook/cloudflare-dns-api-token.age".publicKeys = nook;
     "secrets/nook/cognee-backend-env.age".publicKeys = nook;
     "secrets/nook/gotify-env.age".publicKeys = all;
-    "secrets/nook/grafana-authentik-client-secret.age".publicKeys = nook;
-    "secrets/nook/monitoring-otlp-htpasswd.age".publicKeys = nook;
     "secrets/nook/uptime-kuma-probes.age".publicKeys = nook;
-    "secrets/nook/onepassword-connect-credentials.age".publicKeys = nook;
-    "secrets/nook/vaultwarden-admin-token-env.age".publicKeys = all;
-    "secrets/nook/vaultwarden-env.age".publicKeys = all;
-    "secrets/nook/vaultwarden-restic-env.age".publicKeys = all;
-    "secrets/nook/vaultwarden-restic-ssh-key.age".publicKeys = all;
 
     "secrets/vega/home-server-builder-ssh-key.age".publicKeys = vega;
     "secrets/vega/nix-github-access-token-conf.age".publicKeys = vega;
 
-    "secrets/shared/github-env.age".publicKeys = all;
     "secrets/shared/cognee-oidc-env.age".publicKeys = [keys.users.lisa keys.hosts.atlas keys.hosts.nook];
     "secrets/shared/gotify-oidc-env.age".publicKeys = [keys.users.lisa keys.hosts.atlas keys.hosts.nook];
     "secrets/shared/jellyfin-ldap-env.age".publicKeys = [keys.users.lisa keys.hosts.atlas keys.hosts.nook];
