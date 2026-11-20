@@ -73,17 +73,20 @@ nix build --no-link \
   "$flake#checks.$target_system.\"$host\""
 
 atlas_timer_needs_restart=0
+atlas_timer_was_held=0
 atlas_deploy_started=0
 restart_atlas_timer() {
   exit_status=$?
   trap - EXIT
   if [[ "$atlas_timer_needs_restart" == "1" ]]; then
-    if [[ "$maintenance" == "--maintenance" ]]; then
+    if [[ "$maintenance" == "--maintenance" || "$atlas_timer_was_held" == "1" ]]; then
       if ! ssh "${ssh_args[@]}" atlas sudo systemctl stop nix-auto-sync-update.timer; then
-        echo "failed to hold Atlas auto-update timer after maintenance deployment" >&2
+        echo "failed to keep the Atlas auto-update timer stopped" >&2
         exit_status=1
-      else
+      elif [[ "$maintenance" == "--maintenance" ]]; then
         echo "Atlas maintenance: its auto-update timer remains stopped" >&2
+      else
+        echo "Atlas auto-update timer was stopped before this deploy; it remains stopped" >&2
       fi
     elif [[ "$atlas_deploy_started" == "1" && "$exit_status" != "0" ]]; then
       # Activation and rollback can start wanted timers again.
@@ -104,6 +107,11 @@ restart_atlas_timer() {
 trap restart_atlas_timer EXIT
 
 if [[ "$host" == "atlas" ]]; then
+  # An earlier hold (a timer already stopped by hand) outlasts this deploy.
+  timer_state="$(ssh "${ssh_args[@]}" atlas systemctl show --property=ActiveState --value nix-auto-sync-update.timer)"
+  if [[ "$timer_state" != "active" ]]; then
+    atlas_timer_was_held=1
+  fi
   atlas_timer_needs_restart=1
   ssh "${ssh_args[@]}" atlas sudo systemctl stop nix-auto-sync-update.timer
   update_state="$(ssh "${ssh_args[@]}" atlas systemctl show --property=ActiveState --value nix-auto-sync-update.service)"

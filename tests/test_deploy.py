@@ -44,6 +44,7 @@ case "$command_name:$1" in
         echo inactive > "$DEPLOY_TEST_TIMER"
         ;;
       'sudo systemctl start nix-auto-sync-update.timer') echo active > "$DEPLOY_TEST_TIMER" ;;
+      *'ActiveState --value nix-auto-sync-update.timer') cat "$DEPLOY_TEST_TIMER" 2>/dev/null || echo "${DEPLOY_TEST_TIMER_INITIAL:-active}" ;;
       *'ActiveState --value nix-auto-sync-update.service') echo "${DEPLOY_TEST_UPDATER_STATE:-inactive}" ;;
       *'ActiveState --value nix-auto-sync-update-reboot.timer') echo "${DEPLOY_TEST_REBOOT_STATE:-inactive}" ;;
       *'--property=ActiveState'*) echo inactive ;;
@@ -92,6 +93,18 @@ esac
         self.assertIn("ssh atlas sudo systemctl stop nix-auto-sync-update.timer", commands)
         self.assertEqual(commands.count("ssh atlas sudo systemctl stop nix-auto-sync-update.timer"), 2)
         self.assertNotIn("systemctl start nix-auto-sync-update.timer", commands)
+
+    def test_a_held_timer_stays_stopped_after_an_aborted_or_successful_deploy(self):
+        for updater_state in ("activating", "inactive"):
+            with self.subTest(updater_state=updater_state):
+                self.log.unlink(missing_ok=True)
+                (self.root / "timer-state").unlink(missing_ok=True)
+                self.env.update(DEPLOY_TEST_TIMER_INITIAL="inactive", DEPLOY_TEST_UPDATER_STATE=updater_state)
+                result, commands = self.run_deploy("atlas", "switch")
+                self.assertEqual(result.returncode, 0 if updater_state == "inactive" else 1, result.stderr)
+                self.assertNotIn("systemctl start nix-auto-sync-update.timer", commands)
+                self.assertEqual((self.root / "timer-state").read_text().strip(), "inactive")
+                self.assertIn("was stopped before this deploy", result.stderr)
 
     def test_failed_activation_keeps_updater_stopped(self):
         for extra_args in ((), ("--maintenance",)):
