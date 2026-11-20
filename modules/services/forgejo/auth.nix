@@ -74,7 +74,7 @@
         ExecStartPre = "${pkgs.coreutils}/bin/install -D -m 0600 ${blueprint} %S/authentik/blueprints/forgejo.yaml";
         ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint forgejo.yaml";
       };
-      restartTriggers = [../../security/agenix/secrets/atlas/authentik-env.age oidcSecret];
+      restartTriggers = [config.age.secrets.authentik-env.file oidcSecret];
     };
 
     # Authentik also reapplies discovered blueprints in its worker.

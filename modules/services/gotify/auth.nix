@@ -149,9 +149,9 @@
         ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint gotify.yaml";
       };
       restartTriggers = [
-        ../../security/agenix/secrets/atlas/authentik-env.age
-        ../../security/agenix/secrets/shared/gotify-oidc-env.age
-        ../../security/agenix/secrets/atlas/gotify-webhook-env.age
+        config.age.secrets.authentik-env.file
+        config.age.secrets.gotify-oidc-env.file
+        config.age.secrets.gotify-webhook-env.file
       ];
     };
   };

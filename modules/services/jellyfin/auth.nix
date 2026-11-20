@@ -160,7 +160,7 @@ in {
         ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint jellyfin.yaml";
         ExecStartPost = "${config.services.authentik.authentikComponents.manage}/bin/manage.py shell -c 'exec(open(\"${attachProvider}\").read())'";
       };
-      restartTriggers = [secret bootstrapSecret bootstrap ../../security/agenix/secrets/atlas/authentik-env.age];
+      restartTriggers = [secret bootstrapSecret bootstrap config.age.secrets.authentik-env.file];
     };
     systemd.services.authentik = {
       serviceConfig.EnvironmentFile = [environmentFile];

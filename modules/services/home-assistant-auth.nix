@@ -45,7 +45,7 @@
         ExecStartPre = "${pkgs.coreutils}/bin/install -D -m 0600 ${../../services/home-assistant/authentik.yaml} %S/authentik/blueprints/home-assistant.yaml";
         ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint home-assistant.yaml";
       };
-      restartTriggers = [../security/agenix/secrets/atlas/authentik-env.age];
+      restartTriggers = [config.age.secrets.authentik-env.file];
     };
   };
 }

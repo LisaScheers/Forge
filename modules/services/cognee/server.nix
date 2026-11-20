@@ -240,7 +240,7 @@ in {
     systemd.services.podman-cognee = {
       after = ["systemd-tmpfiles-setup.service"];
       unitConfig.RequiresMountsFor = storageRoot;
-      restartTriggers = [../../security/agenix/secrets/nook/cognee-backend-env.age];
+      restartTriggers = [config.age.secrets.cognee-backend-env.file];
       serviceConfig = {
         ExecStartPost = "${python}/bin/python3 ${source}/wait_health.py 8321";
       };

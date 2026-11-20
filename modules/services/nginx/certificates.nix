@@ -44,7 +44,7 @@
       # local resolver so IP discovery does not fail during a system switch.
       after = ["unbound.service"];
       wants = ["unbound.service"];
-      restartTriggers = [../../security/agenix/secrets/nook/cloudflare-dns-api-token.age];
+      restartTriggers = [config.age.secrets.cloudflare-dns-api-token.file];
     };
   };
 }

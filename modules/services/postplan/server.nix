@@ -81,7 +81,7 @@
       };
       restartTriggers = [
         pkgs.postplan-selfhosted
-        ../../security/agenix/secrets/atlas/postplan-env.age
+        config.age.secrets.postplan-env.file
       ];
     };
 

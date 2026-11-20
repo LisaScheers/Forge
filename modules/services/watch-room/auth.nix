@@ -36,7 +36,7 @@
         # Attach additively: preserve every existing embedded-outpost provider.
         ExecStartPost = ''${config.services.authentik.authentikComponents.manage}/bin/manage.py shell -c "from authentik.outposts.models import Outpost; from authentik.providers.proxy.models import ProxyProvider; outpost = Outpost.objects.get(managed='goauthentik.io/outposts/embedded'); outpost.providers.add(ProxyProvider.objects.get(name='Watch room host')); outpost.save()"'';
       };
-      restartTriggers = [../../security/agenix/secrets/atlas/authentik-env.age];
+      restartTriggers = [config.age.secrets.authentik-env.file];
     };
   };
 }

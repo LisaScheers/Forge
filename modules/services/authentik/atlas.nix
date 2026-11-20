@@ -179,8 +179,8 @@
         ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint postplan.yaml";
       };
       restartTriggers = [
-        ../../security/agenix/secrets/atlas/authentik-env.age
-        ../../security/agenix/secrets/atlas/postplan-env.age
+        config.age.secrets.authentik-env.file
+        config.age.secrets.postplan-env.file
       ];
     };
 
@@ -210,13 +210,13 @@
         ];
         ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint aws-iam-identity-center.yaml";
       };
-      restartTriggers = [../../security/agenix/secrets/atlas/authentik-env.age];
+      restartTriggers = [config.age.secrets.authentik-env.file];
     };
 
     systemd.services = {
-      authentik.restartTriggers = [../../security/agenix/secrets/atlas/authentik-env.age];
-      authentik-worker.restartTriggers = [../../security/agenix/secrets/atlas/authentik-env.age];
-      docker-authentik-ldap-outpost.restartTriggers = [../../security/agenix/secrets/atlas/authentik-ldap-outpost-env.age];
+      authentik.restartTriggers = [config.age.secrets.authentik-env.file];
+      authentik-worker.restartTriggers = [config.age.secrets.authentik-env.file];
+      docker-authentik-ldap-outpost.restartTriggers = [config.age.secrets.authentik-ldap-outpost-env.file];
     };
 
     networking.firewall.allowedTCPPorts = [636];
