@@ -49,11 +49,6 @@
         default = [];
         description = "Discord channel IDs mirrored into Matrix without outbound writes";
       };
-      mediaRetentionBefore = lib.mkOption {
-        type = lib.types.attrsOf lib.types.str;
-        default = {};
-        description = "Guild IDs and fixed RFC3339 cutoffs for message images/videos; newer messages, edits and attachments remain available";
-      };
     };
 
     config = lib.mkIf cfg.enable {
@@ -81,7 +76,6 @@
             ./discord-reaction-history.patch
             ./discord-history-content.patch
             ./discord-missing-thread-starter.patch
-            ./discord-media-retention.patch
           ];
           doCheck = true;
         };
@@ -102,7 +96,6 @@
             };
           };
           bridge = {
-            media_retention_before = cfg.mediaRetentionBefore;
             permissions = {
               "*" = "relay";
               "@lisa:${domain}" = "admin";

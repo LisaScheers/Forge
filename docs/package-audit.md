@@ -90,7 +90,7 @@ No configuration was activated and no deployed database was opened.
 | REA Wakaru 1.14.0, JADX bridge, NativeAOT and Frida selections | These are the selected REA release's verified tool and ABI set; Kuna moved past its 1.833 label (above). Independent updates would require changing and validating REA's contracts. |
 | REA Ghidra 12.2 compatibility substitution | REA 6.8's release policy still rejects the packaged Ghidra minor without it. |
 | Cutter Qt template patch | 2.5.0 remains the latest Cutter release and still uses template names in `.ui` files. The typedef and UI substitutions remain necessary with Qt 6.12. |
-| mautrix-discord's seven patches | 0.7.7 remains its latest release. Local relay recovery/features, history/content/reactions, missing thread starters and media-retention behavior are still local. |
+| mautrix-discord's six patches | 0.7.7 remains its latest release. Local relay recovery/features, history/content/reactions and missing thread starters are still local. |
 | Gotify Authentik plugin | `2c167190` remains upstream main. Building the plugin within the server's module preserves Go toolchain/dependency compatibility. |
 | Asterion J516s firmware qualification / opaque-X patches | Current kernel still lacks this Mac's measured firmware TEXT digest and its panel alpha-division fix. Both patches apply to the newer kernel source. |
 | Apple firmware 14.8.3 | Selected byte ranges, board-specific firmware and a verified output digest form one extraction unit. An arbitrary newer macOS image is not interchangeable. |
