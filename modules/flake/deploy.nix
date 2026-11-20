@@ -8,8 +8,8 @@
   # configuration, so it is declared only once.
   hosts = config.deploy.hosts;
   outputOf = host:
-    assert lib.assertMsg (config.flake.darwinConfigurations ? ${host} || config.flake.nixosConfigurations ? ${host})
-    "deploy.hosts.${host} has no NixOS or nix-darwin configuration of that name";
+    assert lib.assertMsg (config.flake.darwinConfigurations ? ${host} != config.flake.nixosConfigurations ? ${host})
+    "deploy.hosts.${host} needs exactly one NixOS or nix-darwin configuration of that name";
       if config.flake.darwinConfigurations ? ${host}
       then {
         kind = "darwin";
