@@ -224,7 +224,8 @@ status=$?
 set -e
 if [ "$status" -ne 0 ]; then
   cat "$log_file" >&2
-  send_failure_mail "$status"
+  # A mail failure is logged above; exit with the original status either way.
+  send_failure_mail "$status" || true
   exit "$status"
 fi
 
@@ -239,6 +240,7 @@ set +e
 status=${PIPESTATUS[0]}
 set -e
 if [ "$status" -ne 0 ]; then
-  send_failure_mail "$status"
+  # A mail failure is logged above; exit with the original status either way.
+  send_failure_mail "$status" || true
 fi
 exit "$status"

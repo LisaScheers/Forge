@@ -15,7 +15,8 @@ in {
     home-manager.users.lisa = config.home.lisa-nook;
   };
   flake.checks.${system}.nook = config.flake.nixosConfigurations.nook.config.system.build.toplevel;
-  deploy.hosts.nook.sshUser = "lisa";
+  # deploy-rs logs in with the same account as Lisa's workstations.
+  deploy.hosts.nook.sshUser = config.network.nook.ssh.user;
   ci.targets = [
     {
       target = "nixosConfigurations.\"nook\".config.system.build.toplevel";

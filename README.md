@@ -182,16 +182,20 @@ shell code: `AUTO_SYNC_SMTP_URL`, `AUTO_SYNC_SMTP_USERNAME`,
 `AUTO_SYNC_GIT_USERNAME`, `AUTO_SYNC_GIT_AUTH_HEADER` or
 `AUTO_SYNC_GIT_REPOSITORY_URL` for Git access. Write bare values: no quotes, no
 `export`, no `$` expansion. systemd skips lines that are not assignments, and
-the updater fails visibly if the file exists but provides no SMTP URL. The
-updater only fast-forwards to `origin/main`: if the Atlas checkout has local
-commits, every run fails and mails until the checkout is reset to `origin/main`.
-The journal has the same reason even if mail fails. Keep the commits on a branch
-before resetting:
+when the file exists but provides no SMTP URL, any run that needs to send mail
+fails visibly (and a failed rebuild keeps its own exit status). The updater only
+fast-forwards to `origin/main`: if the Atlas checkout has local commits, every
+run fails and mails until the checkout is reset to `origin/main`. The journal
+has the same reason even if mail fails. Keep the commits on a branch before
+resetting:
 
 ```sh
 ssh atlas sudo journalctl -u nix-auto-sync-update -n 50
-ssh atlas sudo git -c safe.directory=/etc/nix-darwin -C /etc/nix-darwin branch atlas-local-$(date +%F)
-ssh atlas sudo git -c safe.directory=/etc/nix-darwin -C /etc/nix-darwin reset --hard origin/main
+# Stop if this lists uncommitted changes; they need handling first.
+ssh atlas sudo git -c safe.directory=/etc/nix-darwin -C /etc/nix-darwin status --short
+# The reset runs only if the backup branch was created.
+ssh atlas 'git() { sudo git -c safe.directory=/etc/nix-darwin -C /etc/nix-darwin "$@"; }
+  git branch "atlas-local-$(date +%Y%m%d-%H%M%S)" && git reset --hard origin/main'
 ```
 
 For an approved database maintenance window, `just deploy-maintenance` applies

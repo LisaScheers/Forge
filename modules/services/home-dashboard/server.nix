@@ -8,7 +8,7 @@
   # its URLs and probe addresses is one of Nook's (or loopback).
   catalog = builtins.fromJSON (builtins.readFile (source + "/catalog.json"));
   hostOf = url: let
-    match = builtins.match "[a-z]+://([^/:]+).*" url;
+    match = builtins.match "[a-z]+://([^/:?#]+).*" url;
   in
     if match == null
     then null

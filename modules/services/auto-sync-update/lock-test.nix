@@ -19,7 +19,7 @@
             (toString (pkgs.writeShellScript "test-rebuild" ''
               touch /run/rebuild-start
               printf '%s\n' "$@" > /run/rebuild-args
-              if test -e /run/fail-rebuild; then echo rebuild-failure-marker; exit 1; fi
+              if test -e /run/fail-rebuild; then echo rebuild-failure-marker; exit "$(cat /run/fail-rebuild)"; fi
               while ! test -e /run/allow-rebuild-finish; do sleep 0.1; done
               touch /run/rebuild-finished
             ''))
@@ -75,7 +75,7 @@
             machine.succeed("flock -n /run/shared-update.lock -c true")
 
         with subtest("a failed rebuild fails the unit even without new commits"):
-            machine.succeed("touch /run/fail-rebuild")
+            machine.succeed("echo 1 > /run/fail-rebuild")
             machine.fail("systemctl start nix-auto-sync-update.service")
             machine.succeed("test $(systemctl show nix-auto-sync-update.service -p Result --value) = exit-code")
             machine.succeed("rm /run/fail-rebuild")
@@ -86,7 +86,7 @@
         smtp = "AUTO_SYNC_SMTP_URL=smtp://127.0.0.1:2525\nAUTO_SYNC_SMTP_REQUIRE_TLS=0\n"
 
         with subtest("the failure mail carries the full log and the exit status"):
-            machine.succeed(f"printf '{smtp}' > /run/auto-sync.env; touch /run/fail-rebuild")
+            machine.succeed(f"printf '{smtp}' > /run/auto-sync.env; echo 1 > /run/fail-rebuild")
             machine.fail("systemctl start nix-auto-sync-update.service")
             machine.wait_until_succeeds("grep -q rebuild-failure-marker /run/mail.txt", timeout=30)
             mail = machine.succeed("cat /run/mail.txt")
@@ -96,7 +96,7 @@
         with subtest("the environment file is read as data, never run"):
             # A command line is not an assignment: systemd skips it and the
             # updater still mails with the file's SMTP settings.
-            machine.succeed(f"printf 'touch /run/env-file-ran\\n{smtp}' > /run/auto-sync.env; touch /run/fail-rebuild")
+            machine.succeed(f"printf 'touch /run/env-file-ran\\n{smtp}' > /run/auto-sync.env; echo 1 > /run/fail-rebuild")
             machine.fail("systemctl start nix-auto-sync-update.service")
             machine.wait_until_succeeds("grep -q rebuild-failure-marker /run/mail.txt", timeout=30)
             machine.fail("test -e /run/env-file-ran")
@@ -107,8 +107,14 @@
             machine.succeed("printf 'export AUTO_SYNC_SMTP_URL=smtp://127.0.0.1:2525\\n' > /run/auto-sync.env; touch /run/reboot-required")
             machine.fail("systemctl start nix-auto-sync-update.service")
             machine.succeed("journalctl -u nix-auto-sync-update.service | grep -q 'AUTO_SYNC_SMTP_URL is not set'")
-            machine.succeed("rm /run/auto-sync.env /run/reboot-required")
+            machine.succeed("rm /run/reboot-required")
             machine.succeed("systemctl stop nix-auto-sync-update-reboot.timer || true")
+
+        with subtest("a failed rebuild keeps its exit status when the mail cannot be sent"):
+            machine.succeed("echo 23 > /run/fail-rebuild")
+            machine.fail("systemctl start nix-auto-sync-update.service")
+            assert machine.succeed("systemctl show -p ExecMainStatus --value nix-auto-sync-update.service").strip() == "23"
+            machine.succeed("rm /run/fail-rebuild /run/auto-sync.env")
 
         with subtest("Lix fetches a pinned revision from a checkout root does not own"):
             machine.succeed(

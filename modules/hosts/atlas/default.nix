@@ -21,7 +21,8 @@ in {
     imports = [config.nixos.atlas-hardware];
   };
   flake.checks.${system}.atlas = config.flake.nixosConfigurations.atlas.config.system.build.toplevel;
-  deploy.hosts.atlas.sshUser = "lisa";
+  # deploy-rs logs in with the same account as Lisa's workstations.
+  deploy.hosts.atlas.sshUser = config.network.atlas.ssh.user;
   ci.targets = [
     {
       target = "nixosConfigurations.\"atlas\".config.system.build.toplevel";
