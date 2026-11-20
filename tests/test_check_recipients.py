@@ -63,6 +63,12 @@ class CheckRecipientsTest(unittest.TestCase):
                 result = self.check({"secrets/a/x.age": data}, rule)
                 self.assertEqual(result.returncode, 1, result.stdout)
 
+    def test_rule_keys_of_unsupported_types_fail(self):
+        result = self.check({"secrets/a/x.age": encrypted("X25519 e", f"ssh-ed25519 {tag(HOST)} s")},
+                            {"secrets/a/x.age": [USER, HOST, "ssh-rsa AAAAB3NzaC1yc2E"]})
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("unsupported types", result.stdout)
+
     def test_a_rule_for_a_missing_file_is_reported(self):
         result = self.check({}, {"secrets/a/x.age": [USER, HOST]})
         self.assertEqual(result.returncode, 1)

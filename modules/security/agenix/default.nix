@@ -35,7 +35,7 @@
   };
 in {
   options.secrets.pubkeys = lib.mkOption {
-    type = lib.types.attrsOf (lib.types.attrsOf lib.types.anything);
+    type = lib.types.attrsOf (lib.types.attrsOf lib.types.str);
     default = {};
     description = "Public keys used throughout the flake.";
   };

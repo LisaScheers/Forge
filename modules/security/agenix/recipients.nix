@@ -4,8 +4,8 @@
   ...
 }: let
   keys = config.secrets.pubkeys;
-  # Lisa plus exactly the hosts that decrypt the file; rules-check.nix checks
-  # the host list against the hosts' configurations.
+  # Lisa plus exactly the hosts that decrypt the file. rules-check.nix checks
+  # these rules against the hosts' configurations and the files' headers.
   readers = hosts: [keys.users.lisa] ++ map (host: keys.hosts.${host}) hosts;
 in {
   # Every rule lives here; _secrets.nix gives agenix the same set.

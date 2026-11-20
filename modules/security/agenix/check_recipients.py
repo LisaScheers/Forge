@@ -44,7 +44,10 @@ def main() -> int:
         want_age = sum(key.startswith("age1") for key in keys)
         have_age = sum(stanza[0] == "X25519" for stanza in stanzas)
         unsupported = sorted({stanza[0] for stanza in stanzas} - {"ssh-ed25519", "X25519"})
-        if unsupported:
+        unknown_keys = [key for key in keys if not key.startswith(("ssh-ed25519 ", "age1"))]
+        if unknown_keys:
+            problems.append(f"{name}: rule keys of unsupported types")
+        elif unsupported:
             problems.append(f"{name}: unsupported recipient types {', '.join(unsupported)}")
         elif want_ssh != have_ssh or want_age != have_age:
             problems.append(f"{name}: encrypted recipients differ from its rule; run just secret-rekey")
