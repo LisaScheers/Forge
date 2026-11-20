@@ -37,6 +37,7 @@
     "debug"
     "secrets"
     "network"
+    "deploy"
   ];
   validFeature = path: let
     value = import path;

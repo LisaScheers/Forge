@@ -44,9 +44,9 @@ Each host's `default.nix` constructs its NixOS or Darwin output and visibly
 selects hardware and Home Manager profiles. Home files construct standalone
 outputs using the same home profiles and the shared per-system package set.
 There is no host registry or automatic home registration. For example, Nook's
-host module binds `home-manager.users.lisa = config.home.lisa-nook`.
-`deploy.nix` keeps only deployment settings (SSH user and options) for the hosts
-deploy-rs manages.
+host module binds `home-manager.users.lisa = config.home.lisa-nook`. Each
+deployable host also sets `deploy.hosts.<host>` (SSH user and options) in its
+host module.
 
 Adding settings to an existing profile requires no file import-list edit.
 Distinct reusable profiles are selected explicitly by name. Selecting a feature
@@ -219,16 +219,15 @@ workflow advances every input. To hold one, list the other inputs in the
 `inputs` setting of `.github/workflows/update-flake-lock.yml`, then advance the
 held input later with `nix flake update <input>`.
 
-A deployable host is one entry in the `hosts` table in
-`modules/flake/deploy.nix` (its SSH user and options). Its platform comes from
-the host's own configuration and selects the deploy-rs activation, the
-`deploy-*-<host>` checks and the `deploySystems` output the recipe reads. The
-recipe builds the host closure plus host-specific deploy-rs schema and
-activation checks before it opens the deployment connection. Nix may still use
-the remote builders declared by this flake during that build. The recipe then
-passes `--skip-checks` to deploy-rs, which would otherwise run the whole flake
-check; CI already builds every flake check. Do not use `--skip-checks` without
-those targeted builds.
+A deployable host sets `deploy.hosts.<host>` in its host module (its SSH user
+and options). Its platform comes from the host's own configuration and selects
+the deploy-rs activation, the `deploy-*-<host>` checks and the `deploySystems`
+output the recipe reads. The recipe builds the host closure plus host-specific
+deploy-rs schema and activation checks before it opens the deployment
+connection. Nix may still use the remote builders declared by this flake during
+that build. The recipe then passes `--skip-checks` to deploy-rs, which would
+otherwise run the whole flake check; CI already builds every flake check. Do not
+use `--skip-checks` without those targeted builds.
 
 deploy-rs connects to Atlas as `lisa`, which `modules/hosts/atlas/system.nix`
 makes a trusted Nix user. On a freshly installed Atlas, let its auto-updater

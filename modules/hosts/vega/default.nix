@@ -20,6 +20,11 @@ in {
     users.users.lisa.home = "/Users/lisa";
   };
   flake.checks.${system}.vega = config.flake.darwinConfigurations.vega.system;
+  deploy.hosts.vega = {
+    hostname = "localhost";
+    sshUser = "lisa";
+    interactiveSudo = true;
+  };
   ci.targets = [
     {
       target = "darwinConfigurations.\"vega\".system";

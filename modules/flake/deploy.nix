@@ -4,18 +4,9 @@
   lib,
   ...
 }: let
-  # Deployment settings for each host deploy-rs manages. The host's platform
-  # comes from its own configuration, so it is declared only once.
-  hosts = {
-    nook.sshUser = "lisa";
-    atlas.sshUser = "lisa";
-    asterion.sshUser = "root";
-    vega = {
-      hostname = "localhost";
-      sshUser = "lisa";
-      interactiveSudo = true;
-    };
-  };
+  # Each host module sets deploy.hosts.<host>; its platform comes from its own
+  # configuration, so it is declared only once.
+  hosts = config.deploy.hosts;
   configurationOf = host: config.flake.nixosConfigurations.${host} or config.flake.darwinConfigurations.${host};
   systemOf = host: (configurationOf host).pkgs.stdenv.hostPlatform.system;
   activate = host: let
@@ -34,14 +25,17 @@
 
     nodes = lib.mapAttrs (host: node:
       {
-        hostname = node.hostname or host;
+        hostname =
+          if node.hostname != null
+          then node.hostname
+          else host;
         inherit (node) sshUser;
         profiles.system = {
           user = "root";
           path = activate host;
         };
       }
-      // lib.optionalAttrs (node ? interactiveSudo) {inherit (node) interactiveSudo;})
+      // lib.optionalAttrs node.interactiveSudo {inherit (node) interactiveSudo;})
     hosts;
   };
 

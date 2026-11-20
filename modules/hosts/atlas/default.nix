@@ -21,6 +21,7 @@ in {
     imports = [config.nixos.atlas-hardware];
   };
   flake.checks.${system}.atlas = config.flake.nixosConfigurations.atlas.config.system.build.toplevel;
+  deploy.hosts.atlas.sshUser = "lisa";
   ci.targets = [
     {
       target = "nixosConfigurations.\"atlas\".config.system.build.toplevel";

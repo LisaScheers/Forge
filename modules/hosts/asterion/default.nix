@@ -22,6 +22,7 @@ in {
     home-manager.users.lisa = config.home.lisa-asterion;
   };
   flake.checks.${system}.asterion = config.flake.nixosConfigurations.asterion.config.system.build.toplevel;
+  deploy.hosts.asterion.sshUser = "root";
   ci.targets = [
     {
       target = "nixosConfigurations.\"asterion\".config.system.build.toplevel";
