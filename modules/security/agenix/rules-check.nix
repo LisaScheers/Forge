@@ -22,6 +22,7 @@
     keysOf = file: rules.${file}.publicKeys;
     hostsIn = file: builtins.attrNames (lib.filterAttrs (_: key: builtins.elem key (keysOf file)) pubkeys.hosts);
     knownKeys = lib.attrValues pubkeys.users ++ lib.attrValues pubkeys.hosts;
+    isUnknownKey = key: !builtins.elem key knownKeys;
     # secrets/<host>/ holds what exactly one host reads; secrets/shared/ what several read.
     directoryOf = file: builtins.elemAt (lib.splitString "/" file) 1;
     consumedRules = lib.filter (file: builtins.elem file consumed) ruled;
@@ -30,7 +31,7 @@
     "secret files or declared secrets without a rule" = lib.subtractLists ruled (lib.unique (consumed ++ files));
     "hosts that decrypt secrets but have no host key" =
       builtins.attrNames (lib.filterAttrs (host: secrets: secrets != [] && !(pubkeys.hosts ? ${host})) secretsByHost);
-    "rules with a key that is neither a user nor a host key" = lib.filter (file: lib.any (key: !builtins.elem key knownKeys) (keysOf file)) ruled;
+    "rules with a key that is neither a user nor a host key" = lib.filter (file: lib.any isUnknownKey (keysOf file)) ruled;
     "rules without Lisa's key" = lib.filter (file: !builtins.elem pubkeys.users.lisa (keysOf file)) ruled;
     # No host may read a secret it does not use, and every reader must be able to.
     "rules whose hosts differ from the hosts that decrypt the file" = lib.filter (file: hostsIn file != readersOf file) consumedRules;

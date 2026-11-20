@@ -24,11 +24,12 @@
   unmappedSystems = systemsByRunner.wrong;
   # Only these runners expose /dev/kvm, so their NixOS VM tests get a job of their own.
   kvmSystems = builtins.filter (system: builtins.elem system checkSystems) ["x86_64-linux"];
-  dedicatedChecks = system: lib.concatMap (entry: entry.checks) (builtins.filter (entry: entry.system == system) config.ci.targets);
-  unknownChecks = lib.concatMap (entry:
-    map (name: "${entry.system}.${name}") (builtins.filter (name: !(config.flake.checks.${entry.system} ? ${name})) entry.checks))
-  config.ci.targets;
-  unsafeCheckNames = lib.filter (name: builtins.match ".*[[:space:]\"].*" name != null) (lib.concatMap (entry: entry.checks) config.ci.targets);
+  targetsOn = system: builtins.filter (entry: entry.system == system) config.ci.targets;
+  dedicatedChecks = system: lib.concatMap (entry: entry.checks) (targetsOn system);
+  missingChecks = entry: builtins.filter (name: !(config.flake.checks.${entry.system} ? ${name})) entry.checks;
+  unknownChecks = lib.concatMap (entry: map (name: "${entry.system}.${name}") (missingChecks entry)) config.ci.targets;
+  splitsOnSpaces = name: builtins.match ".*[[:space:]\"].*" name != null;
+  unsafeCheckNames = builtins.filter splitsOnSpaces (lib.concatMap (entry: entry.checks) config.ci.targets);
   # The dev shell joins its system's checks job, so broken hooks or tools fail CI.
   devShell = system: let
     shells = config.flake.devShells.${system} or {};

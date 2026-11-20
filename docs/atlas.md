@@ -101,8 +101,8 @@ off Atlas; backups live only on the host. Then:
    with. With a new key instead, put its public half in
    `modules/security/agenix/pubkeys.nix` (`hosts.atlas`) and run
    `just secret-rekey` before deploying; otherwise no Atlas secret decrypts.
-2. Create the maintenance marker before PostgreSQL first starts, so the updater
-   stays held during the restore.
+2. Create the maintenance marker, `/var/lib/postgresql/.forge-maintenance`,
+   before PostgreSQL first starts, so the updater stays held during the restore.
 3. Initialise `/var/lib/postgresql/18` with PostgreSQL 18, restore the dump into
    it, and only then create `.forge-upgrade-complete`; PostgreSQL refuses to
    start without it. The Matrix databases are not in the dump; see
