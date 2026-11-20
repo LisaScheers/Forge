@@ -192,11 +192,12 @@ the commits on a branch before resetting:
 ```sh
 # Needs passwordless sudo on Atlas, as deploy-rs already does.
 ssh atlas sudo journalctl -u nix-auto-sync-update -n 50
-# Stop if this lists uncommitted changes; they need handling first.
-ssh atlas sudo git -c safe.directory=/etc/nix-darwin -C /etc/nix-darwin status --short
-# The reset runs only if the backup branch was created.
+# Saves the local commits to a branch, then resets. Nothing happens if the
+# checkout has uncommitted changes or the branch cannot be created.
 ssh atlas 'git() { sudo git -c safe.directory=/etc/nix-darwin -C /etc/nix-darwin "$@"; }
-  git branch "atlas-local-$(date +%Y%m%d-%H%M%S)" && git reset --hard origin/main'
+  test -z "$(git status --porcelain)" &&
+  git branch "atlas-local-$(date +%Y%m%d-%H%M%S)" &&
+  git reset --hard origin/main'
 ```
 
 For an approved database maintenance window, `just deploy-maintenance` applies
