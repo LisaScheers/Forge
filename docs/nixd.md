@@ -8,7 +8,9 @@ Zed selects nixd for Nix files; Nixvim delegates Nix formatting to nixd.
 Home Manager also installs the settings as `~/.config/nixd/config.json`. nixd
 does not read that file automatically: another editor can load the JSON and
 send its contents for the LSP `nixd` configuration section. No wrapper or
-`--config` argument is involved.
+`--config` argument is involved. The checked-in VS Code settings only select
+nixd and the alejandra extension; nixd's defaults read Nixpkgs from Forge's
+pinned `nix-path`.
 
 The shared settings provide:
 
