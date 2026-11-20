@@ -31,7 +31,10 @@
           ExecStart = "${manage} apply_blueprint ${blueprint.fileName}";
         }
         // lib.optionalAttrs (blueprint.condition != null) {ExecCondition = blueprint.condition;}
-        // lib.optionalAttrs (blueprint.postStart != null) {ExecStartPost = blueprint.postStart;};
+        // lib.optionalAttrs (blueprint.postStart != null) {ExecStartPost = blueprint.postStart;}
+        // lib.optionalAttrs (blueprint.embeddedOutpostProvider != null) {
+          ExecStartPost = attachToEmbeddedOutpost blueprint.embeddedOutpostProvider;
+        };
       restartTriggers = [config.age.secrets.authentik-env.file blueprint.file] ++ blueprint.restartTriggers;
     };
   in {
@@ -44,11 +47,7 @@
     options.forge.authentik.blueprints = mkOption {
       default = {};
       description = "Authentik blueprints, each applied by authentik-<name>-blueprint before Authentik starts, with authentik-env loaded.";
-      type = types.attrsOf (types.submodule ({
-        name,
-        config,
-        ...
-      }: {
+      type = types.attrsOf (types.submodule ({name, ...}: {
         options = {
           description = mkOption {
             type = types.str;
@@ -87,12 +86,8 @@
           };
           postStart = mkOption {
             type = types.nullOr types.str;
-            default =
-              if config.embeddedOutpostProvider == null
-              then null
-              else attachToEmbeddedOutpost config.embeddedOutpostProvider;
-            defaultText = lib.literalMD "attaches `embeddedOutpostProvider` when set";
-            description = "Command run after applying.";
+            default = null;
+            description = "Command run after applying; exclusive with embeddedOutpostProvider.";
           };
           condition = mkOption {
             type = types.nullOr types.str;
@@ -105,7 +100,7 @@
 
     config.assertions =
       lib.mapAttrsToList (name: blueprint: {
-        assertion = blueprint.embeddedOutpostProvider == null || blueprint.postStart == attachToEmbeddedOutpost blueprint.embeddedOutpostProvider;
+        assertion = blueprint.embeddedOutpostProvider == null || blueprint.postStart == null;
         message = "forge.authentik.blueprints.${name}: set embeddedOutpostProvider or postStart, not both";
       })
       config.forge.authentik.blueprints;
