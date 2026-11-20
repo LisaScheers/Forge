@@ -12,7 +12,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / ".github/scripts/build-configurat
 class CiBuildTest(unittest.TestCase):
     shell = "bash"
 
-    def run_build(self, message, failures=1, checks=None):
+    def run_build(self, message, failures=1, checks="", target="test-target"):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             attempts = root / "attempts"
@@ -35,17 +35,19 @@ fi
             result = subprocess.run(
                 [self.shell, str(SCRIPT)], capture_output=True, text=True,
                 env={
-                    **os.environ,
+                    # Never inherit the caller's TARGET or CHECKS.
+                    **{key: value for key, value in os.environ.items() if key not in ("TARGET", "CHECKS")},
                     "PATH": str(root) + os.pathsep + os.environ["PATH"],
-                    "TARGET": "test-target",
+                    **({"TARGET": target} if target else {}),
                     "ATTEMPTS_FILE": str(attempts),
                     "FAIL_ATTEMPTS": str(failures),
                     "FAIL_MESSAGE": message,
                     "ARGS_FILE": str(root / "args"),
-                    **({"CHECKS": checks} if checks else {}),
+                    "CHECKS": checks,
                 },
             )
-            self.args = (root / "args").read_text().splitlines()
+            args = root / "args"
+            self.args = args.read_text().splitlines() if args.exists() else []
             return result, int(attempts.read_text())
 
     def test_checks_build_with_the_target(self):
@@ -58,6 +60,11 @@ fi
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(attempts, 1)
         self.assertEqual(self.args[-1], ".#test-target")
+
+    def test_an_aborted_script_fails_the_job(self):
+        result, attempts = self.run_build("", failures=0, target=None)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(attempts, 0)
 
     def test_transient_download_errors_recover(self):
         for message in (
