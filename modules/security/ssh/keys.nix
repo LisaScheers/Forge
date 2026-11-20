@@ -4,8 +4,8 @@
   home.ssh-public-keys = {
     home.file = builtins.listToAttrs (map (key: {
       name = ".ssh/${key}";
-      value.source = ./vega/public-keys/${key};
-    }) (builtins.filter (key: builtins.match ".*\\.pub" key != null) (builtins.attrNames (builtins.readDir ./vega/public-keys))));
+      value.source = ./public-keys/${key};
+    }) (builtins.filter (key: builtins.match ".*\\.pub" key != null) (builtins.attrNames (builtins.readDir ./public-keys))));
   };
   home.lisa-vega.imports = [config.home.ssh-public-keys];
 }

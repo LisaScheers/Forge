@@ -78,7 +78,7 @@ in {
   config.flake.ciMatrix.include = assert lib.assertMsg (unknownChecks == []) "ci.targets name unknown checks: ${toString unknownChecks}";
   assert lib.assertMsg (unmappedSystems == []) "checks for systems without a CI runner: ${toString unmappedSystems}";
   # The job reads the check list as one space-separated string.
-  assert lib.assertMsg (unsafeCheckNames == []) "ci.targets check names with whitespace or quotes: ${toString unsafeCheckNames}";
+  assert lib.assertMsg (unsafeCheckNames == []) "ci.targets check names with whitespace, quotes, backslashes or glob characters: ${toString unsafeCheckNames}";
     map (entry: {
       inherit (entry) target;
       runner = runners.${entry.system};

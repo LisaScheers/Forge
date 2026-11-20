@@ -154,7 +154,7 @@ in {
       KbdInteractiveAuthentication = false;
       PermitRootLogin = "prohibit-password";
     };
-    users.users.root.openssh.authorizedKeys.keyFiles = [../../security/ssh/vega/public-keys/dev.pub];
+    users.users.root.openssh.authorizedKeys.keyFiles = [../../security/ssh/public-keys/dev.pub];
     environment.systemPackages = [check smoke vulkanSmoke gpuSession pkgs.mesa-demos pkgs.vulkan-tools];
     environment.etc."asterion-live.json".text = builtins.toJSON {
       inherit (kernel) sourceRevision;

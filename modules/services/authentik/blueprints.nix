@@ -79,7 +79,8 @@
             description = "Commands run before the blueprint is installed.";
           };
           embeddedOutpostProvider = mkOption {
-            type = types.nullOr types.str;
+            # Embedded in a quoted Python string below.
+            type = types.nullOr (types.strMatching "[^'\"\\]+");
             default = null;
             description = "Proxy provider to attach to the embedded outpost after applying.";
           };
@@ -100,6 +101,13 @@
         };
       }));
     };
+
+    config.assertions =
+      lib.mapAttrsToList (name: blueprint: {
+        assertion = blueprint.embeddedOutpostProvider == null || blueprint.postStart == attachToEmbeddedOutpost blueprint.embeddedOutpostProvider;
+        message = "forge.authentik.blueprints.${name}: set embeddedOutpostProvider or postStart, not both";
+      })
+      config.forge.authentik.blueprints;
 
     config.systemd.services = lib.mapAttrs' (name: blueprint: lib.nameValuePair "authentik-${name}-blueprint" (unit blueprint)) config.forge.authentik.blueprints;
   };

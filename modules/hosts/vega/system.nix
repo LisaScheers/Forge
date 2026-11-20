@@ -13,7 +13,7 @@ in {
       '';
     };
     users.users.lisa.openssh.authorizedKeys.keyFiles = [
-      ../../security/ssh/vega/public-keys/home-server.pub
+      ../../security/ssh/public-keys/home-server.pub
     ];
     programs.ssh.knownHosts.vega-local = {
       hostNames = ["localhost"];
