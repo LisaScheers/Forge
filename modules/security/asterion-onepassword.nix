@@ -1,5 +1,6 @@
 {config, ...}: let
   remotes = config.sshRemotes;
+  sshPublicKeys = config.home.ssh-public-keys;
 in {
   nixos.asterion = {
     services.gnome.gcr-ssh-agent.enable = false;
@@ -36,10 +37,7 @@ in {
       then osConfig.programs._1password-gui.package
       else pkgs._1password-gui;
   in {
-    home.file = builtins.listToAttrs (map (key: {
-      name = ".ssh/${key}";
-      value.source = ./ssh/vega/public-keys/${key};
-    }) (builtins.filter (key: builtins.match ".*\\.pub" key != null) (builtins.attrNames (builtins.readDir ./ssh/vega/public-keys))));
+    imports = [sshPublicKeys];
 
     xdg.configFile."net.imput.helium/NativeMessagingHosts/com.1password.1password.json".text = builtins.toJSON {
       name = "com.1password.1password";
