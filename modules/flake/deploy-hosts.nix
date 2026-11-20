@@ -1,11 +1,17 @@
-{lib, ...}: {
+{
+  config,
+  lib,
+  ...
+}: {
   # Distinct from flake.deploy, the deploy-rs output that deploy.nix builds from this.
   options.deploy.hosts = lib.mkOption {
     type = lib.types.attrsOf (lib.types.submodule ({name, ...}: {
       options = {
         sshUser = lib.mkOption {
           type = lib.types.str;
-          description = "Account deploy-rs logs in as.";
+          default = config.network.${name}.ssh.user;
+          defaultText = lib.literalExpression "config.network.<host>.ssh.user";
+          description = "Account deploy-rs logs in as; by default the one Lisa's workstations use.";
         };
         hostname = lib.mkOption {
           type = lib.types.str;
