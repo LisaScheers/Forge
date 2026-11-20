@@ -34,6 +34,9 @@ def main() -> int:
     root = Path(sys.argv[2])
     problems = []
     for name, keys in sorted(rules.items()):
+        if not (root / name).is_file():
+            problems.append(f"{name}: no such file")
+            continue
         stanzas = header_stanzas(root / name)
         want_ssh = sorted(ssh_tag(key) for key in keys if key.startswith("ssh-ed25519 "))
         have_ssh = sorted(stanza[1] for stanza in stanzas if stanza[0] == "ssh-ed25519")

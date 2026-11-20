@@ -4,31 +4,9 @@
   ...
 }: let
   keys = config.secrets.pubkeys;
-  # Each secret is readable by Lisa and exactly the hosts that decrypt it;
-  # rules-check.nix enforces the host part.
-  atlas = [
-    keys.users.lisa
-    keys.hosts.atlas
-  ];
-  nook = [
-    keys.users.lisa
-    keys.hosts.nook
-  ];
-  vega = [
-    keys.users.lisa
-    keys.hosts.vega
-  ];
-  atlasAndNook = [
-    keys.users.lisa
-    keys.hosts.atlas
-    keys.hosts.nook
-  ];
-  atlasNookAndVega = [
-    keys.users.lisa
-    keys.hosts.atlas
-    keys.hosts.nook
-    keys.hosts.vega
-  ];
+  # Lisa plus exactly the hosts that decrypt the file; rules-check.nix checks
+  # the host list against the hosts' configurations.
+  readers = hosts: [keys.users.lisa] ++ map (host: keys.hosts.${host}) hosts;
 in {
   # Every rule lives here; _secrets.nix gives agenix the same set.
   options.flake.agenixRules = lib.mkOption {
@@ -39,36 +17,36 @@ in {
     description = "agenix recipients for each secret file, keyed by path relative to modules/security/agenix.";
   };
   config.flake.agenixRules = {
-    "secrets/atlas/authentik-env.age".publicKeys = atlas;
-    "secrets/atlas/gotify-webhook-env.age".publicKeys = atlas;
-    "secrets/atlas/authentik-ldap-outpost-env.age".publicKeys = atlas;
-    "secrets/atlas/auto-sync-update-env.age".publicKeys = atlas;
-    "secrets/atlas/bluesky-pds-env.age".publicKeys = atlas;
-    "secrets/atlas/cf-api-token.age".publicKeys = atlas;
-    "secrets/atlas/forgejo-mailer-password.age".publicKeys = atlas;
-    "secrets/atlas/forgejo-oidc-env.age".publicKeys = atlas;
-    "secrets/atlas/jellyfin-bootstrap-env.age".publicKeys = atlas;
-    "secrets/atlas/matrix-registration-secret.age".publicKeys = atlas;
-    "secrets/atlas/matrix-turn-secret.age".publicKeys = atlas;
-    "secrets/atlas/postplan-env.age".publicKeys = atlas;
-    "secrets/atlas/discord-bridge-env.age".publicKeys = atlas;
-    "secrets/atlas/uptime-kuma-probes.age".publicKeys = atlas;
+    "secrets/atlas/authentik-env.age".publicKeys = readers ["atlas"];
+    "secrets/atlas/gotify-webhook-env.age".publicKeys = readers ["atlas"];
+    "secrets/atlas/authentik-ldap-outpost-env.age".publicKeys = readers ["atlas"];
+    "secrets/atlas/auto-sync-update-env.age".publicKeys = readers ["atlas"];
+    "secrets/atlas/bluesky-pds-env.age".publicKeys = readers ["atlas"];
+    "secrets/atlas/cf-api-token.age".publicKeys = readers ["atlas"];
+    "secrets/atlas/forgejo-mailer-password.age".publicKeys = readers ["atlas"];
+    "secrets/atlas/forgejo-oidc-env.age".publicKeys = readers ["atlas"];
+    "secrets/atlas/jellyfin-bootstrap-env.age".publicKeys = readers ["atlas"];
+    "secrets/atlas/matrix-registration-secret.age".publicKeys = readers ["atlas"];
+    "secrets/atlas/matrix-turn-secret.age".publicKeys = readers ["atlas"];
+    "secrets/atlas/postplan-env.age".publicKeys = readers ["atlas"];
+    "secrets/atlas/discord-bridge-env.age".publicKeys = readers ["atlas"];
+    "secrets/atlas/uptime-kuma-probes.age".publicKeys = readers ["atlas"];
 
-    "secrets/nook/ai-proxy-antigravity-auth.age".publicKeys = nook;
-    "secrets/nook/ai-proxy-codex-auth.age".publicKeys = nook;
-    "secrets/nook/ai-proxy-openrouter-key.age".publicKeys = nook;
-    "secrets/nook/cloudflare-dns-api-token.age".publicKeys = nook;
-    "secrets/nook/cognee-backend-env.age".publicKeys = nook;
-    "secrets/nook/gotify-env.age".publicKeys = nook;
-    "secrets/nook/movie-night-env.age".publicKeys = nook;
-    "secrets/nook/uptime-kuma-probes.age".publicKeys = nook;
+    "secrets/nook/ai-proxy-antigravity-auth.age".publicKeys = readers ["nook"];
+    "secrets/nook/ai-proxy-codex-auth.age".publicKeys = readers ["nook"];
+    "secrets/nook/ai-proxy-openrouter-key.age".publicKeys = readers ["nook"];
+    "secrets/nook/cloudflare-dns-api-token.age".publicKeys = readers ["nook"];
+    "secrets/nook/cognee-backend-env.age".publicKeys = readers ["nook"];
+    "secrets/nook/gotify-env.age".publicKeys = readers ["nook"];
+    "secrets/nook/movie-night-env.age".publicKeys = readers ["nook"];
+    "secrets/nook/uptime-kuma-probes.age".publicKeys = readers ["nook"];
 
-    "secrets/vega/home-server-builder-ssh-key.age".publicKeys = vega;
-    "secrets/vega/nix-github-access-token-conf.age".publicKeys = vega;
+    "secrets/vega/home-server-builder-ssh-key.age".publicKeys = readers ["vega"];
+    "secrets/vega/nix-github-access-token-conf.age".publicKeys = readers ["vega"];
 
-    "secrets/shared/ai-proxy-client-key.age".publicKeys = atlasNookAndVega;
-    "secrets/shared/cognee-oidc-env.age".publicKeys = atlasAndNook;
-    "secrets/shared/gotify-oidc-env.age".publicKeys = atlasAndNook;
-    "secrets/shared/jellyfin-ldap-env.age".publicKeys = atlasAndNook;
+    "secrets/shared/ai-proxy-client-key.age".publicKeys = readers ["atlas" "nook" "vega"];
+    "secrets/shared/cognee-oidc-env.age".publicKeys = readers ["atlas" "nook"];
+    "secrets/shared/gotify-oidc-env.age".publicKeys = readers ["atlas" "nook"];
+    "secrets/shared/jellyfin-ldap-env.age".publicKeys = readers ["atlas" "nook"];
   };
 }
