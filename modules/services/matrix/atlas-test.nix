@@ -13,9 +13,7 @@
     dmCredentialDeclared = atlas.age.secrets ? discord-bridge-env;
     personalAdmin = atlas.services.mautrix-discord.settings.bridge.permissions."@lisa:bylisa.dev" == "admin";
     noRelayAdmin = !(builtins.hasAttr "@sec-hive-relay:bylisa.dev" atlas.services.mautrix-discord.settings.bridge.permissions);
-    coreEnabled = atlas.matrix.enable && atlas.services.matrix-synapse.enable && atlas.services.postgresql.enable;
     databasesManaged = lib.all (name: builtins.elem name atlas.services.postgresql.ensureDatabases) ["matrix-synapse" "mautrix-discord"];
-    volumeEnabled = atlas.matrix.volume.enable && atlas.matrix.volume.device == "/dev/disk/by-id/scsi-0HC_Volume_107199635";
     mediaOnVolume = lib.any (mount: mount.where == "/var/lib/matrix-synapse/media_store") atlas.systemd.mounts;
     globalBackupEnabled = atlas.services.postgresqlBackup.enable && atlas.services.postgresqlBackup.backupAll;
     matrixDatabasesExcluded = lib.splitString " " atlas.services.postgresqlBackup.pgdumpAllOptions == ["--exclude-database=matrix-synapse" "--exclude-database=mautrix-discord" "--exclude-database=pluralmatrix"];

@@ -1,4 +1,4 @@
-# SEC-Hive Matrix decommission
+# Matrix after SEC-Hive
 
 SEC-Hive Matrix hosting was cancelled and removed on 2026-10-27. Discord itself
 was not modified. This page records what stays in place and why.

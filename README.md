@@ -42,7 +42,8 @@ configurations and [Vimjoyer's examples](https://vimjoyer.com/nix/):
 Each host's `default.nix` constructs its NixOS or Darwin output and visibly
 selects hardware and Home Manager profiles. Home files construct standalone
 outputs using the same home profiles and the shared per-system package set.
-There is no host registry or automatic home registration. For example, Nook's
+There is no host registry or automatic home registration; `deploy.nix` keeps
+only the deployment settings (SSH user, system) for hosts deploy-rs manages. For example, Nook's
 host module binds `home-manager.users.lisa = config.home.lisa-nook`.
 
 Adding settings to an existing profile requires no file import-list edit.
@@ -168,7 +169,7 @@ Atlas's PostgreSQL major and data directory are pinned in
 `modules/services/postgresql/atlas.nix`. Its scheduled `pg_dumpall` backup covers
 cluster roles and every database except `matrix-synapse`, `mautrix-discord` and
 `pluralmatrix`, which are intentionally unbacked
-([decommission record](docs/sec-hive-matrix.md)). The existing Uptime Kuma probe
+([Matrix after SEC-Hive](docs/sec-hive-matrix.md)). The existing Uptime Kuma probe
 reports completion.
 Atlas uses PostgreSQL 18 at `/var/lib/postgresql/18`. Startup requires its
 `PG_VERSION` and `.forge-upgrade-complete` marker; create the marker only after a
@@ -320,7 +321,7 @@ activate configurations or deploy hosts.
 | [Certificate trust](docs/certificate-trust.md) | The eMudhra root mitigation |
 | [nixd](docs/nixd.md), [Nixvim](docs/nixvim.md) | Editor and language-server setup |
 | [REA](docs/rea.md) | Reverse-engineering tooling |
-| [SEC-Hive Matrix](docs/sec-hive-matrix.md) | What the Matrix decommission left in place |
+| [Matrix after SEC-Hive](docs/sec-hive-matrix.md) | What Atlas keeps after the SEC-Hive removal, and the check for it |
 | [Package audit](docs/package-audit.md) | Dated record of pin and patch decisions |
 
 ## References
