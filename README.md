@@ -62,8 +62,8 @@ CI targets are declared beside their host, home, or installer output. The CI
 module maps those declarations to native runners without evaluating host builds.
 A target lists the flake checks that share its closure, such as a host's
 toplevel and deploy-rs checks, and its job builds them together; evaluation
-fails if a listed check does not exist. Every other check builds in one
-`ciChecks.<system>` job per system, and the NixOS VM tests run in
+fails if a listed check does not exist. Every other check, plus the dev shell,
+builds in one `ciChecks.<system>` job per system, and the NixOS VM tests run in
 `ciVmTests.x86_64-linux` on the KVM-capable runner. Reproduce them locally with:
 
 ```sh

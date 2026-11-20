@@ -8,7 +8,6 @@
     x86_64-linux = "ubuntu-24.04";
     aarch64-linux = "ubuntu-24.04-arm";
     aarch64-darwin = "macos-15";
-    x86_64-darwin = "macos-15-intel";
   };
   # Keep the published matrix ordered independently of module loading order.
   rank = target:
@@ -27,7 +26,12 @@
   unknownChecks = lib.concatMap (entry:
     map (name: "${entry.system}.${name}") (builtins.filter (name: !(config.flake.checks.${entry.system} ? ${name})) entry.checks))
   config.ci.targets;
-  remainingChecks = system: removeAttrs config.flake.checks.${system} (dedicatedChecks system);
+  # The dev shell joins its system's checks job, so broken hooks or tools fail CI.
+  devShell = system: let
+    shells = config.flake.devShells.${system} or {};
+  in
+    lib.optionalAttrs (shells ? default) {dev-shell = shells.default;};
+  remainingChecks = system: removeAttrs config.flake.checks.${system} (dedicatedChecks system) // devShell system;
   isVmTest = check: lib.hasPrefix "vm-test-run-" check.name;
   linkChecks = name: system: checks: withSystem system ({pkgs, ...}: pkgs.linkFarm "${name}-${system}" checks);
 in {

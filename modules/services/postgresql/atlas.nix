@@ -1,12 +1,9 @@
-{inputs, ...}: {
-  flake-file.inputs.nixpkgs-atlas-apps.url = "github:NixOS/nixpkgs/master";
-
+{
   nixos.atlas = {
     lib,
     pkgs,
     ...
   }: {
-    services.forgejo.package = inputs.nixpkgs-atlas-apps.legacyPackages.x86_64-linux.forgejo-lts;
     # Pin the running major independently of system.stateVersion.
     services.postgresql = {
       package = pkgs.postgresql_18;

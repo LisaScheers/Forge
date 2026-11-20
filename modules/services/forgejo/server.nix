@@ -1,4 +1,7 @@
-{
+{inputs, ...}: {
+  # A separate Nixpkgs pin lets Forgejo updates be held apart from the system.
+  flake-file.inputs.nixpkgs-atlas-apps.url = "github:NixOS/nixpkgs/master";
+
   nixos.atlas = {config, ...}: let
     domain = "git.bylisa.dev";
     httpPort = 3002;
@@ -6,6 +9,7 @@
     mailAddress = "forgejo@scheers.tech";
     mailSecret = ../../security/agenix/secrets/atlas/forgejo-mailer-password.age;
   in {
+    services.forgejo.package = inputs.nixpkgs-atlas-apps.legacyPackages.x86_64-linux.forgejo-lts;
     age.secrets.forgejo-mailer-password = {
       file = mailSecret;
       owner = "root";
