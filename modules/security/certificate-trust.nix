@@ -54,7 +54,7 @@ in {
         nativeBuildInputs = [pkgs.python3 (compatibleBuilder pkgs) filter];
         NSS_CERTDATA = pkgs.cacert.src;
       } ''
-        python3 -B ${../../tests/test_certificate_trust.py}
+        python3 -B ${./test_certificate_trust.py}
         touch "$out"
       '';
   };
