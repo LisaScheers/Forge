@@ -106,6 +106,16 @@ esac
                 self.assertEqual((self.root / "timer-state").read_text().strip(), "inactive")
                 self.assertIn("was stopped before this deploy", result.stderr)
 
+    def test_a_fixing_deploy_keeps_the_hold_left_by_a_failed_one(self):
+        result, _ = self.run_deploy("atlas", "switch", fail_activation=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.log.unlink()
+        result, commands = self.run_deploy("atlas", "switch")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("systemctl start nix-auto-sync-update.timer", commands)
+        self.assertEqual((self.root / "timer-state").read_text().strip(), "inactive")
+        self.assertIn("sudo systemctl start nix-auto-sync-update.timer", result.stderr)
+
     def test_failed_activation_keeps_updater_stopped(self):
         for extra_args in ((), ("--maintenance",)):
             with self.subTest(extra_args=extra_args):

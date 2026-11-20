@@ -75,6 +75,10 @@ nix build --no-link \
 atlas_timer_needs_restart=0
 atlas_timer_was_held=0
 atlas_deploy_started=0
+print_timer_restart() {
+  echo "Start it when Atlas should update itself again:" >&2
+  echo "  ssh ${ssh_args[*]} atlas sudo systemctl start nix-auto-sync-update.timer" >&2
+}
 restart_atlas_timer() {
   exit_status=$?
   trap - EXIT
@@ -87,6 +91,7 @@ restart_atlas_timer() {
         echo "Atlas maintenance: its auto-update timer remains stopped" >&2
       else
         echo "Atlas auto-update timer was stopped before this deploy; it remains stopped" >&2
+        print_timer_restart
       fi
     elif [[ "$atlas_deploy_started" == "1" && "$exit_status" != "0" ]]; then
       # Activation and rollback can start wanted timers again.
@@ -95,8 +100,9 @@ restart_atlas_timer() {
       else
         echo "Atlas deployment failed; failed to stop its auto-update timer" >&2
       fi
-      echo "after fixing or reverting main, restart it with:" >&2
-      echo "  ssh ${ssh_args[*]} atlas sudo systemctl start nix-auto-sync-update.timer" >&2
+      # A later deploy treats the stopped timer as a hold and keeps it.
+      echo "Later deploys keep it stopped until it is started again." >&2
+      print_timer_restart
     elif ! ssh "${ssh_args[@]}" atlas sudo systemctl start nix-auto-sync-update.timer; then
       echo "failed to restart Atlas auto-update timer" >&2
       exit_status=1

@@ -11,12 +11,13 @@ or scheduled reboot is active, and pauses `nix-auto-sync-update.timer` while
 deploy-rs runs. It restarts the timer after a successful deployment or a
 preflight abort, unless the timer was already stopped before the deploy. If
 deploy-rs itself fails, the timer stays stopped so it cannot retry the same bad
-`main` revision; the recipe prints the recovery command. After a kernel change
-the updater arms a reboot up to 12 hours later, which blocks deploys until then.
-To deploy sooner, reboot Atlas or cancel the pending reboot with `ssh atlas sudo
-systemctl stop nix-auto-sync-update-reboot.timer` and deploy before the next
-updater run, which re-arms it if the activated kernel, initrd or modules still
-differ from the booted generation.
+`main` revision, and later deploys keep it stopped too; the recipe prints the
+command that starts it again. After a kernel change the updater arms a reboot up
+to 12 hours later, which blocks deploys until then. To deploy sooner, reboot
+Atlas or cancel the pending reboot with `ssh atlas sudo systemctl stop
+nix-auto-sync-update-reboot.timer` and deploy before the next updater run, which
+re-arms it if the activated kernel, initrd or modules still differ from the
+booted generation.
 
 deploy-rs connects to Atlas as `lisa`, which `modules/hosts/atlas/system.nix`
 makes a trusted Nix user. On a freshly installed Atlas, let its auto-updater
