@@ -52,7 +52,10 @@
     };
   evaluatesArmChecks = targetChecks: vmName: (builtins.tryEval (vmWithoutKvm targetChecks vmName).ciChecks.aarch64-linux.name).success;
   # The same fixture with an ordinary check evaluates, so a rejection is the guard's.
-  rejectsVm = targetChecks: evaluatesArmChecks targetChecks "unit-tests" && !(evaluatesArmChecks targetChecks "vm-test-run-vm");
+  rejectsVm = targetChecks:
+    evaluatesArmChecks targetChecks "unit-tests"
+    && !(evaluatesArmChecks targetChecks "vm-test-run-vm")
+    && !(evaluatesArmChecks targetChecks "container-and-vm-test-run-mixed");
   entries = output: builtins.attrNames output.x86_64-linux.entries;
   # Each failure names the rule it broke.
   rules = [
