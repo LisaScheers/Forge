@@ -4,9 +4,13 @@
   ...
 }: let
   errorPage = config.nginxErrorPage;
-  deployedPackages = inputs.nixpkgs-nook-apps.legacyPackages.x86_64-linux;
 in {
+  # Nook's applications (Home Assistant and its components, Sonarr) come from
+  # their own pin, held apart from the system Nixpkgs; modules use pkgs.nookApps.
   flake-file.inputs.nixpkgs-nook-apps.url = "github:NixOS/nixpkgs/master";
+  overlays.nook-apps = final: _prev: {
+    nookApps = inputs.nixpkgs-nook-apps.legacyPackages.${final.stdenv.hostPlatform.system};
+  };
 
   nixos.nook = {
     lib,
@@ -19,7 +23,7 @@ in {
   in {
     services.home-assistant = {
       enable = true;
-      package = deployedPackages.home-assistant;
+      package = pkgs.nookApps.home-assistant;
       configDir = "/var/lib/hass";
       extraComponents = [
         # Components required to complete the onboarding
@@ -70,7 +74,7 @@ in {
           ];
         };
       };
-      customComponents = with deployedPackages.home-assistant-custom-components; [
+      customComponents = with pkgs.nookApps.home-assistant-custom-components; [
       ];
     };
 

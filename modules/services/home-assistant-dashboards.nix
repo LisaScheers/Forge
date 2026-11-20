@@ -1,6 +1,4 @@
-{inputs, ...}: let
-  deployedPackages = inputs.nixpkgs-nook-apps.legacyPackages.x86_64-linux;
-in {
+{
   nixos.nook = {
     lib,
     pkgs,
@@ -333,7 +331,7 @@ in {
     };
   in {
     services.home-assistant = {
-      customLovelaceModules = [deployedPackages.home-assistant-custom-lovelace-modules.mini-graph-card];
+      customLovelaceModules = [pkgs.nookApps.home-assistant-custom-lovelace-modules.mini-graph-card];
       config = {
         frontend.themes."Home media"."primary-color" = "#242424";
         frontend.themes.Home = {

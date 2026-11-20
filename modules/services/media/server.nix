@@ -1,8 +1,4 @@
-{
-  config,
-  inputs,
-  ...
-}: let
+{config, ...}: let
   errorPage = config.nginxErrorPage;
 in {
   nixos.nook = {
@@ -217,7 +213,7 @@ in {
 
       sonarr = {
         enable = true;
-        package = inputs.nixpkgs-nook-apps.legacyPackages.x86_64-linux.sonarr;
+        package = pkgs.nookApps.sonarr;
         openFirewall = false;
         group = "media";
         dataDir = "${mediaRoot}/sonarr";
