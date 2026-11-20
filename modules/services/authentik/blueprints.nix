@@ -6,7 +6,7 @@
     ...
   }: let
     inherit (lib) mkOption types;
-    manage = "${config.services.authentik.authentikComponents.manage}/bin/manage.py";
+    inherit (config.forge.authentik) manage;
     # Attach additively, so every other embedded-outpost provider stays.
     attachToEmbeddedOutpost = provider: ''${manage} shell -c "from authentik.outposts.models import Outpost; from authentik.providers.proxy.models import ProxyProvider; outpost = Outpost.objects.get(managed='goauthentik.io/outposts/embedded'); outpost.providers.add(ProxyProvider.objects.get(name='${provider}')); outpost.save()"'';
     unit = blueprint: {
@@ -35,6 +35,12 @@
       restartTriggers = [config.age.secrets.authentik-env.file blueprint.file] ++ blueprint.restartTriggers;
     };
   in {
+    options.forge.authentik.manage = mkOption {
+      type = types.str;
+      readOnly = true;
+      default = "${config.services.authentik.authentikComponents.manage}/bin/manage.py";
+      description = "Authentik's manage.py, for blueprint commands.";
+    };
     options.forge.authentik.blueprints = mkOption {
       default = {};
       description = "Authentik blueprints, each applied by authentik-<name>-blueprint before Authentik starts, with authentik-env loaded.";
@@ -44,7 +50,10 @@
         ...
       }: {
         options = {
-          description = mkOption {type = types.str;};
+          description = mkOption {
+            type = types.str;
+            description = "Unit description.";
+          };
           file = mkOption {
             type = types.path;
             description = "Blueprint YAML to install and apply.";

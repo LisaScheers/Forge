@@ -38,7 +38,13 @@ in {
       domain = "watch.bylisa.dev";
       adminUsers = ["lisa"];
       environmentFile = config.age.secrets.authentik-env.path;
-      manageCommand = "${config.services.authentik.authentikComponents.manage}/bin/manage.py";
+      manageCommand = config.forge.authentik.manage;
+    };
+    # The upstream unit predates forge.authentik.blueprints; give it the same
+    # re-apply behaviour as the others.
+    systemd.services.authentik-movie-night-blueprint = {
+      serviceConfig.RemainAfterExit = true;
+      restartTriggers = [config.age.secrets.authentik-env.file];
     };
   };
   nixos.nook = {config, ...}: {

@@ -144,9 +144,9 @@ in {
       environmentFiles = [environmentFile config.age.secrets.jellyfin-bootstrap-env.path];
       restartTriggers = [secret bootstrapSecret bootstrap];
       preStart = [
-        "${config.services.authentik.authentikComponents.manage}/bin/manage.py shell -c 'exec(compile(open(\"${bootstrap}\").read(), \"${bootstrap}\", \"exec\"), {\"__name__\": \"__main__\"})'"
+        "${config.forge.authentik.manage} shell -c 'exec(compile(open(\"${bootstrap}\").read(), \"${bootstrap}\", \"exec\"), {\"__name__\": \"__main__\"})'"
       ];
-      postStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py shell -c 'exec(open(\"${attachProvider}\").read())'";
+      postStart = "${config.forge.authentik.manage} shell -c 'exec(open(\"${attachProvider}\").read())'";
     };
     systemd.services.authentik = {
       serviceConfig.EnvironmentFile = [environmentFile];
