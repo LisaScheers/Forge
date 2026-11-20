@@ -49,7 +49,6 @@ in {
         pkgs.coreutils
         pkgs.curl
         pkgs.git
-        pkgs.nix
         pkgs.openssh
         pkgs.util-linux
       ];

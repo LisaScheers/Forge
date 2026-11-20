@@ -11,6 +11,7 @@
       User = host.ssh.user;
       IdentityFile = host.ssh.identityFile;
       IdentitiesOnly = true;
+      # Explicit, so a broader Host block in an included file cannot change it.
       Port = 22;
     }) (lib.filterAttrs (_: host: host.ssh != null) config.network);
     description = "SSH host blocks for every network entry that declares a login.";

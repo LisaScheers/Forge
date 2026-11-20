@@ -59,7 +59,7 @@
             machine.succeed("test -f /run/shared-update.lock; test -f /run/rebuild-finished")
             # The rebuild gets the committed tree, with the ownership exception for Nix's git.
             assert machine.succeed("cat /run/rebuild-args").split() == ["--flake", f"git+file:///root/repository?rev={latest}#lock-fixture"]
-            machine.succeed("grep -qx 'GIT_CONFIG_VALUE_0=/root/repository' /run/rebuild-env")
+            machine.succeed("grep -qx 'GIT_CONFIG_COUNT=1' /run/rebuild-env; grep -qx 'GIT_CONFIG_KEY_0=safe.directory' /run/rebuild-env; grep -qx 'GIT_CONFIG_VALUE_0=/root/repository' /run/rebuild-env")
 
         with subtest("a running updater holds the lock until it finishes"):
             machine.succeed("rm /run/rebuild-start /run/rebuild-finished /run/allow-rebuild-finish")
@@ -90,7 +90,7 @@
             machine.succeed("rm /run/fail-rebuild /run/mail.txt")
 
         with subtest("a broken environment file is reported, not silently fatal"):
-            machine.succeed(f"printf '{smtp}false\\n' > /run/auto-sync.env")
+            machine.succeed(f"printf 'false\\n{smtp}' > /run/auto-sync.env")
             machine.fail("systemctl start nix-auto-sync-update.service")
             machine.wait_until_succeeds("grep -q 'Failed to load /run/auto-sync.env' /run/mail.txt", timeout=30)
             machine.succeed("rm /run/auto-sync.env /run/mail.txt")

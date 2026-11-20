@@ -27,6 +27,10 @@ fi
 load_env() {
   local load_status=0
   if [ -f "$env_file" ]; then
+    # Sourcing reports only the last command's status, so check the whole file
+    # in a strict shell, then still load what it can so the failure is mailed.
+    # shellcheck disable=SC2016 # $1 expands in the child shell.
+    "$BASH" -euc '. "$1"' _ "$env_file" || load_status=$?
     set -a
     # shellcheck disable=SC1090
     . "$env_file" || load_status=$?
@@ -185,7 +189,6 @@ handle_required_reboot() {
 }
 
 run_update() {
-
   if [ ! -d "$repo_path/.git" ]; then
     if [ -z "${AUTO_SYNC_GIT_REPOSITORY_URL:-}" ]; then
       echo "$repo_path is not a git checkout and AUTO_SYNC_GIT_REPOSITORY_URL is not set." >&2

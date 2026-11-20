@@ -1,11 +1,20 @@
-let
+{
+  config,
+  lib,
+  ...
+}: let
   source = ../../../services/home-dashboard;
+  # The catalog is read at runtime, so check here that its Nook addresses
+  # still match network.nook.
+  catalogAddresses = lib.unique (lib.filter builtins.isList (builtins.split "([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)" (builtins.readFile (source + "/catalog.json"))));
+  staleAddresses = lib.subtractLists ["127.0.0.1" config.network.nook.lan config.network.nook.tailscale] (map builtins.head catalogAddresses);
 in {
   perSystem = {pkgs, ...}: {
-    checks.home-dashboard = pkgs.runCommand "home-dashboard-tests" {} ''
-      ${pkgs.python3}/bin/python3 -B -m unittest discover -s ${source} -v
-      touch "$out"
-    '';
+    checks.home-dashboard = assert lib.assertMsg (staleAddresses == []) "home-dashboard catalog.json has addresses not in network.nook: ${toString staleAddresses}";
+      pkgs.runCommand "home-dashboard-tests" {} ''
+        ${pkgs.python3}/bin/python3 -B -m unittest discover -s ${source} -v
+        touch "$out"
+      '';
   };
   nixos.atlas = {
     config,
