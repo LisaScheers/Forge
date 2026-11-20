@@ -18,6 +18,9 @@
         nixd
         nix-output-monitor
         statix
+        shellcheck
+        ruff
+        actionlint
         gh
         gh-dash
         markdownlint-cli

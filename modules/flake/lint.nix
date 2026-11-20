@@ -9,7 +9,7 @@
       (fileset.unions [../../modules ../../packages])
       (fileset.fileFilter (file: file.hasExt "nix") ../..);
   };
-  # Repository shell scripts; the vendored AI skills are imported unchanged.
+  # Repository shell scripts; the vendored pstack skills are imported unchanged.
   shellScripts = fileset.toSource {
     root = ../..;
     fileset =
@@ -17,16 +17,16 @@
       (fileset.unions [
         ../../scripts
         ../../.github/scripts
-        (fileset.difference ../../modules ../../modules/development/ai-skills)
+        (fileset.difference ../../modules ../../modules/development/ai-skills/pstack)
       ])
       (fileset.fileFilter (file: file.hasExt "sh" || file.hasExt "command") ../..);
   };
-  # Repository Python, again without the vendored AI skills.
+  # Repository Python, again without the vendored pstack skills.
   pythonSources = fileset.toSource {
     root = ../..;
     fileset =
       fileset.intersection
-      (fileset.difference ../.. ../../modules/development/ai-skills)
+      (fileset.difference ../.. ../../modules/development/ai-skills/pstack)
       (fileset.fileFilter (file: file.hasExt "py") ../..);
   };
 in {
