@@ -78,7 +78,7 @@ esac
                         DEPLOY_TEST_TIMER=str(self.root / "timer-state"),
                         DEPLOY_TEST_ORIGIN_CALLS=str(self.root / "origin-calls"))
 
-    def run_deploy(self, *args, fail_activation=False, cwd=None):
+    def run_deploy(self, *args, fail_activation=False, cwd=REPO):
         env = dict(self.env, DEPLOY_TEST_FAIL_ACTIVATION="1" if fail_activation else "0")
         result = subprocess.run([self.shell, str(SCRIPT), *args], env=env, cwd=cwd,
                                 text=True, capture_output=True, timeout=10)

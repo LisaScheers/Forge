@@ -93,7 +93,7 @@ jobs:
           done
           sudo rm -rf /Library/Developer/CoreSimulator
           df -h / /nix
-      - name: Test the build script with the runner's shells
+      - name: Test the CI and deploy scripts with the runner's shells
         if: runner.os == 'macOS'
         # The Nix sandbox has no /bin/bash, so the Bash 3.2 cases of the CI and
         # deploy scripts run only here.
