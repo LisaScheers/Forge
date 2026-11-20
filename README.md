@@ -58,14 +58,17 @@ keeps it out of automatic loading. The `dendritic` and `profiles` checks enforce
 top-level feature boundaries and module-class safety.
 
 CI targets are declared beside their host, home, or installer output. The CI
-module maps those declarations to native runners without evaluating host builds,
-and adds one `ciChecks.<system>` job per system that builds every other flake
-check, including the NixOS VM tests on x86-64 Linux. A target that names its
-`check` is skipped there so nothing builds twice.
+module maps those declarations to native runners without evaluating host builds.
+A target lists the flake checks that share its closure, such as a host's
+toplevel and deploy-rs checks, and its job builds them together; evaluation
+fails if a listed check does not exist. Every other check builds in one
+`ciChecks.<system>` job per system, and the NixOS VM tests run in
+`ciVmTests.x86_64-linux` on the KVM-capable runner.
 
 `checks.lint` runs alejandra, deadnix and statix (configured in `statix.toml`)
-over `modules/` and `packages/`; `nix fmt -- modules packages` formats them and
-the dev shell installs the same hooks. `checks.script-tests` runs the Python tests in
+over `modules/` and `packages/`; `nix fmt -- modules packages` formats them.
+The dev shell's pre-commit hooks run alejandra on the same paths, nil,
+editorconfig-checker and write-flake. `checks.script-tests` runs the Python tests in
 `tests/` against the repository scripts, Justfile and helpers they exercise.
 
 Hardware regeneration writes `modules/hardware/<host>.nix`. Save the target's
@@ -164,7 +167,7 @@ for Forgejo, Home Assistant and Sonarr. Their migration holds were removed after
 Lisa confirmed migration and recovery checks were complete on 8 November 2026.
 Their lock entries still allow application updates separately from infrastructure.
 
-The recipe builds the host closure plus host-specific deploy-rs schema and activation checks before it opens the deployment connection. Nix may still use the remote builders declared by this flake during that build. The recipe then passes `--skip-checks` to deploy-rs because Forge's full-flake check has pre-existing development-shell check failures. Do not use `--skip-checks` without those targeted builds.
+The recipe builds the host closure plus host-specific deploy-rs schema and activation checks before it opens the deployment connection. Nix may still use the remote builders declared by this flake during that build. The recipe then passes `--skip-checks` to deploy-rs, which would otherwise run the full flake check that CI already covers. Do not use `--skip-checks` without those targeted builds.
 
 Atlas needs one bootstrap from its existing auto-updater after this change reaches `main`. That activation adds `lisa` to Nix's trusted users. Confirm it before the first deploy-rs run:
 

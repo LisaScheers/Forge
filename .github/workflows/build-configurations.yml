@@ -30,7 +30,7 @@ jobs:
           ref: ${{ inputs.revision || github.sha }}
           persist-credentials: false
       # Lix preserves the tarball revision URLs written by local lock updates.
-      - uses: samueldr/lix-gha-installer-action@38852f089fdd2f5aabeec42c59c8d180bb8a15e9
+      - uses: samueldr/lix-gha-installer-action@38852f089fdd2f5aabeec42c59c8d180bb8a15e9 # latest branch; no release tags
         with:
           extra_nix_config: |
             accept-flake-config = true
@@ -52,7 +52,7 @@ jobs:
         with:
           ref: ${{ inputs.revision || github.sha }}
           persist-credentials: false
-      - uses: samueldr/lix-gha-installer-action@38852f089fdd2f5aabeec42c59c8d180bb8a15e9
+      - uses: samueldr/lix-gha-installer-action@38852f089fdd2f5aabeec42c59c8d180bb8a15e9 # latest branch; no release tags
         with:
           github_access_token: ${{ secrets.FLAKE_INPUTS_TOKEN || github.token }}
           extra_nix_config: |
