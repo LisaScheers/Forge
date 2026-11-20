@@ -47,9 +47,10 @@ host module binds `home-manager.users.lisa = config.home.lisa-nook`.
 
 Adding settings to an existing profile requires no file import-list edit.
 Distinct reusable profiles are selected explicitly by name. Selecting a feature
-enables it by default; existing opt-outs remain available. `home.lisa-proxy`
-runs Lisa's local CLIProxy with OpenRouter; no home selects it, so the proxy
-stays off until a host imports that profile.
+enables it by default; existing opt-outs remain available. `home.lisa-proxy` is
+an opt-in profile that runs the CLIProxy gateway locally with OpenRouter instead
+of using Nook's; no home imports it today, and `checks.lisa-proxy-profile` keeps
+it building.
 `flake.modules` publishes the named profiles for external consumers.
 
 `flake-file` generates `flake.nix` from feature-owned input declarations.

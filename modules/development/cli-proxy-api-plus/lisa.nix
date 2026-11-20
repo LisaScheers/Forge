@@ -1,7 +1,26 @@
-{config, ...}: let
+{
+  config,
+  inputs,
+  withSystem,
+  ...
+}: let
   proxy = config.home.cli-proxy-api-plus;
 in {
-  # Optional composition: none of the current homes selects the local proxy.
+  # Opt-in: runs the gateway locally instead of using Nook's. No home imports
+  # it today; the check below keeps it building so it stays usable.
+  flake.checks.x86_64-linux.lisa-proxy-profile = withSystem "x86_64-linux" ({pkgs, ...}:
+    (inputs.home-manager.lib.homeManagerConfiguration {
+      inherit pkgs;
+      modules = [
+        config.home.lisa-proxy
+        {
+          home.username = "lisa";
+          home.homeDirectory = "/home/lisa";
+          home.stateVersion = "26.11";
+        }
+      ];
+    })
+    .activationPackage);
   home.lisa-proxy = {config, ...}: {
     imports = [proxy];
     services.cli-proxy-api-plus = {
@@ -19,6 +38,7 @@ in {
         ];
       };
       integrations.models = ["openrouter/glm-5.3-flash"];
+      integrations.defaultModel = "openrouter/glm-5.3-flash";
     };
   };
 }
