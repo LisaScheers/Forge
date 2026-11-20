@@ -38,8 +38,7 @@ Lisa and Atlas. No custom payload mapping is needed.
 
 Plugin enablement and its token remain per-user Gotify database state. If the
 plugin instance is recreated or its token changes, update the encrypted URL and
-redeploy Atlas. On first deployment, start `authentik-gotify-blueprint.service`
-explicitly if Authentik was already running; subsequent boots apply it before
+redeploy Atlas. Activation applies the blueprint, and boots apply it before
 Authentik starts. The isolated build check does not change production state.
 
 Upstream: https://github.com/ckocyigit/gotify-authentik-plugin
