@@ -47,9 +47,9 @@ configure_git_auth() {
   fi
 
   if [ -n "${AUTO_SYNC_GIT_TOKEN:-}" ]; then
-    askpass_file="$(mktemp)"
-    chmod 700 "$askpass_file"
-    cat > "$askpass_file" <<'EOF'
+    askpass_file="$(mktemp)" || return $?
+    chmod 700 "$askpass_file" || return $?
+    cat > "$askpass_file" <<'EOF' || return $?
 #!/bin/sh
 case "$1" in
   *Username*) printf '%s\n' "${AUTO_SYNC_GIT_USERNAME:-x-access-token}" ;;
@@ -107,6 +107,8 @@ send_mail() {
   if ! curl "${curl_args[@]}"; then
     echo "Failed to send email: $subject" >&2
   fi
+  # send_mail runs in a pipeline subshell, out of the cleanup trap's sight.
+  rm -f "$mail_file"
 }
 
 send_failure_mail() {
@@ -122,11 +124,6 @@ send_failure_mail() {
 }
 
 reboot_required() {
-  # Testing hook: the VM test sets this to exercise scheduling without a new kernel.
-  if [ "${AUTO_SYNC_FORCE_REBOOT_REQUIRED:-0}" = "1" ]; then
-    return 0
-  fi
-
   if [ "$custom_reboot_required" = "true" ]; then
     "${reboot_required_cmd[@]}"
     return "$?"
@@ -201,12 +198,18 @@ run_update() {
 
   cd "$repo_path"
   git "${git_args[@]}" fetch --prune origin "$branch"
-  if git show-ref --verify --quiet "refs/heads/$branch"; then
+  if git "${git_args[@]}" show-ref --verify --quiet "refs/heads/$branch"; then
     git "${git_args[@]}" checkout "$branch"
   else
     git "${git_args[@]}" checkout --track -b "$branch" "origin/$branch"
   fi
   git "${git_args[@]}" merge --ff-only "origin/$branch"
+  rev="$(git "${git_args[@]}" rev-parse HEAD)"
+  # Local commits not on origin would otherwise be deployed unreviewed.
+  if [ "$rev" != "$(git "${git_args[@]}" rev-parse "origin/$branch")" ]; then
+    echo "Local $branch has commits that are not on origin/$branch; not rebuilding." >&2
+    return 1
+  fi
 
   # Build the committed tree, as deploy.sh does, so untracked files cannot
   # change the result.
@@ -214,7 +217,7 @@ run_update() {
   # Nix runs its own git for the fetch, so pass the safe.directory exception
   # through the environment as well.
   GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$repo_path" \
-    "${rebuild_cmd[@]}" --flake "$repo_url?rev=$(git rev-parse HEAD)#$flake_host"
+    "${rebuild_cmd[@]}" --flake "$repo_url?rev=$rev#$flake_host"
   # The default scheduler is checked after every rebuild, so a kernel that
   # deploy.sh activated still gets its reboot. A custom scheduler cannot report
   # a pending reboot, so it runs only when this rebuild changed the system.
@@ -233,11 +236,18 @@ status=$?
 set -e
 if [ "$status" -ne 0 ]; then
   echo "Failed to load $env_file" >>"$log_file"
+fi
+if [ "$status" -eq 0 ]; then
+  set +e
+  configure_git_auth 2>>"$log_file"
+  status=$?
+  set -e
+fi
+if [ "$status" -ne 0 ]; then
   cat "$log_file" >&2
   send_failure_mail "$status"
   exit "$status"
 fi
-configure_git_auth
 
 # Run the update in a subshell outside any condition: an `if` around the
 # call would disable errexit inside it and hide failed steps.

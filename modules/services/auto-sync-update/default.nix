@@ -43,6 +43,8 @@ in {
       else defaultScheduleRebootCommand
     );
     hasCustomScheduleRebootCommand = cfg.scheduleRebootCommand != null;
+    # Percent-encoded per path segment for the git+file URL.
+    encodedRepositoryPath = lib.concatMapStringsSep "/" lib.strings.escapeURL (lib.splitString "/" cfg.repositoryPath);
     script = pkgs.writeShellApplication {
       name = "nix-auto-sync-update";
       runtimeInputs = [
@@ -57,7 +59,7 @@ in {
         ''
           set -euo pipefail
           repo_path=${lib.escapeShellArg cfg.repositoryPath}
-          repo_url=${lib.escapeShellArg "git+file://${lib.concatMapStringsSep "/" lib.strings.escapeURL (lib.splitString "/" cfg.repositoryPath)}"}
+          repo_url=${lib.escapeShellArg "git+file://${encodedRepositoryPath}"}
           flake_host=${lib.escapeShellArg cfg.flakeHost}
           branch=${lib.escapeShellArg cfg.branch}
           default_env_file=${lib.escapeShellArg cfg.environmentFile}

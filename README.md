@@ -159,7 +159,7 @@ just deploy nook test
 just deploy nook
 ```
 
-Use the same commands for Atlas. The Atlas recipe refuses dirty or off-main revisions, aborts when an auto-update or scheduled reboot is active, and pauses `nix-auto-sync-update.timer` while deploy-rs runs. It restarts the timer after a successful deployment or a preflight abort. If deploy-rs itself fails, the timer stays stopped so it cannot retry the same bad `main` revision; the recipe prints the recovery command. After a kernel change the updater arms a reboot up to 12 hours later, which blocks deploys until then. To deploy sooner, reboot Atlas or cancel the pending reboot with `ssh atlas sudo systemctl stop nix-auto-sync-update-reboot.timer` and deploy right away: the next updater run, within about 50 minutes, re-arms it if a reboot is still needed.
+Use the same commands for Atlas. The Atlas recipe refuses dirty or off-main revisions, aborts when an auto-update or scheduled reboot is active, and pauses `nix-auto-sync-update.timer` while deploy-rs runs. It restarts the timer after a successful deployment or a preflight abort. If deploy-rs itself fails, the timer stays stopped so it cannot retry the same bad `main` revision; the recipe prints the recovery command. After a kernel change the updater arms a reboot up to 12 hours later, which blocks deploys until then. To deploy sooner, reboot Atlas or cancel the pending reboot with `ssh atlas sudo systemctl stop nix-auto-sync-update-reboot.timer` and deploy right away: the next successful updater run (about 50 minutes later) re-arms it if the running kernel still differs from the booted one.
 
 For an approved database maintenance window, `just deploy-maintenance` applies
 Atlas while leaving its updater timer stopped. The root-owned marker
