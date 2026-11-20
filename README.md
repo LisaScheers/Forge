@@ -184,7 +184,14 @@ shell code: `AUTO_SYNC_SMTP_URL`, `AUTO_SYNC_SMTP_USERNAME`,
 `export`, no `$` expansion. systemd skips lines that are not assignments, and
 the updater fails visibly if the file exists but provides no SMTP URL. The updater only fast-forwards to `origin/main`: if the Atlas
 checkout has local commits, every run fails and mails until the checkout is
-reset to `origin/main`.
+reset to `origin/main`. The journal has the same reason even if mail fails.
+Keep the commits on a branch before resetting:
+
+```sh
+ssh atlas sudo journalctl -u nix-auto-sync-update -n 50
+ssh atlas sudo git -c safe.directory=/etc/nix-darwin -C /etc/nix-darwin branch atlas-local-$(date +%F)
+ssh atlas sudo git -c safe.directory=/etc/nix-darwin -C /etc/nix-darwin reset --hard origin/main
+```
 
 For an approved database maintenance window, `just deploy-maintenance` applies
 Atlas while leaving its updater timer stopped. The root-owned marker

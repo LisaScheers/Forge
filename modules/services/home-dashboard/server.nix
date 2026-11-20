@@ -4,11 +4,18 @@
   ...
 }: let
   source = ../../../services/home-dashboard;
-  # The catalog is read at runtime, so check here that its Nook addresses
-  # still match network.nook.
-  # builtins.split interleaves text with one-element lists of captured matches.
-  ipv4Matches = lib.filter builtins.isList (builtins.split "([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)" (builtins.readFile (source + "/catalog.json")));
-  catalogAddresses = lib.unique (map builtins.head ipv4Matches);
+  # The catalog is read at runtime, so check here that every IPv4 address in
+  # its URLs and probe addresses is one of Nook's (or loopback).
+  catalog = builtins.fromJSON (builtins.readFile (source + "/catalog.json"));
+  hostOf = url: let
+    match = builtins.match "[a-z]+://([^/:]+).*" url;
+  in
+    if match == null
+    then null
+    else builtins.head match;
+  endpoints = entry: map hostOf (lib.filter (url: url != null) [(entry.url or null) (entry.probe.url or null)]) ++ [(entry.probe.address or null)];
+  isIPv4 = host: host != null && builtins.match "[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+" host != null;
+  catalogAddresses = lib.unique (lib.filter isIPv4 (lib.concatMap endpoints catalog));
   staleAddresses = lib.subtractLists ["127.0.0.1" config.network.nook.lan config.network.nook.tailscale] catalogAddresses;
 in {
   perSystem = {pkgs, ...}: {

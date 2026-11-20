@@ -93,9 +93,11 @@
 
     # ExecStartPost runs only after successful oneshot completion. Reporting
     # failure must not turn a successful update or backup into a failed job.
+    # The updater's environment file carries SMTP and Git credentials, so the
+    # reporter starts with a cleared environment.
     systemd.services.nix-auto-sync-update = lib.mkIf (config.services.autoSyncUpdate.enable or false) {
       serviceConfig.ExecStartPost = [
-        "-${lib.getExe report} auto-update"
+        "-${pkgs.coreutils}/bin/env -i PATH=/run/current-system/sw/bin ${lib.getExe report} auto-update"
       ];
     };
     systemd.services.postgresqlBackup = lib.mkIf (host == "atlas") {

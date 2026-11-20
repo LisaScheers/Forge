@@ -45,7 +45,8 @@ EOF
   fi
 }
 
-send_mail() {
+# Runs in its own subshell, so its EXIT trap cleans up only the message file.
+send_mail() (
   subject="$1"
   if [ -z "${AUTO_SYNC_SMTP_URL:-}" ]; then
     echo "AUTO_SYNC_SMTP_URL is not set; cannot send email: $subject" >&2
@@ -62,8 +63,7 @@ send_mail() {
   mail_from="${AUTO_SYNC_SMTP_FROM:-nix-auto-sync-update@$mail_host}"
   mail_to="${AUTO_SYNC_SMTP_TO:-$email_to}"
   mail_file="$(mktemp)"
-  # send_mail always runs in a pipeline subshell, so this trap is its own and
-  # also removes the message if the unit is stopped mid-send.
+  # Also removes the message if the unit is stopped mid-send.
   trap 'rm -f "$mail_file"' EXIT
 
   {
@@ -98,7 +98,7 @@ send_mail() {
   if ! curl "${curl_args[@]}"; then
     echo "Failed to send email: $subject" >&2
   fi
-}
+)
 
 send_failure_mail() {
   status="$1"
@@ -203,10 +203,10 @@ run_update() {
   # Build the committed tree, as deploy.sh does, so untracked files cannot
   # change the result.
   system_before="$(readlink -f /run/current-system 2>/dev/null || true)"
-  # Lix fetches git+file inputs by running git, which does not see the -c
-  # options above, so pass the safe.directory exception through the environment.
-  GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$repo_path" \
-    "${rebuild_cmd[@]}" --flake "$repo_url?rev=$rev#$flake_host"
+  # Lix reads a pinned git+file revision even when root does not own the
+  # checkout (the VM test checks this), so only the script's own Git calls
+  # need the safe.directory exception.
+  "${rebuild_cmd[@]}" --flake "$repo_url?rev=$rev#$flake_host"
   # The default scheduler is checked after every rebuild, so a kernel that
   # deploy.sh activated still gets its reboot. A custom scheduler cannot report
   # a pending reboot, so it runs only when this rebuild changed the system.

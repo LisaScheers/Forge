@@ -19,10 +19,6 @@
             (toString (pkgs.writeShellScript "test-rebuild" ''
               touch /run/rebuild-start
               printf '%s\n' "$@" > /run/rebuild-args
-              env > /run/rebuild-env
-              # Like Nix's fetcher, read the checkout as root with only the
-              # exception the updater passes through the environment.
-              git -C /root/repository rev-parse HEAD > /run/rebuild-saw
               if test -e /run/fail-rebuild; then echo rebuild-failure-marker; exit 1; fi
               while ! test -e /run/allow-rebuild-finish; do sleep 0.1; done
               touch /run/rebuild-finished
@@ -33,6 +29,9 @@
         # The checkout belongs to another user, as on Atlas, so Git's
         # ownership check applies.
         users.users.fixture.isNormalUser = true;
+        # The real fetch subtest uses Lix, as Atlas does.
+        nix.package = pkgs.lix;
+        nix.settings.experimental-features = ["nix-command" "flakes"];
         # The test starts the unit more often than systemd's default start limit allows.
         systemd.services.nix-auto-sync-update.unitConfig.StartLimitIntervalSec = 0;
         environment.systemPackages = [pkgs.git pkgs.python3 pkgs.util-linux];
@@ -63,10 +62,8 @@
             machine.succeed("systemctl start nix-auto-sync-update.service")
             assert machine.succeed("git -c safe.directory='*' -C /root/repository rev-parse HEAD").strip() == latest
             machine.succeed("test -f /run/shared-update.lock; test -f /run/rebuild-finished")
-            # The rebuild gets the committed tree, with the ownership exception for Nix's git.
+            # The rebuild gets the committed tree.
             assert machine.succeed("cat /run/rebuild-args").split() == ["--flake", f"git+file:///root/repository?rev={latest}#lock-fixture"]
-            assert machine.succeed("cat /run/rebuild-saw").strip() == latest
-            machine.succeed("grep -qx 'GIT_CONFIG_COUNT=1' /run/rebuild-env; grep -qx 'GIT_CONFIG_KEY_0=safe.directory' /run/rebuild-env; grep -qx 'GIT_CONFIG_VALUE_0=/root/repository' /run/rebuild-env")
 
         with subtest("a running updater holds the lock until it finishes"):
             machine.succeed("rm /run/rebuild-start /run/rebuild-finished /run/allow-rebuild-finish")
@@ -112,6 +109,18 @@
             machine.succeed("journalctl -u nix-auto-sync-update.service | grep -q 'AUTO_SYNC_SMTP_URL is not set'")
             machine.succeed("rm /run/auto-sync.env /run/reboot-required")
             machine.succeed("systemctl stop nix-auto-sync-update-reboot.timer || true")
+
+        with subtest("Lix fetches a pinned revision from a checkout root does not own"):
+            machine.succeed(
+                "mkdir /root/flake && cp ${pkgs.writeText "flake.nix" "{outputs = _: {answer = \"42\";};}"} /root/flake/flake.nix"
+                " && git -C /root/flake init -q && git -C /root/flake add flake.nix"
+                " && git -C /root/flake -c user.name=x -c user.email=x@example.invalid -c commit.gpgsign=false commit -qm flake"
+                " && chown -R fixture /root/flake"
+            )
+            rev = machine.succeed("git -c safe.directory='*' -C /root/flake rev-parse HEAD").strip()
+            url = f"git+file:///root/flake?rev={rev}#answer"
+            # No safe.directory exception: this is what the updater's rebuild relies on.
+            assert machine.succeed(f"nix eval --raw '{url}'") == "42"
 
         with subtest("local commits that are not on origin are never rebuilt"):
             machine.succeed("git -c safe.directory='*' -C /root/repository -c user.name=x -c user.email=x@example.invalid -c commit.gpgsign=false commit --allow-empty -m local")
