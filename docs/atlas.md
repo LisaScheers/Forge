@@ -94,18 +94,33 @@ writes requires reconciling those writes or restoring a current backup.
 
 ## Rebuilding Atlas
 
-Before reinstalling, copy the latest dump, `/var/backup/postgresql/all.sql.zst`,
-off Atlas; backups live only on the host. Then:
+Backups live only on Atlas, so before reinstalling copy the latest dump,
+`/var/backup/postgresql/all.sql.zstd`, somewhere else. Then:
 
 1. Restore the old `/etc/ssh/ssh_host_ed25519_key` pair, which agenix decrypts
    with. With a new key instead, put its public half in
    `modules/security/agenix/pubkeys.nix` (`hosts.atlas`) and run
    `just secret-rekey` before deploying; otherwise no Atlas secret decrypts.
-2. Create the maintenance marker, `/var/lib/postgresql/.forge-maintenance`,
-   before PostgreSQL first starts, so the updater stays held during the restore.
-3. Initialise `/var/lib/postgresql/18` with PostgreSQL 18, restore the dump into
-   it, and only then create `.forge-upgrade-complete`; PostgreSQL refuses to
-   start without it. The Matrix databases are not in the dump; see
+2. Before the Forge configuration first boots or activates, create the
+   maintenance marker, `/var/lib/postgresql/.forge-maintenance`, so the updater
+   stays held throughout.
+3. PostgreSQL refuses to start until `.forge-upgrade-complete` exists, so
+   restore by hand. A separate bootstrap role lets the dump recreate `postgres`
+   and the other roles; `modules/services/postgresql/tests.nix` exercises the
+   same steps.
+
+   ```sh
+   cd /var/lib/postgresql
+   sudo -u postgres initdb --encoding=UTF8 -U restore_admin -D 18
+   sudo -u postgres pg_ctl -D 18 -w start
+   zstd -dc all.sql.zstd | sudo -u postgres psql -X -v ON_ERROR_STOP=1 -U restore_admin -d postgres
+   sudo -u postgres psql -X -U restore_admin -d postgres -c '\l'   # every database is back
+   sudo -u postgres pg_ctl -D 18 -m fast -w stop
+   sudo -u postgres touch 18/.forge-upgrade-complete
+   ```
+
+   The Matrix databases are not in the dump; see
    [Matrix after SEC-Hive](sec-hive-matrix.md).
-4. Check `systemctl --failed` and the Uptime Kuma probes, then release the hold
-   as described under [Maintenance and PostgreSQL](#maintenance-and-postgresql).
+4. Start PostgreSQL, check `systemctl --failed` and the Uptime Kuma probes, then
+   release the hold as described under
+   [Maintenance and PostgreSQL](#maintenance-and-postgresql).
