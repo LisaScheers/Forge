@@ -35,6 +35,7 @@ in {
     "secrets/nook/ai-proxy-antigravity-auth.age".publicKeys = readers ["nook"];
     "secrets/nook/ai-proxy-codex-auth.age".publicKeys = readers ["nook"];
     "secrets/nook/ai-proxy-openrouter-key.age".publicKeys = readers ["nook"];
+    "secrets/nook/atlas-backup-pull-key.age".publicKeys = readers ["nook"];
     "secrets/nook/cloudflare-dns-api-token.age".publicKeys = readers ["nook"];
     "secrets/nook/cognee-backend-env.age".publicKeys = readers ["nook"];
     "secrets/nook/gotify-env.age".publicKeys = readers ["nook"];

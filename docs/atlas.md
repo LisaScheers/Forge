@@ -86,6 +86,15 @@ cluster roles and every database except `matrix-synapse`, `mautrix-discord` and
 `pluralmatrix`, which are intentionally unbacked
 ([Matrix after SEC-Hive](sec-hive-matrix.md)). The existing Uptime Kuma probe
 reports completion.
+
+Nook copies that dump off Atlas every day at 04:30 into
+`/srv/disks/western-digital-hdd/backups/atlas-postgresql/all-<date>.sql.zstd`,
+checks it with `zstd --test` before keeping it, and prunes copies older than 14
+days (`modules/services/postgresql/offsite.nix`). It logs in as `postgres` with
+a key that Atlas restricts to printing the dump; the private half is
+`secrets/nook/atlas-backup-pull-key.age`. A failed copy fails
+`postgresql-backup-pull.service` on Nook and leaves the previous copies alone.
+
 Atlas uses PostgreSQL 18 at `/var/lib/postgresql/18`. Startup requires its
 `PG_VERSION` and `.forge-upgrade-complete` marker; create the marker only after a
 successful `pg_upgrade` or a verified full restore. Keep the PostgreSQL 16
@@ -94,8 +103,8 @@ writes requires reconciling those writes or restoring a current backup.
 
 ## Rebuilding Atlas
 
-Backups live only on Atlas, so before reinstalling copy the latest dump,
-`/var/backup/postgresql/all.sql.zstd`, somewhere else. Then:
+Take the newest copy from Nook (above), or copy Atlas's latest dump if Atlas is
+still reachable. Then:
 
 1. Restore the old `/etc/ssh/ssh_host_ed25519_key` pair, which agenix decrypts
    with. With a new key instead, put its public half in
@@ -105,23 +114,18 @@ Backups live only on Atlas, so before reinstalling copy the latest dump,
    maintenance marker, `/var/lib/postgresql/.forge-maintenance`, so the updater
    stays held throughout.
 3. PostgreSQL refuses to start until
-   `/var/lib/postgresql/18/.forge-upgrade-complete` exists, so
-   restore by hand, as root. A separate bootstrap role lets the dump recreate
-   `postgres` and the other roles; `modules/services/postgresql/tests.nix`
-   exercises the same steps.
+   `/var/lib/postgresql/18/.forge-upgrade-complete` exists. Copy the newest
+   dump from Nook to `/root/all.sql.zstd` and restore it with the script that
+   `modules/services/postgresql/tests.nix` tests:
 
    ```sh
-   cd /var/lib/postgresql
-   sudo -u postgres initdb --encoding=UTF8 -U restore_admin -D 18
-   # A private socket and no TCP: postgresql.service, which owns
-   # /run/postgresql, is not running yet.
-   sudo -u postgres pg_ctl -D 18 -w -o '-c listen_addresses= -c unix_socket_directories=/tmp' start
-   # The dump copied off Atlas before the rebuild, copied back to /root.
-   zstd -dc /root/all.sql.zstd | sudo -u postgres psql -h /tmp -X -v ON_ERROR_STOP=1 -U restore_admin -d postgres
-   sudo -u postgres psql -h /tmp -X -U restore_admin -d postgres -c '\l'   # every database is back
-   sudo -u postgres pg_ctl -D 18 -m fast -w stop
-   sudo -u postgres touch 18/.forge-upgrade-complete
+   sudo forge-postgresql-restore /root/all.sql.zstd
    ```
+
+   It refuses an existing cluster, restores into a new one through a private
+   socket with TCP off, lists the restored databases, and creates the marker
+   only after the restore and a clean shutdown succeed. It bootstraps with a
+   uniquely named role, left unable to log in, so a later dump restores too.
 
    The Matrix databases are not in the dump; see
    [Matrix after SEC-Hive](sec-hive-matrix.md).
