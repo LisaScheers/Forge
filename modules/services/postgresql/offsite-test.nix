@@ -1,10 +1,21 @@
 {
   config,
+  lib,
   withSystem,
   ...
 }: let
   features = config.nixos;
+  hosts = config.flake.nixosConfigurations;
+  # Production order, in one time zone: the copy follows Atlas's dump.
+  dumpAt = lib.toList hosts.atlas.config.services.postgresqlBackup.startAt;
+  copyAt = hosts.nook.config.services.postgresqlBackupPull.startAt;
 in {
+  perSystem = {pkgs, ...}: {
+    checks.postgresql-backup-schedule = assert lib.assertMsg (dumpAt == ["*-*-* 03:00:00 UTC"] && copyAt == "*-*-* 04:30:00 UTC")
+    "Atlas's dump must run at 03:00 UTC and Nook's copy at 04:30 UTC; got ${toString dumpAt} and ${copyAt}";
+      pkgs.runCommand "postgresql-backup-schedule" {} ''touch "$out"'';
+  };
+
   flake.checks.x86_64-linux.postgresql-backup-pull = withSystem "x86_64-linux" ({pkgs, ...}: let
     # Throwaway keys for the test only: the puller's key and the source's host key.
     keys = pkgs.runCommand "postgresql-backup-pull-test-keys" {nativeBuildInputs = [pkgs.openssh];} ''
@@ -13,6 +24,16 @@ in {
       ssh-keygen -q -t ed25519 -N "" -f "$out/host"
     '';
     hostKey = builtins.readFile "${keys}/host.pub";
+    # A small cluster dump, as Atlas's nightly backup would produce.
+    dump = pkgs.runCommand "postgresql-restore-test-dump.sql.zstd" {nativeBuildInputs = [pkgs.postgresql_18 pkgs.zstd];} ''
+      export PGHOST="$PWD" PGPORT=6545 PGUSER=postgres
+      initdb -U postgres -D cluster >/dev/null
+      pg_ctl -D cluster -l log -o "-c listen_addresses= -c unix_socket_directories=$PWD -p 6545" -w start >/dev/null
+      psql -X -q -v ON_ERROR_STOP=1 -c "CREATE ROLE application LOGIN" -c "CREATE DATABASE application OWNER application"
+      psql -X -q -v ON_ERROR_STOP=1 -d application -c "CREATE TABLE kept (value text)" -c "INSERT INTO kept VALUES ('restored')"
+      pg_dumpall | zstd -q -o "$out"
+      pg_ctl -D cluster -m fast -w stop >/dev/null
+    '';
   in
     pkgs.testers.runNixOSTest {
       name = "postgresql-backup-pull";
@@ -51,11 +72,28 @@ in {
           destination = "/srv/backups";
           keepDays = 3;
         };
+        # Like Nook's data disk: mounted on demand, after boot-time setup ran.
+        virtualisation.fileSystems."/srv/backups" = {
+          device = "tmpfs";
+          fsType = "tmpfs";
+          options = ["noauto"];
+        };
         environment.etc."backup-pull-key" = {
           source = "${keys}/client";
           mode = "0600";
         };
         environment.systemPackages = [pkgs.zstd];
+        system.stateVersion = "26.05";
+      };
+      # A rebuilt host: the real start guard and restore command, run as root.
+      nodes.rebuilt = {pkgs, ...}: {
+        imports = [features.postgresql-restore-guard];
+        services.postgresql = {
+          enable = true;
+          package = pkgs.postgresql_18;
+          dataDir = "/var/lib/postgresql/18";
+        };
+        forge.postgresqlRestore.expectedDatabases = ["application"];
         system.stateVersion = "26.05";
       };
       testScript = ''
@@ -73,8 +111,8 @@ in {
             # Whatever command is asked for, the forced command prints the dump.
             assert puller.succeed(f"timeout 30 {ssh} id | zstd -dc").strip() == "CREATE TABLE restored ();"
             # restrict refuses forwarding; a remote forward is refused at login.
-            refused = puller.execute(f"timeout 30 {ssh} -N -R 9999:localhost:22 -o ExitOnForwardFailure=yes 2>&1")[1]
-            assert "forwarding failed" in refused, refused
+            status, refused = puller.execute(f"timeout 30 {ssh} -N -R 9999:localhost:22 -o ExitOnForwardFailure=yes 2>&1")
+            assert status != 0 and "forwarding failed" in refused, refused
 
         with subtest("a corrupt dump never replaces a good copy"):
             source.succeed("printf 'not zstd' > /var/backup/postgresql/all.sql.zstd")
@@ -87,6 +125,20 @@ in {
             puller.succeed("cp /srv/backups/all-$(date +%F).sql.zstd /srv/backups/all-2000-01-01.sql.zstd && touch -d '10 days ago' /srv/backups/all-2000-01-01.sql.zstd")
             puller.succeed("systemctl start postgresql-backup-pull.service")
             puller.fail("test -e /srv/backups/all-2000-01-01.sql.zstd")
+
+        with subtest("the copy lands on the late-mounted disk"):
+            puller.succeed("findmnt -n -o FSTYPE /srv/backups | grep -qx tmpfs")
+
+        with subtest("a rebuilt host restores as root and only then starts PostgreSQL"):
+            rebuilt.wait_for_unit("multi-user.target")
+            rebuilt.fail("systemctl is-active postgresql.service")
+            rebuilt.succeed("forge-postgresql-restore ${dump}")
+            rebuilt.succeed("test -f /var/lib/postgresql/18/.forge-upgrade-complete")
+            rebuilt.succeed("test $(stat -c %U /var/lib/postgresql/18) = postgres")
+            # The unit failed while the marker was missing; clear that first.
+            status, journal = rebuilt.execute("systemctl reset-failed postgresql.service && systemctl start postgresql.service || { journalctl -u postgresql.service -n 40 --no-pager; exit 1; }")
+            assert status == 0, journal
+            assert rebuilt.succeed("sudo -u postgres psql -At -d application -c 'SELECT value FROM kept'").strip() == "restored"
       '';
     });
 }

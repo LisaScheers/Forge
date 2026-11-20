@@ -1,5 +1,13 @@
-{config, ...}: let
+{
+  config,
+  lib,
+  ...
+}: let
   features = config.nixos;
+  # Values below go into a forced SSH command, a shell script and unit
+  # settings unescaped, so only plain absolute paths and names are accepted.
+  safePath = lib.types.strMatching "/[A-Za-z0-9._/-]+";
+  safeName = lib.types.strMatching "[A-Za-z0-9._-]+";
   inherit (config.network) atlas;
   hostKeys = config.secrets.pubkeys.hosts;
 in {
@@ -14,11 +22,11 @@ in {
   in {
     options.services.postgresqlBackupReader = {
       authorizedKey = lib.mkOption {
-        type = lib.types.str;
+        type = lib.types.singleLineStr;
         description = "Public key that may fetch the dump; any command it asks for prints the dump instead.";
       };
       dump = lib.mkOption {
-        type = lib.types.str;
+        type = safePath;
         default = "${config.services.postgresqlBackup.location}/all.sql.zstd";
         defaultText = lib.literalExpression ''"''${config.services.postgresqlBackup.location}/all.sql.zstd"'';
         description = "Dump to serve.";
@@ -42,39 +50,41 @@ in {
       name = "postgresql-backup-pull";
       runtimeInputs = [pkgs.coreutils pkgs.findutils pkgs.openssh pkgs.zstd];
       text = ''
-        target="${cfg.destination}/all-$(date +%F).sql.zstd"
+        target="${cfg.destination}/all-$(date -u +%F).sql.zstd"
         partial="$target.part"
         trap 'rm -f "$partial"' EXIT
+        # A stalled link must end the run, or the timer would skip later copies.
         ssh -i "$CREDENTIALS_DIRECTORY/key" -o IdentitiesOnly=yes -o BatchMode=yes \
+          -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=4 \
           -o UserKnownHostsFile=${knownHosts} -o StrictHostKeyChecking=yes \
           "${cfg.user}@${cfg.host}" > "$partial"
         # A truncated or corrupt copy must not replace a good one.
         zstd --quiet --test "$partial"
         mv "$partial" "$target"
-        find "${cfg.destination}" -name 'all-*.sql.zstd' -mtime +${toString cfg.keepDays} -delete
+        find "${cfg.destination}" -maxdepth 1 -type f -name 'all-*.sql.zstd' -mtime +${toString cfg.keepDays} -delete
       '';
     };
   in {
     options.services.postgresqlBackupPull = {
       host = lib.mkOption {
-        type = lib.types.str;
+        type = safeName;
         description = "Address of the host whose dump is copied.";
       };
       hostKey = lib.mkOption {
-        type = lib.types.str;
+        type = lib.types.singleLineStr;
         description = "That host's SSH host key, pinned for the connection.";
       };
       user = lib.mkOption {
-        type = lib.types.str;
+        type = safeName;
         default = "postgres";
         description = "Account holding the restricted key on that host.";
       };
       keyFile = lib.mkOption {
-        type = lib.types.str;
+        type = safePath;
         description = "Private key, loaded as a systemd credential.";
       };
       destination = lib.mkOption {
-        type = lib.types.str;
+        type = safePath;
         description = "Directory for the dated copies.";
       };
       keepDays = lib.mkOption {
@@ -84,13 +94,12 @@ in {
       };
       startAt = lib.mkOption {
         type = lib.types.str;
-        default = "*-*-* 04:30:00";
-        description = "When to copy; after the source's nightly dump.";
+        default = "*-*-* 04:30:00 UTC";
+        description = "When to copy, after the source's nightly dump; give a time zone, as the hosts' clocks may differ.";
       };
     };
 
     config = {
-      systemd.tmpfiles.rules = ["d ${cfg.destination} 0700 root root - -"];
       systemd.services.postgresql-backup-pull = {
         description = "Copy the PostgreSQL dump from ${cfg.host}";
         after = ["network-online.target"];
@@ -99,13 +108,19 @@ in {
         unitConfig.RequiresMountsFor = cfg.destination;
         serviceConfig = {
           Type = "oneshot";
+          # After the destination's disk is mounted, and outside the sandbox,
+          # which needs the directory to exist.
+          ExecStartPre = "+${pkgs.coreutils}/bin/install -d -m 0700 ${cfg.destination}";
           ExecStart = lib.getExe pull;
+          TimeoutStartSec = "1h";
           LoadCredential = "key:${cfg.keyFile}";
           ProtectSystem = "strict";
           ReadWritePaths = [cfg.destination];
           ProtectHome = true;
           PrivateTmp = true;
           NoNewPrivileges = true;
+          CapabilityBoundingSet = "";
+          RestrictAddressFamilies = ["AF_INET" "AF_INET6" "AF_UNIX"];
         };
       };
     };

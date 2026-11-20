@@ -28,6 +28,10 @@ Each host's push tokens are encrypted in its `uptime-kuma-probes.age` secret.
   a report within 180 seconds.
 - A successful full-cluster PostgreSQL backup reports through `ExecStartPost`.
   Its monitor expects completion within 26 hours.
+- Nook's verified copy of that backup reports the same way under the key
+  `postgresql-backup-copy`. Create a push monitor with a 26-hour deadline and
+  add its token under that key to Nook's `uptime-kuma-probes.age`; until then
+  the report fails quietly.
 - Atlas's automatic update job also reports through `ExecStartPost`. Its
   monitor allows two hours for builds and updates. Nook has no scheduled
   auto-update job, so its completion monitor is paused as not applicable.

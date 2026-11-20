@@ -105,6 +105,12 @@
         "-+${lib.getExe report} postgresql-backup"
       ];
     };
+    # Nook's copy of that dump; a missed push means the copy failed or hung.
+    systemd.services.postgresql-backup-pull = lib.mkIf (host == "nook") {
+      serviceConfig.ExecStartPost = [
+        "-+${lib.getExe report} postgresql-backup-copy"
+      ];
+    };
   };
 in {
   nixos.atlas = mkProbes "atlas";
