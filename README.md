@@ -172,7 +172,7 @@ for Forgejo, Home Assistant and Sonarr. Their migration holds were removed after
 Lisa confirmed migration and recovery checks were complete on 8 November 2026.
 Their lock entries still allow application updates separately from infrastructure.
 
-The recipe builds the host closure plus host-specific deploy-rs schema and activation checks before it opens the deployment connection. Nix may still use the remote builders declared by this flake during that build. The recipe then passes `--skip-checks` to deploy-rs, which would otherwise run the full flake check that CI already covers. Do not use `--skip-checks` without those targeted builds.
+The recipe builds the host closure plus host-specific deploy-rs schema and activation checks before it opens the deployment connection. Nix may still use the remote builders declared by this flake during that build. The recipe then passes `--skip-checks` to deploy-rs, which would otherwise run the whole flake check; CI already builds every flake check. Do not use `--skip-checks` without those targeted builds.
 
 Atlas needs one bootstrap from its existing auto-updater after this change reaches `main`. That activation adds `lisa` to Nix's trusted users. Confirm it before the first deploy-rs run:
 
