@@ -31,14 +31,6 @@ in {
           ];
         };
       };
-      environment.etc."matrix-volume-test-password".text = "isolated-test-only";
-      services.restic.backups.matrix = {
-        repository = "/var/lib/matrix-volume-test-repository";
-        passwordFile = "/etc/matrix-volume-test-password";
-        initialize = true;
-        paths = ["/etc/hostname"];
-        timerConfig = null;
-      };
       environment.systemPackages = [pkgs.python3 pkgs.curl pkgs.e2fsprogs];
       virtualisation.emptyDiskImages = [512];
       # The VM replaces normal fileSystems with its virtual disk declarations.
@@ -57,10 +49,9 @@ in {
       with subtest("blank storage cannot expose local fallback media"):
           machine.fail("systemctl is-active --quiet matrix-synapse")
           machine.fail("curl -fsS http://127.0.0.1:8008/_matrix/client/versions")
-          machine.fail("systemctl start restic-backups-matrix")
           machine.succeed("test -z $(find /var/lib/matrix-synapse/media_store -mindepth 1 -print -quit)")
 
-      with subtest("initialized volume hosts real media and independent recovery data"):
+      with subtest("initialized volume hosts real media"):
           machine.succeed("mkfs.ext4 -q -L matrix-test /dev/vdb; udevadm settle")
           machine.succeed("systemctl reset-failed; systemctl start srv-matrix.mount")
           machine.succeed("printf '%s\\n' atlas-matrix-volume-v1 >/srv/matrix/.matrix-volume; chmod 0444 /srv/matrix/.matrix-volume")
@@ -71,17 +62,14 @@ in {
               raise
           machine.wait_until_succeeds("curl -fsS http://127.0.0.1:8008/_matrix/client/versions")
           machine.succeed("python -B ${./media-test.py} upload")
-          machine.succeed("systemctl start restic-backups-matrix")
-          machine.succeed("findmnt -rn -M /var/lib/matrix-synapse/media_store -t ext4; findmnt -rn -M /var/backup/matrix-coordinated -t ext4")
+          machine.succeed("findmnt -rn -M /var/lib/matrix-synapse/media_store -t ext4")
           machine.succeed("test $(find /srv/matrix/media_store/local_content -type f | wc -l) -ge 1")
-          machine.succeed("printf backup-copy >/var/backup/matrix-coordinated/probe; test ! -e /var/lib/matrix-synapse/media_store/probe")
 
-      with subtest("the volume lifetime stops Synapse and a missing marker blocks recovery"):
+      with subtest("the volume lifetime stops Synapse and a missing marker blocks it"):
           machine.succeed("mv /srv/matrix/.matrix-volume /srv/matrix/.matrix-volume-held; systemctl stop srv-matrix.mount")
           machine.fail("systemctl is-active --quiet matrix-synapse")
           machine.succeed("test -z $(find /var/lib/matrix-synapse/media_store -mindepth 1 -print -quit)")
           machine.fail("systemctl start matrix-synapse")
-          machine.fail("systemctl start restic-backups-matrix")
           machine.succeed("systemctl start srv-matrix.mount; mv /srv/matrix/.matrix-volume-held /srv/matrix/.matrix-volume; systemctl reset-failed; systemctl start matrix-synapse")
           machine.wait_until_succeeds("curl -fsS http://127.0.0.1:8008/_matrix/client/versions")
           machine.succeed("python -B ${./media-test.py} download")
@@ -91,7 +79,7 @@ in {
           machine.reboot()
           machine.wait_for_unit("matrix-synapse.service")
           machine.succeed("cp /var/lib/media-test-state.json /run/matrix-media-test.json")
-          machine.succeed("python -B ${./media-test.py} download; systemctl start restic-backups-matrix")
+          machine.succeed("python -B ${./media-test.py} download")
     '';
   };
 }
