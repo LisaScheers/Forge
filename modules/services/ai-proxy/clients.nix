@@ -10,21 +10,7 @@ let
   };
 in {
   nixos.base.networking.hosts = addresses;
-  darwin.base.system.activationScripts.postActivation.text = ''
-    proxy_hosts_file=$(mktemp /tmp/ai-proxy-hosts.XXXXXX)
-    /usr/bin/awk '
-      $0 == "# nix-darwin: cliproxy begin" { skip = 1; next }
-      $0 == "# nix-darwin: cliproxy end" { skip = 0; next }
-      !skip { print }
-    ' /etc/hosts > "$proxy_hosts_file"
-    cat >> "$proxy_hosts_file" <<'EOF'
-    # nix-darwin: cliproxy begin
-    100.106.233.104 cliproxy.local.bylisa.dev
-    # nix-darwin: cliproxy end
-    EOF
-    install -m 0644 "$proxy_hosts_file" /etc/hosts
-    rm -f "$proxy_hosts_file"
-  '';
+  darwin.base.forge.hosts = addresses;
   darwin.vega.age.secrets.ai-proxy-client-key = clientSecret;
   nixos.atlas.age.secrets.ai-proxy-client-key = clientSecret;
 
