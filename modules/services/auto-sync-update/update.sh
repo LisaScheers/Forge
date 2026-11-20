@@ -34,7 +34,7 @@ configure_git_auth() {
 
   if [ -n "${AUTO_SYNC_GIT_TOKEN:-}" ]; then
     askpass_file="$work_dir/askpass"
-    cat > "$askpass_file" <<'EOF' || return $?
+    cat > "$askpass_file" <<'EOF'
 #!/bin/sh
 case "$1" in
   *Username*) printf '%s\n' "${AUTO_SYNC_GIT_USERNAME:-x-access-token}" ;;
@@ -42,7 +42,7 @@ case "$1" in
   *) printf '\n' ;;
 esac
 EOF
-    chmod 700 "$askpass_file" || return $?
+    chmod 700 "$askpass_file"
     export GIT_ASKPASS="$askpass_file"
     export GIT_TERMINAL_PROMPT=0
   fi
