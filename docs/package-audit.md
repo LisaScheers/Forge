@@ -1,5 +1,9 @@
 # Package pins and patches — 10 November 2026 recheck
 
+> Dated record. Each entry describes the tree as audited on that date; later
+> commits may have changed a pin or patch. The flake lock and package files are
+> the current state.
+
 This follows the 8 November audit below. The recheck covers the remaining custom
 versions, forks, local patches, and inline workarounds. Ordinary flake and package
 lockfiles remain reproducibility records; this does not advance unrelated inputs.

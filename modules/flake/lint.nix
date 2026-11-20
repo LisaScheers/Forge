@@ -32,12 +32,13 @@
 in {
   perSystem = {pkgs, ...}: {
     formatter = pkgs.alejandra;
-    checks.lint = pkgs.runCommand "repository-lint" {nativeBuildInputs = with pkgs; [alejandra deadnix findutils ruff shellcheck statix];} ''
+    checks.lint = pkgs.runCommand "repository-lint" {nativeBuildInputs = with pkgs; [actionlint alejandra deadnix findutils ruff shellcheck statix];} ''
       alejandra --check ${nixSources}
       deadnix --fail ${nixSources}
       statix check --config ${../../statix.toml} ${nixSources}
       find ${shellScripts} -type f -print0 | xargs -0 shellcheck --external-sources
       ruff check --no-cache --config ${../../ruff.toml} ${pythonSources}
+      actionlint ${../../.github/workflows}/*.yml
       touch "$out"
     '';
   };

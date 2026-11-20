@@ -20,7 +20,8 @@ system settings, home settings, packages, checks, and inputs together.
 Features merge into named profiles such as `nixos.nook`, `darwin.vega`,
 `home.lisa-cli`, and `home.lisa`. The CLI profile supplies shared shell and home
 integration dependencies; Lisa's main profile adds her usual applications.
-Asterion selects Lisa's portable profile and its own desktop settings.
+Asterion's `home.lisa-asterion` profile imports `home.lisa` and adds its own
+desktop settings.
 
 The layout follows the feature-oriented structure in Rose's and Esmee's
 configurations and [Vimjoyer's examples](https://vimjoyer.com/nix/):
@@ -72,11 +73,17 @@ nix build .#ciVmTests.x86_64-linux    # needs a builder with kvm and nixos-test
 
 `checks.lint` runs alejandra, deadnix and statix (configured in `statix.toml`)
 over `modules/` and `packages/`, shellcheck over the repository's shell scripts,
-and ruff (`ruff.toml`) over its Python; the vendored AI skills are excluded.
+ruff (`ruff.toml`) over its Python and actionlint over the workflows; the
+vendored AI skills are excluded.
 `nix fmt -- modules packages` formats the Nix.
 The dev shell's pre-commit hooks run alejandra on the same paths, nil,
 editorconfig-checker and write-flake. `checks.script-tests` runs the Python tests in
 `tests/` against the repository scripts, Justfile and helpers they exercise.
+
+Tests sit beside what they cover, and each runs from a flake check: service
+suites in `services/<name>/test_*.py`, host helper tests in `scripts/test_*.py`,
+tool suites in `tools/<name>/tests/` (run by the package build), fixtures beside
+their module under `modules/`, and repository-script tests in `tests/`.
 
 Hardware regeneration writes `modules/hardware/<host>.nix`. Save the target's
 `nixos-generate-config --show-hardware-config` output locally, then run
@@ -84,9 +91,6 @@ Hardware regeneration writes `modules/hardware/<host>.nix`. Save the target's
 The helper wraps the generated configuration in `nixos.<host>-hardware`.
 
 ## Package lookup
-
-[Aurora Viewer on macOS](docs/aurora-viewer.md) documents Vega's source-built
-Second Life viewer, its Metal port, and the current validation limits.
 
 The shared shell composition installs `nix-locate` and comma (`,`), backed by the
 locked [nix-index-database](https://github.com/nix-community/nix-index-database)
@@ -176,7 +180,7 @@ Their lock entries still allow application updates separately from infrastructur
 
 A deployable host is one entry in the `hosts` table in `modules/flake/deploy.nix`; its system selects the deploy-rs activation, the `deploy-*-<host>` checks and the `deploySystems` output the recipe reads. The recipe builds the host closure plus host-specific deploy-rs schema and activation checks before it opens the deployment connection. Nix may still use the remote builders declared by this flake during that build. The recipe then passes `--skip-checks` to deploy-rs, which would otherwise run the whole flake check; CI already builds every flake check. Do not use `--skip-checks` without those targeted builds.
 
-Atlas needs one bootstrap from its existing auto-updater after this change reaches `main`. That activation adds `lisa` to Nix's trusted users. Confirm it before the first deploy-rs run:
+deploy-rs connects to Atlas as `lisa`, which `modules/hosts/atlas/system.nix` makes a trusted Nix user. On a freshly installed Atlas, let its auto-updater apply `main` once, then confirm before the first deploy-rs run:
 
 ```sh
 ssh atlas 'nix config show trusted-users'
@@ -290,10 +294,28 @@ Both workflows use Lix, matching the hosts and preserving the tarball revision
 URLs in Lix-generated lock files. Upstream Nix 2.35 rejects those URLs during
 configuration evaluation.
 
-The build matrix discovers every NixOS, nix-darwin, and standalone Home Manager
-configuration from the flake and builds it on a native Linux or macOS runner.
-It also builds both Asterion installer packages. These are full builds, with
-lock-file changes disabled. CI does not activate configurations or deploy hosts.
+The build matrix comes from the `ciMatrix` output (see Architecture): each
+NixOS, nix-darwin and standalone Home Manager configuration, both Asterion
+installers, the per-system check jobs and the VM tests, each on a native Linux or
+macOS runner. These are full builds, with lock-file changes disabled. CI does not
+activate configurations or deploy hosts.
+
+## Further documentation
+
+| Guide | Covers |
+| --- | --- |
+| [Asterion](docs/asterion.md), [live installer](docs/asterion-live.md) | The Asahi MacBook Pro install, desktop and RAM-booted installer |
+| [Aurora Viewer](docs/aurora-viewer.md) | Vega's source-built Second Life viewer and its Metal port |
+| [AI gateway](docs/ai-usage.md) | The shared CLIProxy gateway and token capture |
+| [Cognee](docs/cognee.md) | Cognee on Nook and its MCP endpoint |
+| [Home dashboard](docs/home-dashboard.md), [home media](docs/home-media.md) | Nook's dashboard and media access |
+| [Minecraft](docs/minecraft.md) | The Nook worlds and Atlas proxy |
+| [Gotify](docs/gotify.md), [Uptime Kuma](docs/uptime-kuma.md) | Notifications and monitoring |
+| [Certificate trust](docs/certificate-trust.md) | The eMudhra root mitigation |
+| [nixd](docs/nixd.md), [Nixvim](docs/nixvim.md) | Editor and language-server setup |
+| [REA](docs/rea.md) | Reverse-engineering tooling |
+| [SEC-Hive Matrix](docs/sec-hive-matrix.md) | What the Matrix decommission left in place |
+| [Package audit](docs/package-audit.md) | Dated record of pin and patch decisions |
 
 ## References
 
