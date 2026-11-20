@@ -16,6 +16,7 @@
     {
       target = "nixosConfigurations.\"atlas\".config.system.build.toplevel";
       system = "x86_64-linux";
+      check = "atlas";
     }
   ];
 }

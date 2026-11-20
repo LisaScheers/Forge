@@ -22,6 +22,7 @@
     {
       target = "darwinConfigurations.\"vega\".system";
       system = "aarch64-darwin";
+      check = "vega";
     }
   ];
 }

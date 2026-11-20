@@ -16,11 +16,12 @@
       modules = [config.home.lisa-nook];
     });
   flake.checks.x86_64-linux."home-lisa@nook" =
-    config.flake.homeConfigurations."lisa@nook".config.home.path;
+    config.flake.homeConfigurations."lisa@nook".activationPackage;
   ci.targets = [
     {
       target = "homeConfigurations.\"lisa@nook\".activationPackage";
       system = "x86_64-linux";
+      check = "home-lisa@nook";
     }
   ];
 }

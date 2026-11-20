@@ -22,11 +22,12 @@
       modules = [config.home.lisa-vega];
     });
   flake.checks.aarch64-darwin."home-lisa@vega" =
-    config.flake.homeConfigurations."lisa@vega".config.home.path;
+    config.flake.homeConfigurations."lisa@vega".activationPackage;
   ci.targets = [
     {
       target = "homeConfigurations.\"lisa@vega\".activationPackage";
       system = "aarch64-darwin";
+      check = "home-lisa@vega";
     }
   ];
 }

@@ -25,7 +25,7 @@ jobs:
     outputs:
       configurations: ${{ steps.matrix.outputs.configurations }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.revision || github.sha }}
           persist-credentials: false
@@ -48,7 +48,7 @@ jobs:
       matrix: ${{ fromJSON(needs.matrix.outputs.configurations) }}
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.revision || github.sha }}
           persist-credentials: false
@@ -64,6 +64,17 @@ jobs:
           # Change only the disposable CI VM; keep Nix sandboxing and tests enabled.
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           unshare --user --map-root-user --mount true
+      - name: Enable KVM for NixOS VM tests
+        if: runner.os == 'Linux'
+        run: |
+          # x86-64 runners expose /dev/kvm; the NixOS tests in ciChecks need it.
+          if [[ -e /dev/kvm ]]; then
+            echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+            sudo udevadm control --reload-rules
+            sudo udevadm trigger --name-match=kvm
+            echo 'extra-system-features = kvm nixos-test' | sudo tee -a /etc/nix/nix.conf
+            sudo systemctl restart nix-daemon
+          fi
       - name: Free macOS build space
         if: runner.os == 'macOS'
         run: |
@@ -77,7 +88,7 @@ jobs:
           done
           sudo rm -rf /Library/Developer/CoreSimulator
           df -h / /nix
-      - name: Build configuration without activation
+      - name: Build target without activation
         env:
           TARGET: ${{ matrix.target }}
           # Cargo sources contain LFS pointers; fetching example media changes them.
