@@ -7,15 +7,15 @@ Atlas deploys with the same `just deploy` commands as Nook (see the
 ## Deploying
 
 The Atlas recipe refuses dirty or off-main revisions, aborts when an auto-update
-or scheduled reboot is active, and pauses `nix-auto-sync-update.timer` while deploy-rs runs. It restarts the timer after a
-successful deployment or a preflight abort. If deploy-rs itself fails, the timer
-stays stopped so it cannot retry the same bad `main` revision; the recipe prints
-the recovery command. After a kernel change the updater arms a reboot up to 12
-hours later, which blocks deploys until then. To deploy sooner, reboot Atlas or
-cancel the pending reboot with `ssh atlas sudo systemctl stop
-nix-auto-sync-update-reboot.timer` and deploy before the next updater run, which
-re-arms it if the activated kernel, initrd or modules still differ from the
-booted generation.
+or scheduled reboot is active, and pauses `nix-auto-sync-update.timer` while
+deploy-rs runs. It restarts the timer after a successful deployment or a
+preflight abort. If deploy-rs itself fails, the timer stays stopped so it cannot
+retry the same bad `main` revision; the recipe prints the recovery command.
+After a kernel change the updater arms a reboot up to 12 hours later, which
+blocks deploys until then. To deploy sooner, reboot Atlas or cancel the pending
+reboot with `ssh atlas sudo systemctl stop nix-auto-sync-update-reboot.timer`
+and deploy before the next updater run, which re-arms it if the activated
+kernel, initrd or modules still differ from the booted generation.
 
 deploy-rs connects to Atlas as `lisa`, which `modules/hosts/atlas/system.nix`
 makes a trusted Nix user. On a freshly installed Atlas, let its auto-updater
@@ -26,6 +26,9 @@ ssh atlas 'nix config show trusted-users'
 ```
 
 ## Auto-updater
+
+The updater's checkout is `/etc/nix-darwin` on Atlas too; the name predates
+NixOS hosts, and moving the live checkout is not worth a migration.
 
 systemd loads the Atlas updater's `/run/agenix/auto-sync-update-env`
 (`EnvironmentFile=`), so it holds plain `KEY=value` lines and never runs as
@@ -45,12 +48,15 @@ the commits on a branch before resetting:
 ```sh
 # Needs passwordless sudo on Atlas, as deploy-rs already does.
 ssh atlas sudo journalctl -u nix-auto-sync-update -n 50
-# Saves the local commits to a branch, then resets. Nothing happens if the
+# Saves the local commits to a branch, then resets. Nothing is changed if the
 # checkout has uncommitted changes or the branch cannot be created.
 ssh atlas 'git() { sudo git -c safe.directory=/etc/nix-darwin -C /etc/nix-darwin "$@"; }
-  test -z "$(git status --porcelain)" &&
-  git branch "atlas-local-$(date +%Y%m%d-%H%M%S)" &&
-  git reset --hard origin/main'
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "Uncommitted changes; handle them first." >&2
+    exit 1
+  else
+    git branch "atlas-local-$(date +%Y%m%d-%H%M%S)" && git reset --hard origin/main
+  fi'
 ```
 
 ## Maintenance and PostgreSQL
@@ -65,7 +71,7 @@ Atlas's PostgreSQL major and data directory are pinned in
 `modules/services/postgresql/atlas.nix`. Its scheduled `pg_dumpall` backup covers
 cluster roles and every database except `matrix-synapse`, `mautrix-discord` and
 `pluralmatrix`, which are intentionally unbacked
-([Matrix after SEC-Hive](docs/sec-hive-matrix.md)). The existing Uptime Kuma probe
+([Matrix after SEC-Hive](sec-hive-matrix.md)). The existing Uptime Kuma probe
 reports completion.
 Atlas uses PostgreSQL 18 at `/var/lib/postgresql/18`. Startup requires its
 `PG_VERSION` and `.forge-upgrade-complete` marker; create the marker only after a
