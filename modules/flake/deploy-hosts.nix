@@ -11,7 +11,7 @@
           type = lib.types.str;
           default = config.network.${name}.ssh.user;
           defaultText = lib.literalExpression "config.network.<host>.ssh.user";
-          description = "Account deploy-rs logs in as; by default the one Lisa's workstations use.";
+          description = "Account deploy-rs logs in as; by default the host's `network` SSH user.";
         };
         hostname = lib.mkOption {
           type = lib.types.str;
