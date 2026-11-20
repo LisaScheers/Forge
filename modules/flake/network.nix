@@ -1,4 +1,19 @@
-{lib, ...}: {
+{
+  config,
+  lib,
+  ...
+}: {
+  options.sshRemotes = lib.mkOption {
+    readOnly = true;
+    type = lib.types.attrsOf (lib.types.attrsOf lib.types.anything);
+    default = lib.mapAttrs (_: host: {
+      HostName = host.tailscale;
+      User = host.ssh.user;
+      IdentityFile = host.ssh.identityFile;
+      IdentitiesOnly = true;
+    }) (lib.filterAttrs (_: host: host.ssh != null) config.network);
+    description = "SSH host blocks for every network entry that declares a login.";
+  };
   options.network = lib.mkOption {
     type = lib.types.attrsOf (lib.types.submodule {
       options = {

@@ -18,6 +18,8 @@
           rebuildCommand = [
             (toString (pkgs.writeShellScript "test-rebuild" ''
               touch /run/rebuild-start
+              printf '%s\n' "$@" > /run/rebuild-args
+              env > /run/rebuild-env
               if test -e /run/fail-rebuild; then exit 1; fi
               while ! test -e /run/allow-rebuild-finish; do sleep 0.1; done
               touch /run/rebuild-finished
@@ -55,6 +57,9 @@
             machine.succeed("systemctl start nix-auto-sync-update.service")
             assert machine.succeed("git -C /root/repository rev-parse HEAD").strip() == latest
             machine.succeed("test -f /run/shared-update.lock; test -f /run/rebuild-finished")
+            # The rebuild gets the committed tree, with the ownership exception for Nix's git.
+            assert machine.succeed("cat /run/rebuild-args").split() == ["--flake", f"git+file:///root/repository?rev={latest}#lock-fixture"]
+            machine.succeed("grep -qx 'GIT_CONFIG_VALUE_0=/root/repository' /run/rebuild-env")
 
         with subtest("a running updater holds the lock until it finishes"):
             machine.succeed("rm /run/rebuild-start /run/rebuild-finished /run/allow-rebuild-finish")

@@ -114,6 +114,7 @@ send_failure_mail() {
 }
 
 reboot_required() {
+  # Testing hook: the VM test sets this to exercise scheduling without a new kernel.
   if [ "${AUTO_SYNC_FORCE_REBOOT_REQUIRED:-0}" = "1" ]; then
     return 0
   fi
@@ -204,7 +205,10 @@ run_update() {
   # Build the committed tree, as deploy.sh does, so untracked files cannot
   # change the result.
   system_before="$(readlink -f /run/current-system 2>/dev/null || true)"
-  "${rebuild_cmd[@]}" --flake "git+file://$repo_path?rev=$(git rev-parse HEAD)#$flake_host"
+  # Nix runs its own git for the fetch, so pass the safe.directory exception
+  # through the environment as well.
+  GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$repo_path" \
+    "${rebuild_cmd[@]}" --flake "git+file://$repo_path?rev=$(git rev-parse HEAD)#$flake_host"
   # The default scheduler is checked after every rebuild, so a kernel that
   # deploy.sh activated still gets its reboot. A custom scheduler cannot report
   # a pending reboot, so it runs only when this rebuild changed the system.

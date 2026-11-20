@@ -1,15 +1,5 @@
-{
-  config,
-  lib,
-  ...
-}: let
-  # The same login blocks as Vega's, from network.
-  remotes = lib.mapAttrs (_: host: {
-    HostName = host.tailscale;
-    User = host.ssh.user;
-    IdentityFile = host.ssh.identityFile;
-    IdentitiesOnly = true;
-  }) (lib.filterAttrs (_: host: host.ssh != null) config.network);
+{config, ...}: let
+  remotes = config.sshRemotes;
 in {
   nixos.asterion = {
     services.gnome.gcr-ssh-agent.enable = false;

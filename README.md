@@ -43,7 +43,8 @@ Each host's `default.nix` constructs its NixOS or Darwin output and visibly
 selects hardware and Home Manager profiles. Home files construct standalone
 outputs using the same home profiles and the shared per-system package set.
 There is no host registry or automatic home registration; `deploy.nix` keeps
-only the deployment settings (SSH user, system) for hosts deploy-rs manages. For example, Nook's
+only deployment settings (SSH user and options) for hosts deploy-rs manages.
+For example, Nook's
 host module binds `home-manager.users.lisa = config.home.lisa-nook`.
 
 Adding settings to an existing profile requires no file import-list edit.
@@ -158,7 +159,7 @@ just deploy nook test
 just deploy nook
 ```
 
-Use the same commands for Atlas. The Atlas recipe refuses dirty or off-main revisions, aborts when an auto-update or scheduled reboot is active, and pauses `nix-auto-sync-update.timer` while deploy-rs runs. It restarts the timer after a successful deployment or a preflight abort. If deploy-rs itself fails, the timer stays stopped so it cannot retry the same bad `main` revision; the recipe prints the recovery command.
+Use the same commands for Atlas. The Atlas recipe refuses dirty or off-main revisions, aborts when an auto-update or scheduled reboot is active, and pauses `nix-auto-sync-update.timer` while deploy-rs runs. It restarts the timer after a successful deployment or a preflight abort. If deploy-rs itself fails, the timer stays stopped so it cannot retry the same bad `main` revision; the recipe prints the recovery command. After a kernel change the updater arms a reboot up to 12 hours later, which blocks deploys until then. To deploy sooner, reboot Atlas or cancel the pending reboot with `ssh atlas sudo systemctl stop nix-auto-sync-update-reboot.timer`; the next updater run re-arms it if a reboot is still needed.
 
 For an approved database maintenance window, `just deploy-maintenance` applies
 Atlas while leaving its updater timer stopped. The root-owned marker
