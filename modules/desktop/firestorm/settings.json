@@ -50,8 +50,7 @@
   "BrowserProxyAddress": {
     "Backup": true,
     "Comment": "Address for the Web Proxy]",
-    "Type": "String",
-    "Value": "192.168.111.2"
+    "Type": "String"
   },
   "CameraPosOnLogout": {
     "Backup": true,
@@ -205,7 +204,7 @@
     "Backup": true,
     "Comment": "World map zoom level (pixels per region)",
     "Type": "F32",
-    "Value": 891.4439086914063
+    "Value": 891.4439086914062
   },
   "MiniMapRotate": {
     "Backup": true,
@@ -217,7 +216,7 @@
     "Backup": true,
     "Comment": "Miniature world map zoom level (pixels per region)",
     "Type": "F32",
-    "Value": 227.41336059570313
+    "Value": 227.41336059570312
   },
   "NearMeRange": {
     "Backup": true,
@@ -498,8 +497,7 @@
   "Socks5ProxyHost": {
     "Backup": true,
     "Comment": "Socks 5 Proxy Host",
-    "Type": "String",
-    "Value": "192.168.111.2"
+    "Type": "String"
   },
   "TextureLivePreview": {
     "Backup": true,

@@ -9,8 +9,9 @@ was not modified. This page records what stays in place and why.
 these:
 
 - Synapse, PostgreSQL and the generic Discord bridge, with Lisa as bridge admin
-  and no SEC-Hive relay account. The six mapped Discord DM rooms and unrelated
-  Matrix rooms remain.
+  and no SEC-Hive relay account. (At the 2026-10-27 cleanup, six mapped Discord
+  DM rooms and the unrelated Matrix rooms remained; room contents are server
+  state, not configuration, so the check does not cover them.)
 - Synapse's media on Atlas's dedicated volume.
 - Global PostgreSQL backups that exclude `matrix-synapse`, `mautrix-discord` and
   the old `pluralmatrix` database. Lisa chose to keep no Matrix backup; every

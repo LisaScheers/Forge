@@ -1,5 +1,4 @@
-{config, ...}: {
-  nixos.atlas.imports = [config.nixos.matrix];
+{
   nixos.matrix = {
     lib,
     config,

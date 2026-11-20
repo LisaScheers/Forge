@@ -4,7 +4,7 @@
 in {
   # Atlas hosts Synapse, coturn and the Discord bridge on its dedicated volume.
   nixos.atlas = {config, ...}: {
-    imports = [features.matrix-volume];
+    imports = [features.matrix features.matrix-volume];
 
     matrix = {
       enable = true;

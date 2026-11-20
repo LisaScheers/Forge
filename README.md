@@ -37,7 +37,7 @@ configurations and [Vimjoyer's examples](https://vimjoyer.com/nix/):
 | `modules/services/<feature>/` | Related server, authentication, proxy, or collector pieces |
 | `modules/security/` | Agenix, SSH, GnuPG, 1Password |
 | `modules/hardware/` | Host hardware, disk support, Apple Silicon installers |
-| `packages/` | Raw package recipes and patches; outside automatic loading |
+| `packages/` | Raw package recipes and patches, one `packages/<name>/package.nix` entry point each (larger recipes keep helpers beside it); outside automatic loading |
 
 Each host's `default.nix` constructs its NixOS or Darwin output and visibly
 selects hardware and Home Manager profiles. Home files construct standalone
@@ -47,8 +47,9 @@ host module binds `home-manager.users.lisa = config.home.lisa-nook`.
 
 Adding settings to an existing profile requires no file import-list edit.
 Distinct reusable profiles are selected explicitly by name. Selecting a feature
-enables it by default; existing opt-outs remain available. The unselected
-`home.lisa-proxy` profile keeps Lisa's local proxy disabled.
+enables it by default; existing opt-outs remain available. `home.lisa-proxy`
+runs Lisa's local CLIProxy with OpenRouter; no home selects it, so the proxy
+stays off until a host imports that profile.
 `flake.modules` publishes the named profiles for external consumers.
 
 `flake-file` generates `flake.nix` from feature-owned input declarations.
@@ -177,6 +178,10 @@ The `nixpkgs-atlas-apps` and `nixpkgs-nook-apps` inputs track Nixpkgs master
 for Forgejo, Home Assistant and Sonarr. Their migration holds were removed after
 Lisa confirmed migration and recovery checks were complete on 8 November 2026.
 Their lock entries still allow application updates separately from infrastructure.
+The daily lock workflow advances every input. To hold one application, list the
+other inputs in the `inputs` setting of `.github/workflows/update-flake-lock.yml`
+and advance the held input later with `nix flake update nixpkgs-atlas-apps` (or
+`nixpkgs-nook-apps`).
 
 A deployable host is one entry in the `hosts` table in `modules/flake/deploy.nix`; its system selects the deploy-rs activation, the `deploy-*-<host>` checks and the `deploySystems` output the recipe reads. The recipe builds the host closure plus host-specific deploy-rs schema and activation checks before it opens the deployment connection. Nix may still use the remote builders declared by this flake during that build. The recipe then passes `--skip-checks` to deploy-rs, which would otherwise run the whole flake check; CI already builds every flake check. Do not use `--skip-checks` without those targeted builds.
 

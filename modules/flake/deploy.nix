@@ -52,8 +52,12 @@
   # Per-host deploy-rs checks; scripts/deploy.sh builds them before deploying.
   hostChecks = system: host: let
     checks = inputs.deploy-rs.lib.${system}.deployChecks (deploy // {nodes.${host} = deploy.nodes.${host};});
+    configuration = config.flake.nixosConfigurations.${host} or config.flake.darwinConfigurations.${host};
+    evaluatedSystem = configuration.pkgs.stdenv.hostPlatform.system;
   in {
-    "deploy-schema-${host}" = checks.deploy-schema;
+    # The hosts table must name the platform the host actually evaluates for.
+    "deploy-schema-${host}" = assert lib.assertMsg (evaluatedSystem == system) "deploy.nix lists ${host} as ${system}, but it evaluates for ${evaluatedSystem}";
+      checks.deploy-schema;
     "deploy-activate-${host}" = checks.deploy-activate;
   };
 in {
