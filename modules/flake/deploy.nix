@@ -4,32 +4,28 @@
   lib,
   ...
 }: let
-  # Each deployable host's system selects its deploy-rs activation, its checks,
-  # and the checks scripts/deploy.sh builds (via the deploySystems output).
+  # Deployment settings for each host deploy-rs manages. The host's platform
+  # comes from its own configuration, so it is declared only once.
   hosts = {
-    nook = {
-      system = "x86_64-linux";
-      sshUser = "lisa";
-    };
-    atlas = {
-      system = "x86_64-linux";
-      sshUser = "lisa";
-    };
-    asterion = {
-      system = "aarch64-linux";
-      sshUser = "root";
-    };
+    nook.sshUser = "lisa";
+    atlas.sshUser = "lisa";
+    asterion.sshUser = "root";
     vega = {
-      system = "aarch64-darwin";
       hostname = "localhost";
       sshUser = "lisa";
       interactiveSudo = true;
     };
   };
-  activate = host: system:
-    if lib.hasSuffix "-darwin" system
-    then inputs.deploy-rs.lib.${system}.activate.darwin config.flake.darwinConfigurations.${host}
-    else inputs.deploy-rs.lib.${system}.activate.nixos config.flake.nixosConfigurations.${host};
+  configurationOf = host: config.flake.nixosConfigurations.${host} or config.flake.darwinConfigurations.${host};
+  systemOf = host: (configurationOf host).pkgs.stdenv.hostPlatform.system;
+  activate = host: let
+    system = systemOf host;
+    kind =
+      if lib.hasSuffix "-darwin" system
+      then "darwin"
+      else "nixos";
+  in
+    inputs.deploy-rs.lib.${system}.activate.${kind} (configurationOf host);
   deploy = {
     autoRollback = true;
     magicRollback = true;
@@ -42,7 +38,7 @@
         inherit (node) sshUser;
         profiles.system = {
           user = "root";
-          path = activate host node.system;
+          path = activate host;
         };
       }
       // lib.optionalAttrs (node ? interactiveSudo) {inherit (node) interactiveSudo;})
@@ -50,14 +46,10 @@
   };
 
   # Per-host deploy-rs checks; scripts/deploy.sh builds them before deploying.
-  hostChecks = system: host: let
-    checks = inputs.deploy-rs.lib.${system}.deployChecks (deploy // {nodes.${host} = deploy.nodes.${host};});
-    configuration = config.flake.nixosConfigurations.${host} or config.flake.darwinConfigurations.${host};
-    evaluatedSystem = configuration.pkgs.stdenv.hostPlatform.system;
+  hostChecks = host: let
+    checks = inputs.deploy-rs.lib.${systemOf host}.deployChecks (deploy // {nodes.${host} = deploy.nodes.${host};});
   in {
-    # The hosts table must name the platform the host actually evaluates for.
-    "deploy-schema-${host}" = assert lib.assertMsg (evaluatedSystem == system) "deploy.nix lists ${host} as ${system}, but it evaluates for ${evaluatedSystem}";
-      checks.deploy-schema;
+    "deploy-schema-${host}" = checks.deploy-schema;
     "deploy-activate-${host}" = checks.deploy-activate;
   };
 in {
@@ -68,8 +60,8 @@ in {
 
   flake.deploy = deploy;
 
-  flake.deploySystems = lib.mapAttrs (_: node: node.system) hosts;
-  flake.checks = lib.mkMerge (lib.mapAttrsToList (host: node: {${node.system} = hostChecks node.system host;}) hosts);
+  flake.deploySystems = lib.mapAttrs (host: _: systemOf host) hosts;
+  flake.checks = lib.mkMerge (lib.mapAttrsToList (host: _: {${systemOf host} = hostChecks host;}) hosts);
 
   perSystem = {system, ...}: let
     deployPackage = inputs.deploy-rs.packages.${system}.deploy-rs.overrideAttrs (old: {

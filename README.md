@@ -185,7 +185,7 @@ other inputs in the `inputs` setting of `.github/workflows/update-flake-lock.yml
 and advance the held input later with `nix flake update nixpkgs-atlas-apps` (or
 `nixpkgs-nook-apps`).
 
-A deployable host is one entry in the `hosts` table in `modules/flake/deploy.nix`; its system selects the deploy-rs activation, the `deploy-*-<host>` checks and the `deploySystems` output the recipe reads. The recipe builds the host closure plus host-specific deploy-rs schema and activation checks before it opens the deployment connection. Nix may still use the remote builders declared by this flake during that build. The recipe then passes `--skip-checks` to deploy-rs, which would otherwise run the whole flake check; CI already builds every flake check. Do not use `--skip-checks` without those targeted builds.
+A deployable host is one entry in the `hosts` table in `modules/flake/deploy.nix` (its SSH user and options). Its platform comes from the host's own configuration and selects the deploy-rs activation, the `deploy-*-<host>` checks and the `deploySystems` output the recipe reads. The recipe builds the host closure plus host-specific deploy-rs schema and activation checks before it opens the deployment connection. Nix may still use the remote builders declared by this flake during that build. The recipe then passes `--skip-checks` to deploy-rs, which would otherwise run the whole flake check; CI already builds every flake check. Do not use `--skip-checks` without those targeted builds.
 
 deploy-rs connects to Atlas as `lisa`, which `modules/hosts/atlas/system.nix` makes a trusted Nix user. On a freshly installed Atlas, let its auto-updater apply `main` once, then confirm before the first deploy-rs run:
 
