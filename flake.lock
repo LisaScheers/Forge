@@ -2117,7 +2117,6 @@
         "onepassword-shell-plugins": "onepassword-shell-plugins",
         "personal-website": "personal-website",
         "pwndbg": "pwndbg",
-        "sops-nix": "sops-nix",
         "steam-asahi": "steam-asahi",
         "systems": "systems_10",
         "t3-code-nix": "t3-code-nix",
@@ -2229,26 +2228,6 @@
       "original": {
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "type": "github"
-      }
-    },
-    "sops-nix": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1794624949,
-        "narHash": "sha256-3q/hxp/flW1PnV3Dx+H3p8kHGEHJ7251BqVMNsAAB9E=",
-        "owner": "Mic92",
-        "repo": "sops-nix",
-        "rev": "11e5885d241743ff0193465d533b20e754bc3ce0",
-        "type": "github"
-      },
-      "original": {
-        "owner": "Mic92",
-        "repo": "sops-nix",
         "type": "github"
       }
     },

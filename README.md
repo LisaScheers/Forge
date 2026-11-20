@@ -34,7 +34,7 @@ configurations and [Vimjoyer's examples](https://vimjoyer.com/nix/):
 | `modules/development/` | Editors, AI tools, development shell, local helpers |
 | `modules/desktop/` | Terminal, theme, fonts, desktop settings |
 | `modules/services/<feature>/` | Related server, authentication, proxy, or collector pieces |
-| `modules/security/` | Agenix, SOPS, SSH, GnuPG, 1Password |
+| `modules/security/` | Agenix, SSH, GnuPG, 1Password |
 | `modules/hardware/` | Host hardware, disk support, Apple Silicon installers |
 | `packages/` | Raw package recipes and patches; outside automatic loading |
 
@@ -58,7 +58,15 @@ keeps it out of automatic loading. The `dendritic` and `profiles` checks enforce
 top-level feature boundaries and module-class safety.
 
 CI targets are declared beside their host, home, or installer output. The CI
-module maps those declarations to native runners without evaluating host builds.
+module maps those declarations to native runners without evaluating host builds,
+and adds one `ciChecks.<system>` job per system that builds every other flake
+check, including the NixOS VM tests on x86-64 Linux. A target that names its
+`check` is skipped there so nothing builds twice.
+
+`checks.lint` runs alejandra, deadnix and statix (configured in `statix.toml`)
+over `modules/` and `packages/`; `nix fmt -- modules packages` formats them and
+the dev shell installs the same hooks. `checks.script-tests` runs the Python tests in
+`tests/` against the repository scripts, Justfile and helpers they exercise.
 
 Hardware regeneration writes `modules/hardware/<host>.nix`. Save the target's
 `nixos-generate-config --show-hardware-config` output locally, then run
