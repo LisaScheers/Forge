@@ -93,6 +93,10 @@ jobs:
           done
           sudo rm -rf /Library/Developer/CoreSimulator
           df -h / /nix
+      - name: Test the build script with the runner's shells
+        if: runner.os == 'macOS'
+        # The Nix sandbox has no /bin/bash, so its Bash 3.2 cases run only here.
+        run: python3 -B -m unittest tests.test_ci_build
       - name: Build target without activation
         env:
           TARGET: ${{ matrix.target }}

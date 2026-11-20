@@ -10,6 +10,8 @@ SCRIPT = Path(__file__).resolve().parents[1] / ".github/scripts/build-configurat
 
 
 class CiBuildTest(unittest.TestCase):
+    shell = "bash"
+
     def run_build(self, message, failures=1, checks=None):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -31,7 +33,7 @@ fi
             sleep.write_text("#!/usr/bin/env bash\nexit 0\n")
             sleep.chmod(0o755)
             result = subprocess.run(
-                ["bash", str(SCRIPT)], capture_output=True, text=True,
+                [self.shell, str(SCRIPT)], capture_output=True, text=True,
                 env={
                     **os.environ,
                     "PATH": str(root) + os.pathsep + os.environ["PATH"],
@@ -50,6 +52,12 @@ fi
         result, _ = self.run_build("", failures=0, checks="checks.x86_64-linux.a checks.x86_64-linux.b")
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertEqual(self.args[-3:], [".#test-target", ".#checks.x86_64-linux.a", ".#checks.x86_64-linux.b"])
+
+    def test_no_checks_builds_only_the_target(self):
+        result, attempts = self.run_build("", failures=0)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(attempts, 1)
+        self.assertEqual(self.args[-1], ".#test-target")
 
     def test_transient_download_errors_recover(self):
         for message in (
@@ -79,6 +87,13 @@ fi
                 result, attempts = self.run_build(message)
                 self.assertEqual(result.returncode, 77)
                 self.assertEqual(attempts, 1)
+
+
+
+@unittest.skipUnless(Path("/bin/bash").exists(), "no /bin/bash")
+class CiBuildSystemBashTest(CiBuildTest):
+    """macOS runners and developer machines may run the script with Bash 3.2."""
+    shell = "/bin/bash"
 
 
 if __name__ == "__main__":
