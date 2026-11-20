@@ -78,7 +78,7 @@ in {
         '';
     });
   in {
-    apps = lib.optionalAttrs (builtins.elem system ["aarch64-darwin" "aarch64-linux" "x86_64-linux"]) {
+    apps = lib.optionalAttrs (inputs.deploy-rs.packages ? ${system}) {
       deploy = {
         type = "app";
         program = lib.getExe deployPackage;
