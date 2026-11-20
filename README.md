@@ -65,55 +65,6 @@ Hardware regeneration writes `modules/hardware/<host>.nix`. Save the target's
 `just hardware-config nook /path/to/hardware-configuration.nix` and review it.
 The helper wraps the generated configuration in `nixos.<host>-hardware`.
 
-## Codex capture
-
-Codex uses its built-in `openai` provider. The `codex-capture` package enables
-native recording with a source patch matching desktop version
-`0.169.0-alpha.11.1`. HTTP and WebSocket callbacks preserve original response
-JSON before decoding, including deltas, unknown usage fields and `tool_usage`.
-Compaction and WebSocket warmup requests use the same recording path. The
-gateway remains available to the other clients configured in
-`modules/services/ai-proxy/clients.nix`.
-
-`modules/development/codex/capture.nix` owns the package, desktop executable
-override, upload jobs and Nook import jobs. Recordings default to
-`${CODEX_HOME:-$HOME/.codex}/traces`, inside a directory accessible only to its
-owner. macOS uses
-`launchd.user.envVariables.CODEX_CLI_PATH` so launching the desktop app from the
-Dock selects the same recorder as the CLI. Restart the app after activation.
-
-The user job `codex-capture-sync` uploads bundles to
-`~/.local/state/forge-codex-capture/incoming/<host>` on Nook once a minute.
-It uses the existing `nook` SSH connection; an unavailable SSH agent or server
-leaves recordings local for the next attempt. It never deletes source bundles.
-Nook's `ai-codex-ingest` and `ai-codex-daemon-ingest` timers import Lisa's and
-the service account's captures into the existing ClickHouse archive. Uploading
-and database ingestion run separately from inference.
-
-The importer reads native payloads directly, without `trace-reduce`. It keeps
-response identifiers and raw usage objects, checkpoints only successful
-database uploads, and retries payloads still being transferred. Completed
-captures without raw response evidence fail visibly instead of falling back
-to normalized counters. Closed or five-minute-stale attempts retain their
-partial output with an error marker; later evidence replaces that projection.
-Unavailable usage remains unknown rather than being estimated.
-
-The diagnostic format is not a stable public API. Update the pinned commit,
-version and importer together when advancing the desktop runtime; schema
-versions other than 2 are rejected. The original bundles remain on Nook as
-well as the source machine. The database projection contains model requests
-and responses; the original bundles also retain runtime tool evidence.
-
-```sh
-nix run .#codex-capture-test
-nix build .#checks.aarch64-darwin.codex-capture-sync
-nix build .#checks.x86_64-linux.codex-native-capture .#checks.x86_64-linux.ai-usage-clickhouse .#checks.x86_64-linux.ai-archive
-```
-
-The transport test uses a temporary home and local HTTP/WebSocket fixtures.
-Run it from a login session on macOS: the Nix build sandbox cannot refresh
-managed preferences. Linux also runs it as a flake check.
-
 ## Package lookup
 
 [Aurora Viewer on macOS](docs/aurora-viewer.md) documents Vega's source-built
@@ -191,7 +142,10 @@ reboots. Keep the marker and timer hold until migration and recovery checks pass
 then remove the marker and restart `nix-auto-sync-update.timer` explicitly.
 Atlas's PostgreSQL major and data directory are pinned in
 `modules/services/postgresql/atlas.nix`. Its scheduled `pg_dumpall` backup covers
-all databases and cluster roles, with the existing Uptime Kuma completion probe.
+cluster roles and every database except `matrix-synapse`, `mautrix-discord` and
+`pluralmatrix`, which are intentionally unbacked
+([decommission record](docs/sec-hive-matrix.md)). The existing Uptime Kuma probe
+reports completion.
 Atlas uses PostgreSQL 18 at `/var/lib/postgresql/18`. Startup requires its
 `PG_VERSION` and `.forge-upgrade-complete` marker; create the marker only after a
 successful `pg_upgrade` or a verified full restore. Keep the PostgreSQL 16

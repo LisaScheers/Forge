@@ -10,7 +10,7 @@
   backupCredentials = ["matrix-backup-password" "matrix-backup-ssh-key"];
   checks = {
     dmBridgePreserved = atlas.matrix.discord.enable && atlas.services.mautrix-discord.enable;
-    pluralDisabled = !atlas.matrix.plural.enable && atlas.matrix.plural.allowedRooms == [];
+    pluralModuleRemoved = !(atlas.matrix ? plural);
     cutoffRemoved = atlas.matrix.discord.mediaRetentionBefore == {};
     dmRegistrationPreserved = lib.any (filename: lib.hasInfix "discord-registration" filename) atlas.services.matrix-synapse.settings.app_service_config_files;
     pluralRegistrationRemoved = lib.all (filename: !(lib.hasInfix "pluralmatrix" filename)) atlas.services.matrix-synapse.settings.app_service_config_files;
@@ -21,8 +21,7 @@
     pluralBridgeEnvironmentRemoved = !(atlas.systemd.services.mautrix-discord.environment ? PLURALMATRIX_ROOMS);
     relayAdminRemoved = !(builtins.hasAttr "@sec-hive-relay:bylisa.dev" atlas.services.mautrix-discord.settings.bridge.permissions);
     personalAdminPreserved = atlas.services.mautrix-discord.settings.bridge.permissions."@lisa:bylisa.dev" == "admin";
-    backupDisabled = !atlas.matrix.backup.enable && !(atlas.services.restic.backups ? matrix) && !(atlas.systemd.services ? restic-backups-matrix) && !(atlas.systemd.services ? matrix-restore-check);
-    migrationVerificationDisabled = atlas.matrix.backup.historyVerificationDirectory == null;
+    backupModuleRemoved = !(atlas.matrix ? backup) && !(atlas.services.restic.backups ? matrix) && !(atlas.systemd.services ? restic-backups-matrix) && !(atlas.systemd.services ? matrix-restore-check);
     backupMountRemoved = lib.all (mount: mount.where != "/var/backup/matrix-coordinated") atlas.systemd.mounts;
     backupLayoutRemoved = !(lib.hasInfix "/recovery" atlas.systemd.services.matrix-volume-layout.script);
     globalBackupPreserved = atlas.services.postgresqlBackup.enable && atlas.services.postgresqlBackup.backupAll;
