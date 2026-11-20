@@ -23,8 +23,14 @@
     keys.hosts.atlas
     keys.hosts.nook
   ];
+  atlasNookAndVega = [
+    keys.users.lisa
+    keys.hosts.atlas
+    keys.hosts.nook
+    keys.hosts.vega
+  ];
 in {
-  # Features add rules beside their secrets; _secrets.nix reads the merged set.
+  # Every rule lives here; _secrets.nix gives agenix the same set.
   options.flake.agenixRules = lib.mkOption {
     type = lib.types.attrsOf (lib.types.submodule {
       options.publicKeys = lib.mkOption {type = lib.types.listOf lib.types.str;};
@@ -47,14 +53,19 @@ in {
     "secrets/atlas/discord-bridge-env.age".publicKeys = atlas;
     "secrets/atlas/uptime-kuma-probes.age".publicKeys = atlas;
 
+    "secrets/nook/ai-proxy-antigravity-auth.age".publicKeys = nook;
+    "secrets/nook/ai-proxy-codex-auth.age".publicKeys = nook;
+    "secrets/nook/ai-proxy-openrouter-key.age".publicKeys = nook;
     "secrets/nook/cloudflare-dns-api-token.age".publicKeys = nook;
     "secrets/nook/cognee-backend-env.age".publicKeys = nook;
     "secrets/nook/gotify-env.age".publicKeys = nook;
+    "secrets/nook/movie-night-env.age".publicKeys = nook;
     "secrets/nook/uptime-kuma-probes.age".publicKeys = nook;
 
     "secrets/vega/home-server-builder-ssh-key.age".publicKeys = vega;
     "secrets/vega/nix-github-access-token-conf.age".publicKeys = vega;
 
+    "secrets/shared/ai-proxy-client-key.age".publicKeys = atlasNookAndVega;
     "secrets/shared/cognee-oidc-env.age".publicKeys = atlasAndNook;
     "secrets/shared/gotify-oidc-env.age".publicKeys = atlasAndNook;
     "secrets/shared/jellyfin-ldap-env.age".publicKeys = atlasAndNook;

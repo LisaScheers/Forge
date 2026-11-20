@@ -14,10 +14,6 @@
 in {
   flake-file.inputs.movie-night.url = "github:LisaScheers/movie-night";
   darwin.vega = kixelatedCache;
-  flake.agenixRules."secrets/nook/movie-night-env.age".publicKeys = [
-    config.secrets.pubkeys.users.lisa
-    config.secrets.pubkeys.hosts.nook
-  ];
   nixos.atlas = {
     config,
     options,

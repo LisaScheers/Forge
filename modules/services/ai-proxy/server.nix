@@ -1,20 +1,10 @@
-{
-  config,
-  lib,
-  ...
-}: let
+{lib, ...}: let
   domain = "cliproxy.local.bylisa.dev";
   source = ../../../services/ai-usage;
   secrets = ../../security/agenix/secrets;
 in {
   overlays.ai-proxy = final: _prev: {
     cli-proxy-api-plus-capture = final.callPackage ../../../packages/cli-proxy-api-plus-capture/package.nix {};
-  };
-  flake.agenixRules = {
-    "secrets/shared/ai-proxy-client-key.age".publicKeys = with config.secrets.pubkeys; [users.lisa hosts.nook hosts.vega hosts.atlas];
-    "secrets/nook/ai-proxy-openrouter-key.age".publicKeys = with config.secrets.pubkeys; [users.lisa hosts.nook];
-    "secrets/nook/ai-proxy-codex-auth.age".publicKeys = with config.secrets.pubkeys; [users.lisa hosts.nook];
-    "secrets/nook/ai-proxy-antigravity-auth.age".publicKeys = with config.secrets.pubkeys; [users.lisa hosts.nook];
   };
   perSystem = {pkgs, ...}: {
     packages = lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {inherit (pkgs) cli-proxy-api-plus-capture;};

@@ -66,6 +66,12 @@ agenix CLI entry point and reads the flake's `agenixRules` output. The underscor
 keeps it out of automatic loading. The `dendritic` and `profiles` checks enforce
 top-level feature boundaries and module-class safety.
 
+Secret recipients live in `modules/security/agenix/recipients.nix`.
+`secrets/<host>/` holds secrets that only that host decrypts and
+`secrets/shared/` those that several hosts decrypt; each is encrypted for Lisa
+and exactly its reading hosts. `checks.agenix-rules` enforces all of this
+against the hosts' configurations. Change recipients with `just secret-rekey`.
+
 CI targets are declared beside their home or installer output, and
 `modules/flake/deploy.nix` adds one per deployed host. The CI module maps those
 targets to native runners without evaluating host builds. A target lists the
