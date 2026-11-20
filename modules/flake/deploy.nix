@@ -8,17 +8,19 @@
   # configuration, so it is declared only once.
   hosts = config.deploy.hosts;
   outputOf = host:
-    if config.flake.darwinConfigurations ? ${host}
-    then {
-      kind = "darwin";
-      collection = "darwinConfigurations";
-      toplevel = ["system"];
-    }
-    else {
-      kind = "nixos";
-      collection = "nixosConfigurations";
-      toplevel = ["config" "system" "build" "toplevel"];
-    };
+    assert lib.assertMsg (config.flake.darwinConfigurations ? ${host} || config.flake.nixosConfigurations ? ${host})
+    "deploy.hosts.${host} has no NixOS or nix-darwin configuration of that name";
+      if config.flake.darwinConfigurations ? ${host}
+      then {
+        kind = "darwin";
+        collection = "darwinConfigurations";
+        toplevel = ["system"];
+      }
+      else {
+        kind = "nixos";
+        collection = "nixosConfigurations";
+        toplevel = ["config" "system" "build" "toplevel"];
+      };
   configurationOf = host: config.flake.${(outputOf host).collection}.${host};
   systemOf = host: (configurationOf host).pkgs.stdenv.hostPlatform.system;
   activate = host: inputs.deploy-rs.lib.${systemOf host}.activate.${(outputOf host).kind} (configurationOf host);
@@ -61,6 +63,7 @@ in {
   flake.checks = lib.mkMerge (lib.mapAttrsToList (host: _: {${systemOf host} = hostChecks host;}) hosts);
   ci.targets =
     lib.mapAttrsToList (host: _: {
+      # For example nixosConfigurations."atlas".config.system.build.toplevel.
       target = lib.concatStringsSep "." ([(outputOf host).collection ''"${host}"''] ++ (outputOf host).toplevel);
       system = systemOf host;
       checks = builtins.attrNames (hostChecks host);
