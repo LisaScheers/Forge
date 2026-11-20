@@ -84,7 +84,14 @@ in {
     checks.agenix-rules = assert lib.assertMsg fixtureHolds "agenix-rules: a fixture rule is no longer detected";
     assert lib.assertMsg (failures == {})
     "agenix-rules: ${lib.concatStringsSep "; " (lib.mapAttrsToList (rule: offenders: "${rule}: ${toString offenders}") failures)}";
-      pkgs.runCommand "agenix-rules" {} ''
+    # The rules must also match what each file is actually encrypted for.
+      pkgs.runCommand "agenix-rules" {nativeBuildInputs = [pkgs.python3];} ''
+        python3 -I ${./check_recipients.py} \
+          ${pkgs.writeText "agenix-rules.json" (builtins.toJSON (lib.mapAttrs (_: rule: rule.publicKeys) config.flake.agenixRules))} \
+          ${lib.fileset.toSource {
+          root = ./.;
+          fileset = ./secrets;
+        }}
         touch "$out"
       '';
   };
