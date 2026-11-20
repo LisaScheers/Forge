@@ -79,8 +79,9 @@
             description = "Commands run before the blueprint is installed.";
           };
           embeddedOutpostProvider = mkOption {
-            # Embedded in a quoted Python string below.
-            type = types.nullOr (types.strMatching "[^'\"\\]+");
+            # Spliced into a quoted Python string inside a systemd command, where
+            # quotes, $ and % would all be interpreted, so allow plain names only.
+            type = types.nullOr (types.strMatching "[A-Za-z0-9 ._-]+");
             default = null;
             description = "Proxy provider to attach to the embedded outpost after applying.";
           };

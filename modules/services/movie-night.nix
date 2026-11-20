@@ -43,6 +43,7 @@ in {
     # The upstream unit predates forge.authentik.blueprints; give it the same
     # re-apply behaviour as the others.
     systemd.services.authentik-movie-night-blueprint = {
+      wantedBy = ["multi-user.target"];
       serviceConfig.RemainAfterExit = true;
       restartTriggers = [config.age.secrets.authentik-env.file];
     };
