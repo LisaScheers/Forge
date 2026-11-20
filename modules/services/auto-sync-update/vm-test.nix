@@ -20,7 +20,9 @@
               touch /run/rebuild-start
               printf '%s\n' "$@" > /run/rebuild-args
               # Local Git never asks for credentials, so record the askpass helper here.
-              if test -n "''${GIT_ASKPASS:-}"; then test -x "$GIT_ASKPASS" && "$GIT_ASKPASS" Password > /run/askpass-answer; fi
+              if test -n "''${GIT_ASKPASS:-}" && test -x "$GIT_ASKPASS"; then
+                "$GIT_ASKPASS" Password > /run/askpass-answer
+              fi
               if test -e /run/fail-rebuild; then echo rebuild-failure-marker; exit "$(cat /run/fail-rebuild)"; fi
               while ! test -e /run/allow-rebuild-finish; do sleep 0.1; done
               touch /run/rebuild-finished
