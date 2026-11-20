@@ -11,9 +11,6 @@ cleanup() {
   if [ -n "${askpass_file:-}" ]; then
     rm -f "$askpass_file"
   fi
-  if [ -n "${mail_file:-}" ]; then
-    rm -f "$mail_file"
-  fi
 }
 trap cleanup EXIT
 
@@ -29,12 +26,14 @@ load_env() {
   if [ -f "$env_file" ]; then
     # Sourcing reports only the last command's status, so check the whole file
     # in a strict shell, then still load what it can so the failure is mailed.
+    # The file is meant to hold assignments only, so reading it twice is safe.
     # shellcheck disable=SC2016 # $1 expands in the child shell.
     "$BASH" -euc '. "$1"' _ "$env_file" || load_status=$?
-    set -a
+    # Unset references (say, a '$' in a password) must not abort the updater.
+    set -a +u
     # shellcheck disable=SC1090
     . "$env_file" || load_status=$?
-    set +a
+    set +a -u
   fi
   return "$load_status"
 }
@@ -74,6 +73,9 @@ send_mail() {
   mail_from="${AUTO_SYNC_SMTP_FROM:-nix-auto-sync-update@$mail_host}"
   mail_to="${AUTO_SYNC_SMTP_TO:-$email_to}"
   mail_file="$(mktemp)"
+  # send_mail always runs in a pipeline subshell, so this trap is its own and
+  # also removes the message if the unit is stopped mid-send.
+  trap 'rm -f "$mail_file"' EXIT
 
   {
     printf 'From: %s\r\n' "$mail_from"
@@ -107,8 +109,6 @@ send_mail() {
   if ! curl "${curl_args[@]}"; then
     echo "Failed to send email: $subject" >&2
   fi
-  # send_mail runs in a pipeline subshell, out of the cleanup trap's sight.
-  rm -f "$mail_file"
 }
 
 send_failure_mail() {
@@ -214,8 +214,8 @@ run_update() {
   # Build the committed tree, as deploy.sh does, so untracked files cannot
   # change the result.
   system_before="$(readlink -f /run/current-system 2>/dev/null || true)"
-  # Nix runs its own git for the fetch, so pass the safe.directory exception
-  # through the environment as well.
+  # Lix fetches git+file inputs by running git, which does not see the -c
+  # options above, so pass the safe.directory exception through the environment.
   GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$repo_path" \
     "${rebuild_cmd[@]}" --flake "$repo_url?rev=$rev#$flake_host"
   # The default scheduler is checked after every rebuild, so a kernel that

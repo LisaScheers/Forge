@@ -6,8 +6,10 @@
   source = ../../../services/home-dashboard;
   # The catalog is read at runtime, so check here that its Nook addresses
   # still match network.nook.
-  catalogAddresses = lib.unique (lib.filter builtins.isList (builtins.split "([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)" (builtins.readFile (source + "/catalog.json"))));
-  staleAddresses = lib.subtractLists ["127.0.0.1" config.network.nook.lan config.network.nook.tailscale] (map builtins.head catalogAddresses);
+  # builtins.split interleaves text with one-element lists of captured matches.
+  ipv4Matches = lib.filter builtins.isList (builtins.split "([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)" (builtins.readFile (source + "/catalog.json")));
+  catalogAddresses = lib.unique (map builtins.head ipv4Matches);
+  staleAddresses = lib.subtractLists ["127.0.0.1" config.network.nook.lan config.network.nook.tailscale] catalogAddresses;
 in {
   perSystem = {pkgs, ...}: {
     checks.home-dashboard = assert lib.assertMsg (staleAddresses == []) "home-dashboard catalog.json has addresses not in network.nook: ${toString staleAddresses}";

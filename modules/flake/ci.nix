@@ -32,6 +32,7 @@
   in
     lib.optionalAttrs (shells ? default) {dev-shell = shells.default;};
   remainingChecks = system: removeAttrs config.flake.checks.${system} (dedicatedChecks system) // devShell system;
+  # runNixOSTest names its derivations vm-test-run-<name>.
   isVmTest = check: lib.hasPrefix "vm-test-run-" check.name;
   linkChecks = name: system: checks: withSystem system ({pkgs, ...}: pkgs.linkFarm "${name}-${system}" checks);
 in {

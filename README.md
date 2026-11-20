@@ -150,7 +150,9 @@ of payload per connection, a 120-second session lifetime and approximately
 
 ## Deployment
 
-Deployments use the locked `deploy-rs` input. Run the server commands from Vega, where the SSH aliases and builders are configured. Every command names one host; there is no fleet-wide deployment recipe.
+Deployments use the locked `deploy-rs` input. Run the server commands from Vega,
+where the SSH aliases and builders are configured. Every command names one host;
+there is no fleet-wide deployment recipe.
 
 ```sh
 just deploy-build nook
@@ -159,7 +161,27 @@ just deploy nook test
 just deploy nook
 ```
 
-Use the same commands for Atlas. The Atlas recipe refuses dirty or off-main revisions, aborts when an auto-update or scheduled reboot is active, and pauses `nix-auto-sync-update.timer` while deploy-rs runs. It restarts the timer after a successful deployment or a preflight abort. If deploy-rs itself fails, the timer stays stopped so it cannot retry the same bad `main` revision; the recipe prints the recovery command. After a kernel change the updater arms a reboot up to 12 hours later, which blocks deploys until then. To deploy sooner, reboot Atlas or cancel the pending reboot with `ssh atlas sudo systemctl stop nix-auto-sync-update-reboot.timer` and deploy right away: the next successful updater run (about 50 minutes later) re-arms it if the running kernel still differs from the booted one.
+Use the same commands for Atlas. The Atlas recipe refuses dirty or off-main
+revisions, aborts when an auto-update or scheduled reboot is active, and pauses
+`nix-auto-sync-update.timer` while deploy-rs runs. It restarts the timer after a
+successful deployment or a preflight abort. If deploy-rs itself fails, the timer
+stays stopped so it cannot retry the same bad `main` revision; the recipe prints
+the recovery command. After a kernel change the updater arms a reboot up to 12
+hours later, which blocks deploys until then. To deploy sooner, reboot Atlas or
+cancel the pending reboot with `ssh atlas sudo systemctl stop
+nix-auto-sync-update-reboot.timer` and deploy right away: the next successful
+updater run (about 50 minutes later) re-arms it if the running kernel still
+differs from the booted one.
+
+The Atlas updater reads `/run/agenix/auto-sync-update-env`, a file of shell
+assignments: `AUTO_SYNC_SMTP_URL`, `AUTO_SYNC_SMTP_USERNAME`,
+`AUTO_SYNC_SMTP_PASSWORD`, `AUTO_SYNC_SMTP_FROM`, `AUTO_SYNC_SMTP_TO` and
+`AUTO_SYNC_SMTP_REQUIRE_TLS` for failure mail, and `AUTO_SYNC_GIT_TOKEN`,
+`AUTO_SYNC_GIT_USERNAME`, `AUTO_SYNC_GIT_AUTH_HEADER` or
+`AUTO_SYNC_GIT_REPOSITORY_URL` for Git access. A file that fails to load is
+reported by mail. The updater only fast-forwards to `origin/main`: if the Atlas
+checkout has local commits, every run fails and mails until the checkout is
+reset to `origin/main`.
 
 For an approved database maintenance window, `just deploy-maintenance` applies
 Atlas while leaving its updater timer stopped. The root-owned marker
@@ -187,9 +209,20 @@ workflow advances every input. To hold one, list the other inputs in the
 `inputs` setting of `.github/workflows/update-flake-lock.yml`, then advance the
 held input later with `nix flake update <input>`.
 
-A deployable host is one entry in the `hosts` table in `modules/flake/deploy.nix` (its SSH user and options). Its platform comes from the host's own configuration and selects the deploy-rs activation, the `deploy-*-<host>` checks and the `deploySystems` output the recipe reads. The recipe builds the host closure plus host-specific deploy-rs schema and activation checks before it opens the deployment connection. Nix may still use the remote builders declared by this flake during that build. The recipe then passes `--skip-checks` to deploy-rs, which would otherwise run the whole flake check; CI already builds every flake check. Do not use `--skip-checks` without those targeted builds.
+A deployable host is one entry in the `hosts` table in
+`modules/flake/deploy.nix` (its SSH user and options). Its platform comes from
+the host's own configuration and selects the deploy-rs activation, the
+`deploy-*-<host>` checks and the `deploySystems` output the recipe reads. The
+recipe builds the host closure plus host-specific deploy-rs schema and
+activation checks before it opens the deployment connection. Nix may still use
+the remote builders declared by this flake during that build. The recipe then
+passes `--skip-checks` to deploy-rs, which would otherwise run the whole flake
+check; CI already builds every flake check. Do not use `--skip-checks` without
+those targeted builds.
 
-deploy-rs connects to Atlas as `lisa`, which `modules/hosts/atlas/system.nix` makes a trusted Nix user. On a freshly installed Atlas, let its auto-updater apply `main` once, then confirm before the first deploy-rs run:
+deploy-rs connects to Atlas as `lisa`, which `modules/hosts/atlas/system.nix`
+makes a trusted Nix user. On a freshly installed Atlas, let its auto-updater
+apply `main` once, then confirm before the first deploy-rs run:
 
 ```sh
 ssh atlas 'nix config show trusted-users'
@@ -280,9 +313,14 @@ uses SSH instead; nix-darwin requires **Allow full disk access for remote users*
 under **System Settings → General → Sharing → Remote Login** for app updates over
 SSH. `just switch` uses the local graphical session and needs no SSH setup.
 
-Do not use deploy-rs dry, test, or boot modes for Vega. The nix-darwin activator in the pinned deploy-rs revision does not implement those modes as real activations.
+Do not use deploy-rs dry, test, or boot modes for Vega. The nix-darwin activator
+in the pinned deploy-rs revision does not implement those modes as real
+activations.
 
-Keep console access available for the first deploy-rs activation on every host. The generation installed before deploy-rs does not contain its rollback wrapper. Later activations use automatic and connection-confirmed rollback with a 10-minute activation timeout and a 60-second confirmation timeout.
+Keep console access available for the first deploy-rs activation on every host.
+The generation installed before deploy-rs does not contain its rollback wrapper.
+Later activations use automatic and connection-confirmed rollback with a
+10-minute activation timeout and a 60-second confirmation timeout.
 
 ## Continuous integration
 

@@ -97,16 +97,20 @@
             machine.succeed("rm /run/fail-rebuild /run/mail.txt")
 
         with subtest("a broken environment file is reported, not silently fatal"):
-            machine.succeed(f"printf 'false\\n{smtp}' > /run/auto-sync.env")
-            machine.fail("systemctl start nix-auto-sync-update.service")
-            machine.wait_until_succeeds("grep -q 'Failed to load /run/auto-sync.env' /run/mail.txt", timeout=30)
-            machine.succeed("rm /run/auto-sync.env /run/mail.txt")
+            # A failing command, and an unset reference such as a '$' in a password.
+            for broken in ["false", "BROKEN=$UNSET_VARIABLE"]:
+                machine.succeed(f"printf '%s\\n{smtp}' '{broken}' > /run/auto-sync.env")
+                machine.fail("systemctl start nix-auto-sync-update.service")
+                machine.wait_until_succeeds("grep -q 'Failed to load /run/auto-sync.env' /run/mail.txt", timeout=30)
+                machine.succeed("rm /run/mail.txt")
+            machine.succeed("rm /run/auto-sync.env")
 
         with subtest("local commits that are not on origin are never rebuilt"):
             machine.succeed("git -c safe.directory='*' -C /root/repository -c user.name=x -c user.email=x@example.invalid -c commit.gpgsign=false commit --allow-empty -m local")
             machine.succeed("rm -f /run/rebuild-start")
             machine.fail("systemctl start nix-auto-sync-update.service")
             machine.fail("test -e /run/rebuild-start")
+            machine.succeed("journalctl -u nix-auto-sync-update.service | grep -q 'not on origin/main'")
             machine.succeed("git -c safe.directory='*' -C /root/repository reset --hard origin/main")
 
         with subtest("a pending reboot is scheduled once, even without a system change"):
