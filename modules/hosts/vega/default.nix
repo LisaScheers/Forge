@@ -3,33 +3,34 @@
   inputs,
   ...
 }: let
+  host = "vega";
   system = "aarch64-darwin";
 in {
   flake-file.inputs.nix-darwin = {
     url = "https://flakehub.com/f/nix-darwin/nix-darwin/0.1.*";
     inputs.nixpkgs.follows = "nixpkgs";
   };
-  flake.darwinConfigurations.vega = inputs.nix-darwin.lib.darwinSystem {
+  flake.darwinConfigurations.${host} = inputs.nix-darwin.lib.darwinSystem {
     inherit system;
-    modules = [config.darwin.base config.darwin.vega];
+    modules = [config.darwin.base config.darwin.${host}];
   };
-  darwin.vega = {
-    networking.hostName = "vega";
+  darwin.${host} = {
+    networking.hostName = host;
     imports = [config.darwin.home-manager];
     home-manager.users.lisa = config.home.lisa-vega;
     users.users.lisa.home = "/Users/lisa";
   };
-  flake.checks.${system}.vega = config.flake.darwinConfigurations.vega.system;
-  deploy.hosts.vega = {
+  flake.checks.${system}.${host} = config.flake.darwinConfigurations.${host}.system;
+  deploy.hosts.${host} = {
     hostname = "localhost";
     sshUser = "lisa";
     interactiveSudo = true;
   };
   ci.targets = [
     {
-      target = "darwinConfigurations.\"vega\".system";
+      target = "darwinConfigurations.\"${host}\".system";
       inherit system;
-      checks = ["vega" "deploy-schema-vega" "deploy-activate-vega"];
+      checks = [host "deploy-schema-${host}" "deploy-activate-${host}"];
     }
   ];
 }

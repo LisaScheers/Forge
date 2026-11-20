@@ -3,14 +3,15 @@
   inputs,
   ...
 }: let
+  host = "asterion";
   system = "aarch64-linux";
 in {
-  flake.nixosConfigurations.asterion = inputs.nixpkgs.lib.nixosSystem {
+  flake.nixosConfigurations.${host} = inputs.nixpkgs.lib.nixosSystem {
     inherit system;
-    modules = [config.nixos.base config.nixos.asterion];
+    modules = [config.nixos.base config.nixos.${host}];
   };
-  nixos.asterion = {
-    networking.hostName = "asterion";
+  nixos.${host} = {
+    networking.hostName = host;
     imports = [
       config.nixos.apple-silicon
       config.nixos.asterion-hardware
@@ -21,13 +22,13 @@ in {
     ];
     home-manager.users.lisa = config.home.lisa-asterion;
   };
-  flake.checks.${system}.asterion = config.flake.nixosConfigurations.asterion.config.system.build.toplevel;
-  deploy.hosts.asterion.sshUser = "root";
+  flake.checks.${system}.${host} = config.flake.nixosConfigurations.${host}.config.system.build.toplevel;
+  deploy.hosts.${host}.sshUser = "root";
   ci.targets = [
     {
-      target = "nixosConfigurations.\"asterion\".config.system.build.toplevel";
+      target = "nixosConfigurations.\"${host}\".config.system.build.toplevel";
       inherit system;
-      checks = ["asterion" "deploy-schema-asterion" "deploy-activate-asterion"];
+      checks = [host "deploy-schema-${host}" "deploy-activate-${host}"];
     }
   ];
 }

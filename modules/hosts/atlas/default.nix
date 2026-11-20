@@ -3,31 +3,32 @@
   inputs,
   ...
 }: let
+  host = "atlas";
   system = "x86_64-linux";
 in {
-  network.atlas = {
+  network.${host} = {
     tailscale = "100.87.26.75";
     ssh = {
       user = "lisa";
       identityFile = "~/.ssh/lisa@atlas.pub";
     };
   };
-  flake.nixosConfigurations.atlas = inputs.nixpkgs.lib.nixosSystem {
+  flake.nixosConfigurations.${host} = inputs.nixpkgs.lib.nixosSystem {
     inherit system;
-    modules = [config.nixos.base config.nixos.atlas];
+    modules = [config.nixos.base config.nixos.${host}];
   };
-  nixos.atlas = {
-    networking.hostName = "atlas";
+  nixos.${host} = {
+    networking.hostName = host;
     imports = [config.nixos.atlas-hardware];
   };
-  flake.checks.${system}.atlas = config.flake.nixosConfigurations.atlas.config.system.build.toplevel;
+  flake.checks.${system}.${host} = config.flake.nixosConfigurations.${host}.config.system.build.toplevel;
   # deploy-rs logs in with the same account as Lisa's workstations.
-  deploy.hosts.atlas.sshUser = config.network.atlas.ssh.user;
+  deploy.hosts.${host}.sshUser = config.network.${host}.ssh.user;
   ci.targets = [
     {
-      target = "nixosConfigurations.\"atlas\".config.system.build.toplevel";
+      target = "nixosConfigurations.\"${host}\".config.system.build.toplevel";
       inherit system;
-      checks = ["atlas" "deploy-schema-atlas" "deploy-activate-atlas"];
+      checks = [host "deploy-schema-${host}" "deploy-activate-${host}"];
     }
   ];
 }
