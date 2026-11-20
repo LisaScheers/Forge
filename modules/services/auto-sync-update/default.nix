@@ -15,7 +15,6 @@ in {
       group = "root";
       mode = "0400";
     };
-    systemd.services.nix-auto-sync-update.restartTriggers = [../../security/agenix/secrets/atlas/auto-sync-update-env.age];
   };
   nixos.auto-sync-update = {
     config,

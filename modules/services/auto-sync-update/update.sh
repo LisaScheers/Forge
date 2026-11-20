@@ -152,8 +152,18 @@ schedule_reboot() {
   "${schedule_reboot_cmd[@]}"
 }
 
+reboot_timer_pending() {
+  [ "$custom_schedule_reboot" != "true" ] &&
+    /run/current-system/sw/bin/systemctl is-active --quiet nix-auto-sync-update-reboot.timer
+}
+
 handle_required_reboot() {
   if ! reboot_required; then
+    return 0
+  fi
+  # Leave a pending reboot alone so new commits cannot keep postponing it.
+  if reboot_timer_pending; then
+    echo "A reboot is already scheduled."
     return 0
   fi
 
@@ -167,11 +177,6 @@ handle_required_reboot() {
     printf 'The reboot has been scheduled %s seconds after the update.\n\n' "$reboot_delay_seconds"
     printf 'Scheduler output:\n%s\n' "$schedule_output"
   } | send_mail "[watchdog] reboot required on $flake_host"
-}
-
-reboot_timer_pending() {
-  [ "$custom_schedule_reboot" != "true" ] &&
-    /run/current-system/sw/bin/systemctl is-active --quiet nix-auto-sync-update-reboot.timer
 }
 
 run_update() {
@@ -196,14 +201,15 @@ run_update() {
   fi
   git "${git_args[@]}" merge --ff-only "origin/$branch"
 
-  # Check for a reboot whenever this rebuild changed the system (which also
-  # covers a retry after an earlier failed build), and retry scheduling when a
-  # reboot is still needed but no default reboot timer is pending.
+  # Build the committed tree, as deploy.sh does, so untracked files cannot
+  # change the result.
   system_before="$(readlink -f /run/current-system 2>/dev/null || true)"
-  "${rebuild_cmd[@]}" --flake "path:$repo_path#$flake_host"
-  if [ "$(readlink -f /run/current-system 2>/dev/null || true)" != "$system_before" ]; then
-    handle_required_reboot
-  elif [ "$custom_schedule_reboot" != "true" ] && ! reboot_timer_pending; then
+  "${rebuild_cmd[@]}" --flake "git+file://$repo_path?rev=$(git rev-parse HEAD)#$flake_host"
+  # The default scheduler is checked after every rebuild, so a kernel that
+  # deploy.sh activated still gets its reboot. A custom scheduler cannot report
+  # a pending reboot, so it runs only when this rebuild changed the system.
+  if [ "$custom_schedule_reboot" != "true" ] ||
+    [ "$(readlink -f /run/current-system 2>/dev/null || true)" != "$system_before" ]; then
     handle_required_reboot
   fi
 }
@@ -217,8 +223,9 @@ set +e
 (
   set -e
   run_update
-) > >(tee -a "$log_file") 2>&1
-status=$?
+) 2>&1 | tee -a "$log_file"
+# A pipeline ends only after tee has written the whole log for the mail below.
+status=${PIPESTATUS[0]}
 set -e
 if [ "$status" -ne 0 ]; then
   send_failure_mail "$status"
