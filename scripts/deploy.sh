@@ -19,8 +19,6 @@ if [[ -n "${FORGE_DEPLOY_SSH_CONTROL:-}" ]]; then
   ssh_args=(-S "$FORGE_DEPLOY_SSH_CONTROL")
   deploy_args+=(--ssh-opts "-S $FORGE_DEPLOY_SSH_CONTROL")
 fi
-target_system=$(bash "$(dirname -- "${BASH_SOURCE[0]}")/deploy-system.sh" "$host")
-
 case "$mode" in
   switch) ;;
   dry) deploy_args+=(--dry-activate) ;;
@@ -41,6 +39,9 @@ if [[ "$host" == "vega" ]]; then
     exit 2
   fi
 fi
+
+# Arguments are all checked above, so a mistake fails before flake evaluation.
+target_system=$(bash "$(dirname -- "${BASH_SOURCE[0]}")/deploy-system.sh" "$host")
 
 # Percent-encode a checkout path for a git+file URL (spaces, '#', '?', ...).
 url_encode_path() {
