@@ -63,7 +63,12 @@ A target lists the flake checks that share its closure, such as a host's
 toplevel and deploy-rs checks, and its job builds them together; evaluation
 fails if a listed check does not exist. Every other check builds in one
 `ciChecks.<system>` job per system, and the NixOS VM tests run in
-`ciVmTests.x86_64-linux` on the KVM-capable runner.
+`ciVmTests.x86_64-linux` on the KVM-capable runner. Reproduce them locally with:
+
+```sh
+nix build .#ciChecks.aarch64-darwin   # or x86_64-linux / aarch64-linux
+nix build .#ciVmTests.x86_64-linux    # needs a builder with kvm and nixos-test
+```
 
 `checks.lint` runs alejandra, deadnix and statix (configured in `statix.toml`)
 over `modules/` and `packages/`; `nix fmt -- modules packages` formats them.

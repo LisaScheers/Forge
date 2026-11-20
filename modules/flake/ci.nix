@@ -61,7 +61,7 @@ in {
     map (entry: {
       inherit (entry) target;
       runner = runners.${entry.system};
-      checks = lib.concatMapStringsSep " " (name: "checks.${entry.system}.${name}") entry.checks;
+      checks = lib.concatMapStringsSep " " (name: "checks.${entry.system}.\"${name}\"") entry.checks;
     })
     ordered
     ++ map (system: {
