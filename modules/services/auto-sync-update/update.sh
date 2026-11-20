@@ -227,8 +227,9 @@ run_update() {
   fi
 }
 
-# Set up Git credentials here rather than in the update subshell, so the cleanup
-# trap sees the askpass file; a failure is mailed like any other.
+# Set up Git credentials here rather than in the update subshell, so the
+# exported askpass settings reach every later Git call; a failure is mailed like
+# any other.
 set +e
 configure_git_auth 2>>"$log_file"
 status=$?

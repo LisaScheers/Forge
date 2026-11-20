@@ -34,6 +34,9 @@
         nix.settings.experimental-features = ["nix-command" "flakes"];
         # The test starts the unit more often than systemd's default start limit allows.
         systemd.services.nix-auto-sync-update.unitConfig.StartLimitIntervalSec = 0;
+        # A temporary directory of its own, so the cleanup subtest sees only this unit's files.
+        systemd.services.nix-auto-sync-update.environment.TMPDIR = "/run/updater-tmp";
+        systemd.tmpfiles.rules = ["d /run/updater-tmp 0700 root root -"];
         environment.systemPackages = [pkgs.git pkgs.python3 pkgs.util-linux];
         virtualisation.memorySize = 1024;
         system.stateVersion = "26.05";
@@ -134,10 +137,10 @@
             machine.succeed("rm /run/fail-rebuild /run/auto-sync.env")
 
         with subtest("a Git token run leaves no temporary files behind"):
-            machine.succeed("printf 'AUTO_SYNC_GIT_TOKEN=fixture-token\\n' > /run/auto-sync.env; rm -rf /tmp/tmp.*")
+            machine.succeed("printf 'AUTO_SYNC_GIT_TOKEN=fixture-token\\n' > /run/auto-sync.env")
             machine.succeed("systemctl start nix-auto-sync-update.service")
             # The askpass helper, log and mail marker all lived in one private directory.
-            machine.succeed("test -z \"$(ls -A /tmp | grep '^tmp\\.')\"")
+            machine.succeed("test -z \"$(ls -A /run/updater-tmp)\"")
             machine.succeed("rm /run/auto-sync.env")
 
         with subtest("Lix fetches a pinned revision from a checkout root does not own"):
