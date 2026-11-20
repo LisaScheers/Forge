@@ -21,6 +21,8 @@
         vm = stub "vm-test-run-vm";
         mixed = stub "container-and-vm-test-run-mixed";
         container = stub "container-test-run-container";
+        # A container-only test whose own name contains the VM marker.
+        tricky = stub "container-test-run-vm-test-run-metadata";
       };
       ci.targets = [
         {
@@ -72,8 +74,8 @@
       message = "a target's job must build the checks it lists, each quoted";
     }
     {
-      holds = entries routed.ciChecks == ["container" "unit"] && entries routed.ciVmTests == ["mixed" "vm"];
-      message = "VM tests, mixed container-and-VM tests included, must leave the regular checks job";
+      holds = entries routed.ciChecks == ["container" "tricky" "unit"] && entries routed.ciVmTests == ["mixed" "vm"];
+      message = "VM tests, mixed container-and-VM tests included, must leave the regular checks job, and only they";
     }
     {
       holds = !(builtins.tryEval (builtins.deepSeq (fixture ["missing"] {}).ciMatrix true)).success;

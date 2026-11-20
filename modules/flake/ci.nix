@@ -37,7 +37,7 @@
   # Nixpkgs' runNixOSTest names a test with QEMU nodes vm-test-run-<name>, or
   # container-and-vm-test-run-<name> when it also has containers; container-only
   # tests need no KVM. ci-routing pins this on a real test and on fixtures.
-  isVmTest = check: lib.hasInfix "vm-test-run-" check.name;
+  isVmTest = check: lib.any (prefix: lib.hasPrefix prefix check.name) ["vm-test-run-" "container-and-vm-test-run-"];
   # A VM test on a runner without KVM would build in an ordinary job. Target
   # checks may be host closures whose names need builds to read, so this runs
   # when the system's checks job is evaluated, not for the matrix.
