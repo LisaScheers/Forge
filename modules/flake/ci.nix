@@ -34,8 +34,8 @@
   in
     lib.optionalAttrs (shells ? default) {dev-shell = shells.default;};
   remainingChecks = system: removeAttrs config.flake.checks.${system} (dedicatedChecks system) // devShell system;
-  # Nixpkgs' runNixOSTest names its derivations vm-test-run-<name>; ci-routing
-  # pins this contract with its fixtures, so a rename fails that check.
+  # Nixpkgs' runNixOSTest names a test with QEMU nodes vm-test-run-<name>;
+  # ci-routing pins this on a real test, so an upstream rename fails that check.
   isVmTest = check: lib.hasPrefix "vm-test-run-" check.name;
   # A VM test on a runner without KVM would build in an ordinary job. Target
   # checks may be host closures whose names need builds to read, so this runs

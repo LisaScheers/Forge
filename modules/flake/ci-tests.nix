@@ -1,4 +1,5 @@
 {
+  config,
   inputs,
   lib,
   ...
@@ -30,7 +31,7 @@
     .config
     .flake;
   routed = fixture ["host" "deploy" "dotted.name"] {};
-  # Checks for a platform with no runner and no unbuilt exemption.
+  # Checks for a platform with no runner.
   unmapped = fixture [] {flake.checks.riscv64-linux.unit = stub "unit-tests";};
   # A VM test on a runner without KVM, in the checks job or a target's job.
   vmWithoutKvm = targetChecks:
@@ -48,7 +49,11 @@
   rejectsVm = targetChecks: !(builtins.tryEval (vmWithoutKvm targetChecks).ciChecks.aarch64-linux.name).success;
   entries = output: builtins.attrNames output.x86_64-linux.entries;
   valid =
-    map (entry: entry.target) routed.ciMatrix.include
+    # The fixtures name VM tests the way runNixOSTest names QEMU-node tests; a
+    # real one pins that, so an upstream rename fails here.
+    config.flake.checks.x86_64-linux.auto-sync-update.name
+    == "vm-test-run-auto-sync-update"
+    && map (entry: entry.target) routed.ciMatrix.include
     == ["nixosConfigurations.host" "ciChecks.x86_64-linux" "ciVmTests.x86_64-linux"]
     # Target checks build in the target's job, quoted so dotted names stay one attribute.
     && (builtins.head routed.ciMatrix.include).checks
