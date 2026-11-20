@@ -8,7 +8,7 @@
   # its URLs and probe addresses is one of Nook's (or loopback).
   catalog = builtins.fromJSON (builtins.readFile (source + "/catalog.json"));
   hostOf = url: let
-    match = builtins.match "[A-Za-z][A-Za-z0-9+.-]*://([^@/]*@)?([^/:?#]+).*" url;
+    match = builtins.match "[A-Za-z][A-Za-z0-9+.-]*://([^@/?#]*@)?([^/:?#]+).*" url;
   in
     if match == null
     then null
@@ -16,10 +16,10 @@
   endpoints = entry: map hostOf (lib.filter (url: url != null) [(entry.url or null) (entry.probe.url or null)]) ++ [(entry.probe.address or null)];
   isIPv4 = host: host != null && builtins.match "[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+" host != null;
   catalogAddresses = lib.unique (lib.filter isIPv4 (lib.concatMap endpoints catalog));
-  # Userinfo and scheme case must not hide an address from the check.
+  # Userinfo, scheme case and an "@" after the authority must not hide an address.
   parsesHosts =
-    map hostOf ["HTTP://user@10.0.0.1:8123/x" "https://a.example?b" "tcp://192.0.2.1"]
-    == ["10.0.0.1" "a.example" "192.0.2.1"];
+    map hostOf ["HTTP://user@10.0.0.1:8123/x" "http://10.0.0.2?x=@a.example" "http://10.0.0.3#@b" "https://a.example?b" "tcp://192.0.2.1"]
+    == ["10.0.0.1" "10.0.0.2" "10.0.0.3" "a.example" "192.0.2.1"];
   staleAddresses = lib.subtractLists ["127.0.0.1" config.network.nook.lan config.network.nook.tailscale] catalogAddresses;
 in {
   perSystem = {pkgs, ...}: {
