@@ -4,7 +4,8 @@
 # system changes the kernel, initrd or modules.
 # systemd loads the environment file (EnvironmentFile=), so it is data here and
 # never runs as shell code.
-# A private directory (mode 0700), so no other user can plant the marker.
+# A private directory (mode 0700) for every temporary file of this run, so no
+# other user can read or plant them.
 work_dir="$(mktemp -d)"
 log_file="$work_dir/log"
 # Marks that sending already failed this run, so the failure mail is skipped
@@ -14,9 +15,6 @@ mail_failed_marker="$work_dir/mail-failed"
 # shellcheck disable=SC2329
 cleanup() {
   rm -rf "$work_dir"
-  if [ -n "${askpass_file:-}" ]; then
-    rm -f "$askpass_file"
-  fi
 }
 trap cleanup EXIT
 
@@ -35,8 +33,7 @@ configure_git_auth() {
   fi
 
   if [ -n "${AUTO_SYNC_GIT_TOKEN:-}" ]; then
-    askpass_file="$(mktemp)" || return $?
-    chmod 700 "$askpass_file" || return $?
+    askpass_file="$work_dir/askpass"
     cat > "$askpass_file" <<'EOF' || return $?
 #!/bin/sh
 case "$1" in
@@ -45,12 +42,13 @@ case "$1" in
   *) printf '\n' ;;
 esac
 EOF
+    chmod 700 "$askpass_file" || return $?
     export GIT_ASKPASS="$askpass_file"
     export GIT_TERMINAL_PROMPT=0
   fi
 }
 
-# Runs in its own subshell, so its EXIT trap cleans up only the message file.
+# Runs in its own subshell, so its variables stay local to one message.
 send_mail() (
   subject="$1"
   if [ -z "${AUTO_SYNC_SMTP_URL:-}" ]; then
@@ -68,9 +66,7 @@ send_mail() (
 
   mail_from="${AUTO_SYNC_SMTP_FROM:-nix-auto-sync-update@$mail_host}"
   mail_to="${AUTO_SYNC_SMTP_TO:-$email_to}"
-  mail_file="$(mktemp)"
-  # Also removes the message if the unit is stopped mid-send.
-  trap 'rm -f "$mail_file"' EXIT
+  mail_file="$work_dir/mail"
 
   {
     printf 'From: %s\r\n' "$mail_from"

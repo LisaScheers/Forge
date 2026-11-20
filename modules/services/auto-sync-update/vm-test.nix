@@ -133,6 +133,13 @@
                 assert machine.succeed("systemctl show -p ExecMainStatus --value nix-auto-sync-update.service").strip() == "23", env
             machine.succeed("rm /run/fail-rebuild /run/auto-sync.env")
 
+        with subtest("a Git token run leaves no temporary files behind"):
+            machine.succeed("printf 'AUTO_SYNC_GIT_TOKEN=fixture-token\\n' > /run/auto-sync.env; rm -rf /tmp/tmp.*")
+            machine.succeed("systemctl start nix-auto-sync-update.service")
+            # The askpass helper, log and mail marker all lived in one private directory.
+            machine.succeed("test -z \"$(ls -A /tmp | grep '^tmp\\.')\"")
+            machine.succeed("rm /run/auto-sync.env")
+
         with subtest("Lix fetches a pinned revision from a checkout root does not own"):
             machine.succeed(
                 "mkdir /root/flake && cp ${pkgs.writeText "flake.nix" "{outputs = _: {answer = \"42\";};}"} /root/flake/flake.nix"
