@@ -164,6 +164,12 @@ esac
         self.assertIn("ssh -S /tmp/forge-test-socket atlas", commands)
         self.assertIn("--ssh-opts -S /tmp/forge-test-socket", commands)
 
+    def test_a_missing_host_prints_usage(self):
+        result, commands = self.run_deploy()
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("usage: deploy.sh <host>", result.stderr)
+        self.assertEqual(commands, "")
+
     def test_an_unknown_mode_is_rejected_before_any_command(self):
         result, commands = self.run_deploy("nook", "swich")
         self.assertEqual(result.returncode, 2)

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ $# -lt 1 ]]; then
+  echo "usage: deploy.sh <host> [switch|dry|test] [--maintenance]" >&2
+  exit 2
+fi
 host=$1
 mode=${2:-switch}
 maintenance=${3:-}
