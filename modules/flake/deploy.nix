@@ -7,10 +7,12 @@
   # Each host module sets deploy.hosts.<host>; its platform comes from its own
   # configuration, so it is declared only once.
   hosts = config.deploy.hosts;
+  darwinConfigurations = config.flake.darwinConfigurations or {};
+  nixosConfigurations = config.flake.nixosConfigurations or {};
   outputOf = host:
-    assert lib.assertMsg (config.flake.darwinConfigurations ? ${host} != config.flake.nixosConfigurations ? ${host})
+    assert lib.assertMsg (darwinConfigurations ? ${host} != nixosConfigurations ? ${host})
     "deploy.hosts.${host} needs exactly one NixOS or nix-darwin configuration of that name";
-      if config.flake.darwinConfigurations ? ${host}
+      if darwinConfigurations ? ${host}
       then {
         kind = "darwin";
         collection = "darwinConfigurations";
