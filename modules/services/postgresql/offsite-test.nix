@@ -71,9 +71,11 @@ in {
           host = "source";
           hostKey = builtins.head (builtins.match "([^ ]+ [^ ]+).*" hostKey);
           keyFile = "/etc/backup-pull-key";
-          destination = "/srv/backups";
+          destination = "/srv/backups/atlas-postgresql";
           keepDays = 3;
         };
+        # Nook's clock, so copies must be dated in UTC regardless.
+        time.timeZone = "Europe/Brussels";
         # Like Nook's data disk: mounted on demand, after boot-time setup ran.
         virtualisation.fileSystems."/srv/backups" = {
           device = "tmpfs";
@@ -105,7 +107,7 @@ in {
 
         with subtest("the dump is copied, verified and dated"):
             puller.succeed("systemctl start postgresql-backup-pull.service")
-            assert puller.succeed("zstd -dc /srv/backups/all-$(date +%F).sql.zstd").strip() == "CREATE TABLE restored ();"
+            assert puller.succeed("zstd -dc /srv/backups/atlas-postgresql/all-$(date -u +%F).sql.zstd").strip() == "CREATE TABLE restored ();"
 
         with subtest("the key can only read the dump"):
             puller.succeed("install -m 0600 /etc/backup-pull-key /root/key")
@@ -119,30 +121,37 @@ in {
         with subtest("a corrupt dump never replaces a good copy"):
             source.succeed("printf 'not zstd' > /var/backup/postgresql/all.sql.zstd")
             puller.fail("systemctl start postgresql-backup-pull.service")
-            assert puller.succeed("zstd -dc /srv/backups/all-$(date +%F).sql.zstd").strip() == "CREATE TABLE restored ();"
-            puller.fail("ls /srv/backups/*.part")
+            assert puller.succeed("zstd -dc /srv/backups/atlas-postgresql/all-$(date -u +%F).sql.zstd").strip() == "CREATE TABLE restored ();"
+            puller.fail("ls /srv/backups/atlas-postgresql/*.part")
 
         with subtest("a stale dump is refused, so the copy fails and keeps the last good one"):
             source.succeed("echo 'SELECT 2;' | zstd -q -f -o /var/backup/postgresql/all.sql.zstd && chown postgres /var/backup/postgresql/all.sql.zstd && touch -d '2 days ago' /var/backup/postgresql/all.sql.zstd")
-            puller.succeed("cp /srv/backups/all-$(date -u +%F).sql.zstd /root/good.sql.zstd")
+            puller.succeed("cp /srv/backups/atlas-postgresql/all-$(date -u +%F).sql.zstd /root/good.sql.zstd")
             puller.fail("systemctl start postgresql-backup-pull.service")
             puller.succeed("journalctl -u postgresql-backup-pull.service | grep -q 'older than'")
-            puller.succeed("cmp /root/good.sql.zstd /srv/backups/all-$(date -u +%F).sql.zstd")
+            puller.succeed("cmp /root/good.sql.zstd /srv/backups/atlas-postgresql/all-$(date -u +%F).sql.zstd")
             source.succeed("touch /var/backup/postgresql/all.sql.zstd")
 
         with subtest("copies older than keepDays are pruned"):
             source.succeed("echo 'SELECT 1;' | zstd -q -f -o /var/backup/postgresql/all.sql.zstd")
-            puller.succeed("cp /srv/backups/all-$(date +%F).sql.zstd /srv/backups/all-2000-01-01.sql.zstd && touch -d '10 days ago' /srv/backups/all-2000-01-01.sql.zstd")
+            puller.succeed("cp /srv/backups/atlas-postgresql/all-$(date -u +%F).sql.zstd /srv/backups/atlas-postgresql/all-2000-01-01.sql.zstd && touch -d '10 days ago' /srv/backups/atlas-postgresql/all-2000-01-01.sql.zstd")
             puller.succeed("systemctl start postgresql-backup-pull.service")
-            puller.fail("test -e /srv/backups/all-2000-01-01.sql.zstd")
+            puller.fail("test -e /srv/backups/atlas-postgresql/all-2000-01-01.sql.zstd")
 
         with subtest("the copy lands on the late-mounted disk"):
             puller.succeed("findmnt -n -o FSTYPE /srv/backups | grep -qx tmpfs")
+            # Created by the unit after the mount, private to root.
+            assert puller.succeed("stat -c %a /srv/backups/atlas-postgresql").strip() == "700"
 
-        with subtest("a rebuilt host restores as root and only then starts PostgreSQL"):
+        with subtest("a rebuilt host restores Nook's copy as root and only then starts PostgreSQL"):
+            # The source serves a real cluster dump; the puller copies it, and
+            # the rebuilt host restores that copy through the shared directory.
+            source.succeed("install -o postgres -m 0600 ${dump} /var/backup/postgresql/all.sql.zstd")
+            puller.succeed("systemctl start postgresql-backup-pull.service")
+            puller.succeed("cp /srv/backups/atlas-postgresql/all-$(date -u +%F).sql.zstd /tmp/shared/copy.sql.zstd")
             rebuilt.wait_for_unit("multi-user.target")
             rebuilt.fail("systemctl is-active postgresql.service")
-            rebuilt.succeed("forge-postgresql-restore ${dump}")
+            rebuilt.succeed("forge-postgresql-restore /tmp/shared/copy.sql.zstd")
             rebuilt.succeed("test -f /var/lib/postgresql/18/.forge-upgrade-complete")
             rebuilt.succeed("test $(stat -c %U /var/lib/postgresql/18) = postgres")
             # The unit failed while the marker was missing; clear that first.

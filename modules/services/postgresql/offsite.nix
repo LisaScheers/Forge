@@ -107,24 +107,34 @@ in {
         description = "Days a copy is kept.";
       };
       startAt = lib.mkOption {
-        type = lib.types.str;
+        type = lib.types.singleLineStr;
         default = "*-*-* 04:30:00 UTC";
         description = "When to copy, after the source's nightly dump; give a time zone, as the hosts' clocks may differ.";
       };
     };
 
     config = {
+      # The destination's disk mounts on demand, after boot-time tmpfiles ran,
+      # and the pull's sandbox needs the directory before it starts (even a
+      # "+" ExecStartPre runs inside its mount namespace), so a plain unit
+      # creates it once the disk is mounted.
+      systemd.services.postgresql-backup-pull-destination = {
+        description = "Create the PostgreSQL copy directory ${cfg.destination}";
+        unitConfig.RequiresMountsFor = cfg.destination;
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = "${pkgs.coreutils}/bin/install -d -m 0700 ${cfg.destination}";
+        };
+      };
       systemd.services.postgresql-backup-pull = {
         description = "Copy the PostgreSQL dump from ${cfg.host}";
-        after = ["network-online.target"];
+        after = ["network-online.target" "postgresql-backup-pull-destination.service"];
         wants = ["network-online.target"];
+        requires = ["postgresql-backup-pull-destination.service"];
         inherit (cfg) startAt;
         unitConfig.RequiresMountsFor = cfg.destination;
         serviceConfig = {
           Type = "oneshot";
-          # After the destination's disk is mounted, and outside the sandbox,
-          # which needs the directory to exist.
-          ExecStartPre = "+${pkgs.coreutils}/bin/install -d -m 0700 ${cfg.destination}";
           ExecStart = lib.getExe pull;
           TimeoutStartSec = "1h";
           LoadCredential = "key:${cfg.keyFile}";
