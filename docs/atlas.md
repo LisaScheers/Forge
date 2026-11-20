@@ -106,9 +106,9 @@ Backups live only on Atlas, so before reinstalling copy the latest dump,
    stays held throughout.
 3. PostgreSQL refuses to start until
    `/var/lib/postgresql/18/.forge-upgrade-complete` exists, so
-   restore by hand. A separate bootstrap role lets the dump recreate `postgres`
-   and the other roles; `modules/services/postgresql/tests.nix` exercises the
-   same steps.
+   restore by hand, as root. A separate bootstrap role lets the dump recreate
+   `postgres` and the other roles; `modules/services/postgresql/tests.nix`
+   exercises the same steps.
 
    ```sh
    cd /var/lib/postgresql
@@ -116,7 +116,7 @@ Backups live only on Atlas, so before reinstalling copy the latest dump,
    # A private socket and no TCP: postgresql.service, which owns
    # /run/postgresql, is not running yet.
    sudo -u postgres pg_ctl -D 18 -w -o '-c listen_addresses= -c unix_socket_directories=/tmp' start
-   # The dump copied off Atlas before the rebuild, copied back to any path.
+   # The dump copied off Atlas before the rebuild, copied back to /root.
    zstd -dc /root/all.sql.zstd | sudo -u postgres psql -h /tmp -X -v ON_ERROR_STOP=1 -U restore_admin -d postgres
    sudo -u postgres psql -h /tmp -X -U restore_admin -d postgres -c '\l'   # every database is back
    sudo -u postgres pg_ctl -D 18 -m fast -w stop
