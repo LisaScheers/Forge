@@ -50,6 +50,7 @@ in {
     "secrets/atlas/jellyfin-bootstrap-env.age".publicKeys = atlas;
     "secrets/atlas/matrix-registration-secret.age".publicKeys = atlas;
     "secrets/atlas/matrix-turn-secret.age".publicKeys = atlas;
+    "secrets/atlas/postplan-env.age".publicKeys = atlas;
     "secrets/atlas/discord-bridge-env.age".publicKeys = atlas;
     "secrets/atlas/uptime-kuma-probes.age".publicKeys = atlas;
 
@@ -69,6 +70,5 @@ in {
     "secrets/shared/cognee-oidc-env.age".publicKeys = atlasAndNook;
     "secrets/shared/gotify-oidc-env.age".publicKeys = atlasAndNook;
     "secrets/shared/jellyfin-ldap-env.age".publicKeys = atlasAndNook;
-    "secrets/atlas/postplan-env.age".publicKeys = atlas;
   };
 }

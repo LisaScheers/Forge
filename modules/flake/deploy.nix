@@ -47,7 +47,7 @@
   # Per-host closure and deploy-rs checks; scripts/deploy.sh builds them before
   # deploying, and the host's CI job builds them together.
   hostChecks = host: let
-    checks = inputs.deploy-rs.lib.${systemOf host}.deployChecks (deploy // {nodes.${host} = deploy.nodes.${host};});
+    checks = inputs.deploy-rs.lib.${systemOf host}.deployChecks (deploy // {nodes = {${host} = deploy.nodes.${host};};});
   in {
     ${host} = lib.getAttrFromPath (outputOf host).toplevel (configurationOf host);
     "deploy-schema-${host}" = checks.deploy-schema;
