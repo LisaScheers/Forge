@@ -72,7 +72,7 @@ in {
     "secrets/nook/vaultwarden-restic-env.age".publicKeys = all;
     "secrets/nook/vaultwarden-restic-ssh-key.age".publicKeys = all;
 
-    "secrets/vega/home-server-builder-ssh-key.age".publicKeys = all;
+    "secrets/vega/home-server-builder-ssh-key.age".publicKeys = vega;
     "secrets/vega/nix-github-access-token-conf.age".publicKeys = vega;
 
     "secrets/shared/github-env.age".publicKeys = all;
