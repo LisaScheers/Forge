@@ -1,7 +1,14 @@
-{
+let
+  source = ../../../services/watch-room;
+in {
+  perSystem = {pkgs, ...}: {
+    checks.watch-room = pkgs.runCommand "watch-room-tests" {nativeBuildInputs = [pkgs.ffmpeg];} ''
+      ${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 -B -m unittest discover -s ${source} -v
+      touch "$out"
+    '';
+  };
   nixos.nook = {pkgs, ...}: let
     python = pkgs.python3.withPackages (ps: [ps.aiohttp]);
-    source = ../../../services/watch-room;
     hls = pkgs.fetchurl {
       url = "https://cdn.jsdelivr.net/npm/hls.js@1.7.4/dist/hls.min.js";
       hash = "sha256-z8cMyen8Y9BxkZ4IdnCrx2DI/RvIibiFiAJuTSIZO74=";

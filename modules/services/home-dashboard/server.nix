@@ -1,10 +1,17 @@
-{
+let
+  source = ../../../services/home-dashboard;
+in {
+  perSystem = {pkgs, ...}: {
+    checks.home-dashboard = pkgs.runCommand "home-dashboard-tests" {} ''
+      ${pkgs.python3}/bin/python3 -B -m unittest discover -s ${source} -v
+      touch "$out"
+    '';
+  };
   nixos.atlas = {
     config,
     pkgs,
     ...
   }: let
-    source = ../../../services/home-dashboard;
     upstream = "http://unix:/run/home-dashboard/api.sock:";
     securityHeaders = ''
       add_header X-Content-Type-Options nosniff always;
