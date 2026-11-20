@@ -71,6 +71,8 @@ Secret recipients live in `modules/security/agenix/recipients.nix`.
 `secrets/shared/` those that several hosts decrypt; each is encrypted for Lisa
 and exactly its reading hosts. `checks.agenix-rules` enforces all of this
 against the hosts' configurations. Change recipients with `just secret-rekey`.
+Narrowing recipients does not revoke access to older revisions in Git; rotate
+the credential itself when a former recipient must lose access.
 
 CI targets are declared beside their home or installer output, and
 `modules/flake/deploy.nix` adds one per deployed host. The CI module maps those

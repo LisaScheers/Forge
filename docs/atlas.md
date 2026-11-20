@@ -91,3 +91,21 @@ Atlas uses PostgreSQL 18 at `/var/lib/postgresql/18`. Startup requires its
 successful `pg_upgrade` or a verified full restore. Keep the PostgreSQL 16
 directory and its system generation for recovery. Returning to it after new
 writes requires reconciling those writes or restoring a current backup.
+
+## Rebuilding Atlas
+
+Before reinstalling, copy the latest dump, `/var/backup/postgresql/all.sql.zst`,
+off Atlas; backups live only on the host. Then:
+
+1. Restore the old `/etc/ssh/ssh_host_ed25519_key` pair, which agenix decrypts
+   with. With a new key instead, put its public half in
+   `modules/security/agenix/pubkeys.nix` (`hosts.atlas`) and run
+   `just secret-rekey` before deploying; otherwise no Atlas secret decrypts.
+2. Create the maintenance marker before PostgreSQL first starts, so the updater
+   stays held during the restore.
+3. Initialise `/var/lib/postgresql/18` with PostgreSQL 18, restore the dump into
+   it, and only then create `.forge-upgrade-complete`; PostgreSQL refuses to
+   start without it. The Matrix databases are not in the dump; see
+   [Matrix after SEC-Hive](sec-hive-matrix.md).
+4. Check `systemctl --failed` and the Uptime Kuma probes, then release the hold
+   as described under [Maintenance and PostgreSQL](#maintenance-and-postgresql).
