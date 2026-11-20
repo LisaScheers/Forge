@@ -9,6 +9,7 @@
       ../../Justfile
       ../../.envrc
       ../../modules/shell/git-credential-fj.sh
+      ../../modules/security/agenix/check_recipients.py
       ../../services/jellyfin-auth
     ];
   };

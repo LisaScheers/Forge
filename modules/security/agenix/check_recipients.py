@@ -3,6 +3,7 @@
 Reads only the unencrypted age header, so it never decrypts anything. An SSH
 stanza names its key by a short hash, so those are compared exactly; an X25519
 stanza does not name its key, so only the number of age recipients is compared.
+Any other stanza type (an RSA or plugin recipient) is rejected outright.
 
 Usage: check_recipients.py RULES_JSON SECRETS_ROOT
 """
@@ -42,7 +43,10 @@ def main() -> int:
         have_ssh = sorted(stanza[1] for stanza in stanzas if stanza[0] == "ssh-ed25519")
         want_age = sum(key.startswith("age1") for key in keys)
         have_age = sum(stanza[0] == "X25519" for stanza in stanzas)
-        if want_ssh != have_ssh or want_age != have_age:
+        unsupported = sorted({stanza[0] for stanza in stanzas} - {"ssh-ed25519", "X25519"})
+        if unsupported:
+            problems.append(f"{name}: unsupported recipient types {', '.join(unsupported)}")
+        elif want_ssh != have_ssh or want_age != have_age:
             problems.append(f"{name}: encrypted recipients differ from its rule; run just secret-rekey")
     print("\n".join(problems) or f"{len(rules)} secrets match their rules")
     return 1 if problems else 0
