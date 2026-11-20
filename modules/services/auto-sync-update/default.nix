@@ -3,35 +3,20 @@
   nixos.auto-sync-update = {
     config,
     lib,
-    options,
     pkgs,
     ...
   }: let
     cfg = config.services.autoSyncUpdate;
-    hasLaunchd = options ? launchd;
-    hasSystemd = options ? systemd;
-    defaultRebuildCommand =
-      if hasLaunchd
-      then ["/run/current-system/sw/bin/darwin-rebuild" "switch"]
-      else ["/run/current-system/sw/bin/nixos-rebuild" "switch"];
-    defaultScheduleRebootCommand =
-      if hasLaunchd
-      then [
-        "/sbin/shutdown"
-        "-r"
-        "+${toString (cfg.rebootDelaySeconds / 60)}"
-        "nix-auto-sync-update scheduled reboot after applying updates"
-      ]
-      else [
-        "/run/current-system/sw/bin/systemd-run"
-        "--unit=nix-auto-sync-update-reboot"
-        "--description=Reboot after nix-auto-sync-update"
-        "--on-active=${toString cfg.rebootDelaySeconds}s"
-        "--timer-property=AccuracySec=1min"
-        "--collect"
-        "/run/current-system/sw/bin/systemctl"
-        "reboot"
-      ];
+    defaultScheduleRebootCommand = [
+      "/run/current-system/sw/bin/systemd-run"
+      "--unit=nix-auto-sync-update-reboot"
+      "--description=Reboot after nix-auto-sync-update"
+      "--on-active=${toString cfg.rebootDelaySeconds}s"
+      "--timer-property=AccuracySec=1min"
+      "--collect"
+      "/run/current-system/sw/bin/systemctl"
+      "reboot"
+    ];
     rebuildCommand = lib.concatMapStringsSep " " lib.escapeShellArg cfg.rebuildCommand;
     rebootRequiredCommand =
       lib.optionalString (cfg.rebootRequiredCommand != null)
@@ -42,21 +27,16 @@
       else defaultScheduleRebootCommand
     );
     hasCustomScheduleRebootCommand = cfg.scheduleRebootCommand != null;
-    platform =
-      if hasLaunchd
-      then "darwin"
-      else "linux";
     script = pkgs.writeShellApplication {
       name = "nix-auto-sync-update";
-      runtimeInputs =
-        [
-          pkgs.coreutils
-          pkgs.curl
-          pkgs.git
-          pkgs.nix
-          pkgs.openssh
-        ]
-        ++ lib.optional hasSystemd pkgs.util-linux;
+      runtimeInputs = [
+        pkgs.coreutils
+        pkgs.curl
+        pkgs.git
+        pkgs.nix
+        pkgs.openssh
+        pkgs.util-linux
+      ];
       text = ''
         set -euo pipefail
 
@@ -67,11 +47,9 @@
         lock_dir=${lib.escapeShellArg cfg.lockDirectory}
         email_to=${lib.escapeShellArg cfg.emailTo}
         reboot_delay_seconds=${toString cfg.rebootDelaySeconds}
-        platform=${lib.escapeShellArg platform}
         custom_reboot_required=${lib.escapeShellArg (lib.boolToString (cfg.rebootRequiredCommand != null))}
         custom_schedule_reboot=${lib.escapeShellArg (lib.boolToString hasCustomScheduleRebootCommand)}
         log_file="$(mktemp)"
-        lock_acquired=0
 
         # shellcheck disable=SC2329
         cleanup() {
@@ -82,31 +60,16 @@
           if [ -n "''${mail_file:-}" ]; then
             rm -f "$mail_file"
           fi
-          if [ "$lock_acquired" -eq 1 ]; then
-            rmdir "$lock_dir" 2>/dev/null || true
-          fi
         }
         trap cleanup EXIT
 
-        ${
-          if hasSystemd
-          then ''
-            # Matrix checkpoints and imports use this same advisory lock. Keep
-            # the file so concurrent processes cannot lock different inodes.
-            exec 9>"$lock_dir"
-            if ! flock -n 9; then
-              echo "Another nix-auto-sync-update run or Matrix checkpoint is active; exiting."
-              exit 0
-            fi
-          ''
-          else ''
-            if ! mkdir "$lock_dir" 2>/dev/null; then
-              echo "Another nix-auto-sync-update run is active; exiting."
-              exit 0
-            fi
-            lock_acquired=1
-          ''
-        }
+        # Matrix checkpoints and imports use this same advisory lock. Keep
+        # the file so concurrent processes cannot lock different inodes.
+        exec 9>"$lock_dir"
+        if ! flock -n 9; then
+          echo "Another nix-auto-sync-update run or Matrix checkpoint is active; exiting."
+          exit 0
+        fi
 
         load_env() {
           if [ -f "$env_file" ]; then
@@ -206,50 +169,30 @@
             return "$?"
           fi
 
-          if [ "$platform" = "linux" ]; then
-            if [ ! -e /run/current-system ] || [ ! -e /run/booted-system ]; then
-              return 1
-            fi
-
-            for artifact in kernel initrd kernel-modules; do
-              if [ ! -e "/run/current-system/$artifact" ]; then
-                continue
-              fi
-
-              current_artifact="$(readlink -f "/run/current-system/$artifact")"
-              booted_artifact="$(readlink -f "/run/booted-system/$artifact" 2>/dev/null || true)"
-              if [ "$current_artifact" != "$booted_artifact" ]; then
-                echo "Reboot required: $artifact changed from $booted_artifact to $current_artifact."
-                return 0
-              fi
-            done
-
+          if [ ! -e /run/current-system ] || [ ! -e /run/booted-system ]; then
             return 1
           fi
 
-          if [ "$platform" = "darwin" ]; then
-            if [ -e /var/run/reboot-required ] || [ -e /tmp/restart-required ]; then
-              echo "Reboot required: reboot marker file exists."
+          for artifact in kernel initrd kernel-modules; do
+            if [ ! -e "/run/current-system/$artifact" ]; then
+              continue
+            fi
+
+            current_artifact="$(readlink -f "/run/current-system/$artifact")"
+            booted_artifact="$(readlink -f "/run/booted-system/$artifact" 2>/dev/null || true)"
+            if [ "$current_artifact" != "$booted_artifact" ]; then
+              echo "Reboot required: $artifact changed from $booted_artifact to $current_artifact."
               return 0
             fi
-
-            return 1
-          fi
+          done
 
           return 1
         }
 
         schedule_reboot() {
-          if [ "$platform" = "linux" ] && [ "$custom_schedule_reboot" != "true" ]; then
+          if [ "$custom_schedule_reboot" != "true" ]; then
             /run/current-system/sw/bin/systemctl stop nix-auto-sync-update-reboot.timer nix-auto-sync-update-reboot.service 2>/dev/null || true
             /run/current-system/sw/bin/systemctl reset-failed nix-auto-sync-update-reboot.timer nix-auto-sync-update-reboot.service 2>/dev/null || true
-          fi
-
-          if [ "$platform" = "darwin" ] && [ "$custom_schedule_reboot" != "true" ]; then
-            if [ -f /var/run/shutdown.pid ] && kill -0 "$(< /var/run/shutdown.pid)" 2>/dev/null; then
-              echo "A shutdown is already scheduled; leaving it in place."
-              return 0
-            fi
           fi
 
           schedule_reboot_cmd=(${scheduleRebootCommand})
@@ -268,8 +211,7 @@
             printf 'nix-auto-sync-update applied updates on %s and detected that a reboot is required.\n\n' "$flake_host"
             printf 'Repository: %s\n' "$repo_path"
             printf 'Branch: %s\n' "$branch"
-            printf 'Reboot delay: %s seconds\n\n' "$reboot_delay_seconds"
-            printf 'The reboot has been scheduled for 12 hours after the update.\n\n'
+            printf 'The reboot has been scheduled %s seconds after the update.\n\n' "$reboot_delay_seconds"
             printf 'Scheduler output:\n%s\n' "$schedule_output"
           } | send_mail "[watchdog] reboot required on $flake_host"
         }
@@ -277,7 +219,6 @@
         run_update() {
           load_env
           configure_git_auth
-          updated=0
 
           if [ ! -d "$repo_path/.git" ]; then
             if [ -z "''${AUTO_SYNC_GIT_REPOSITORY_URL:-}" ]; then
@@ -287,11 +228,9 @@
 
             mkdir -p "$(dirname "$repo_path")"
             git "''${git_args[@]}" clone --branch "$branch" "$AUTO_SYNC_GIT_REPOSITORY_URL" "$repo_path"
-            updated=1
           fi
 
           cd "$repo_path"
-          before_rev="$(git rev-parse HEAD 2>/dev/null || true)"
           git "''${git_args[@]}" fetch --prune origin "$branch"
           if git show-ref --verify --quiet "refs/heads/$branch"; then
             git "''${git_args[@]}" checkout "$branch"
@@ -299,26 +238,30 @@
             git "''${git_args[@]}" checkout --track -b "$branch" "origin/$branch"
           fi
           git "''${git_args[@]}" merge --ff-only "origin/$branch"
-          after_rev="$(git rev-parse HEAD)"
-          if [ "$before_rev" != "$after_rev" ]; then
-            updated=1
-          fi
 
+          # Check for a reboot whenever this rebuild changed the system, which
+          # also covers a retry after an earlier run fetched but failed to build.
+          system_before="$(readlink -f /run/current-system 2>/dev/null || true)"
           rebuild_cmd=(${rebuildCommand})
           "''${rebuild_cmd[@]}" --flake "path:$repo_path#$flake_host"
-
-          if [ "$updated" -eq 1 ]; then
+          if [ "$(readlink -f /run/current-system 2>/dev/null || true)" != "$system_before" ]; then
             handle_required_reboot
           fi
         }
 
-        if run_update > >(tee -a "$log_file") 2>&1; then
-          exit 0
-        else
-          status=$?
+        # Run the update in a subshell outside any condition: an `if` around the
+        # call would disable errexit inside it and hide failed steps.
+        set +e
+        (
+          set -e
+          run_update
+        ) > >(tee -a "$log_file") 2>&1
+        status=$?
+        set -e
+        if [ "$status" -ne 0 ]; then
           send_failure_mail "$status"
-          exit "$status"
         fi
+        exit "$status"
       '';
     };
   in {
@@ -332,7 +275,6 @@
 
       repositoryPath = lib.mkOption {
         type = lib.types.str;
-        default = "/etc/nix-darwin";
         description = "Local checkout path for this repository.";
       };
 
@@ -369,12 +311,12 @@
       lockDirectory = lib.mkOption {
         type = lib.types.str;
         default = "/var/run/nix-auto-sync-update.lock";
-        description = "Runtime lock path used to prevent overlapping runs: an advisory lock file on Linux, a directory on Darwin.";
+        description = "Advisory lock file shared with Matrix checkpoints to prevent overlapping runs.";
       };
 
       rebuildCommand = lib.mkOption {
         type = lib.types.listOf lib.types.str;
-        default = defaultRebuildCommand;
+        default = ["/run/current-system/sw/bin/nixos-rebuild" "switch"];
         description = "Command used to switch the host after pulling the repository.";
       };
 
@@ -391,41 +333,29 @@
       };
     };
 
-    config = lib.mkIf cfg.enable (
-      lib.optionalAttrs hasSystemd {
-        systemd.services.nix-auto-sync-update = {
-          description = "Pull this Nix repository and apply host changes";
-          restartIfChanged = false;
-          stopIfChanged = false;
-          wants = ["network-online.target"];
-          after = ["network-online.target"];
-          serviceConfig = {
-            Type = "oneshot";
-            ExecStart = lib.getExe script;
-          };
+    config = lib.mkIf cfg.enable {
+      systemd.services.nix-auto-sync-update = {
+        description = "Pull this Nix repository and apply host changes";
+        restartIfChanged = false;
+        stopIfChanged = false;
+        wants = ["network-online.target"];
+        after = ["network-online.target"];
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = lib.getExe script;
         };
+      };
 
-        systemd.timers.nix-auto-sync-update = {
-          description = "Run nix-auto-sync-update every five minutes";
-          wantedBy = ["timers.target"];
-          timerConfig = {
-            OnActiveSec = "${toString cfg.intervalSeconds}s";
-            OnUnitActiveSec = "${toString cfg.intervalSeconds}s";
-            AccuracySec = "30s";
-            Unit = "nix-auto-sync-update.service";
-          };
+      systemd.timers.nix-auto-sync-update = {
+        description = "Run nix-auto-sync-update periodically";
+        wantedBy = ["timers.target"];
+        timerConfig = {
+          OnActiveSec = "${toString cfg.intervalSeconds}s";
+          OnUnitActiveSec = "${toString cfg.intervalSeconds}s";
+          AccuracySec = "30s";
+          Unit = "nix-auto-sync-update.service";
         };
-      }
-      // lib.optionalAttrs hasLaunchd {
-        launchd.daemons.nix-auto-sync-update.serviceConfig = {
-          Label = "tech.scheers.nix-auto-sync-update";
-          ProgramArguments = [(lib.getExe script)];
-          RunAtLoad = false;
-          StartInterval = cfg.intervalSeconds;
-          StandardOutPath = "/var/log/nix-auto-sync-update.log";
-          StandardErrorPath = "/var/log/nix-auto-sync-update.log";
-        };
-      }
-    );
+      };
+    };
   };
 }

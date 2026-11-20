@@ -19,6 +19,7 @@ in {
         rebuildCommand = [
           (toString (pkgs.writeShellScript "test-rebuild" ''
             touch /run/rebuild-start
+            if test -e /run/fail-rebuild; then exit 1; fi
             while ! test -e /run/allow-rebuild-finish; do sleep 0.1; done
             touch /run/rebuild-finished
           ''))
@@ -62,6 +63,13 @@ in {
           machine.succeed("touch /run/allow-rebuild-finish")
           machine.wait_until_succeeds("test $(systemctl show nix-auto-sync-update.service -p ActiveState --value) = inactive")
           machine.succeed("flock -n /run/shared-update.lock -c true")
+
+      with subtest("a failed rebuild fails the unit even without new commits"):
+          machine.succeed("touch /run/fail-rebuild")
+          machine.fail("systemctl start nix-auto-sync-update.service")
+          machine.succeed("test $(systemctl show nix-auto-sync-update.service -p Result --value) = exit-code")
+          machine.succeed("rm /run/fail-rebuild")
+          machine.succeed("systemctl start nix-auto-sync-update.service")
     '';
   };
 }

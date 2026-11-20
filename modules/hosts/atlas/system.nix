@@ -89,6 +89,7 @@
     services.autoSyncUpdate = {
       enable = true;
       flakeHost = "atlas";
+      repositoryPath = "/etc/nix-darwin";
       environmentFile = config.age.secrets.auto-sync-update-env.path;
     };
 
