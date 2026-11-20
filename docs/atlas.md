@@ -1,0 +1,74 @@
+# Atlas
+
+Atlas deploys with the same `just deploy` commands as Nook (see the
+[README](../README.md#deployment)) and also updates itself from `main` through
+`nix-auto-sync-update`.
+
+## Deploying
+
+The Atlas recipe refuses dirty or off-main revisions, aborts when an auto-update
+or scheduled reboot is active, and pauses `nix-auto-sync-update.timer` while deploy-rs runs. It restarts the timer after a
+successful deployment or a preflight abort. If deploy-rs itself fails, the timer
+stays stopped so it cannot retry the same bad `main` revision; the recipe prints
+the recovery command. After a kernel change the updater arms a reboot up to 12
+hours later, which blocks deploys until then. To deploy sooner, reboot Atlas or
+cancel the pending reboot with `ssh atlas sudo systemctl stop
+nix-auto-sync-update-reboot.timer` and deploy before the next updater run, which
+re-arms it if the activated kernel, initrd or modules still differ from the
+booted generation.
+
+deploy-rs connects to Atlas as `lisa`, which `modules/hosts/atlas/system.nix`
+makes a trusted Nix user. On a freshly installed Atlas, let its auto-updater
+apply `main` once, then confirm before the first deploy-rs run:
+
+```sh
+ssh atlas 'nix config show trusted-users'
+```
+
+## Auto-updater
+
+systemd loads the Atlas updater's `/run/agenix/auto-sync-update-env`
+(`EnvironmentFile=`), so it holds plain `KEY=value` lines and never runs as
+shell code: `AUTO_SYNC_SMTP_URL`, `AUTO_SYNC_SMTP_USERNAME`,
+`AUTO_SYNC_SMTP_PASSWORD`, `AUTO_SYNC_SMTP_FROM`, `AUTO_SYNC_SMTP_TO` and
+`AUTO_SYNC_SMTP_REQUIRE_TLS` for failure mail, and `AUTO_SYNC_GIT_TOKEN`,
+`AUTO_SYNC_GIT_USERNAME`, `AUTO_SYNC_GIT_AUTH_HEADER` or
+`AUTO_SYNC_GIT_REPOSITORY_URL` for Git access. Use systemd's format: quotes are
+stripped, and `export` and `$` expansion are not supported. systemd skips lines
+that are not assignments, and when the file exists but provides no SMTP URL, any
+run that needs to send mail fails visibly (and a failed rebuild keeps its own
+exit status). The updater only fast-forwards to `origin/main`: if the Atlas
+checkout has local commits, every run fails and mails until the checkout is
+reset to `origin/main`. The journal has the same reason even if mail fails. Keep
+the commits on a branch before resetting:
+
+```sh
+# Needs passwordless sudo on Atlas, as deploy-rs already does.
+ssh atlas sudo journalctl -u nix-auto-sync-update -n 50
+# Saves the local commits to a branch, then resets. Nothing happens if the
+# checkout has uncommitted changes or the branch cannot be created.
+ssh atlas 'git() { sudo git -c safe.directory=/etc/nix-darwin -C /etc/nix-darwin "$@"; }
+  test -z "$(git status --porcelain)" &&
+  git branch "atlas-local-$(date +%Y%m%d-%H%M%S)" &&
+  git reset --hard origin/main'
+```
+
+## Maintenance and PostgreSQL
+
+For an approved database maintenance window, `just deploy-maintenance` applies
+Atlas while leaving its updater timer stopped. The root-owned marker
+`/var/lib/postgresql/.forge-maintenance` also prevents updater runs across
+reboots. Keep the marker and timer hold until migration and recovery checks pass;
+then remove the marker and restart `nix-auto-sync-update.timer` explicitly.
+
+Atlas's PostgreSQL major and data directory are pinned in
+`modules/services/postgresql/atlas.nix`. Its scheduled `pg_dumpall` backup covers
+cluster roles and every database except `matrix-synapse`, `mautrix-discord` and
+`pluralmatrix`, which are intentionally unbacked
+([Matrix after SEC-Hive](docs/sec-hive-matrix.md)). The existing Uptime Kuma probe
+reports completion.
+Atlas uses PostgreSQL 18 at `/var/lib/postgresql/18`. Startup requires its
+`PG_VERSION` and `.forge-upgrade-complete` marker; create the marker only after a
+successful `pg_upgrade` or a verified full restore. Keep the PostgreSQL 16
+directory and its system generation for recovery. Returning to it after new
+writes requires reconciling those writes or restoring a current backup.
