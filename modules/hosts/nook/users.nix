@@ -1,6 +1,6 @@
 {
   nixos.nook = {pkgs, ...}: let
-    nixRemoteBuilderPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFrYvuVU6UgbonZOq1DPLNVGzrXGnVMppeLFFjcB6k9g nix-remote-builder home-server";
+    nixRemoteBuilderPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIieHI/7SEDucUh1E+yUK0bxoI3G1LZxD/j31rolB71/ nix-remote-builder home-server";
   in {
     users.users = {
       root.hashedPassword = "!";
