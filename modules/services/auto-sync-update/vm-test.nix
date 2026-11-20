@@ -139,8 +139,10 @@
         with subtest("a run with a Git token and a mail leaves no temporary files behind"):
             machine.succeed("printf 'AUTO_SYNC_GIT_TOKEN=fixture-token\\nAUTO_SYNC_SMTP_URL=smtp://127.0.0.1:9\\nAUTO_SYNC_SMTP_REQUIRE_TLS=0\\n' > /run/auto-sync.env; echo 23 > /run/fail-rebuild")
             machine.fail("systemctl start nix-auto-sync-update.service")
+            # The run reached the rebuild, so every file was created before cleanup.
+            assert machine.succeed("systemctl show -p ExecMainStatus --value nix-auto-sync-update.service").strip() == "23"
             # The askpass helper, log, message and mail marker all lived in one private directory.
-            machine.succeed("test -z \"$(ls -A /run/updater-tmp)\"")
+            machine.succeed("test -d /run/updater-tmp && test -z \"$(ls -A /run/updater-tmp)\"")
             machine.succeed("rm /run/auto-sync.env /run/fail-rebuild")
 
         with subtest("Lix fetches a pinned revision from a checkout root does not own"):
