@@ -22,7 +22,10 @@ command_name=${0##*/}
 printf '%s %s\\n' "$command_name" "$*" >> "$DEPLOY_TEST_LOG"
 if [[ "$command_name" == ssh && "$1" == -S ]]; then shift 2; fi
 case "$command_name:$1" in
-  git:status) if [[ "${DEPLOY_TEST_DIRTY:-0}" == 1 ]]; then echo " M modules/example.nix"; fi ;;
+  git:status)
+    if [[ "${DEPLOY_TEST_FAIL_STATUS:-0}" == 1 ]]; then exit 128; fi
+    if [[ "${DEPLOY_TEST_DIRTY:-0}" == 1 ]]; then echo " M modules/example.nix"; fi
+    ;;
   git:rev-parse)
     if [[ "$2" == origin/main ]]; then
       # Later lookups model main moving while the closures build.
@@ -105,6 +108,19 @@ esac
                 self.assertNotIn("systemctl start nix-auto-sync-update.timer", commands)
                 self.assertEqual((self.root / "timer-state").read_text().strip(), "inactive")
                 self.assertIn("was stopped before this deploy", result.stderr)
+
+    def test_a_failed_timer_is_not_a_hold(self):
+        self.env.update(DEPLOY_TEST_TIMER_INITIAL="failed")
+        result, commands = self.run_deploy("atlas", "switch")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("ssh atlas sudo systemctl start nix-auto-sync-update.timer", commands)
+
+    def test_a_failed_git_status_stops_an_atlas_deploy(self):
+        self.env.update(DEPLOY_TEST_FAIL_STATUS="1")
+        result, commands = self.run_deploy("atlas", "switch")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("git status failed", result.stderr)
+        self.assertNotIn("nix run", commands)
 
     def test_a_fixing_deploy_keeps_the_hold_left_by_a_failed_one(self):
         result, _ = self.run_deploy("atlas", "switch", fail_activation=True)

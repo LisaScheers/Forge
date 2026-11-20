@@ -52,7 +52,11 @@ url_encode_path() {
 
 flake=.
 if [[ "$host" == "atlas" ]]; then
-  if [[ -n "$(git status --porcelain)" ]]; then
+  if ! worktree_changes="$(git status --porcelain)"; then
+    echo "git status failed; Atlas was not deployed" >&2
+    exit 1
+  fi
+  if [[ -n "$worktree_changes" ]]; then
     echo "Atlas deploys require a clean worktree" >&2
     exit 1
   fi
@@ -72,17 +76,17 @@ nix build --no-link \
   "$flake#checks.$target_system.\"deploy-activate-$host\"" \
   "$flake#checks.$target_system.\"$host\""
 
-atlas_timer_needs_restart=0
+atlas_timer_paused=0
 atlas_timer_was_held=0
 atlas_deploy_started=0
 print_timer_restart() {
   echo "Start it when Atlas should update itself again:" >&2
   echo "  ssh ${ssh_args[*]} atlas sudo systemctl start nix-auto-sync-update.timer" >&2
 }
-restart_atlas_timer() {
+settle_atlas_timer() {
   exit_status=$?
   trap - EXIT
-  if [[ "$atlas_timer_needs_restart" == "1" ]]; then
+  if [[ "$atlas_timer_paused" == "1" ]]; then
     if [[ "$maintenance" == "--maintenance" || "$atlas_timer_was_held" == "1" ]]; then
       if ! ssh "${ssh_args[@]}" atlas sudo systemctl stop nix-auto-sync-update.timer; then
         echo "failed to keep the Atlas auto-update timer stopped" >&2
@@ -110,15 +114,16 @@ restart_atlas_timer() {
   fi
   exit "$exit_status"
 }
-trap restart_atlas_timer EXIT
+trap settle_atlas_timer EXIT
 
 if [[ "$host" == "atlas" ]]; then
-  # An earlier hold (a timer already stopped by hand) outlasts this deploy.
+  # An earlier hold (a timer stopped by hand or by a failed deploy) outlasts
+  # this deploy. A timer that failed on its own is not a hold.
   timer_state="$(ssh "${ssh_args[@]}" atlas systemctl show --property=ActiveState --value nix-auto-sync-update.timer)"
-  if [[ "$timer_state" != "active" ]]; then
+  if [[ "$timer_state" == "inactive" ]]; then
     atlas_timer_was_held=1
   fi
-  atlas_timer_needs_restart=1
+  atlas_timer_paused=1
   ssh "${ssh_args[@]}" atlas sudo systemctl stop nix-auto-sync-update.timer
   update_state="$(ssh "${ssh_args[@]}" atlas systemctl show --property=ActiveState --value nix-auto-sync-update.service)"
   # A failed run must not block deploying the commit that fixes it.
