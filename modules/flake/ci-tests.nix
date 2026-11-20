@@ -19,6 +19,8 @@
         "dotted.name" = stub "dotted";
         unit = stub "unit-tests";
         vm = stub "vm-test-run-vm";
+        mixed = stub "container-and-vm-test-run-mixed";
+        container = stub "container-test-run-container";
       };
       ci.targets = [
         {
@@ -50,25 +52,46 @@
   # The same fixture with an ordinary check evaluates, so a rejection is the guard's.
   rejectsVm = targetChecks: evaluatesArmChecks targetChecks "unit-tests" && !(evaluatesArmChecks targetChecks "vm-test-run-vm");
   entries = output: builtins.attrNames output.x86_64-linux.entries;
-  valid =
-    # The fixtures name VM tests the way runNixOSTest names QEMU-node tests; a
-    # real one pins that, so an upstream rename fails here.
-    config.flake.checks.x86_64-linux.auto-sync-update.name
-    == "vm-test-run-auto-sync-update"
-    && map (entry: entry.target) routed.ciMatrix.include
-    == ["nixosConfigurations.host" "ciChecks.x86_64-linux" "ciVmTests.x86_64-linux"]
-    # Target checks build in the target's job, quoted so dotted names stay one attribute.
-    && (builtins.head routed.ciMatrix.include).checks
-    == ''checks.x86_64-linux."host" checks.x86_64-linux."deploy" checks.x86_64-linux."dotted.name"''
-    && entries routed.ciChecks == ["unit"]
-    && entries routed.ciVmTests == ["vm"]
-    && !(builtins.tryEval (builtins.deepSeq (fixture ["missing"] {}).ciMatrix true)).success
-    && !(builtins.tryEval (builtins.deepSeq unmapped.ciMatrix true)).success
-    && rejectsVm []
-    && rejectsVm ["vm"];
+  # Each failure names the rule it broke.
+  rules = [
+    {
+      holds = config.flake.checks.x86_64-linux.auto-sync-update.name == "vm-test-run-auto-sync-update";
+      message = "runNixOSTest no longer names QEMU tests vm-test-run-<name>; update isVmTest in ci.nix";
+    }
+    {
+      holds =
+        map (entry: entry.target) routed.ciMatrix.include
+        == ["nixosConfigurations.host" "ciChecks.x86_64-linux" "ciVmTests.x86_64-linux"];
+      message = "each target, the regular checks and the VM tests need their own jobs";
+    }
+    {
+      # Quoted so dotted names stay one attribute.
+      holds =
+        (builtins.head routed.ciMatrix.include).checks
+        == ''checks.x86_64-linux."host" checks.x86_64-linux."deploy" checks.x86_64-linux."dotted.name"'';
+      message = "a target's job must build the checks it lists, each quoted";
+    }
+    {
+      holds = entries routed.ciChecks == ["container" "unit"] && entries routed.ciVmTests == ["mixed" "vm"];
+      message = "VM tests, mixed container-and-VM tests included, must leave the regular checks job";
+    }
+    {
+      holds = !(builtins.tryEval (builtins.deepSeq (fixture ["missing"] {}).ciMatrix true)).success;
+      message = "ci.targets must reject unknown checks";
+    }
+    {
+      holds = !(builtins.tryEval (builtins.deepSeq unmapped.ciMatrix true)).success;
+      message = "checks for a platform without a runner must fail evaluation";
+    }
+    {
+      holds = rejectsVm [] && rejectsVm ["vm"];
+      message = "a VM test on a runner without KVM must fail that platform's checks job";
+    }
+  ];
+  broken = map (rule: rule.message) (builtins.filter (rule: !rule.holds) rules);
 in {
   perSystem = {pkgs, ...}: {
-    checks.ci-routing = assert lib.assertMsg valid "CI must route target, regular and VM checks to separate jobs and reject unknown checks, unmapped platforms and VM tests without KVM";
+    checks.ci-routing = assert lib.assertMsg (broken == []) "ci-routing: ${lib.concatStringsSep "; " broken}";
       pkgs.runCommand "ci-routing" {} ''
         touch "$out"
       '';
