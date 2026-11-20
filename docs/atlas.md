@@ -87,13 +87,20 @@ cluster roles and every database except `matrix-synapse`, `mautrix-discord` and
 ([Matrix after SEC-Hive](sec-hive-matrix.md)). The existing Uptime Kuma probe
 reports completion.
 
-Nook copies that dump off Atlas every day at 04:30 into
-`/srv/disks/western-digital-hdd/backups/atlas-postgresql/all-<date>.sql.zstd`,
-checks it with `zstd --test` before keeping it, and prunes copies older than 14
-days (`modules/services/postgresql/offsite.nix`). It logs in as `postgres` with
-a key that Atlas restricts to printing the dump; the private half is
+Atlas dumps at 03:00 UTC and Nook copies the dump at 04:30 UTC, into
+`/srv/disks/western-digital-hdd/backups/atlas-postgresql/all-<UTC date>.sql.zstd`
+(`modules/services/postgresql/offsite.nix`; `checks.postgresql-backup-schedule`
+keeps both timers in UTC). Nook checks each copy with `zstd --test` before
+keeping it and prunes copies older than 14 days. It logs in as `postgres` with a
+key that Atlas restricts to printing the dump; the private half is
 `secrets/nook/atlas-backup-pull-key.age`. A failed copy fails
 `postgresql-backup-pull.service` on Nook and leaves the previous copies alone.
+To check that copies are current:
+
+```sh
+ssh nook 'sudo ls -lt /srv/disks/western-digital-hdd/backups/atlas-postgresql | head -3'
+ssh nook 'systemctl status postgresql-backup-pull.service'
+```
 
 Atlas uses PostgreSQL 18 at `/var/lib/postgresql/18`. Startup requires its
 `PG_VERSION` and `.forge-upgrade-complete` marker; create the marker only after a
@@ -115,20 +122,29 @@ still reachable. Then:
    stays held throughout.
 3. PostgreSQL refuses to start until
    `/var/lib/postgresql/18/.forge-upgrade-complete` exists. Copy the newest
-   dump from Nook to `/root/all.sql.zstd` and restore it with the script that
-   `modules/services/postgresql/tests.nix` tests:
+   dump from Nook, whose backup directory only root can read (for example with
+   `sudo cat` over SSH), to `/root/all.sql.zstd` on Atlas, and restore it with
+   the script that `modules/services/postgresql/tests.nix` tests:
 
    ```sh
    sudo forge-postgresql-restore /root/all.sql.zstd
    ```
 
    It refuses an existing cluster, restores into a new one through a private
-   socket with TCP off, lists the restored databases, and creates the marker
-   only after the restore and a clean shutdown succeed. It bootstraps with a
-   uniquely named role, left unable to log in, so a later dump restores too.
+   socket with TCP off, and creates the marker only after the restore, a check
+   that the `postgres` role and every backed-up database came back, and a clean
+   shutdown all succeed. It bootstraps with a uniquely named role, left unable
+   to log in, so a later dump restores too. If it fails, move the incomplete
+   cluster aside before trying again:
+
+   ```sh
+   sudo mv /var/lib/postgresql/18 "/var/lib/postgresql/18.failed-$(date +%s)"
+   ```
 
    The Matrix databases are not in the dump; see
    [Matrix after SEC-Hive](sec-hive-matrix.md).
-4. Start PostgreSQL, check `systemctl --failed` and the Uptime Kuma probes, then
+4. Start PostgreSQL with `sudo systemctl reset-failed postgresql.service` and
+   `sudo systemctl start postgresql.service` (it failed while the marker was
+   missing), check `systemctl --failed` and the Uptime Kuma probes, then
    release the hold as described under
    [Maintenance and PostgreSQL](#maintenance-and-postgresql).

@@ -14,7 +14,7 @@
           oldbin=${pkgs.postgresql_16}/bin
           newbin=${pkgs.postgresql_18}/bin
           cleanup() {
-            for cluster in old new restored again; do
+            for cluster in old new restored again empty; do
               if test -f "$PWD/$cluster/postmaster.pid"; then
                 "$newbin/pg_ctl" -D "$PWD/$cluster" -m immediate stop || true
               fi
@@ -54,7 +54,7 @@
           "$oldbin/pg_ctl" -D "$PWD/old" -m fast -w stop
 
           # The restore Atlas's runbook uses (docs/atlas.md).
-          restore=${lib.getExe (pkgs.callPackage ../../../packages/forge-postgresql-restore/package.nix {})}
+          restore=${lib.getExe (pkgs.callPackage ../../../packages/forge-postgresql-restore/package.nix {expectedDatabases = ["application"];})}
           zstd -q "$PWD/backup.sql" -o "$PWD/backup.sql.zstd"
           "$restore" "$PWD/backup.sql.zstd" "$PWD/restored"
           test -f "$PWD/restored/.forge-upgrade-complete"
@@ -68,10 +68,13 @@
           "$restore" "$PWD/again.sql.zstd" "$PWD/again"
           test -f "$PWD/again/.forge-upgrade-complete"
 
-          # A corrupt dump or an existing cluster never gets the marker.
+          # A corrupt or empty dump, or an existing cluster, never gets the marker.
           printf 'not zstd' > "$PWD/corrupt.sql.zstd"
           if "$restore" "$PWD/corrupt.sql.zstd" "$PWD/failed"; then exit 1; fi
           test ! -e "$PWD/failed/.forge-upgrade-complete"
+          printf "" | zstd -q -o "$PWD/empty.sql.zstd"
+          if "$restore" "$PWD/empty.sql.zstd" "$PWD/empty"; then exit 1; fi
+          test ! -e "$PWD/empty/.forge-upgrade-complete"
           if "$restore" "$PWD/backup.sql.zstd" "$PWD/again"; then exit 1; fi
           touch "$out"
         '';
