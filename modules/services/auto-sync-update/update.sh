@@ -4,14 +4,16 @@
 # system changes the kernel, initrd or modules.
 # systemd loads the environment file (EnvironmentFile=), so it is data here and
 # never runs as shell code.
-log_file="$(mktemp)"
+# A private directory (mode 0700), so no other user can plant the marker.
+work_dir="$(mktemp -d)"
+log_file="$work_dir/log"
 # Marks that sending already failed this run, so the failure mail is skipped
 # rather than retried against a server that just refused.
-mail_failed_marker="$log_file.mail-failed"
+mail_failed_marker="$work_dir/mail-failed"
 
 # shellcheck disable=SC2329
 cleanup() {
-  rm -f "$log_file" "$mail_failed_marker"
+  rm -rf "$work_dir"
   if [ -n "${askpass_file:-}" ]; then
     rm -f "$askpass_file"
   fi
