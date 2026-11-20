@@ -70,10 +70,12 @@ top-level feature boundaries and module-class safety.
 Secret recipients live in `modules/security/agenix/recipients.nix`.
 `secrets/<host>/` holds secrets that only that host decrypts and
 `secrets/shared/` those that several hosts decrypt; each is encrypted for Lisa
-and exactly its reading hosts. `checks.agenix-rules` enforces all of this
-against the hosts' configurations. Change recipients with `just secret-rekey`.
-Narrowing recipients does not revoke access to older revisions in Git; rotate
-the credential itself when a former recipient must lose access.
+and exactly its reading hosts. `checks.agenix-rules` checks the rules against
+the hosts' configurations and each file's age header: SSH recipients by key tag,
+age recipients by count, since an X25519 stanza does not name its key. Change
+recipients with `just secret-rekey`. Narrowing recipients does not revoke access
+to older revisions in Git; rotate the credential itself when a former recipient
+must lose access.
 
 CI targets are declared beside their home or installer output, and
 `modules/flake/deploy.nix` adds one per deployed host. The CI module maps those
