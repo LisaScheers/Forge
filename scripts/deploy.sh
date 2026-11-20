@@ -81,32 +81,36 @@ atlas_timer_was_held=0
 atlas_deploy_started=0
 print_timer_restart() {
   echo "Start it when Atlas should update itself again:" >&2
-  echo "  ssh ${ssh_args[*]} atlas sudo systemctl start nix-auto-sync-update.timer" >&2
+  printf '  ssh' >&2
+  printf ' %q' "${ssh_args[@]}" atlas sudo systemctl start nix-auto-sync-update.timer >&2
+  printf '\n' >&2
 }
 settle_atlas_timer() {
   exit_status=$?
   trap - EXIT
   if [[ "$atlas_timer_paused" == "1" ]]; then
-    if [[ "$maintenance" == "--maintenance" || "$atlas_timer_was_held" == "1" ]]; then
+    deploy_failed=0
+    if [[ "$atlas_deploy_started" == "1" && "$exit_status" != "0" ]]; then
+      deploy_failed=1
+    fi
+    if [[ "$maintenance" == "--maintenance" || "$atlas_timer_was_held" == "1" || "$deploy_failed" == "1" ]]; then
+      # Stop it again: activation and rollback can start wanted timers.
       if ! ssh "${ssh_args[@]}" atlas sudo systemctl stop nix-auto-sync-update.timer; then
-        echo "failed to keep the Atlas auto-update timer stopped" >&2
-        exit_status=1
-      elif [[ "$maintenance" == "--maintenance" ]]; then
-        echo "Atlas maintenance: its auto-update timer remains stopped" >&2
+        echo "failed to keep the Atlas auto-update timer stopped; it may run again" >&2
+        if [[ "$exit_status" == "0" ]]; then
+          exit_status=1
+        fi
       else
-        echo "Atlas auto-update timer was stopped before this deploy; it remains stopped" >&2
+        if [[ "$maintenance" == "--maintenance" ]]; then
+          echo "Atlas maintenance: its auto-update timer remains stopped" >&2
+        elif [[ "$atlas_timer_was_held" == "1" ]]; then
+          echo "Atlas auto-update timer was stopped before this deploy; it remains stopped" >&2
+        else
+          # A later deploy treats the stopped timer as a hold and keeps it.
+          echo "Atlas deployment failed; its auto-update timer remains stopped, and later deploys keep it stopped" >&2
+        fi
         print_timer_restart
       fi
-    elif [[ "$atlas_deploy_started" == "1" && "$exit_status" != "0" ]]; then
-      # Activation and rollback can start wanted timers again.
-      if ssh "${ssh_args[@]}" atlas sudo systemctl stop nix-auto-sync-update.timer; then
-        echo "Atlas deployment failed; its auto-update timer remains stopped" >&2
-      else
-        echo "Atlas deployment failed; failed to stop its auto-update timer" >&2
-      fi
-      # A later deploy treats the stopped timer as a hold and keeps it.
-      echo "Later deploys keep it stopped until it is started again." >&2
-      print_timer_restart
     elif ! ssh "${ssh_args[@]}" atlas sudo systemctl start nix-auto-sync-update.timer; then
       echo "failed to restart Atlas auto-update timer" >&2
       exit_status=1

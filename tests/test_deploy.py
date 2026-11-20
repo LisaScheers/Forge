@@ -152,7 +152,9 @@ esac
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual((self.root / "timer-state").read_text().strip(), "active")
                 self.assertIn("failed to", result.stderr)
-                self.assertNotIn("timer remains stopped", result.stderr)
+                self.assertNotIn("remains stopped", result.stderr)
+                self.assertNotIn("later deploys keep it", result.stderr.lower())
+                self.assertNotIn("Start it when", result.stderr)
                 self.assertNotIn("systemctl start nix-auto-sync-update.timer", commands)
 
     def test_authenticated_channel_is_used_for_checks_and_activation(self):
@@ -161,6 +163,12 @@ esac
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("ssh -S /tmp/forge-test-socket atlas", commands)
         self.assertIn("--ssh-opts -S /tmp/forge-test-socket", commands)
+
+    def test_the_printed_start_command_quotes_the_control_path(self):
+        self.env.update(FORGE_DEPLOY_SSH_CONTROL="/tmp/forge test socket")
+        result, _ = self.run_deploy("atlas", "switch", "--maintenance")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(r"ssh -S /tmp/forge\ test\ socket atlas sudo systemctl start", result.stderr)
 
     def test_maintenance_rejects_other_hosts_and_modes_before_contact(self):
         for args in (("nook", "switch", "--maintenance"),
