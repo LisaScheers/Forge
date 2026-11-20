@@ -4,6 +4,9 @@
     pkgs,
     ...
   }: {
+    # The restore docs/atlas.md walks through; tests.nix runs the same script.
+    environment.systemPackages = [(pkgs.callPackage ../../../packages/forge-postgresql-restore/package.nix {})];
+
     # Pin the running major independently of system.stateVersion.
     services.postgresql = {
       package = pkgs.postgresql_18;
