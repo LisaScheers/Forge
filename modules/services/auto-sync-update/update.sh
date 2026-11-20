@@ -25,12 +25,14 @@ if ! flock -n 9; then
 fi
 
 load_env() {
+  local load_status=0
   if [ -f "$env_file" ]; then
     set -a
     # shellcheck disable=SC1090
-    . "$env_file"
+    . "$env_file" || load_status=$?
     set +a
   fi
+  return "$load_status"
 }
 
 configure_git_auth() {
@@ -86,6 +88,8 @@ send_mail() {
     --mail-from "$mail_from"
     --mail-rcpt "$mail_to"
     --upload-file "$mail_file"
+    # A stalled server must not hold the update lock.
+    --max-time 60
   )
 
   if [ "${AUTO_SYNC_SMTP_REQUIRE_TLS:-1}" != "0" ]; then
@@ -181,7 +185,6 @@ handle_required_reboot() {
 }
 
 run_update() {
-  configure_git_auth
 
   if [ ! -d "$repo_path/.git" ]; then
     if [ -z "${AUTO_SYNC_GIT_REPOSITORY_URL:-}" ]; then
@@ -208,7 +211,7 @@ run_update() {
   # Nix runs its own git for the fetch, so pass the safe.directory exception
   # through the environment as well.
   GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$repo_path" \
-    "${rebuild_cmd[@]}" --flake "git+file://$repo_path?rev=$(git rev-parse HEAD)#$flake_host"
+    "${rebuild_cmd[@]}" --flake "$repo_url?rev=$(git rev-parse HEAD)#$flake_host"
   # The default scheduler is checked after every rebuild, so a kernel that
   # deploy.sh activated still gets its reboot. A custom scheduler cannot report
   # a pending reboot, so it runs only when this rebuild changed the system.
@@ -218,8 +221,20 @@ run_update() {
   fi
 }
 
-# The failure mail below needs the SMTP settings too, so load them here.
-load_env
+# Load settings and Git credentials here rather than in the update subshell:
+# the failure mail needs the SMTP settings, and the cleanup trap must see the
+# askpass file. A broken environment file is reported like any other failure.
+set +e
+load_env 2>>"$log_file"
+status=$?
+set -e
+if [ "$status" -ne 0 ]; then
+  echo "Failed to load $env_file" >>"$log_file"
+  cat "$log_file" >&2
+  send_failure_mail "$status"
+  exit "$status"
+fi
+configure_git_auth
 
 # Run the update in a subshell outside any condition: an `if` around the
 # call would disable errexit inside it and hide failed steps.

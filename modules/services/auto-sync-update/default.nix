@@ -58,6 +58,7 @@ in {
         ''
           set -euo pipefail
           repo_path=${lib.escapeShellArg cfg.repositoryPath}
+          repo_url=${lib.escapeShellArg "git+file://${lib.concatMapStringsSep "/" lib.strings.escapeURL (lib.splitString "/" cfg.repositoryPath)}"}
           flake_host=${lib.escapeShellArg cfg.flakeHost}
           branch=${lib.escapeShellArg cfg.branch}
           default_env_file=${lib.escapeShellArg cfg.environmentFile}

@@ -14,7 +14,9 @@
     personalAdmin = atlas.services.mautrix-discord.settings.bridge.permissions."@lisa:bylisa.dev" == "admin";
     noRelayAdmin = !(builtins.hasAttr "@sec-hive-relay:bylisa.dev" atlas.services.mautrix-discord.settings.bridge.permissions);
     databasesManaged = lib.all (name: builtins.elem name atlas.services.postgresql.ensureDatabases) ["matrix-synapse" "mautrix-discord"];
-    mediaOnVolume = lib.any (mount: mount.where == "/var/lib/matrix-synapse/media_store") atlas.systemd.mounts;
+    # Media lives on the dedicated volume, addressed by a stable device identity.
+    mediaOnVolume = atlas.matrix.volume.enable && lib.any (mount: mount.where == "/var/lib/matrix-synapse/media_store" && lib.hasPrefix atlas.matrix.volume.mountPoint mount.what) atlas.systemd.mounts;
+    volumeHasStableDevice = lib.hasPrefix "/dev/disk/by-id/" atlas.matrix.volume.device && atlas.fileSystems.${atlas.matrix.volume.mountPoint}.device == atlas.matrix.volume.device;
     globalBackupEnabled = atlas.services.postgresqlBackup.enable && atlas.services.postgresqlBackup.backupAll;
     matrixDatabasesExcluded = lib.splitString " " atlas.services.postgresqlBackup.pgdumpAllOptions == ["--exclude-database=matrix-synapse" "--exclude-database=mautrix-discord" "--exclude-database=pluralmatrix"];
   };

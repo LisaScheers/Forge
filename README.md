@@ -181,10 +181,11 @@ The `nixpkgs-atlas-apps` and `nixpkgs-nook-apps` inputs track Nixpkgs master
 for Forgejo, Home Assistant and Sonarr. Their migration holds were removed after
 Lisa confirmed migration and recovery checks were complete on 8 November 2026.
 Their lock entries still allow application updates separately from infrastructure.
-The daily lock workflow advances every input. To hold one application, list the
-other inputs in the `inputs` setting of `.github/workflows/update-flake-lock.yml`
-and advance the held input later with `nix flake update nixpkgs-atlas-apps` (or
-`nixpkgs-nook-apps`).
+`nixpkgs-atlas-apps` pins Forgejo on Atlas; `nixpkgs-nook-apps` pins Home
+Assistant and Sonarr on Nook together, so holding it holds both. The daily lock
+workflow advances every input. To hold one, list the other inputs in the
+`inputs` setting of `.github/workflows/update-flake-lock.yml`, then advance the
+held input later with `nix flake update <input>`.
 
 A deployable host is one entry in the `hosts` table in `modules/flake/deploy.nix` (its SSH user and options). Its platform comes from the host's own configuration and selects the deploy-rs activation, the `deploy-*-<host>` checks and the `deploySystems` output the recipe reads. The recipe builds the host closure plus host-specific deploy-rs schema and activation checks before it opens the deployment connection. Nix may still use the remote builders declared by this flake during that build. The recipe then passes `--skip-checks` to deploy-rs, which would otherwise run the whole flake check; CI already builds every flake check. Do not use `--skip-checks` without those targeted builds.
 

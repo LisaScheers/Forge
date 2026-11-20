@@ -20,7 +20,7 @@
               touch /run/rebuild-start
               printf '%s\n' "$@" > /run/rebuild-args
               env > /run/rebuild-env
-              if test -e /run/fail-rebuild; then exit 1; fi
+              if test -e /run/fail-rebuild; then echo rebuild-failure-marker; exit 1; fi
               while ! test -e /run/allow-rebuild-finish; do sleep 0.1; done
               touch /run/rebuild-finished
             ''))
@@ -29,7 +29,7 @@
         };
         # The test starts the unit more often than systemd's default start limit allows.
         systemd.services.nix-auto-sync-update.unitConfig.StartLimitIntervalSec = 0;
-        environment.systemPackages = [pkgs.git pkgs.util-linux];
+        environment.systemPackages = [pkgs.git pkgs.python3 pkgs.util-linux];
         virtualisation.memorySize = 1024;
         system.stateVersion = "26.05";
       };
@@ -77,23 +77,23 @@
             machine.succeed("rm /run/fail-rebuild")
             machine.succeed("systemctl start nix-auto-sync-update.service")
 
-        def last_run_log(expected):
-            invocation = machine.succeed("systemctl show -p InvocationID --value nix-auto-sync-update.service").strip()
-            query = f"journalctl --no-pager _SYSTEMD_INVOCATION_ID={invocation}"
-            # journald may still be receiving the run's last lines.
-            try:
-                machine.wait_until_succeeds(f"{query} | grep -qF '{expected}'", timeout=30)
-            except Exception:
-                print(machine.succeed(f"{query}; journalctl --no-pager -u nix-auto-sync-update.service -n 40"))
-                raise
-            return machine.succeed(query)
+        machine.succeed("systemd-run --unit smtp-fixture python3 ${./smtp-fixture.py}")
+        machine.wait_for_open_port(2525)
+        smtp = "AUTO_SYNC_SMTP_URL=smtp://127.0.0.1:2525\nAUTO_SYNC_SMTP_REQUIRE_TLS=0\n"
 
-        with subtest("the failure mail uses the SMTP settings from the environment file"):
-            machine.succeed("echo AUTO_SYNC_SMTP_URL=smtp://127.0.0.1:9 > /run/auto-sync.env; touch /run/fail-rebuild")
+        with subtest("the failure mail carries the full log and the exit status"):
+            machine.succeed(f"printf '{smtp}' > /run/auto-sync.env; touch /run/fail-rebuild")
             machine.fail("systemctl start nix-auto-sync-update.service")
-            log = last_run_log("Failed to send email")
-            assert "is not set" not in log, log
-            machine.succeed("rm /run/fail-rebuild /run/auto-sync.env")
+            machine.wait_until_succeeds("grep -q rebuild-failure-marker /run/mail.txt", timeout=30)
+            mail = machine.succeed("cat /run/mail.txt")
+            assert "failed on lock-fixture with exit status 1" in mail, mail
+            machine.succeed("rm /run/fail-rebuild /run/mail.txt")
+
+        with subtest("a broken environment file is reported, not silently fatal"):
+            machine.succeed(f"printf '{smtp}false\\n' > /run/auto-sync.env")
+            machine.fail("systemctl start nix-auto-sync-update.service")
+            machine.wait_until_succeeds("grep -q 'Failed to load /run/auto-sync.env' /run/mail.txt", timeout=30)
+            machine.succeed("rm /run/auto-sync.env /run/mail.txt")
 
         with subtest("a pending reboot is scheduled once, even without a system change"):
             machine.succeed("echo AUTO_SYNC_FORCE_REBOOT_REQUIRED=1 > /run/auto-sync.env")

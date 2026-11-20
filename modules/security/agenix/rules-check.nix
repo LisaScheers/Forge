@@ -4,14 +4,16 @@
   ...
 }: let
   root = toString ./.;
+  # Paths as rule keys spell them: relative to this directory.
+  relative = path: lib.removePrefix "${root}/" (toString path);
   systems = lib.attrValues config.flake.nixosConfigurations ++ lib.attrValues config.flake.darwinConfigurations;
   # Secret files, relative to this directory, that some host decrypts.
   consumed = lib.unique (lib.concatMap (system:
-    map (secret: lib.removePrefix "${root}/" (toString secret.file)) (lib.attrValues system.config.age.secrets))
+    map (secret: relative secret.file) (lib.attrValues system.config.age.secrets))
   systems);
   rules = builtins.attrNames config.flake.agenixRules;
   # Encrypted files on disk, relative to this directory.
-  files = map (path: lib.removePrefix "${root}/" (toString path)) (lib.filter (path: lib.hasSuffix ".age" (toString path)) (lib.filesystem.listFilesRecursive ./secrets));
+  files = map relative (lib.filter (lib.hasSuffix ".age") (map toString (lib.filesystem.listFilesRecursive ./secrets)));
   unused = lib.subtractLists consumed rules;
   unruled = lib.subtractLists rules (lib.unique (consumed ++ files));
 in {
