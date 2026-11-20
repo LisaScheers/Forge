@@ -5,10 +5,13 @@
 # systemd loads the environment file (EnvironmentFile=), so it is data here and
 # never runs as shell code.
 log_file="$(mktemp)"
+# Marks that sending already failed this run, so the failure mail is skipped
+# rather than retried against a server that just refused.
+mail_failed_marker="$log_file.mail-failed"
 
 # shellcheck disable=SC2329
 cleanup() {
-  rm -f "$log_file"
+  rm -f "$log_file" "$mail_failed_marker"
   if [ -n "${askpass_file:-}" ]; then
     rm -f "$askpass_file"
   fi
@@ -98,12 +101,19 @@ send_mail() (
   if ! curl "${curl_args[@]}"; then
     # A lost mail (for example a reboot notice) must not pass silently.
     echo "Failed to send email: $subject" >&2
+    touch "$mail_failed_marker"
     return 1
   fi
 )
 
+# Mails the captured log. A mail failure is already logged by send_mail, so
+# callers ignore it and exit with the original status.
 send_failure_mail() {
-  status="$1"
+  local status="$1"
+  if [ -e "$mail_failed_marker" ]; then
+    echo "Not sending the failure mail: sending already failed this run." >&2
+    return 0
+  fi
 
   {
     printf 'nix-auto-sync-update failed on %s with exit status %s.\n\n' "$flake_host" "$status"
@@ -226,7 +236,6 @@ status=$?
 set -e
 if [ "$status" -ne 0 ]; then
   cat "$log_file" >&2
-  # A mail failure is logged above; exit with the original status either way.
   send_failure_mail "$status" || true
   exit "$status"
 fi
@@ -242,7 +251,6 @@ set +e
 status=${PIPESTATUS[0]}
 set -e
 if [ "$status" -ne 0 ]; then
-  # A mail failure is logged above; exit with the original status either way.
   send_failure_mail "$status" || true
 fi
 exit "$status"

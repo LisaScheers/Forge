@@ -3,9 +3,9 @@
   withSystem,
   ...
 }: {
-  flake.checks.x86_64-linux.auto-sync-update-lock = withSystem "x86_64-linux" ({pkgs, ...}:
+  flake.checks.x86_64-linux.auto-sync-update = withSystem "x86_64-linux" ({pkgs, ...}:
     pkgs.testers.runNixOSTest {
-      name = "auto-sync-update-shared-lock";
+      name = "auto-sync-update";
       nodes.machine = {pkgs, ...}: {
         imports = [config.nixos.auto-sync-update];
         services.autoSyncUpdate = {
@@ -113,12 +113,16 @@
         with subtest("an undeliverable reboot notice fails the unit"):
             machine.succeed("printf 'AUTO_SYNC_SMTP_URL=smtp://127.0.0.1:9\\nAUTO_SYNC_SMTP_REQUIRE_TLS=0\\n' > /run/auto-sync.env; touch /run/reboot-required")
             machine.fail("systemctl start nix-auto-sync-update.service")
-            machine.succeed("journalctl -u nix-auto-sync-update.service | grep -q 'Failed to send email: \\[watchdog\\] reboot required'")
+            invocation = machine.succeed("systemctl show -p InvocationID --value nix-auto-sync-update.service").strip()
+            run_log = f"journalctl --no-pager _SYSTEMD_INVOCATION_ID={invocation}"
+            machine.wait_until_succeeds(f"{run_log} | grep -q 'Not sending the failure mail'", timeout=30)
+            # One attempt only: the failure mail is not retried against the same server.
+            assert machine.succeed(f"{run_log} | grep -c 'Failed to send email'").strip() == "1"
             machine.succeed("rm /run/reboot-required")
             machine.succeed("systemctl stop nix-auto-sync-update-reboot.timer || true")
 
         with subtest("a failed rebuild keeps its exit status when the mail cannot be sent"):
-            machine.succeed("echo 23 > /run/fail-rebuild")
+            machine.succeed("printf 'AUTO_SYNC_SMTP_REQUIRE_TLS=0\\n' > /run/auto-sync.env; echo 23 > /run/fail-rebuild")
             machine.fail("systemctl start nix-auto-sync-update.service")
             assert machine.succeed("systemctl show -p ExecMainStatus --value nix-auto-sync-update.service").strip() == "23"
             machine.succeed("rm /run/fail-rebuild /run/auto-sync.env")
