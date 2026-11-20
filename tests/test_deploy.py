@@ -164,12 +164,15 @@ esac
         self.assertIn("ssh -S /tmp/forge-test-socket atlas", commands)
         self.assertIn("--ssh-opts -S /tmp/forge-test-socket", commands)
 
-    def test_a_control_path_with_whitespace_is_rejected_before_contact(self):
-        self.env.update(FORGE_DEPLOY_SSH_CONTROL="/tmp/forge test socket")
-        result, commands = self.run_deploy("atlas", "switch")
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("must not contain whitespace", result.stderr)
-        self.assertNotIn("ssh ", commands)
+    def test_a_control_path_with_whitespace_is_rejected_before_any_command(self):
+        for path in ("/tmp/forge test socket", "/tmp/forge\ttab", "/tmp/forge\nline"):
+            with self.subTest(path=path):
+                self.log.unlink(missing_ok=True)
+                self.env.update(FORGE_DEPLOY_SSH_CONTROL=path)
+                result, commands = self.run_deploy("atlas", "switch")
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("must not contain whitespace", result.stderr)
+                self.assertEqual(commands, "")
 
     def test_the_printed_start_command_does_not_need_the_deploy_socket(self):
         self.env.update(FORGE_DEPLOY_SSH_CONTROL="/tmp/forge-test-socket")
