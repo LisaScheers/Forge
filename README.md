@@ -178,7 +178,8 @@ workflow advances every input. To hold one, list the other inputs in the
 held input later with `nix flake update <input>`.
 
 A deployable host sets `deploy.hosts.<host>` in its host module (its SSH user
-and options). Its platform comes from the host's own configuration and selects
+and options); `deploy.hosts.<host> = {}` registers it with the login from
+`network.<host>.ssh` and the host name as SSH hostname. Its platform comes from the host's own configuration and selects
 the deploy-rs activation, the `<host>` and `deploy-*-<host>` checks, the host's
 CI job and the `deploySystems` output the recipe reads. The recipe builds the host closure plus host-specific
 deploy-rs schema and activation checks before it opens the deployment

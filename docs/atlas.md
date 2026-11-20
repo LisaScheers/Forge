@@ -9,13 +9,14 @@ Atlas deploys with the same `just deploy` commands as Nook (see the
 The Atlas recipe refuses dirty or off-main revisions, aborts when an auto-update
 or scheduled reboot is active, and pauses `nix-auto-sync-update.timer` while
 deploy-rs runs. It restarts the timer after a successful deployment or a
-preflight abort. If deploy-rs itself fails, the timer stays stopped so it cannot
-retry the same bad `main` revision; the recipe prints the recovery command.
-After a kernel change the updater arms a reboot up to 12 hours later, which
-blocks deploys until then. To deploy sooner, reboot Atlas or cancel the pending
-reboot with `ssh atlas sudo systemctl stop nix-auto-sync-update-reboot.timer`
-and deploy before the next updater run, which re-arms it if the activated
-kernel, initrd or modules still differ from the booted generation.
+preflight abort, unless the timer was already stopped before the deploy. If
+deploy-rs itself fails, the timer stays stopped so it cannot retry the same bad
+`main` revision; the recipe prints the recovery command. After a kernel change
+the updater arms a reboot up to 12 hours later, which blocks deploys until then.
+To deploy sooner, reboot Atlas or cancel the pending reboot with `ssh atlas sudo
+systemctl stop nix-auto-sync-update-reboot.timer` and deploy before the next
+updater run, which re-arms it if the activated kernel, initrd or modules still
+differ from the booted generation.
 
 deploy-rs connects to Atlas as `lisa`, which `modules/hosts/atlas/system.nix`
 makes a trusted Nix user. On a freshly installed Atlas, let its auto-updater
@@ -51,7 +52,8 @@ ssh atlas sudo journalctl -u nix-auto-sync-update -n 50
 # Saves the local commits to a branch, then resets. Nothing is changed if the
 # checkout has uncommitted changes or the branch cannot be created.
 ssh atlas 'git() { sudo git -c safe.directory=/etc/nix-darwin -C /etc/nix-darwin "$@"; }
-  if [ -n "$(git status --porcelain)" ]; then
+  changes="$(git status --porcelain)" || exit 1
+  if [ -n "$changes" ]; then
     echo "Uncommitted changes; handle them first." >&2
     exit 1
   else
@@ -61,11 +63,17 @@ ssh atlas 'git() { sudo git -c safe.directory=/etc/nix-darwin -C /etc/nix-darwin
 
 ## Maintenance and PostgreSQL
 
-For an approved database maintenance window, `just deploy-maintenance` applies
-Atlas while leaving its updater timer stopped. The root-owned marker
-`/var/lib/postgresql/.forge-maintenance` also prevents updater runs across
-reboots. Keep the marker and timer hold until migration and recovery checks pass;
-then remove the marker and restart `nix-auto-sync-update.timer` explicitly.
+For an approved database maintenance window, first create the root-owned marker
+that prevents updater runs, including across reboots, then apply Atlas with its
+updater timer left stopped:
+
+```sh
+ssh atlas sudo touch /var/lib/postgresql/.forge-maintenance
+just deploy-maintenance
+```
+
+Keep the marker and timer hold until migration and recovery checks pass; then
+remove the marker and restart `nix-auto-sync-update.timer` explicitly.
 
 Atlas's PostgreSQL major and data directory are pinned in
 `modules/services/postgresql/atlas.nix`. Its scheduled `pg_dumpall` backup covers
