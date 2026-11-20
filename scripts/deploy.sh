@@ -84,8 +84,8 @@ nix build --no-link \
 atlas_timer_paused=0
 atlas_timer_was_held=0
 atlas_deploy_started=0
-# The deploy's SSH control socket is gone by the time this is run, so the command
-# uses a plain connection.
+# The caller's optional SSH control socket may be gone by the time this is run,
+# so the command uses a plain connection.
 print_timer_restart() {
   echo "Start it when Atlas should update itself again:" >&2
   echo "  ssh atlas sudo systemctl start nix-auto-sync-update.timer" >&2

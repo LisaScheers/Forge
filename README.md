@@ -170,6 +170,11 @@ Use the same commands for Atlas. Its recipe also coordinates with the Atlas
 auto-updater; the [Atlas guide](docs/atlas.md) covers that, the updater's
 configuration and recovery, and database maintenance.
 
+To reuse an authenticated SSH connection, start an SSH control master yourself
+and set `FORGE_DEPLOY_SSH_CONTROL` to its socket path (no whitespace; deploy-rs
+splits its SSH options on spaces). The recipe then runs its Atlas commands and
+the activation through that socket; nothing in the repository sets it.
+
 The `nixpkgs-atlas-apps` and `nixpkgs-nook-apps` inputs track Nixpkgs master
 for Forgejo, Home Assistant and Sonarr. Their migration holds were removed after
 Lisa confirmed migration and recovery checks were complete on 8 November 2026.
