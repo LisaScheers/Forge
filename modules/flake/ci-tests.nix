@@ -8,9 +8,9 @@
     inherit name;
     outPath = builtins.toFile name "";
   };
-  fixture = targetChecks:
+  fixture = targetChecks: extra:
     (inputs.flake-parts.lib.evalFlakeModule {inherit inputs;} {
-      imports = [./ci.nix];
+      imports = [./ci.nix extra];
       systems = ["x86_64-linux"];
       flake.checks.x86_64-linux = {
         host = stub "nixos-system-host";
@@ -29,7 +29,9 @@
     })
     .config
     .flake;
-  routed = fixture ["host" "deploy" "dotted.name"];
+  routed = fixture ["host" "deploy" "dotted.name"] {};
+  # Checks for a platform with no runner and no unbuilt exemption.
+  unmapped = fixture [] {flake.checks.riscv64-linux.unit = stub "unit-tests";};
   entries = output: builtins.attrNames output.x86_64-linux.entries;
   valid =
     map (entry: entry.target) routed.ciMatrix.include
@@ -39,10 +41,11 @@
     == ''checks.x86_64-linux."host" checks.x86_64-linux."deploy" checks.x86_64-linux."dotted.name"''
     && entries routed.ciChecks == ["unit"]
     && entries routed.ciVmTests == ["vm"]
-    && !(builtins.tryEval (builtins.deepSeq (fixture ["missing"]).ciMatrix true)).success;
+    && !(builtins.tryEval (builtins.deepSeq (fixture ["missing"] {}).ciMatrix true)).success
+    && !(builtins.tryEval (builtins.deepSeq unmapped.ciMatrix true)).success;
 in {
   perSystem = {pkgs, ...}: {
-    checks.ci-routing = assert lib.assertMsg valid "CI must route target, regular and VM checks to separate jobs and reject unknown check names";
+    checks.ci-routing = assert lib.assertMsg valid "CI must route target, regular and VM checks to separate jobs and reject unknown checks and unmapped platforms";
       pkgs.runCommand "ci-routing" {} ''
         touch "$out"
       '';
