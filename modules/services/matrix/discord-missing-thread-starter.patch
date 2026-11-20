@@ -16,10 +16,10 @@
  	"errors"
 +	"fmt"
 +	"net/http"
- 	"os"
  	"strings"
  	"github.com/bwmarrin/discordgo"
-@@ -41,6 +43,14 @@
+ 	"maunium.net/go/mautrix/bridge/bridgeconfig"
+@@ -24,6 +26,14 @@
  	var body string
  	msgType := event.MsgEmote
  	switch msg.Type {
@@ -34,7 +34,7 @@
  	case discordgo.MessageTypeChannelNameChange:
  		body = "changed the channel name"
  		if msg.Content != "" { body += ": " + msg.Content }
-@@ -112,6 +122,40 @@
+@@ -95,6 +105,40 @@
  }
  
  func fnImportThreadHistory(ce *WrappedCommandEvent) {
@@ -75,7 +75,7 @@
  	if ce.User.PermissionLevel < bridgeconfig.PermissionLevelAdmin {
  		ce.Reply("Only bridge administrators can import thread history")
  		return
-@@ -121,22 +165,47 @@
+@@ -104,22 +148,47 @@
  		return
  	}
  	meta, err := ce.User.Session.Channel(ce.Args[0])

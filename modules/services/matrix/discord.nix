@@ -42,12 +42,7 @@
       federateRooms = lib.mkOption {
         type = lib.types.bool;
         default = true;
-        description = "Allow federation in newly created rooms; use false only for disposable local pilot rooms";
-      };
-      readOnlyChannels = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [];
-        description = "Discord channel IDs mirrored into Matrix without outbound writes";
+        description = "Allow federation in newly created rooms; false keeps new rooms local to this homeserver";
       };
     };
 
@@ -148,7 +143,6 @@
         ];
       };
       systemd.services.mautrix-discord = {
-        environment.SEC_HIVE_READ_ONLY_CHANNELS = lib.concatStringsSep "," cfg.readOnlyChannels;
         requires = ["postgresql.service"];
         after = ["postgresql.service"];
         serviceConfig.UMask = lib.mkForce "0077";

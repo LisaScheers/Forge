@@ -30,7 +30,7 @@
  	case *discordgo.MessageCreate:
  		portal.handleDiscordMessageCreate(msg.user, convertedMsg.Message, msg.thread)
  	case *discordgo.MessageUpdate:
-@@ -2046,11 +2052,15 @@
+@@ -2038,11 +2044,15 @@
  }
  
  func (portal *Portal) handleDiscordReaction(user *User, reaction *discordgo.MessageReaction, add bool, thread *Thread, member *discordgo.Member) {
@@ -47,7 +47,7 @@
  
  	log := portal.log.With().
  		Str("message_id", reaction.MessageID).
-@@ -2082,16 +2092,54 @@
+@@ -2074,16 +2084,54 @@
  	}
  
  	// Lookup an existing reaction
@@ -103,7 +103,7 @@
  		} else {
  			go portal.sendDeliveryReceipt(resp.EventID)
  		}
-@@ -2105,12 +2153,15 @@
+@@ -2097,12 +2145,15 @@
  
  	content := event.ReactionEventContent{
  		RelatesTo: event.RelatesTo{
@@ -121,7 +121,7 @@
  	if reaction.Emoji.ID != "" {
  		extraContent["fi.mau.discord.reaction"] = map[string]any{
  			"id":   reaction.Emoji.ID,
-@@ -2137,7 +2188,7 @@
+@@ -2129,7 +2180,7 @@
  		dbReaction := portal.bridge.DB.Reaction.New()
  		dbReaction.Channel = portal.Key
  		dbReaction.MessageID = message[0].DiscordID

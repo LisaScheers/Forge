@@ -31,12 +31,11 @@
  		cmdGuilds,
 --- /dev/null
 +++ b/history_repair.go
-@@ -0,0 +1,142 @@
+@@ -0,0 +1,125 @@
 +package main
 +
 +import (
 +	"errors"
-+	"os"
 +	"strings"
 +	"github.com/bwmarrin/discordgo"
 +	"maunium.net/go/mautrix/bridge/bridgeconfig"
@@ -48,26 +47,10 @@
 +func (puppet *Puppet) messageIntent(portal *Portal, historical bool) *appservice.IntentAPI {
 +	// Ordinary account tokens cannot set origin_server_ts on Synapse. They also
 +	// must not auto-admit linked accounts while staging private channel history.
-+	if historical || readOnlyMirrorChannel(portal.Key.ChannelID) {
++	if historical {
 +		return puppet.DefaultIntent()
 +	}
 +	return puppet.IntentFor(portal)
-+}
-+
-+var errReadOnlyMirror = errors.New("read-only Discord mirror")
-+
-+func readOnlyMirrorChannel(channelID string) bool {
-+	if channelID == "" { return false }
-+	for _, configured := range strings.Split(os.Getenv("SEC_HIVE_READ_ONLY_CHANNELS"), ",") {
-+		if strings.TrimSpace(configured) == channelID { return true }
-+	}
-+	return false
-+}
-+
-+func (portal *Portal) rejectReadOnlyMirrorWrite(evt *event.Event) bool {
-+	if !readOnlyMirrorChannel(portal.Key.ChannelID) { return false }
-+	go portal.sendMessageMetrics(evt, errReadOnlyMirror, "Ignoring")
-+	return true
 +}
 +
 +// These source events have no ordinary text but must not disappear from history.
@@ -176,7 +159,7 @@
 +}
 --- /dev/null
 +++ b/history_repair_test.go
-@@ -0,0 +1,95 @@
+@@ -0,0 +1,84 @@
 +package main
 +
 +import (
@@ -261,17 +244,6 @@
 +		t.Fatal("live messages must retain the linked identity")
 +	}
 +}
-+
-+func TestReadOnlyMirrorIsScopedAndReportsPermanentPermissionFailure(t *testing.T) {
-+	t.Setenv("SEC_HIVE_READ_ONLY_CHANNELS", "rules, other")
-+	for _, test := range []struct { id string; blocked bool }{{"rules", true}, {"other", true}, {"rule", false}, {"", false}, {"chat", false}} {
-+		if readOnlyMirrorChannel(test.id) != test.blocked { t.Fatalf("wrong read-only policy for %q", test.id) }
-+	}
-+	reason, status, certain, notice, message, _ := errorToStatusReason(errReadOnlyMirror)
-+	if reason != event.MessageStatusNoPermission || status != event.MessageStatusFail || !certain || !notice || message == "" {
-+		t.Fatal("read-only writes must fail clearly without retrying")
-+	}
-+}
 --- a/portal.go
 +++ b/portal.go
 @@ -618,8 +618,12 @@
@@ -307,45 +279,6 @@
  
  	redactions := zerolog.Dict()
  	attachmentMap := map[string]*database.Message{}
-@@ -1231,6 +1236,8 @@
- func errorToStatusReason(err error) (reason event.MessageStatusReason, status event.MessageStatus, isCertain, sendNotice bool, humanMessage string, checkpointError error) {
- 	var restErr *discordgo.RESTError
- 	switch {
-+	case errors.Is(err, errReadOnlyMirror):
-+		return event.MessageStatusNoPermission, event.MessageStatusFail, true, true, "This is a read-only Discord mirror. Make changes in Discord.", nil
- 	case errors.Is(err, errUnknownMsgType),
- 		errors.Is(err, errUnknownRelationType),
- 		errors.Is(err, errUnexpectedParsedContentType),
-@@ -1525,6 +1532,9 @@
- }
- 
- func (portal *Portal) handleMatrixMessage(sender *User, evt *event.Event) {
-+	if portal.rejectReadOnlyMirrorWrite(evt) {
-+		return
-+	}
- 	content, ok := evt.Content.Parsed.(*event.MessageEventContent)
- 	if !ok {
- 		go portal.sendMessageMetrics(evt, fmt.Errorf("%w %T", errUnexpectedParsedContentType, evt.Content.Parsed), "Ignoring")
-@@ -1949,6 +1959,9 @@
- }
- 
- func (portal *Portal) handleMatrixReaction(sender *User, evt *event.Event) {
-+	if portal.rejectReadOnlyMirrorWrite(evt) {
-+		return
-+	}
- 	if !sender.IsLoggedIn() {
- 		if !portal.IsPrivateChat() && portal.RelayWebhookID != "" {
- 			portal.handleRelayReaction(sender, evt)
-@@ -2137,6 +2150,9 @@
- }
- 
- func (portal *Portal) handleMatrixRedaction(sender *User, evt *event.Event) {
-+	if portal.rejectReadOnlyMirrorWrite(evt) {
-+		return
-+	}
- 	if portal.IsPrivateChat() {
- 		if !sender.IsLoggedIn() {
- 			go portal.sendMessageMetrics(evt, errUserNotLoggedIn, "Ignoring")
 --- a/portal_convert.go
 +++ b/portal_convert.go
 @@ -636,6 +636,9 @@
