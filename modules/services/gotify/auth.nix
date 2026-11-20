@@ -127,29 +127,14 @@
       mode = "0400";
     };
 
-    systemd.services.authentik-gotify-blueprint = {
+    forge.authentik.blueprints.gotify = {
       description = "Apply Gotify Authentik OIDC and notification blueprint";
-      requiredBy = ["authentik.service"];
-      before = ["authentik.service"];
-      after = ["authentik-migrate.service"];
-      requires = ["authentik-migrate.service"];
-      serviceConfig = {
-        Type = "oneshot";
-        DynamicUser = true;
-        User = "authentik";
-        StateDirectory = "authentik";
-        WorkingDirectory = "%S/authentik";
-        EnvironmentFile = [
-          config.age.secrets.authentik-env.path
-          config.age.secrets.gotify-oidc-env.path
-          config.age.secrets.gotify-webhook-env.path
-        ];
-        Environment = ["AUTHENTIK_CONFIG=/etc/authentik/config.yml"];
-        ExecStartPre = "${pkgs.coreutils}/bin/install -D -m 0600 ${blueprint} %S/authentik/blueprints/gotify.yaml";
-        ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint gotify.yaml";
-      };
+      file = blueprint;
+      environmentFiles = [
+        config.age.secrets.gotify-oidc-env.path
+        config.age.secrets.gotify-webhook-env.path
+      ];
       restartTriggers = [
-        config.age.secrets.authentik-env.file
         config.age.secrets.gotify-oidc-env.file
         config.age.secrets.gotify-webhook-env.file
       ];

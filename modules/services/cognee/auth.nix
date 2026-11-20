@@ -80,28 +80,12 @@ in {
       file = oidcSecret;
       mode = "0400";
     };
-    systemd.services.authentik-cognee-blueprint = {
+    forge.authentik.blueprints.cognee = {
       description = "Apply Cognee Authentik OAuth2/OIDC blueprint";
-      wantedBy = ["multi-user.target"];
-      requiredBy = ["authentik.service"];
-      before = ["authentik.service"];
-      after = ["authentik-migrate.service"];
-      requires = ["authentik-migrate.service"];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        DynamicUser = true;
-        User = "authentik";
-        StateDirectory = "authentik";
-        WorkingDirectory = "%S/authentik";
-        EnvironmentFile = [config.age.secrets.authentik-env.path config.age.secrets.cognee-oidc-env.path];
-        Environment = ["AUTHENTIK_CONFIG=/etc/authentik/config.yml"];
-        ExecStartPre = ["${pkgs.coreutils}/bin/install -D -m 0600 ${blueprint} %S/authentik/blueprints/cognee.yaml"];
-        ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint cognee.yaml";
-        # Preserve other applications registered with the embedded outpost.
-        ExecStartPost = ''${config.services.authentik.authentikComponents.manage}/bin/manage.py shell -c "from authentik.outposts.models import Outpost; from authentik.providers.proxy.models import ProxyProvider; outpost = Outpost.objects.get(managed='goauthentik.io/outposts/embedded'); outpost.providers.add(ProxyProvider.objects.get(name='Cognee graph')); outpost.save()"'';
-      };
+      file = blueprint;
+      environmentFiles = [config.age.secrets.cognee-oidc-env.path];
       restartTriggers = [oidcSecret];
+      embeddedOutpostProvider = "Cognee graph";
     };
   };
 }

@@ -157,60 +157,22 @@
       ];
     };
 
-    systemd.services.authentik-postplan-blueprint = {
+    forge.authentik.blueprints.postplan = {
       description = "Apply PostPlan Authentik OAuth2/OIDC blueprint";
-      requiredBy = ["authentik.service"];
-      before = ["authentik.service"];
-      after = ["authentik-migrate.service"];
-      requires = ["authentik-migrate.service"];
-      serviceConfig = {
-        Type = "oneshot";
-        DynamicUser = true;
-        User = "authentik";
-        StateDirectory = "authentik";
-        WorkingDirectory = "%S/authentik";
-        EnvironmentFile = [authentikEnvironmentFile postplanEnvironmentFile];
-        Environment = [
-          "AUTHENTIK_CONFIG=/etc/authentik/config.yml"
-        ];
-        ExecStartPre = [
-          "${pkgs.coreutils}/bin/install -D -m 0600 ${postplanBlueprint} %S/authentik/blueprints/postplan.yaml"
-        ];
-        ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint postplan.yaml";
-      };
-      restartTriggers = [
-        config.age.secrets.authentik-env.file
-        config.age.secrets.postplan-env.file
-      ];
+      file = postplanBlueprint;
+      environmentFiles = [postplanEnvironmentFile];
+      restartTriggers = [config.age.secrets.postplan-env.file];
     };
 
     # AWS supplies these values only after IAM Identity Center is enabled and its
     # service-provider metadata is downloaded. Until both variables exist in
     # authentik-env.age, ExecCondition skips this blueprint without failing the
     # authentik deployment.
-    systemd.services.authentik-aws-identity-center-blueprint = {
+    forge.authentik.blueprints.aws-identity-center = {
       description = "Apply AWS IAM Identity Center Authentik SAML blueprint";
-      requiredBy = ["authentik.service"];
-      before = ["authentik.service"];
-      after = ["authentik-migrate.service"];
-      requires = ["authentik-migrate.service"];
-      serviceConfig = {
-        Type = "oneshot";
-        DynamicUser = true;
-        User = "authentik";
-        StateDirectory = "authentik";
-        WorkingDirectory = "%S/authentik";
-        EnvironmentFile = [authentikEnvironmentFile];
-        Environment = [
-          "AUTHENTIK_CONFIG=/etc/authentik/config.yml"
-        ];
-        ExecCondition = "${awsIdentityCenterReady}";
-        ExecStartPre = [
-          "${pkgs.coreutils}/bin/install -D -m 0600 ${awsIdentityCenterBlueprint} %S/authentik/blueprints/aws-iam-identity-center.yaml"
-        ];
-        ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint aws-iam-identity-center.yaml";
-      };
-      restartTriggers = [config.age.secrets.authentik-env.file];
+      file = awsIdentityCenterBlueprint;
+      fileName = "aws-iam-identity-center.yaml";
+      condition = "${awsIdentityCenterReady}";
     };
 
     systemd.services = {

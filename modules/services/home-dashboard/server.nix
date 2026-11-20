@@ -30,11 +30,7 @@ in {
         touch "$out"
       '';
   };
-  nixos.atlas = {
-    config,
-    pkgs,
-    ...
-  }: let
+  nixos.atlas = {pkgs, ...}: let
     upstream = "http://unix:/run/home-dashboard/api.sock:";
     securityHeaders = ''
       add_header X-Content-Type-Options nosniff always;
@@ -114,26 +110,10 @@ in {
       };
     };
 
-    systemd.services.authentik-home-dashboard-blueprint = {
+    forge.authentik.blueprints.home-dashboard = {
       description = "Apply the dashboard Authentik provider";
-      wantedBy = ["multi-user.target"];
-      requiredBy = ["authentik.service"];
-      before = ["authentik.service"];
-      after = ["authentik-migrate.service"];
-      requires = ["authentik-migrate.service"];
-      serviceConfig = {
-        Type = "oneshot";
-        DynamicUser = true;
-        User = "authentik";
-        StateDirectory = "authentik";
-        WorkingDirectory = "%S/authentik";
-        EnvironmentFile = [config.age.secrets.authentik-env.path];
-        Environment = ["AUTHENTIK_CONFIG=/etc/authentik/config.yml"];
-        ExecStartPre = "${pkgs.coreutils}/bin/install -D -m 0600 ${source}/authentik.yaml %S/authentik/blueprints/home-dashboard.yaml";
-        ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint home-dashboard.yaml";
-        ExecStartPost = ''${config.services.authentik.authentikComponents.manage}/bin/manage.py shell -c "from authentik.outposts.models import Outpost; from authentik.providers.proxy.models import ProxyProvider; outpost = Outpost.objects.get(managed='goauthentik.io/outposts/embedded'); outpost.providers.add(ProxyProvider.objects.get(name='Home dashboard')); outpost.save()"'';
-      };
-      restartTriggers = [config.age.secrets.authentik-env.file];
+      file = source + /authentik.yaml;
+      embeddedOutpostProvider = "Home dashboard";
     };
 
     services.nginx.virtualHosts."dash.bylisa.dev" = {

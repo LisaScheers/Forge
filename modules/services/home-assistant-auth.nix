@@ -22,30 +22,9 @@
   };
 
   nixos.atlas = {
-    config,
-    pkgs,
-    ...
-  }: {
-    systemd.services.authentik-home-assistant-blueprint = {
+    forge.authentik.blueprints.home-assistant = {
       description = "Apply Home Assistant Authentik OIDC provider and owner policy";
-      wantedBy = ["multi-user.target"];
-      requiredBy = ["authentik.service"];
-      before = ["authentik.service"];
-      after = ["authentik-migrate.service"];
-      requires = ["authentik-migrate.service"];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        DynamicUser = true;
-        User = "authentik";
-        StateDirectory = "authentik";
-        WorkingDirectory = "%S/authentik";
-        EnvironmentFile = [config.age.secrets.authentik-env.path];
-        Environment = ["AUTHENTIK_CONFIG=/etc/authentik/config.yml"];
-        ExecStartPre = "${pkgs.coreutils}/bin/install -D -m 0600 ${../../services/home-assistant/authentik.yaml} %S/authentik/blueprints/home-assistant.yaml";
-        ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint home-assistant.yaml";
-      };
-      restartTriggers = [config.age.secrets.authentik-env.file];
+      file = ../../services/home-assistant/authentik.yaml;
     };
   };
 }
