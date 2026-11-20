@@ -3,7 +3,8 @@
 Reads only the unencrypted age header, so it never decrypts anything. An SSH
 stanza names its key by a short hash, so those are compared exactly; an X25519
 stanza does not name its key, so only the number of age recipients is compared.
-Any other stanza type (an RSA or plugin recipient) is rejected outright.
+Any other stanza type (an RSA or plugin recipient) is rejected outright, apart
+from the random grease stanzas rage adds.
 
 Usage: check_recipients.py RULES_JSON SECRETS_ROOT
 """
@@ -43,7 +44,9 @@ def main() -> int:
         have_ssh = sorted(stanza[1] for stanza in stanzas if stanza[0] == "ssh-ed25519")
         want_age = sum(key.startswith("age1") for key in keys)
         have_age = sum(stanza[0] == "X25519" for stanza in stanzas)
-        unsupported = sorted({stanza[0] for stanza in stanzas} - {"ssh-ed25519", "X25519"})
+        # rage adds random "*-grease" stanzas that no recipient uses.
+        types = {stanza[0] for stanza in stanzas if not stanza[0].endswith("-grease")}
+        unsupported = sorted(types - {"ssh-ed25519", "X25519"})
         unknown_keys = [key for key in keys if not key.startswith(("ssh-ed25519 ", "age1"))]
         if unknown_keys:
             problems.append(f"{name}: rule keys of unsupported types")

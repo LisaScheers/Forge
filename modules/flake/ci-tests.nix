@@ -85,7 +85,7 @@
       message = "ci.targets must reject unknown checks";
     }
     {
-      holds = lib.all (name: !(builtins.tryEval (builtins.deepSeq (fixture [name] {flake.checks.x86_64-linux.${name} = stub "unsafe";}).ciMatrix true)).success) ["has space" "has\"quote" "has*glob"];
+      holds = lib.all (name: !(builtins.tryEval (builtins.deepSeq (fixture [name] {flake.checks.x86_64-linux.${name} = stub "unsafe";}).ciMatrix true)).success) ["has space" "has\"quote" "has*glob" "has?glob" "has[glob" "has\\backslash"];
       message = "ci.targets must reject check names the job would split";
     }
     {

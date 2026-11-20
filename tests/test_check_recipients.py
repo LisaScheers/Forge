@@ -52,16 +52,23 @@ class CheckRecipientsTest(unittest.TestCase):
 
     def test_mismatches_fail(self):
         rule = {"secrets/a/x.age": [USER, HOST]}
+        differ = "encrypted recipients differ"
         cases = {
-            "extra RSA recipient": encrypted("X25519 e", f"ssh-ed25519 {tag(HOST)} s", "ssh-rsa abcd s"),
-            "extra age recipient": encrypted("X25519 e", "X25519 f", f"ssh-ed25519 {tag(HOST)} s"),
-            "missing host": encrypted("X25519 e"),
-            "other host": encrypted("X25519 e", "ssh-ed25519 AAAAAA s"),
+            "extra RSA recipient": (encrypted("X25519 e", f"ssh-ed25519 {tag(HOST)} s", "ssh-rsa abcd s"), "unsupported recipient types ssh-rsa"),
+            "extra age recipient": (encrypted("X25519 e", "X25519 f", f"ssh-ed25519 {tag(HOST)} s"), differ),
+            "missing host": (encrypted("X25519 e"), differ),
+            "other host": (encrypted("X25519 e", "ssh-ed25519 AAAAAA s"), differ),
         }
-        for case, data in cases.items():
+        for case, (data, reason) in cases.items():
             with self.subTest(case=case):
                 result = self.check({"secrets/a/x.age": data}, rule)
                 self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn(reason, result.stdout)
+
+    def test_grease_stanzas_are_ignored(self):
+        result = self.check({"secrets/a/x.age": encrypted("X25519 e", f"ssh-ed25519 {tag(HOST)} s", "x7-grease a b")},
+                            {"secrets/a/x.age": [USER, HOST]})
+        self.assertEqual(result.returncode, 0, result.stdout)
 
     def test_rule_keys_of_unsupported_types_fail(self):
         result = self.check({"secrets/a/x.age": encrypted("X25519 e", f"ssh-ed25519 {tag(HOST)} s")},
