@@ -85,6 +85,10 @@
       message = "ci.targets must reject unknown checks";
     }
     {
+      holds = !(builtins.tryEval (builtins.deepSeq (fixture ["has space"] {flake.checks.x86_64-linux."has space" = stub "spaced";}).ciMatrix true)).success;
+      message = "ci.targets must reject check names the job would split";
+    }
+    {
       holds = !(builtins.tryEval (builtins.deepSeq unmapped.ciMatrix true)).success;
       message = "checks for a platform without a runner must fail evaluation";
     }

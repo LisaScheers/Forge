@@ -28,6 +28,7 @@
   unknownChecks = lib.concatMap (entry:
     map (name: "${entry.system}.${name}") (builtins.filter (name: !(config.flake.checks.${entry.system} ? ${name})) entry.checks))
   config.ci.targets;
+  unsafeCheckNames = lib.filter (name: builtins.match ".*[[:space:]\"].*" name != null) (lib.concatMap (entry: entry.checks) config.ci.targets);
   # The dev shell joins its system's checks job, so broken hooks or tools fail CI.
   devShell = system: let
     shells = config.flake.devShells.${system} or {};
@@ -73,6 +74,8 @@ in {
       linkChecks "ci-vm-tests" system (lib.filterAttrs (_: isVmTest) (remainingChecks system)));
   config.flake.ciMatrix.include = assert lib.assertMsg (unknownChecks == []) "ci.targets name unknown checks: ${toString unknownChecks}";
   assert lib.assertMsg (unmappedSystems == []) "checks for systems without a CI runner: ${toString unmappedSystems}";
+  # The job reads the check list as one space-separated string.
+  assert lib.assertMsg (unsafeCheckNames == []) "ci.targets check names with whitespace or quotes: ${toString unsafeCheckNames}";
     map (entry: {
       inherit (entry) target;
       runner = runners.${entry.system};
