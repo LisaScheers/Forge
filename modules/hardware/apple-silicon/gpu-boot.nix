@@ -6,10 +6,7 @@
     ...
   }: let
     kernel = config.boot.kernelPackages.kernel;
-    m1n1 = pkgs.callPackage ../../../packages/asterion-gpu-m1n1/package.nix {
-      inherit (pkgs) m1n1;
-    };
-    dtb = pkgs.callPackage ../../../packages/asterion-gpu-dtb/package.nix {inherit kernel;};
+    inherit (import ../../../packages/asterion-gpu {inherit pkgs kernel;}) m1n1 dtb;
     uboot = config.hardware.asahi.pkgs.uboot-asahi.override {inherit m1n1;};
     bootOptions = pkgs.writeText "asterion-gpu-m1n1-options" (config.boot.m1n1ExtraOptions + "\n");
     bootImage =
