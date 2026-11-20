@@ -76,7 +76,7 @@ restart_atlas_timer() {
         echo "Atlas deployment failed; failed to stop its auto-update timer" >&2
       fi
       echo "after fixing or reverting main, restart it with:" >&2
-      echo "  ssh "${ssh_args[@]}" atlas sudo systemctl start nix-auto-sync-update.timer" >&2
+      echo "  ssh ${ssh_args[*]} atlas sudo systemctl start nix-auto-sync-update.timer" >&2
     elif ! ssh "${ssh_args[@]}" atlas sudo systemctl start nix-auto-sync-update.timer; then
       echo "failed to restart Atlas auto-update timer" >&2
       exit_status=1

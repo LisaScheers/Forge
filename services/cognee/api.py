@@ -19,8 +19,9 @@ class LimitedThreadEmbedding(embedding.TextEmbedding):
 
 embedding.TextEmbedding = LimitedThreadEmbedding
 
-from cognee.api.client import app
-from email_index import install
+# Import after the patch so Cognee constructs the thread-limited embedding.
+from cognee.api.client import app  # noqa: E402
+from email_index import install  # noqa: E402
 
 install(app)
 

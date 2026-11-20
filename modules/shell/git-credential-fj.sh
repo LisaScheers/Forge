@@ -1,3 +1,5 @@
+# shellcheck shell=bash
+# Sourced by writeShellApplication in git.nix, which adds the shebang.
 if [[ "${1:-}" != get ]]; then
   exit 0
 fi

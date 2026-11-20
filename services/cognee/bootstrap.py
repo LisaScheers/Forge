@@ -1,7 +1,6 @@
 """Provision the private MCP backend user and reuse its persisted API key."""
 
 import asyncio
-import json
 import os
 from pathlib import Path
 import tempfile

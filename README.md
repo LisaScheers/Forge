@@ -71,7 +71,9 @@ nix build .#ciVmTests.x86_64-linux    # needs a builder with kvm and nixos-test
 ```
 
 `checks.lint` runs alejandra, deadnix and statix (configured in `statix.toml`)
-over `modules/` and `packages/`; `nix fmt -- modules packages` formats them.
+over `modules/` and `packages/`, shellcheck over the repository's shell scripts,
+and ruff (`ruff.toml`) over its Python; the vendored AI skills are excluded.
+`nix fmt -- modules packages` formats the Nix.
 The dev shell's pre-commit hooks run alejandra on the same paths, nil,
 editorconfig-checker and write-flake. `checks.script-tests` runs the Python tests in
 `tests/` against the repository scripts, Justfile and helpers they exercise.
