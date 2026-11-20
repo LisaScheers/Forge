@@ -1,6 +1,6 @@
 # Canvas patterns
 
-Use Apache ECharts 6.1.0, bundled by `_package.nix` under Apache-2.0 with its LICENSE and NOTICE. The HTML starter uses the full browser distribution, not an assumed global package or a remote service. Keep the licenses when embedding it. Official references: [Canvas renderer](https://echarts.apache.org/handbook/en/best-practices/canvas-vs-svg/), [container sizing](https://echarts.apache.org/handbook/en/concepts/chart-size/), [events](https://echarts.apache.org/handbook/en/concepts/event/).
+Use Apache ECharts 6.1.0, bundled by `packages/visualize-skill/package.nix` under Apache-2.0 with its LICENSE and NOTICE. The HTML starter uses the full browser distribution, not an assumed global package or a remote service. Keep the licenses when embedding it. Official references: [Canvas renderer](https://echarts.apache.org/handbook/en/best-practices/canvas-vs-svg/), [container sizing](https://echarts.apache.org/handbook/en/concepts/chart-size/), [events](https://echarts.apache.org/handbook/en/concepts/event/).
 
 | Question | View | Useful interaction |
 |---|---|---|

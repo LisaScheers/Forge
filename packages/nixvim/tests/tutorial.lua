@@ -18,6 +18,30 @@ local function settle()
   coroutine.yield()
 end
 
+-- The picker opens and filters asynchronously, so poll instead of assuming
+-- one settle interval is enough on a loaded builder.
+local function eventually(predicate, message)
+  for _ = 1, 100 do
+    if predicate() then
+      return
+    end
+    settle()
+  end
+  error(message)
+end
+
+local function picker_lists(text)
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.bo[buf].filetype == "snacks_picker_list" then
+      local lines = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n")
+      if lines:find(text, 1, true) then
+        return true
+      end
+    end
+  end
+  return false
+end
+
 local function keys(input)
   vim.api.nvim_feedkeys(vim.keycode(input), "t", false)
   settle()
@@ -113,9 +137,11 @@ run = coroutine.create(function()
     next_lesson()
     lesson("Find and open another file")
     keys("<Space>ff")
+    eventually(function() return vim.bo.filetype == "snacks_picker_input" end, "File finder did not open")
     keys("welcome")
+    eventually(function() return picker_lists("welcome.txt") end, "File finder did not list welcome.txt")
     keys("<CR>")
-    check(vim.api.nvim_buf_get_name(0) == directory .. "/welcome.txt", "File finder did not open welcome.txt")
+    eventually(function() return vim.api.nvim_buf_get_name(0) == directory .. "/welcome.txt" end, "File finder did not open welcome.txt")
     check(vim.fn.maparg("<CR>", "n", false, true).buffer == 1, "Opened practice file lacks tutorial controls")
     next_lesson()
     lesson("Open a terminal and come back")

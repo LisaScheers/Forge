@@ -17,19 +17,25 @@ in {
     "secrets/nook/ai-proxy-antigravity-auth.age".publicKeys = with config.secrets.pubkeys; [users.lisa hosts.nook];
   };
   perSystem = {pkgs, ...}: {
-    packages.cli-proxy-api-plus-capture = lib.mkIf pkgs.stdenv.hostPlatform.isLinux pkgs.cli-proxy-api-plus-capture;
-    checks.ai-usage = pkgs.runCommand "ai-usage-tests" {} ''
-      ${pkgs.python3}/bin/python3 -B -m unittest discover -s ${source} -v
-      touch "$out"
-    '';
-    checks.ai-usage-clickhouse = lib.mkIf pkgs.stdenv.hostPlatform.isLinux (pkgs.runCommand "ai-usage-clickhouse-tests" {
-        CLICKHOUSE_BINARY = "${pkgs.clickhouse}/bin/clickhouse";
-        CLIPROXY_BINARY = "${pkgs.cli-proxy-api-plus-capture}/bin/cli-proxy-api-plus";
-        AI_USAGE_CLICKHOUSE_PASSWORD = "test";
-      } ''
-        ${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 -B -m unittest discover -s ${source} -v
-        touch "$out"
-      '');
+    packages = lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {inherit (pkgs) cli-proxy-api-plus-capture;};
+    checks =
+      {
+        ai-usage = pkgs.runCommand "ai-usage-tests" {} ''
+          ${pkgs.python3}/bin/python3 -B -m unittest discover -s ${source} -v
+          touch "$out"
+        '';
+      }
+      // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+        ai-usage-clickhouse =
+          pkgs.runCommand "ai-usage-clickhouse-tests" {
+            CLICKHOUSE_BINARY = "${pkgs.clickhouse}/bin/clickhouse";
+            CLIPROXY_BINARY = "${pkgs.cli-proxy-api-plus-capture}/bin/cli-proxy-api-plus";
+            AI_USAGE_CLICKHOUSE_PASSWORD = "test";
+          } ''
+            ${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 -B -m unittest discover -s ${source} -v
+            touch "$out"
+          '';
+      };
   };
   nixos.nook = {
     config,

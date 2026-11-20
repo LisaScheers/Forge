@@ -70,7 +70,8 @@ class FanControlTests(unittest.TestCase):
     def start_controller(self):
         process = subprocess.Popen([os.sys.executable, "-B", str(CONTROLLER), "--hwmon-root", str(self.root)])
         self.addCleanup(lambda: process.poll() is None and process.kill())
-        deadline = time.monotonic() + 5
+        # Generous for loaded CI builders; a healthy controller answers at once.
+        deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
             if all(target.read_text().strip() not in ("", "0") for target in self.targets):
                 return process

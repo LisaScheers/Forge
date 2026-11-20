@@ -1,4 +1,8 @@
-{config, ...}: let
+{
+  config,
+  lib,
+  ...
+}: let
   keys = config.secrets.pubkeys;
   all = [
     keys.users.lisa
@@ -27,7 +31,15 @@
     keys.hosts.atlas
   ];
 in {
-  flake.agenixRules = {
+  # Features add rules beside their secrets; _secrets.nix reads the merged set.
+  options.flake.agenixRules = lib.mkOption {
+    type = lib.types.attrsOf (lib.types.submodule {
+      options.publicKeys = lib.mkOption {type = lib.types.listOf lib.types.str;};
+    });
+    default = {};
+    description = "agenix recipients for each secret file, keyed by path relative to modules/security/agenix.";
+  };
+  config.flake.agenixRules = {
     "secrets/atlas/authentik-env.age".publicKeys = all;
     "secrets/atlas/gotify-webhook-env.age".publicKeys = [keys.users.lisa keys.hosts.atlas];
     "secrets/atlas/authentik-ldap-outpost-env.age".publicKeys = all;

@@ -1,4 +1,7 @@
-{pkgs}: let
+{
+  pkgs,
+  src,
+}: let
   echarts = pkgs.fetchurl {
     url = "https://registry.npmjs.org/echarts/-/echarts-6.1.0.tgz";
     hash = "sha512-q0yaFPggC9FUdsWH4blavRWFmxdrIodbkoKNAjJudAI6CA9gNPxHtV2RcZNEepZVlk4yvBYkOkbk6HIVpIyHZA==";
@@ -13,7 +16,7 @@
   };
 in
   pkgs.runCommand "visualize-skill" {nativeBuildInputs = [pkgs.esbuild];} ''
-    cp -R ${./.} "$out"
+    cp -R ${src} "$out"
     chmod -R u+w "$out"
     mkdir -p "$out/assets/vendor"
     tar -xOf ${echarts} package/dist/echarts.min.js > "$out/assets/vendor/echarts.min.js"
