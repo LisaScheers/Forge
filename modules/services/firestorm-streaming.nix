@@ -1,6 +1,8 @@
-{
+{config, ...}: let
+  nook = config.network.nook;
+in {
   nixos.nook = {pkgs, ...}: let
-    lanAddress = "192.168.111.2";
+    lanAddress = nook.lan;
     lanInterface = "enp7s0";
     audioSink = "Firestorm-Output";
     firestorm = pkgs.callPackage ../../packages/firestorm.pkg.nix {};

@@ -1,5 +1,7 @@
-{
-  nixos.asterion.networking.hosts."100.106.233.104" = [
+{config, ...}: let
+  nook = config.network.nook;
+in {
+  nixos.asterion.networking.hosts.${nook.tailscale} = [
     "cognee.local.bylisa.dev"
   ];
   home.lisa-asterion = {lib, ...}: {

@@ -1,4 +1,10 @@
-{
+{config, ...}: let
+  nook = config.network.nook;
+in {
+  network.nook = {
+    lan = "192.168.111.2";
+    tailscale = "100.106.233.104";
+  };
   nixos.nook = let
     mediaVlanInterface = "enp7s0.200";
     mediaRoutingTable = 200;
@@ -28,7 +34,7 @@
       networks = {
         "10-uplink" = {
           matchConfig.Name = "enp7s0";
-          address = ["192.168.111.2/24"];
+          address = ["${nook.lan}/24"];
           gateway = ["192.168.111.1"];
           dns = ["192.168.111.1"];
           networkConfig = {

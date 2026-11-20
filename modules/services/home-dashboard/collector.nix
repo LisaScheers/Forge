@@ -1,11 +1,13 @@
-{
+{config, ...}: let
+  nook = config.network.nook;
+in {
   nixos.nook = {pkgs, ...}: let
     sunshineCheck = pkgs.writeShellApplication {
       name = "home-dashboard-sunshine-check";
       runtimeInputs = [pkgs.coreutils pkgs.netcat-openbsd];
       text = ''
         service_state=down
-        if nc -z -w 3 192.168.111.2 47990; then
+        if nc -z -w 3 ${nook.lan} 47990; then
           service_state=up
         fi
         printf '{"generated":%s,"status":"%s"}\n' "$(date +%s)" "$service_state" \

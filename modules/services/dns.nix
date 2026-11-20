@@ -1,10 +1,12 @@
-{
+{config, ...}: let
+  nook = config.network.nook;
+in {
   nixos.nook = {
     lib,
     pkgs,
     ...
   }: let
-    hostAddress = "192.168.111.2";
+    hostAddress = nook.lan;
     hostIpv6Address = "2a02:1810:515:c680:f22f:74ff:fe1d:7b9b";
     lanIpv6Prefix = "2a02:1810:515:c680::/64";
     clientIpv6Prefix = "2a02:1810:515:c682::/64";

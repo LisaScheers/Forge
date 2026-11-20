@@ -1,4 +1,6 @@
-{
+{config, ...}: let
+  nook = config.network.nook;
+in {
   home.lisa-vega = {config, ...}: let
     homeDirectory = config.home.homeDirectory;
   in {
@@ -33,7 +35,7 @@
         };
 
         "nook" = {
-          HostName = "100.106.233.104";
+          HostName = nook.tailscale;
           User = "lisa";
           IdentityFile = "~/.ssh/home-server.pub";
           IdentitiesOnly = true;

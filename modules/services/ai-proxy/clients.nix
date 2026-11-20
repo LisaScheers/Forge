@@ -1,8 +1,9 @@
-let
+{config, ...}: let
+  nook = config.network.nook;
   endpoint = "https://cliproxy.local.bylisa.dev";
   keyFile = ../../security/agenix/secrets/shared/ai-proxy-client-key.age;
   # Tailscale chooses a direct LAN path at home and keeps the same address remotely.
-  addresses."100.106.233.104" = ["cliproxy.local.bylisa.dev"];
+  addresses.${nook.tailscale} = ["cliproxy.local.bylisa.dev"];
   clientSecret = {
     file = keyFile;
     owner = "lisa";

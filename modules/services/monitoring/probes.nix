@@ -1,4 +1,9 @@
-{lib, ...}: let
+{
+  config,
+  lib,
+  ...
+}: let
+  nook = config.network.nook;
   # Private services report outward; no extra listening ports are needed.
   mkProbes = host: {
     config,
@@ -37,11 +42,11 @@
         (httpProbe "prowlarr" "http://127.0.0.1:9696/ping")
         {
           key = "squid";
-          command = "${pkgs.netcat-openbsd}/bin/nc -z -w 5 192.168.111.2 3128";
+          command = "${pkgs.netcat-openbsd}/bin/nc -z -w 5 ${nook.lan} 3128";
         }
         {
           key = "dante";
-          command = "${pkgs.netcat-openbsd}/bin/nc -z -w 5 192.168.111.2 1080";
+          command = "${pkgs.netcat-openbsd}/bin/nc -z -w 5 ${nook.lan} 1080";
         }
       ];
     probeScript = pkgs.writeShellScript "uptime-kuma-probes" (lib.concatMapStringsSep "\n" (probe: ''

@@ -1,4 +1,6 @@
-{
+{config, ...}: let
+  nook = config.network.nook;
+in {
   nixos.asterion = {
     services.gnome.gcr-ssh-agent.enable = false;
     programs._1password.enable = true;
@@ -86,7 +88,7 @@
           IdentitiesOnly = true;
         };
         "nook" = {
-          HostName = "100.106.233.104";
+          HostName = nook.tailscale;
           User = "lisa";
           IdentityFile = "~/.ssh/home-server.pub";
           IdentitiesOnly = true;

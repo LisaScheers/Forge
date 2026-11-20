@@ -3,6 +3,7 @@
   inputs,
   ...
 }: let
+  nook = config.network.nook;
   # The MoQ relay comes prebuilt from kixelated's cache. Configure it for the
   # host that rebuilds atlas itself and for vega, which deploys it, rather than
   # as flake nixConfig, which Nix ignores unless the flake is trusted.
@@ -33,7 +34,7 @@ in {
         relay // {meta = relay.meta // {mainProgram = "moq-relay";};};
       domain = "watch.bylisa.dev";
       relayDomain = "moq.bylisa.dev";
-      backendUrl = "http://100.106.233.104:3100";
+      backendUrl = "http://${nook.tailscale}:3100";
       authentikUrl = "https://auth.bylisa.dev";
     };
     services.movie-night-authentik = {
@@ -50,7 +51,7 @@ in {
     services.movie-night = {
       enable = true;
       environmentFile = config.age.secrets.movie-night-env.path;
-      listenAddress = "100.106.233.104";
+      listenAddress = nook.tailscale;
       origin = "https://watch.bylisa.dev";
       relayUrl = "https://moq.bylisa.dev";
       jellyfinUserId = "466f59ea028949cca3033f222ebec388";

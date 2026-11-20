@@ -36,6 +36,7 @@
     "systems"
     "debug"
     "secrets"
+    "network"
   ];
   validFeature = path: let
     value = import path;

@@ -1,4 +1,6 @@
-{
+{config, ...}: let
+  nook = config.network.nook;
+in {
   darwin.vega = {config, ...}: let
     nookBuilderKeyPath = config.age.secrets.nook-builder-ssh-key.path;
     nixGithubAccessTokenSystemPath = "/etc/nix/github-access-token.conf";
@@ -82,16 +84,16 @@
           BatchMode yes
 
         Host nook-builder
-          HostName 192.168.111.2
+          HostName ${nook.lan}
           User nix-remote-builder
           IdentityFile ${nookBuilderKeyPath}
           IdentitiesOnly yes
-          HostKeyAlias 192.168.111.2
+          HostKeyAlias ${nook.lan}
           BatchMode yes
       '';
 
       knownHosts.nook-builder = {
-        hostNames = ["192.168.111.2"];
+        hostNames = [nook.lan];
         publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEHlf+pLT6XITnorOuDH0j9KtrVgZktsE5rPQzw3An8y";
       };
     };
