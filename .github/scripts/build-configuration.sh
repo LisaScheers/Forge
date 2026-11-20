@@ -7,7 +7,8 @@ trap 'rm -f "$build_log"' EXIT
 # CHECKS names flake checks that share the target's closure, such as a host's
 # deploy-rs checks, so one job builds them together.
 installables=(".#$TARGET")
-for check in ${CHECKS:-}; do
+read -ra checks <<< "${CHECKS:-}"
+for check in "${checks[@]}"; do
   installables+=(".#$check")
 done
 

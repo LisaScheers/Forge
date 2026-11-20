@@ -28,8 +28,10 @@
   dedicatedChecks = system: lib.concatMap (entry: entry.checks) (targetsOn system);
   missingChecks = entry: builtins.filter (name: !(config.flake.checks.${entry.system} ? ${name})) entry.checks;
   unknownChecks = lib.concatMap (entry: map (name: "${entry.system}.${name}") (missingChecks entry)) config.ci.targets;
-  splitsOnSpaces = name: builtins.match ".*[[:space:]\"].*" name != null;
-  unsafeCheckNames = builtins.filter splitsOnSpaces (lib.concatMap (entry: entry.checks) config.ci.targets);
+  # The job splits the check list on spaces; quotes, backslashes and glob
+  # characters would also change what it builds.
+  unsafeForJob = name: builtins.match ".*[][[:space:]\"\\*?].*" name != null;
+  unsafeCheckNames = builtins.filter unsafeForJob (lib.concatMap (entry: entry.checks) config.ci.targets);
   # The dev shell joins its system's checks job, so broken hooks or tools fail CI.
   devShell = system: let
     shells = config.flake.devShells.${system} or {};
