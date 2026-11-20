@@ -196,6 +196,23 @@ works first; disable the SSH agent for this file key. An `aarch64-linux` builder
 is required. Reboot after kernel, GPU driver, Mesa or boot firmware changes;
 see the [Asterion guide](docs/asterion.md).
 
+### Rotating the Nook builder key
+
+Vega reaches Nook's `nix-remote-builder` account with
+`secrets/vega/home-server-builder-ssh-key.age`, encrypted for Lisa and Vega only.
+Nook authorizes exactly one public key, in `modules/hosts/nook/users.nix`, so a
+one-sided switch stops Vega's remote builds. After replacing both halves, build
+both closures while the old key still works, switch them in one window, and
+confirm the connection:
+
+```sh
+just deploy-build nook
+just deploy-build vega
+just deploy nook
+just switch                     # on Vega
+sudo ssh nook-builder true      # uses /etc/nix/nook-builder
+```
+
 Vega and Asterion also support local manual switches. On either host, run:
 
 ```sh

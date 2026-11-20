@@ -76,13 +76,9 @@ vega-bootstrap: switch
 deploy-build host:
     #!/usr/bin/env bash
     set -euo pipefail
-    case "$1" in
-      nook|atlas) target_system=x86_64-linux ;;
-      asterion) target_system=aarch64-linux ;;
-      vega) target_system=aarch64-darwin ;;
-      *) echo "unknown deploy host: $1" >&2; exit 2 ;;
-    esac
-    nix build ".#checks.$target_system.$1"
+    target_system=$(nix eval --raw .#deploySystems --apply "systems: systems.\"$1\" or \"\"")
+    if [[ -z "$target_system" ]]; then echo "unknown deploy host: $1" >&2; exit 2; fi
+    nix build ".#checks.$target_system.\"$1\""
 
 # Deploy one host in switch, dry, or test mode; Vega supports switch only.
 [group('system')]
