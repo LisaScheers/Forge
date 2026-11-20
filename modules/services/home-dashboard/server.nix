@@ -16,10 +16,15 @@
   endpoints = entry: map hostOf (lib.filter (url: url != null) [(entry.url or null) (entry.probe.url or null)]) ++ [(entry.probe.address or null)];
   isIPv4 = host: host != null && builtins.match "[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+" host != null;
   catalogAddresses = lib.unique (lib.filter isIPv4 (lib.concatMap endpoints catalog));
+  # Userinfo and scheme case must not hide an address from the check.
+  parsesHosts =
+    map hostOf ["HTTP://user@10.0.0.1:8123/x" "https://a.example?b" "tcp://192.0.2.1"]
+    == ["10.0.0.1" "a.example" "192.0.2.1"];
   staleAddresses = lib.subtractLists ["127.0.0.1" config.network.nook.lan config.network.nook.tailscale] catalogAddresses;
 in {
   perSystem = {pkgs, ...}: {
-    checks.home-dashboard = assert lib.assertMsg (staleAddresses == []) "home-dashboard catalog.json has addresses not in network.nook: ${toString staleAddresses}";
+    checks.home-dashboard = assert lib.assertMsg parsesHosts "home-dashboard catalog URL parsing is broken";
+    assert lib.assertMsg (staleAddresses == []) "home-dashboard catalog.json has addresses not in network.nook: ${toString staleAddresses}";
       pkgs.runCommand "home-dashboard-tests" {} ''
         ${pkgs.python3}/bin/python3 -B -m unittest discover -s ${source} -v
         touch "$out"
