@@ -10,11 +10,7 @@ in {
       touch "$out"
     '';
   };
-  nixos.nook = {
-    config,
-    pkgs,
-    ...
-  }: let
+  nixos.nook = {pkgs, ...}: let
     upstream = "http://unix:/run/ai-archive/http.sock:";
     protected = ''
       auth_request /outpost.goauthentik.io/auth/nginx;

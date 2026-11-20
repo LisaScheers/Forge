@@ -1,4 +1,4 @@
-{...}: {
+_: {
   nixos.matrix-volume = {
     config,
     lib,
@@ -64,7 +64,7 @@
         }
       ];
       fileSystems.${cfg.mountPoint} = {
-        device = cfg.device;
+        inherit (cfg) device;
         fsType = "ext4";
         autoResize = true;
         options = ["nofail" "nodev" "nosuid" "noexec" "x-systemd.device-timeout=30s"];

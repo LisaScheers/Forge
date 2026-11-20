@@ -29,8 +29,7 @@ in {
     };
   };
   config.flake.modules = {
-    nixos = config.nixos;
-    darwin = config.darwin;
+    inherit (config) nixos darwin;
     homeManager = config.home;
   };
 }

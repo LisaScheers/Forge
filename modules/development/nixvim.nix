@@ -9,7 +9,7 @@
     editor = import ../../packages/nixvim/nixvim.pkg.nix {
       inherit pkgs system;
       inherit (inputs) nixvim;
-      nixd = pkgs.nixd;
+      inherit (pkgs) nixd;
       nixdSettings = inputs.self.lib.nixdSettings pkgs;
       inherit (pkgs) oxfmt oxlint;
       dotnetSdk = pkgs.dotnetCorePackages.sdk_10_0;

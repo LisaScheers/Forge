@@ -12,7 +12,8 @@
     else "lisa@nook";
 in {
   nixpkgs.expr = "import <nixpkgs> { }";
-  formatting.command = ["${lib.getExe pkgs.nixfmt}"];
+  # Match checks.lint so format-on-save never fights the repository style.
+  formatting.command = ["${lib.getExe pkgs.alejandra}"];
   options = {
     nixos.expr = "${flake}.nixosConfigurations.atlas.options";
     darwin.expr = "${flake}.darwinConfigurations.vega.options";

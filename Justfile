@@ -9,12 +9,12 @@ default:
 # Format source modules and packages; flake.nix is generated separately.
 [group('flake')]
 fmt:
-    nix shell --inputs-from . nixpkgs#alejandra -c alejandra modules packages
+    nix fmt -- modules packages
 
-# Check source formatting without modifying files.
+# Run the formatter, deadnix and statix checks without modifying files.
 [group('flake')]
-fmt-check:
-    nix shell --inputs-from . nixpkgs#alejandra -c alejandra --check modules packages
+lint:
+    nix build --no-link ".#checks.$(nix eval --raw --impure --expr builtins.currentSystem).lint"
 
 # Run flake checks for the current system.
 [group('flake')]

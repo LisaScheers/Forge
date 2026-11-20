@@ -7,7 +7,7 @@
   }: let
     kernel = config.boot.kernelPackages.kernel;
     m1n1 = pkgs.callPackage ../../../packages/asterion-gpu-m1n1/package.nix {
-      m1n1 = pkgs.m1n1;
+      inherit (pkgs) m1n1;
     };
     dtb = pkgs.callPackage ../../../packages/asterion-gpu-dtb/package.nix {inherit kernel;};
     uboot = config.hardware.asahi.pkgs.uboot-asahi.override {inherit m1n1;};
