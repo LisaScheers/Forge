@@ -8,13 +8,10 @@ if [[ -n "$maintenance" && ( "$maintenance" != "--maintenance" || "$host" != "at
   echo "--maintenance requires an Atlas switch deployment" >&2
   exit 2
 fi
-case "$host" in
-  nook|atlas|asterion|vega) ;;
-  *)
-    echo "unknown deploy host: $host" >&2
-    exit 2
-    ;;
-esac
+if ! target_system=$(nix eval --raw ".#deploySystems.\"$host\"" 2>/dev/null); then
+  echo "unknown deploy host: $host" >&2
+  exit 2
+fi
 
 ssh_args=()
 deploy_args=(--skip-checks)
@@ -56,11 +53,6 @@ if [[ "$host" == "atlas" ]]; then
   fi
 fi
 
-case "$host" in
-  nook|atlas) target_system="x86_64-linux" ;;
-  asterion) target_system="aarch64-linux" ;;
-  vega) target_system="aarch64-darwin" ;;
-esac
 nix build --no-link \
   ".#checks.$target_system.deploy-schema-$host" \
   ".#checks.$target_system.deploy-activate-$host" \

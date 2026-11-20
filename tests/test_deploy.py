@@ -35,6 +35,10 @@ case "$command_name:$1" in
       *'--property=ActiveState'*) echo inactive ;;
     esac
     ;;
+  nix:eval)
+    [[ "$*" == *'deploySystems."atlas"'* ]] || exit 1
+    echo x86_64-linux
+    ;;
   nix:run)
     # NixOS activation can start the wanted timer before failing or rolling back.
     echo active > "$DEPLOY_TEST_TIMER"
@@ -108,6 +112,11 @@ esac
                 result, commands = self.run_deploy(*args)
                 self.assertEqual(result.returncode, 2)
                 self.assertEqual(commands, "")
+
+    def test_unknown_hosts_are_rejected(self):
+        result, _ = self.run_deploy("altair", "switch")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("unknown deploy host: altair", result.stderr)
 
 
 if __name__ == "__main__":
