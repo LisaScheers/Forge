@@ -169,17 +169,18 @@ stays stopped so it cannot retry the same bad `main` revision; the recipe prints
 the recovery command. After a kernel change the updater arms a reboot up to 12
 hours later, which blocks deploys until then. To deploy sooner, reboot Atlas or
 cancel the pending reboot with `ssh atlas sudo systemctl stop
-nix-auto-sync-update-reboot.timer` and deploy right away: the next successful
-updater run (about 50 minutes later) re-arms it if the running kernel still
-differs from the booted one.
+nix-auto-sync-update-reboot.timer` and deploy before the next updater run, which
+re-arms it if the activated kernel, initrd or modules still differ from the
+booted generation.
 
-The Atlas updater reads `/run/agenix/auto-sync-update-env`, a file of shell
-assignments: `AUTO_SYNC_SMTP_URL`, `AUTO_SYNC_SMTP_USERNAME`,
+systemd loads the Atlas updater's `/run/agenix/auto-sync-update-env`
+(`EnvironmentFile=`), so it holds plain `KEY=value` lines and never runs as
+shell code: `AUTO_SYNC_SMTP_URL`, `AUTO_SYNC_SMTP_USERNAME`,
 `AUTO_SYNC_SMTP_PASSWORD`, `AUTO_SYNC_SMTP_FROM`, `AUTO_SYNC_SMTP_TO` and
 `AUTO_SYNC_SMTP_REQUIRE_TLS` for failure mail, and `AUTO_SYNC_GIT_TOKEN`,
 `AUTO_SYNC_GIT_USERNAME`, `AUTO_SYNC_GIT_AUTH_HEADER` or
-`AUTO_SYNC_GIT_REPOSITORY_URL` for Git access. A file that fails to load is
-reported by mail. The updater only fast-forwards to `origin/main`: if the Atlas
+`AUTO_SYNC_GIT_REPOSITORY_URL` for Git access. systemd skips lines that are
+not assignments. The updater only fast-forwards to `origin/main`: if the Atlas
 checkout has local commits, every run fails and mails until the checkout is
 reset to `origin/main`.
 

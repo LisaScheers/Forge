@@ -96,14 +96,14 @@
             assert "failed on lock-fixture with exit status 1" in mail, mail
             machine.succeed("rm /run/fail-rebuild /run/mail.txt")
 
-        with subtest("a broken environment file is reported, not silently fatal"):
-            # A failing command, and an unset reference such as a '$' in a password.
-            for broken in ["false", "BROKEN=$UNSET_VARIABLE"]:
-                machine.succeed(f"printf '%s\\n{smtp}' '{broken}' > /run/auto-sync.env")
-                machine.fail("systemctl start nix-auto-sync-update.service")
-                machine.wait_until_succeeds("grep -q 'Failed to load /run/auto-sync.env' /run/mail.txt", timeout=30)
-                machine.succeed("rm /run/mail.txt")
-            machine.succeed("rm /run/auto-sync.env")
+        with subtest("the environment file is read as data, never run"):
+            # A command line is not an assignment: systemd skips it and the
+            # updater still mails with the file's SMTP settings.
+            machine.succeed(f"printf 'touch /run/env-file-ran\\n{smtp}' > /run/auto-sync.env; touch /run/fail-rebuild")
+            machine.fail("systemctl start nix-auto-sync-update.service")
+            machine.wait_until_succeeds("grep -q rebuild-failure-marker /run/mail.txt", timeout=30)
+            machine.fail("test -e /run/env-file-ran")
+            machine.succeed("rm /run/fail-rebuild /run/mail.txt /run/auto-sync.env")
 
         with subtest("local commits that are not on origin are never rebuilt"):
             machine.succeed("git -c safe.directory='*' -C /root/repository -c user.name=x -c user.email=x@example.invalid -c commit.gpgsign=false commit --allow-empty -m local")

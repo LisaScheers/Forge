@@ -62,7 +62,6 @@ in {
           repo_url=${lib.escapeShellArg "git+file://${encodedRepositoryPath}"}
           flake_host=${lib.escapeShellArg cfg.flakeHost}
           branch=${lib.escapeShellArg cfg.branch}
-          default_env_file=${lib.escapeShellArg cfg.environmentFile}
           lock_path=${lib.escapeShellArg cfg.lockPath}
           email_to=${lib.escapeShellArg cfg.emailTo}
           mail_host=${lib.escapeShellArg config.networking.fqdnOrHostName}
@@ -98,7 +97,7 @@ in {
       environmentFile = lib.mkOption {
         type = lib.types.str;
         default = "/etc/nix-auto-sync-update.env";
-        description = "Optional shell-style environment file containing Git and SMTP credentials.";
+        description = "Optional KEY=value file with Git and SMTP credentials, loaded by systemd (EnvironmentFile=).";
       };
 
       emailTo = lib.mkOption {
@@ -154,6 +153,8 @@ in {
         serviceConfig = {
           Type = "oneshot";
           ExecStart = lib.getExe script;
+          # "-" makes the file optional.
+          EnvironmentFile = "-${cfg.environmentFile}";
         };
       };
 

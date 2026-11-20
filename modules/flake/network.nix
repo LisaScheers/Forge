@@ -11,7 +11,8 @@
       User = host.ssh.user;
       IdentityFile = host.ssh.identityFile;
       IdentitiesOnly = true;
-      # Explicit, so a broader Host block in an included file cannot change it.
+      # Explicit, so a later catch-all Host block cannot change it. (Files
+      # included above these blocks, such as OrbStack's on Vega, still win.)
       Port = 22;
     }) (lib.filterAttrs (_: host: host.ssh != null) config.network);
     description = "SSH host blocks for every network entry that declares a login.";

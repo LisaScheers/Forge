@@ -2,7 +2,8 @@
 # shellcheck disable=SC2154 # Configured values come from the prelude in default.nix.
 # Pull the repository, switch the host, and schedule a reboot when the new
 # system changes the kernel, initrd or modules.
-env_file="${AUTO_SYNC_ENV_FILE:-$default_env_file}"
+# systemd loads the environment file (EnvironmentFile=), so it is data here and
+# never runs as shell code.
 log_file="$(mktemp)"
 
 # shellcheck disable=SC2329
@@ -20,23 +21,6 @@ if ! flock -n 9; then
   echo "Another nix-auto-sync-update run is active; exiting."
   exit 0
 fi
-
-load_env() {
-  local load_status=0
-  if [ -f "$env_file" ]; then
-    # Sourcing reports only the last command's status, so check the whole file
-    # in a strict shell, then still load what it can so the failure is mailed.
-    # The file is meant to hold assignments only, so reading it twice is safe.
-    # shellcheck disable=SC2016 # $1 expands in the child shell.
-    "$BASH" -euc '. "$1"' _ "$env_file" || load_status=$?
-    # Unset references (say, a '$' in a password) must not abort the updater.
-    set -a +u
-    # shellcheck disable=SC1090
-    . "$env_file" || load_status=$?
-    set +a -u
-  fi
-  return "$load_status"
-}
 
 configure_git_auth() {
   git_args=(-c "safe.directory=$repo_path")
@@ -227,22 +211,12 @@ run_update() {
   fi
 }
 
-# Load settings and Git credentials here rather than in the update subshell:
-# the failure mail needs the SMTP settings, and the cleanup trap must see the
-# askpass file. A broken environment file is reported like any other failure.
+# Set up Git credentials here rather than in the update subshell, so the cleanup
+# trap sees the askpass file; a failure is mailed like any other.
 set +e
-load_env 2>>"$log_file"
+configure_git_auth 2>>"$log_file"
 status=$?
 set -e
-if [ "$status" -ne 0 ]; then
-  echo "Failed to load $env_file" >>"$log_file"
-fi
-if [ "$status" -eq 0 ]; then
-  set +e
-  configure_git_auth 2>>"$log_file"
-  status=$?
-  set -e
-fi
 if [ "$status" -ne 0 ]; then
   cat "$log_file" >&2
   send_failure_mail "$status"
