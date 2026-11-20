@@ -12,7 +12,8 @@ default:
 fmt:
     nix fmt -- modules packages
 
-# Run the formatter, deadnix and statix checks without modifying files.
+# Run checks.lint (alejandra, deadnix, statix, shellcheck, ruff, actionlint)
+# without modifying files.
 [group('flake')]
 lint:
     nix build --no-link ".#checks.$(nix eval --raw --impure --expr builtins.currentSystem).lint"

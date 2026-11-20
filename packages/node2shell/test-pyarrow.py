@@ -1,3 +1,6 @@
+# Manual probe, not a flake check: run it inside the Cognee container to confirm
+# the patched pyarrow mounted by modules/security/node2shell.nix loads and
+# rejects the malformed Brotli block.
 import importlib
 import importlib.metadata
 import tempfile

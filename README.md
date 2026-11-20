@@ -38,6 +38,8 @@ configurations and [Vimjoyer's examples](https://vimjoyer.com/nix/):
 | `modules/services/<feature>/` | Related server, authentication, proxy, or collector pieces |
 | `modules/security/` | Agenix, SSH, GnuPG, 1Password |
 | `modules/hardware/` | Host hardware, disk support, Apple Silicon installers |
+| `services/<name>/` | Application source (Python services, catalogs) that modules package |
+| `scripts/`, `tests/` | Deploy and host helper scripts, and the unit tests that run them in `checks.script-tests` |
 | `packages/` | Raw package recipes and patches, one `packages/<name>/package.nix` entry point each (larger recipes keep helpers beside it); outside automatic loading |
 
 Each host's `default.nix` constructs its NixOS or Darwin output and visibly
