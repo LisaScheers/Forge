@@ -59,7 +59,10 @@ in {
     inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  flake.deploy = deploy;
+  # scripts/deploy.sh pauses Atlas's updater through the `atlas` SSH alias, the
+  # same name deploy-rs connects to.
+  flake.deploy = assert lib.assertMsg ((hosts.atlas.hostname or "atlas") == "atlas")
+  "deploy.hosts.atlas.hostname must stay \"atlas\": scripts/deploy.sh reaches Atlas's updater through that SSH alias"; deploy;
 
   flake.deploySystems = lib.mapAttrs (host: _: systemOf host) hosts;
   flake.checks = lib.mkMerge (lib.mapAttrsToList (host: _: {${systemOf host} = hostChecks host;}) hosts);

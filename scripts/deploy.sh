@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 1 ]]; then
+if [[ $# -lt 1 || $# -gt 3 ]]; then
   echo "usage: deploy.sh <host> [switch|dry|test] [--maintenance]" >&2
   exit 2
 fi

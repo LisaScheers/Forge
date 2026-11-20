@@ -164,11 +164,13 @@ esac
         self.assertIn("ssh -S /tmp/forge-test-socket atlas", commands)
         self.assertIn("--ssh-opts -S /tmp/forge-test-socket", commands)
 
-    def test_a_missing_host_prints_usage(self):
-        result, commands = self.run_deploy()
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("usage: deploy.sh <host>", result.stderr)
-        self.assertEqual(commands, "")
+    def test_a_missing_host_or_surplus_arguments_print_usage(self):
+        for args in ((), ("atlas", "switch", "--maintenance", "extra")):
+            with self.subTest(args=args):
+                result, commands = self.run_deploy(*args)
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("usage: deploy.sh <host>", result.stderr)
+                self.assertEqual(commands, "")
 
     def test_an_unknown_mode_is_rejected_before_any_command(self):
         result, commands = self.run_deploy("nook", "swich")
@@ -278,11 +280,12 @@ esac
         result, commands = self.run_deploy("vega", "switch")
         self.assertEqual(result.returncode, 2)
         self.assertIn("Vega can only be deployed manually from Vega", result.stderr)
-        self.assertNotIn("nix build", commands)
+        self.assertNotIn("nix ", commands)
+        self.log.unlink()
         self.env["DEPLOY_TEST_HOSTNAME"] = "vega"
         result, commands = self.run_deploy("vega", "dry")
         self.assertEqual(result.returncode, 2)
-        self.assertNotIn("nix build", commands)
+        self.assertNotIn("nix ", commands)
 
     def test_other_hosts_map_modes_and_use_the_checkout(self):
         for mode, flag in (("dry", "--dry-activate"), ("test", "--test"), ("switch", None)):
