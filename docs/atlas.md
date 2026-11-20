@@ -113,12 +113,12 @@ Backups live only on Atlas, so before reinstalling copy the latest dump,
    ```sh
    cd /var/lib/postgresql
    sudo -u postgres initdb --encoding=UTF8 -U restore_admin -D 18
-   # Normally postgresql.service creates the socket directory.
-   sudo install -d -o postgres -g postgres /run/postgresql
-   sudo -u postgres pg_ctl -D 18 -w start
+   # A private socket and no TCP: postgresql.service, which owns
+   # /run/postgresql, is not running yet.
+   sudo -u postgres pg_ctl -D 18 -w -o '-c listen_addresses= -c unix_socket_directories=/tmp' start
    # The dump copied off Atlas before the rebuild, copied back to any path.
-   zstd -dc /root/all.sql.zstd | sudo -u postgres psql -X -v ON_ERROR_STOP=1 -U restore_admin -d postgres
-   sudo -u postgres psql -X -U restore_admin -d postgres -c '\l'   # every database is back
+   zstd -dc /root/all.sql.zstd | sudo -u postgres psql -h /tmp -X -v ON_ERROR_STOP=1 -U restore_admin -d postgres
+   sudo -u postgres psql -h /tmp -X -U restore_admin -d postgres -c '\l'   # every database is back
    sudo -u postgres pg_ctl -D 18 -m fast -w stop
    sudo -u postgres touch 18/.forge-upgrade-complete
    ```
