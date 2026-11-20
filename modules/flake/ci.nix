@@ -36,6 +36,10 @@
   remainingChecks = system: removeAttrs config.flake.checks.${system} (dedicatedChecks system) // devShell system;
   # runNixOSTest names its derivations vm-test-run-<name>.
   isVmTest = check: lib.hasPrefix "vm-test-run-" check.name;
+  # A VM test elsewhere would land in the ordinary checks job without KVM.
+  vmTestsWithoutKvm = lib.concatMap (system:
+    map (name: "${system}.${name}") (builtins.attrNames (lib.filterAttrs (_: isVmTest) (remainingChecks system))))
+  (lib.subtractLists kvmSystems checkSystems);
   linkChecks = name: system: checks: withSystem system ({pkgs, ...}: pkgs.linkFarm "${name}-${system}" checks);
 in {
   options.ci.targets = lib.mkOption {
@@ -66,6 +70,7 @@ in {
       linkChecks "ci-vm-tests" system (lib.filterAttrs (_: isVmTest) (remainingChecks system)));
   config.flake.ciMatrix.include = assert lib.assertMsg (unknownChecks == []) "ci.targets name unknown checks: ${toString unknownChecks}";
   assert lib.assertMsg (unmappedSystems == []) "checks for systems without a CI runner: ${toString unmappedSystems}";
+  assert lib.assertMsg (vmTestsWithoutKvm == []) "NixOS VM tests on a CI runner without KVM: ${toString vmTestsWithoutKvm}";
     map (entry: {
       inherit (entry) target;
       runner = runners.${entry.system};

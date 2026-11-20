@@ -64,13 +64,15 @@ agenix CLI entry point and reads the flake's `agenixRules` output. The underscor
 keeps it out of automatic loading. The `dendritic` and `profiles` checks enforce
 top-level feature boundaries and module-class safety.
 
-CI targets are declared beside their host, home, or installer output. The CI
-module maps those declarations to native runners without evaluating host builds.
-A target lists the flake checks that share its closure, such as a host's
-toplevel and deploy-rs checks, and its job builds them together; evaluation
-fails if a listed check does not exist. Every other check, plus the dev shell,
-builds in one `ciChecks.<system>` job per system, and the NixOS VM tests run in
-`ciVmTests.x86_64-linux` on the KVM-capable runner. Reproduce them locally with:
+CI targets are declared beside their home or installer output, and
+`modules/flake/deploy.nix` adds one per deployed host. The CI module maps those
+targets to native runners without evaluating host builds. A target lists the
+flake checks that share its closure, such as a host's toplevel and deploy-rs
+checks, and its job builds them together; evaluation fails if a listed check
+does not exist. Every other check, plus the dev shell, builds in one
+`ciChecks.<system>` job per system, and the NixOS VM tests run in
+`ciVmTests.x86_64-linux` on the KVM-capable runner; evaluation fails for a VM
+test on any other platform. Reproduce them locally with:
 
 ```sh
 nix build .#ciChecks.aarch64-darwin   # or x86_64-linux / aarch64-linux

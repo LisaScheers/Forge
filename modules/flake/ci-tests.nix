@@ -32,6 +32,11 @@
   routed = fixture ["host" "deploy" "dotted.name"] {};
   # Checks for a platform with no runner and no unbuilt exemption.
   unmapped = fixture [] {flake.checks.riscv64-linux.unit = stub "unit-tests";};
+  # A VM test on a runner without KVM.
+  vmWithoutKvm = fixture [] {
+    systems = ["x86_64-linux" "aarch64-linux"];
+    flake.checks.aarch64-linux.vm = stub "vm-test-run-vm";
+  };
   entries = output: builtins.attrNames output.x86_64-linux.entries;
   valid =
     map (entry: entry.target) routed.ciMatrix.include
@@ -42,10 +47,11 @@
     && entries routed.ciChecks == ["unit"]
     && entries routed.ciVmTests == ["vm"]
     && !(builtins.tryEval (builtins.deepSeq (fixture ["missing"] {}).ciMatrix true)).success
-    && !(builtins.tryEval (builtins.deepSeq unmapped.ciMatrix true)).success;
+    && !(builtins.tryEval (builtins.deepSeq unmapped.ciMatrix true)).success
+    && !(builtins.tryEval (builtins.deepSeq vmWithoutKvm.ciMatrix true)).success;
 in {
   perSystem = {pkgs, ...}: {
-    checks.ci-routing = assert lib.assertMsg valid "CI must route target, regular and VM checks to separate jobs and reject unknown checks and unmapped platforms";
+    checks.ci-routing = assert lib.assertMsg valid "CI must route target, regular and VM checks to separate jobs and reject unknown checks, unmapped platforms and VM tests without KVM";
       pkgs.runCommand "ci-routing" {} ''
         touch "$out"
       '';
