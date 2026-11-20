@@ -11,7 +11,7 @@
         services.autoSyncUpdate = {
           repositoryPath = "/root/repository";
           flakeHost = "lock-fixture";
-          environmentFile = "/dev/null";
+          environmentFile = "/run/auto-sync.env";
           emailTo = "";
           intervalSeconds = 86400;
           lockPath = "/run/shared-update.lock";
@@ -25,6 +25,8 @@
           ];
           rebootRequiredCommand = ["${pkgs.coreutils}/bin/false"];
         };
+        # The test starts the unit more often than systemd's default start limit allows.
+        systemd.services.nix-auto-sync-update.unitConfig.StartLimitIntervalSec = 0;
         environment.systemPackages = [pkgs.git pkgs.util-linux];
         virtualisation.memorySize = 1024;
         system.stateVersion = "26.05";
@@ -42,7 +44,7 @@
         machine.succeed("echo update >> /root/seed/value; git -C /root/seed -c commit.gpgsign=false commit -am update; git -C /root/seed push origin main")
         latest = machine.succeed("git -C /root/seed rev-parse HEAD").strip()
 
-        with subtest("a checkpoint holding the shared file prevents updates"):
+        with subtest("another holder of the lock file prevents updates"):
             machine.succeed("touch /run/shared-update.lock")
             machine.succeed("flock -n /run/shared-update.lock -c 'systemctl start nix-auto-sync-update.service'")
             assert machine.succeed("git -C /root/repository rev-parse HEAD").strip() == old
@@ -54,7 +56,7 @@
             assert machine.succeed("git -C /root/repository rev-parse HEAD").strip() == latest
             machine.succeed("test -f /run/shared-update.lock; test -f /run/rebuild-finished")
 
-        with subtest("a running updater excludes checkpoints until it finishes"):
+        with subtest("a running updater holds the lock until it finishes"):
             machine.succeed("rm /run/rebuild-start /run/rebuild-finished /run/allow-rebuild-finish")
             machine.succeed("systemctl start --no-block nix-auto-sync-update.service")
             machine.wait_for_file("/run/rebuild-start")
@@ -69,6 +71,32 @@
             machine.succeed("test $(systemctl show nix-auto-sync-update.service -p Result --value) = exit-code")
             machine.succeed("rm /run/fail-rebuild")
             machine.succeed("systemctl start nix-auto-sync-update.service")
+
+        def last_run_log(expected):
+            invocation = machine.succeed("systemctl show -p InvocationID --value nix-auto-sync-update.service").strip()
+            query = f"journalctl --no-pager _SYSTEMD_INVOCATION_ID={invocation}"
+            # journald may still be receiving the run's last lines.
+            try:
+                machine.wait_until_succeeds(f"{query} | grep -qF '{expected}'", timeout=30)
+            except Exception:
+                print(machine.succeed(f"{query}; journalctl --no-pager -u nix-auto-sync-update.service -n 40"))
+                raise
+            return machine.succeed(query)
+
+        with subtest("the failure mail uses the SMTP settings from the environment file"):
+            machine.succeed("echo AUTO_SYNC_SMTP_URL=smtp://127.0.0.1:9 > /run/auto-sync.env; touch /run/fail-rebuild")
+            machine.fail("systemctl start nix-auto-sync-update.service")
+            log = last_run_log("Failed to send email")
+            assert "is not set" not in log, log
+            machine.succeed("rm /run/fail-rebuild /run/auto-sync.env")
+
+        with subtest("a pending reboot is scheduled once, even without a system change"):
+            machine.succeed("echo AUTO_SYNC_FORCE_REBOOT_REQUIRED=1 > /run/auto-sync.env")
+            machine.succeed("systemctl start nix-auto-sync-update.service")
+            machine.succeed("systemctl is-active nix-auto-sync-update-reboot.timer")
+            scheduled = machine.succeed("systemctl show -p ActiveEnterTimestampMonotonic --value nix-auto-sync-update-reboot.timer")
+            machine.succeed("systemctl start nix-auto-sync-update.service")
+            assert machine.succeed("systemctl show -p ActiveEnterTimestampMonotonic --value nix-auto-sync-update-reboot.timer") == scheduled
       '';
     });
 }

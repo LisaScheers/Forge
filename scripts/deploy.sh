@@ -37,6 +37,19 @@ if [[ "$host" == "vega" ]]; then
   fi
 fi
 
+# Percent-encode a checkout path for a git+file URL (spaces, '#', '?', ...).
+url_encode_path() {
+  local LC_ALL=C path=$1 encoded="" char index
+  for ((index = 0; index < ${#path}; index++)); do
+    char=${path:index:1}
+    case "$char" in
+      [A-Za-z0-9/._~-]) encoded+=$char ;;
+      *) printf -v char '%%%02X' "'$char"; encoded+=$char ;;
+    esac
+  done
+  printf '%s' "$encoded"
+}
+
 flake=.
 if [[ "$host" == "atlas" ]]; then
   if [[ -n "$(git status --porcelain)" ]]; then
@@ -51,7 +64,7 @@ if [[ "$host" == "atlas" ]]; then
     exit 1
   fi
   # Build and activate exactly the verified commit, not later worktree edits.
-  flake="git+file://$PWD?rev=$verified_rev"
+  flake="git+file://$(url_encode_path "$PWD")?rev=$verified_rev"
 fi
 
 nix build --no-link \
@@ -94,7 +107,8 @@ if [[ "$host" == "atlas" ]]; then
   atlas_timer_needs_restart=1
   ssh "${ssh_args[@]}" atlas sudo systemctl stop nix-auto-sync-update.timer
   update_state="$(ssh "${ssh_args[@]}" atlas systemctl show --property=ActiveState --value nix-auto-sync-update.service)"
-  if [[ "$update_state" != "inactive" ]]; then
+  # A failed run must not block deploying the commit that fixes it.
+  if [[ "$update_state" != "inactive" && "$update_state" != "failed" ]]; then
     echo "Atlas auto-update state is $update_state; it was not deployed" >&2
     exit 1
   fi

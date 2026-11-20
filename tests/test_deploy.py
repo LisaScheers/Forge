@@ -72,9 +72,9 @@ esac
                         DEPLOY_TEST_TIMER=str(self.root / "timer-state"),
                         DEPLOY_TEST_ORIGIN_CALLS=str(self.root / "origin-calls"))
 
-    def run_deploy(self, *args, fail_activation=False):
+    def run_deploy(self, *args, fail_activation=False, cwd=None):
         env = dict(self.env, DEPLOY_TEST_FAIL_ACTIVATION="1" if fail_activation else "0")
-        result = subprocess.run(["bash", str(SCRIPT), *args], env=env,
+        result = subprocess.run(["bash", str(SCRIPT), *args], env=env, cwd=cwd,
                                 text=True, capture_output=True, timeout=10)
         commands = self.log.read_text() if self.log.exists() else ""
         return result, commands
@@ -156,6 +156,19 @@ esac
         for line in commands.splitlines():
             if line.startswith(("nix build", "nix run")):
                 self.assertNotIn(" .#", line)
+
+    def test_a_failed_updater_does_not_block_a_fixing_deploy(self):
+        self.env["DEPLOY_TEST_UPDATER_STATE"] = "failed"
+        result, commands = self.run_deploy("atlas", "switch")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("nix run git+file://", commands)
+
+    def test_the_pinned_url_encodes_the_checkout_path(self):
+        checkout = self.root / "check out#1?"
+        checkout.mkdir()
+        result, commands = self.run_deploy("atlas", "switch", cwd=checkout)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("/check%20out%231%3F?rev=revision#atlas", commands)
 
     def test_running_updater_aborts_and_restarts_its_timer(self):
         self.env["DEPLOY_TEST_UPDATER_STATE"] = "active"

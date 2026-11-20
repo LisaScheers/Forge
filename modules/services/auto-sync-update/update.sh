@@ -60,6 +60,8 @@ send_mail() {
   subject="$1"
   if [ -z "${AUTO_SYNC_SMTP_URL:-}" ]; then
     echo "AUTO_SYNC_SMTP_URL is not set; cannot send email: $subject" >&2
+    # Drain the body so the writer does not fail with a broken pipe.
+    cat >/dev/null
     return 0
   fi
 
@@ -167,8 +169,12 @@ handle_required_reboot() {
   } | send_mail "[watchdog] reboot required on $flake_host"
 }
 
+reboot_timer_pending() {
+  [ "$custom_schedule_reboot" != "true" ] &&
+    /run/current-system/sw/bin/systemctl is-active --quiet nix-auto-sync-update-reboot.timer
+}
+
 run_update() {
-  load_env
   configure_git_auth
 
   if [ ! -d "$repo_path/.git" ]; then
@@ -190,14 +196,20 @@ run_update() {
   fi
   git "${git_args[@]}" merge --ff-only "origin/$branch"
 
-  # Check for a reboot whenever this rebuild changed the system, which
-  # also covers a retry after an earlier run fetched but failed to build.
+  # Check for a reboot whenever this rebuild changed the system (which also
+  # covers a retry after an earlier failed build), and retry scheduling when a
+  # reboot is still needed but no default reboot timer is pending.
   system_before="$(readlink -f /run/current-system 2>/dev/null || true)"
   "${rebuild_cmd[@]}" --flake "path:$repo_path#$flake_host"
   if [ "$(readlink -f /run/current-system 2>/dev/null || true)" != "$system_before" ]; then
     handle_required_reboot
+  elif [ "$custom_schedule_reboot" != "true" ] && ! reboot_timer_pending; then
+    handle_required_reboot
   fi
 }
+
+# The failure mail below needs the SMTP settings too, so load them here.
+load_env
 
 # Run the update in a subshell outside any condition: an `if` around the
 # call would disable errexit inside it and hide failed steps.
