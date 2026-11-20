@@ -1,5 +1,6 @@
 {config, ...}: let
   nook = config.network.nook;
+  hostKeys = config.secrets.pubkeys.hosts;
 in {
   darwin.vega = {config, ...}: let
     nookBuilderKeyPath = config.age.secrets.nook-builder-ssh-key.path;
@@ -94,7 +95,7 @@ in {
 
       knownHosts.nook-builder = {
         hostNames = [nook.lan];
-        publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEHlf+pLT6XITnorOuDH0j9KtrVgZktsE5rPQzw3An8y";
+        publicKey = hostKeys.nook;
       };
     };
   };

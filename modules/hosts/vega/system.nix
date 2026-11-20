@@ -1,4 +1,6 @@
-{
+{config, ...}: let
+  hostKeys = config.secrets.pubkeys.hosts;
+in {
   darwin.vega = {
     system.stateVersion = 7;
     documentation.doc.enable = false;
@@ -15,7 +17,7 @@
     ];
     programs.ssh.knownHosts.vega-local = {
       hostNames = ["localhost"];
-      publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAxcMSI/fLy0nITZIQcsu3KQJhi3EFAsRpTGI/yPLox3";
+      publicKey = hostKeys.vega;
     };
     security.pam.services.sudo_local.touchIdAuth = true;
     system.tools.darwin-uninstaller.enable = true;
