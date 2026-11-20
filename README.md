@@ -72,8 +72,9 @@ checks, and its job builds them together; evaluation fails if a listed check
 does not exist. Every other check, plus the dev shell, builds in one
 `ciChecks.<system>` job per system, and the NixOS VM tests run in
 `ciVmTests.x86_64-linux` on the KVM-capable runner; a VM test on any other
-platform makes that platform's checks job fail to evaluate. Reproduce them
-locally with:
+platform makes that platform's checks job fail to evaluate. Computing the matrix
+disables import from derivation, so it never builds; the build jobs allow it,
+because host closures need it. Reproduce them locally with:
 
 ```sh
 nix build .#ciChecks.aarch64-darwin   # or x86_64-linux / aarch64-linux
