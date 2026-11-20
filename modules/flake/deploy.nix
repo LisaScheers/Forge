@@ -25,11 +25,7 @@
 
     nodes = lib.mapAttrs (host: node:
       {
-        hostname =
-          if node.hostname != null
-          then node.hostname
-          else host;
-        inherit (node) sshUser;
+        inherit (node) hostname sshUser;
         profiles.system = {
           user = "root";
           path = activate host;

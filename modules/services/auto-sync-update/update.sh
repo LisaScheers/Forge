@@ -96,7 +96,9 @@ send_mail() (
   fi
 
   if ! curl "${curl_args[@]}"; then
+    # A lost mail (for example a reboot notice) must not pass silently.
     echo "Failed to send email: $subject" >&2
+    return 1
   fi
 )
 

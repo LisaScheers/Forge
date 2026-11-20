@@ -30,7 +30,7 @@
         # ownership check applies.
         users.users.fixture.isNormalUser = true;
         # The real fetch subtest uses Lix, as Atlas does.
-        nix.package = pkgs.lix;
+        nix.package = pkgs.lixPackageSets.latest.lix;
         nix.settings.experimental-features = ["nix-command" "flakes"];
         # The test starts the unit more often than systemd's default start limit allows.
         systemd.services.nix-auto-sync-update.unitConfig.StartLimitIntervalSec = 0;
@@ -107,6 +107,13 @@
             machine.succeed("printf 'export AUTO_SYNC_SMTP_URL=smtp://127.0.0.1:2525\\n' > /run/auto-sync.env; touch /run/reboot-required")
             machine.fail("systemctl start nix-auto-sync-update.service")
             machine.succeed("journalctl -u nix-auto-sync-update.service | grep -q 'AUTO_SYNC_SMTP_URL is not set'")
+            machine.succeed("rm /run/reboot-required")
+            machine.succeed("systemctl stop nix-auto-sync-update-reboot.timer || true")
+
+        with subtest("an undeliverable reboot notice fails the unit"):
+            machine.succeed("printf 'AUTO_SYNC_SMTP_URL=smtp://127.0.0.1:9\\nAUTO_SYNC_SMTP_REQUIRE_TLS=0\\n' > /run/auto-sync.env; touch /run/reboot-required")
+            machine.fail("systemctl start nix-auto-sync-update.service")
+            machine.succeed("journalctl -u nix-auto-sync-update.service | grep -q 'Failed to send email: \\[watchdog\\] reboot required'")
             machine.succeed("rm /run/reboot-required")
             machine.succeed("systemctl stop nix-auto-sync-update-reboot.timer || true")
 

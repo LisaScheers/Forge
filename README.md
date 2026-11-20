@@ -180,16 +180,17 @@ shell code: `AUTO_SYNC_SMTP_URL`, `AUTO_SYNC_SMTP_USERNAME`,
 `AUTO_SYNC_SMTP_PASSWORD`, `AUTO_SYNC_SMTP_FROM`, `AUTO_SYNC_SMTP_TO` and
 `AUTO_SYNC_SMTP_REQUIRE_TLS` for failure mail, and `AUTO_SYNC_GIT_TOKEN`,
 `AUTO_SYNC_GIT_USERNAME`, `AUTO_SYNC_GIT_AUTH_HEADER` or
-`AUTO_SYNC_GIT_REPOSITORY_URL` for Git access. Write bare values: no quotes, no
-`export`, no `$` expansion. systemd skips lines that are not assignments, and
-when the file exists but provides no SMTP URL, any run that needs to send mail
-fails visibly (and a failed rebuild keeps its own exit status). The updater only
-fast-forwards to `origin/main`: if the Atlas checkout has local commits, every
-run fails and mails until the checkout is reset to `origin/main`. The journal
-has the same reason even if mail fails. Keep the commits on a branch before
-resetting:
+`AUTO_SYNC_GIT_REPOSITORY_URL` for Git access. Use systemd's format: quotes are
+stripped, and `export` and `$` expansion are not supported. systemd skips lines
+that are not assignments, and when the file exists but provides no SMTP URL, any
+run that needs to send mail fails visibly (and a failed rebuild keeps its own
+exit status). The updater only fast-forwards to `origin/main`: if the Atlas
+checkout has local commits, every run fails and mails until the checkout is
+reset to `origin/main`. The journal has the same reason even if mail fails. Keep
+the commits on a branch before resetting:
 
 ```sh
+# Needs passwordless sudo on Atlas, as deploy-rs already does.
 ssh atlas sudo journalctl -u nix-auto-sync-update -n 50
 # Stop if this lists uncommitted changes; they need handling first.
 ssh atlas sudo git -c safe.directory=/etc/nix-darwin -C /etc/nix-darwin status --short
