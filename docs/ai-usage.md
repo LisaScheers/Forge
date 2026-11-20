@@ -110,8 +110,9 @@ Build Nook and its deploy-rs checks before activation. Lisa approved the scoped
 `nixpkgs.config.problems.handlers."gtk+".broken = "warn"` exception on Nook on
 2026-11-05, preserving the existing Firestorm dependency at this Nixpkgs lock.
 The host build, deployment schema, and activation checks passed before cutover.
-The repository's `dendritic` check separately fails on the existing
-`modules/development/ai-skills/skills/visualize/_package.nix`.
+That exception was removed on 2026-11-20 once Nook evaluated without it. At
+cutover, the `dendritic` check also failed on the visualize skill's recipe,
+since moved to `packages/visualize-skill/`.
 
 Vega disables `targets.darwin.copyApps.enable` and enables
 `targets.darwin.linkApps.enable` at Lisa's request, following the

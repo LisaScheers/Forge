@@ -87,7 +87,7 @@ No configuration was activated and no deployed database was opened.
 | REA 6.8.0 and its release lockfile | 6.8.0 is the latest published release. The runtime, NativeAOT bridge and dependency lockfile must advance together. |
 | REA WABT 1.0.42, sigrok 0.7.2, mitmproxy 12.2.3 | The current runtime's integration contracts require these versions. WABT is also the latest release. Newer mitmproxy 12.3.1 does not meet that contract. |
 | REA pwndbg 2026.09.15, Unicorn 2.1.2, pyelftools 0.33, unchanged pwntools 4.15.0 | The core/binary integration explicitly requires these exact versions and unchanged upstream sources. Newer pwndbg 2026.10.28 and Unicorn 2.1.4 cannot simply replace them. |
-| REA Kuna 1.833, Wakaru 1.14.0, JADX bridge, NativeAOT and Frida selections | These are the selected REA release's verified tool and ABI set. Independent updates would require changing and validating REA's contracts. |
+| REA Wakaru 1.14.0, JADX bridge, NativeAOT and Frida selections | These are the selected REA release's verified tool and ABI set; Kuna moved past its 1.833 label (above). Independent updates would require changing and validating REA's contracts. |
 | REA Ghidra 12.2 compatibility substitution | REA 6.8's release policy still rejects the packaged Ghidra minor without it. |
 | Cutter Qt template patch | 2.5.0 remains the latest Cutter release and still uses template names in `.ui` files. The typedef and UI substitutions remain necessary with Qt 6.12. |
 | mautrix-discord's seven patches | 0.7.7 remains its latest release. Local relay recovery/features, history/content/reactions, missing thread starters and media-retention behavior are still local. |
@@ -145,12 +145,10 @@ The newer Lix candidate failed two functional2 test cases (`test_store_system`
 and `test_trivial_assert`) with daemon-socket connection errors; its lock entry
 was restored to the previously selected revision.
 
-Repository-wide checks have existing blockers: `nix flake check --no-build
---all-systems` fails on devenv's missing `nix2container` / `mk-shell-bin` inputs;
-the dendritic check rejects the vendored `visualize/_package.nix`, reproduced at
-baseline commit `d447e12a5f5fff362083161382d7c9ee4094802c`. The full format check
-also reports six unchanged files: `gh-dash.nix`, `git.nix`, `codex/default.nix`,
-`antigravity.nix`, and Matrix's two backup test modules.
+At the time of this audit, repository-wide checks had blockers: devenv's
+container outputs, the dendritic check on the visualize recipe, and six
+unformatted files. All three were fixed on 2026-11-20; CI now builds every flake
+check and `checks.lint` enforces formatting.
 
 No host configuration was activated. Production database migrations, live Cognee
 retrieval and Asterion boot/GPU qualification remain separate deployment checks.

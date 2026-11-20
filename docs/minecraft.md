@@ -82,9 +82,9 @@ systemd, then start the chosen previous service. The original ATM10 Aero 0.7.1
 directory remains `atm10-aero-0.7.1`. Revert the Minecraft module before a later
 whole-system deployment if retaining the rollback.
 
-The targeted unit builds and systemd verification passed. The repository's
-broader `dendritic` check currently fails on the existing
-`modules/development/ai-skills/skills/visualize/_package.nix` module boundary.
+The targeted unit builds and systemd verification passed. At the time, the
+broader `dendritic` check failed on the visualize skill's recipe; that recipe
+has since moved to `packages/visualize-skill/` and the check passes.
 
 ## FTB update, 2026-10-28
 
