@@ -49,7 +49,6 @@
             files = "^(modules|packages)/.*\\.nix$";
           };
           nil.enable = true;
-          editorconfig-checker.enable = true;
           write-flake = {
             enable = true;
             name = "write-flake";

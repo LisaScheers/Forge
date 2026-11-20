@@ -43,7 +43,6 @@ in {
   config = {
     nixos.base.imports = [config.nixos.agenix];
     darwin.base.imports = [config.darwin.agenix];
-    home.lisa-cli.imports = [inputs.agenix.homeManagerModules.default];
     nixos.agenix = mkSystemModule inputs.agenix.nixosModules.default;
     darwin.agenix = mkSystemModule inputs.agenix.darwinModules.default;
 

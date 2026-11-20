@@ -39,6 +39,7 @@ configurations and [Vimjoyer's examples](https://vimjoyer.com/nix/):
 | `modules/security/` | Agenix, SSH, GnuPG, 1Password |
 | `modules/hardware/` | Host hardware, disk support, Apple Silicon installers |
 | `services/<name>/` | Application source (Python services, catalogs) that modules package |
+| `tools/<name>/` | Small helpers with their own tests (certificate cleanup, Chrome tab bridge, Forgejo API) |
 | `scripts/`, `tests/` | Deploy and host helper scripts, and the unit tests that run them in `checks.script-tests` |
 | `packages/` | Raw package recipes and patches, one `packages/<name>/package.nix` entry point each (larger recipes keep helpers beside it); outside automatic loading |
 
@@ -93,11 +94,11 @@ nix build .#ciVmTests.x86_64-linux    # needs a builder with kvm and nixos-test
 
 `checks.lint` runs alejandra, deadnix and statix (configured in `statix.toml`)
 over `modules/` and `packages/`, shellcheck over the repository's shell scripts,
-ruff (`ruff.toml`) over its Python and actionlint over the workflows; the
-vendored AI skills are excluded.
+ruff (`ruff.toml`) over its Python and actionlint over the workflows; only the
+vendored pstack skills are excluded.
 `nix fmt -- modules packages` formats the Nix.
-The dev shell's pre-commit hooks run alejandra on the same paths, nil,
-editorconfig-checker and write-flake. `checks.script-tests` runs the Python tests in
+The dev shell's pre-commit hooks run alejandra on the same paths, nil and
+write-flake. `checks.script-tests` runs the Python tests in
 `tests/` against the repository scripts, Justfile and helpers they exercise.
 
 Tests sit beside what they cover, and each runs from a flake check: service

@@ -13,5 +13,6 @@
       )
     );
   };
+  # nixd reads flake-parts and flake-file option docs from the debug output.
   debug = true;
 }
