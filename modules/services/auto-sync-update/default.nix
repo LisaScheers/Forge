@@ -61,7 +61,7 @@ in {
         flake_host=${lib.escapeShellArg cfg.flakeHost}
         branch=${lib.escapeShellArg cfg.branch}
         env_file="''${AUTO_SYNC_ENV_FILE:-${lib.escapeShellArg cfg.environmentFile}}"
-        lock_dir=${lib.escapeShellArg cfg.lockDirectory}
+        lock_path=${lib.escapeShellArg cfg.lockPath}
         email_to=${lib.escapeShellArg cfg.emailTo}
         reboot_delay_seconds=${toString cfg.rebootDelaySeconds}
         custom_reboot_required=${lib.escapeShellArg (lib.boolToString (cfg.rebootRequiredCommand != null))}
@@ -81,7 +81,7 @@ in {
         trap cleanup EXIT
 
         # Keep the lock file so concurrent runs cannot lock different inodes.
-        exec 9>"$lock_dir"
+        exec 9>"$lock_path"
         if ! flock -n 9; then
           echo "Another nix-auto-sync-update run is active; exiting."
           exit 0
@@ -126,7 +126,7 @@ in {
             return 0
           fi
 
-          mail_from="''${AUTO_SYNC_SMTP_FROM:-nix-auto-sync-update@$(/bin/hostname -f 2>/dev/null || /bin/hostname)}"
+          mail_from="''${AUTO_SYNC_SMTP_FROM:-nix-auto-sync-update@${config.networking.fqdnOrHostName}}"
           mail_to="''${AUTO_SYNC_SMTP_TO:-$email_to}"
           mail_file="$(mktemp)"
 
@@ -324,7 +324,7 @@ in {
         description = "Number of seconds to wait before rebooting after an update that requires a reboot.";
       };
 
-      lockDirectory = lib.mkOption {
+      lockPath = lib.mkOption {
         type = lib.types.str;
         default = "/var/run/nix-auto-sync-update.lock";
         description = "Advisory lock file that prevents overlapping runs.";

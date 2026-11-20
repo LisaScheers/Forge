@@ -14,7 +14,7 @@
           environmentFile = "/dev/null";
           emailTo = "";
           intervalSeconds = 86400;
-          lockDirectory = "/run/shared-update.lock";
+          lockPath = "/run/shared-update.lock";
           rebuildCommand = [
             (toString (pkgs.writeShellScript "test-rebuild" ''
               touch /run/rebuild-start
