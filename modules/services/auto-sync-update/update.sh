@@ -60,6 +60,7 @@ send_mail() (
     # An environment file without a usable URL means mail is silently lost
     # (systemd skips malformed lines), so fail the unit where it shows.
     if [ -e "$environment_file" ]; then
+      touch "$mail_failed_marker"
       return 1
     fi
     return 0

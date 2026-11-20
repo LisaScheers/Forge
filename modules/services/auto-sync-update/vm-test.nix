@@ -106,7 +106,11 @@
             # A malformed line is skipped by systemd, which would lose mail silently.
             machine.succeed("printf 'export AUTO_SYNC_SMTP_URL=smtp://127.0.0.1:2525\\n' > /run/auto-sync.env; touch /run/reboot-required")
             machine.fail("systemctl start nix-auto-sync-update.service")
-            machine.succeed("journalctl -u nix-auto-sync-update.service | grep -q 'AUTO_SYNC_SMTP_URL is not set'")
+            invocation = machine.succeed("systemctl show -p InvocationID --value nix-auto-sync-update.service").strip()
+            run_log = f"journalctl --no-pager _SYSTEMD_INVOCATION_ID={invocation}"
+            machine.wait_until_succeeds(f"{run_log} | grep -q 'Not sending the failure mail'", timeout=30)
+            # Reported once: the failure mail does not repeat the same complaint.
+            assert machine.succeed(f"{run_log} | grep -c 'AUTO_SYNC_SMTP_URL is not set'").strip() == "1"
             machine.succeed("rm /run/reboot-required")
             machine.succeed("systemctl stop nix-auto-sync-update-reboot.timer || true")
 
@@ -122,9 +126,11 @@
             machine.succeed("systemctl stop nix-auto-sync-update-reboot.timer || true")
 
         with subtest("a failed rebuild keeps its exit status when the mail cannot be sent"):
-            machine.succeed("printf 'AUTO_SYNC_SMTP_REQUIRE_TLS=0\\n' > /run/auto-sync.env; echo 23 > /run/fail-rebuild")
-            machine.fail("systemctl start nix-auto-sync-update.service")
-            assert machine.succeed("systemctl show -p ExecMainStatus --value nix-auto-sync-update.service").strip() == "23"
+            # Both ways mail fails: no SMTP URL, and a server that refuses the connection.
+            for env in ["AUTO_SYNC_SMTP_REQUIRE_TLS=0\\n", "AUTO_SYNC_SMTP_URL=smtp://127.0.0.1:9\\nAUTO_SYNC_SMTP_REQUIRE_TLS=0\\n"]:
+                machine.succeed(f"printf '{env}' > /run/auto-sync.env; echo 23 > /run/fail-rebuild")
+                machine.fail("systemctl start nix-auto-sync-update.service")
+                assert machine.succeed("systemctl show -p ExecMainStatus --value nix-auto-sync-update.service").strip() == "23", env
             machine.succeed("rm /run/fail-rebuild /run/auto-sync.env")
 
         with subtest("Lix fetches a pinned revision from a checkout root does not own"):
