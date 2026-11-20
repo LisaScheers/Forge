@@ -4,8 +4,15 @@ set -euo pipefail
 build_log=$(mktemp)
 trap 'rm -f "$build_log"' EXIT
 
+# CHECKS names flake checks that share the target's closure, such as a host's
+# deploy-rs checks, so one job builds them together.
+installables=(".#$TARGET")
+for check in ${CHECKS:-}; do
+  installables+=(".#$check")
+done
+
 for attempt in 1 2 3; do
-  if nix build --no-link --no-write-lock-file --print-build-logs ".#$TARGET" 2>&1 | tee "$build_log"; then
+  if nix build --no-link --no-write-lock-file --print-build-logs "${installables[@]}" 2>&1 | tee "$build_log"; then
     exit 0
   else
     build_exit=$?

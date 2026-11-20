@@ -21,17 +21,17 @@
     else "3";
   ordered = builtins.sort (a: b: rank a.target + a.target < rank b.target + b.target) config.ci.targets;
   checkSystems = builtins.filter (system: runners ? ${system}) (builtins.attrNames config.flake.checks);
-  dedicatedChecks = system: map (entry: entry.check) (builtins.filter (entry: entry.system == system && entry.check != null) config.ci.targets);
+  dedicatedChecks = system: lib.concatMap (entry: entry.checks) (builtins.filter (entry: entry.system == system) config.ci.targets);
 in {
   options.ci.targets = lib.mkOption {
     type = lib.types.listOf (lib.types.submodule {
       options = {
         target = lib.mkOption {type = lib.types.str;};
         system = lib.mkOption {type = lib.types.enum (builtins.attrNames runners);};
-        check = lib.mkOption {
-          type = lib.types.nullOr lib.types.str;
-          default = null;
-          description = "Flake check that builds the same output, so the per-system checks job skips it.";
+        checks = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [];
+          description = "Flake checks for this system that share the target's closure; its job builds them and the per-system checks job skips them.";
         };
       };
     });
@@ -46,11 +46,13 @@ in {
     map (entry: {
       inherit (entry) target;
       runner = runners.${entry.system};
+      checks = lib.concatMapStringsSep " " (name: "checks.${entry.system}.${name}") entry.checks;
     })
     ordered
     ++ map (system: {
       target = "ciChecks.${system}";
       runner = runners.${system};
+      checks = "";
     })
     checkSystems;
 }

@@ -21,7 +21,7 @@
     {
       target = "homeConfigurations.\"lisa@nook\".activationPackage";
       system = "x86_64-linux";
-      check = "home-lisa@nook";
+      checks = ["home-lisa@nook"];
     }
   ];
 }

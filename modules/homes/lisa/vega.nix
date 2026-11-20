@@ -27,7 +27,7 @@
     {
       target = "homeConfigurations.\"lisa@vega\".activationPackage";
       system = "aarch64-darwin";
-      check = "home-lisa@vega";
+      checks = ["home-lisa@vega"];
     }
   ];
 }

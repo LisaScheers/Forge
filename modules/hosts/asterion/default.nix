@@ -24,7 +24,7 @@
     {
       target = "nixosConfigurations.\"asterion\".config.system.build.toplevel";
       system = "aarch64-linux";
-      check = "asterion";
+      checks = ["asterion" "deploy-schema-asterion" "deploy-activate-asterion"];
     }
   ];
 }

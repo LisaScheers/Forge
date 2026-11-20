@@ -10,13 +10,14 @@ SCRIPT = Path(__file__).resolve().parents[1] / ".github/scripts/build-configurat
 
 
 class CiBuildTest(unittest.TestCase):
-    def run_build(self, message, failures=1):
+    def run_build(self, message, failures=1, checks=None):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             attempts = root / "attempts"
             attempts.write_text("0")
             nix = root / "nix"
             nix.write_text('''#!/usr/bin/env bash
+printf '%s\n' "$@" > "$ARGS_FILE"
 count=$(<"$ATTEMPTS_FILE")
 count=$((count + 1))
 echo "$count" > "$ATTEMPTS_FILE"
@@ -38,9 +39,17 @@ fi
                     "ATTEMPTS_FILE": str(attempts),
                     "FAIL_ATTEMPTS": str(failures),
                     "FAIL_MESSAGE": message,
+                    "ARGS_FILE": str(root / "args"),
+                    **({"CHECKS": checks} if checks else {}),
                 },
             )
+            self.args = (root / "args").read_text().splitlines()
             return result, int(attempts.read_text())
+
+    def test_checks_build_with_the_target(self):
+        result, _ = self.run_build("", failures=0, checks="checks.x86_64-linux.a checks.x86_64-linux.b")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.args[-3:], [".#test-target", ".#checks.x86_64-linux.a", ".#checks.x86_64-linux.b"])
 
     def test_transient_download_errors_recover(self):
         for message in (

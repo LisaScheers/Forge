@@ -26,7 +26,7 @@
     {
       target = "homeConfigurations.\"lisa@asterion\".activationPackage";
       system = "aarch64-linux";
-      check = "home-lisa@asterion";
+      checks = ["home-lisa@asterion"];
     }
   ];
 }

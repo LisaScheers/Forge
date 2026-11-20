@@ -50,49 +50,13 @@
     };
   };
 
-  linuxDeploy =
-    deploy
-    // {
-      nodes = {
-        inherit (deploy.nodes) nook atlas;
-      };
-    };
-
-  darwinDeploy =
-    deploy
-    // {
-      nodes = {
-        inherit (deploy.nodes) vega;
-      };
-    };
-
-  asterionDeploy =
-    deploy
-    // {
-      nodes = {
-        inherit (deploy.nodes) asterion;
-      };
-    };
-
-  linuxDeployChecks = inputs.deploy-rs.lib.x86_64-linux.deployChecks linuxDeploy;
-  asterionDeployChecks = inputs.deploy-rs.lib.aarch64-linux.deployChecks asterionDeploy;
-  darwinDeployChecks = inputs.deploy-rs.lib.aarch64-darwin.deployChecks darwinDeploy;
-  nookDeployChecks = inputs.deploy-rs.lib.x86_64-linux.deployChecks (
-    deploy
-    // {
-      nodes = {
-        inherit (deploy.nodes) nook;
-      };
-    }
-  );
-  atlasDeployChecks = inputs.deploy-rs.lib.x86_64-linux.deployChecks (
-    deploy
-    // {
-      nodes = {
-        inherit (deploy.nodes) atlas;
-      };
-    }
-  );
+  # Per-host deploy-rs checks; scripts/deploy.sh builds them before deploying.
+  hostChecks = system: host: let
+    checks = inputs.deploy-rs.lib.${system}.deployChecks (deploy // {nodes.${host} = deploy.nodes.${host};});
+  in {
+    "deploy-schema-${host}" = checks.deploy-schema;
+    "deploy-activate-${host}" = checks.deploy-activate;
+  };
 in {
   flake-file.inputs.deploy-rs = {
     url = "github:serokell/deploy-rs";
@@ -101,26 +65,9 @@ in {
 
   flake.deploy = deploy;
 
-  flake.checks.x86_64-linux =
-    linuxDeployChecks
-    // {
-      deploy-schema-nook = nookDeployChecks.deploy-schema;
-      deploy-schema-atlas = atlasDeployChecks.deploy-schema;
-      deploy-activate-nook = nookDeployChecks.deploy-activate;
-      deploy-activate-atlas = atlasDeployChecks.deploy-activate;
-    };
-  flake.checks.aarch64-linux =
-    asterionDeployChecks
-    // {
-      deploy-schema-asterion = asterionDeployChecks.deploy-schema;
-      deploy-activate-asterion = asterionDeployChecks.deploy-activate;
-    };
-  flake.checks.aarch64-darwin =
-    darwinDeployChecks
-    // {
-      deploy-schema-vega = darwinDeployChecks.deploy-schema;
-      deploy-activate-vega = darwinDeployChecks.deploy-activate;
-    };
+  flake.checks.x86_64-linux = hostChecks "x86_64-linux" "nook" // hostChecks "x86_64-linux" "atlas";
+  flake.checks.aarch64-linux = hostChecks "aarch64-linux" "asterion";
+  flake.checks.aarch64-darwin = hostChecks "aarch64-darwin" "vega";
 
   perSystem = {system, ...}: let
     deployPackage = inputs.deploy-rs.packages.${system}.deploy-rs.overrideAttrs (old: {
