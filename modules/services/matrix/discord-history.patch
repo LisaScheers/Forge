@@ -1,98 +1,3 @@
---- a/commands.go
-+++ b/commands.go
-@@ -63,6 +63,8 @@
- 		cmdUnbridge,
- 		cmdDeletePortal,
- 		cmdCreatePortal,
-+		cmdRetryInitialBackfill,
-+		cmdImportThreadHistory,
- 		cmdSetRelay,
- 		cmdUnsetRelay,
- 		cmdGuilds,
---- a/portal.go
-+++ b/portal.go
-@@ -618,8 +618,12 @@
- }
- 
- func (portal *Portal) handleDiscordMessageCreate(user *User, msg *discordgo.Message, thread *Thread) {
-+	portal.handleDiscordMessageCreateWithHistory(user, msg, thread, false)
-+}
-+
-+func (portal *Portal) handleDiscordMessageCreateWithHistory(user *User, msg *discordgo.Message, thread *Thread, historical bool) {
- 	switch msg.Type {
--	case discordgo.MessageTypeChannelNameChange, discordgo.MessageTypeChannelIconChange, discordgo.MessageTypeChannelPinnedMessage:
-+	case discordgo.MessageTypeChannelIconChange:
- 		// These are handled via channel updates
- 		return
- 	}
-@@ -643,7 +647,7 @@
- 	handlingStartTime := time.Now()
- 	puppet := portal.bridge.GetPuppetByID(msg.Author.ID)
- 	puppet.UpdateInfo(user, msg.Author, msg)
--	intent := puppet.IntentFor(portal)
-+	intent := puppet.messageIntent(portal, historical)
- 
- 	var discordThreadID string
- 	var threadRootEvent, lastThreadEvent id.EventID
-@@ -867,7 +871,8 @@
- 	}
- 
- 	puppet := portal.bridge.GetPuppetByID(msg.Author.ID)
--	intent := puppet.IntentFor(portal)
-+	// Edits must use the identity that authored the original historical part.
-+	intent := puppet.messageIntent(portal, existing[0].SenderMXID == puppet.MXID)
- 
- 	redactions := zerolog.Dict()
- 	attachmentMap := map[string]*database.Message{}
-@@ -1231,6 +1236,8 @@
- func errorToStatusReason(err error) (reason event.MessageStatusReason, status event.MessageStatus, isCertain, sendNotice bool, humanMessage string, checkpointError error) {
- 	var restErr *discordgo.RESTError
- 	switch {
-+	case errors.Is(err, errReadOnlyMirror):
-+		return event.MessageStatusNoPermission, event.MessageStatusFail, true, true, "This is a read-only Discord mirror. Make changes in Discord.", nil
- 	case errors.Is(err, errUnknownMsgType),
- 		errors.Is(err, errUnknownRelationType),
- 		errors.Is(err, errUnexpectedParsedContentType),
-@@ -1528,6 +1535,9 @@
- }
- 
- func (portal *Portal) handleMatrixMessage(sender *User, evt *event.Event) {
-+	if portal.rejectReadOnlyMirrorWrite(evt) {
-+		return
-+	}
- 	if portal.queuePluralMessage(sender, evt) {
- 		return
- 	}
-@@ -1535,6 +1545,9 @@
- }
- 
- func (portal *Portal) handleMatrixMessageNow(sender *User, evt *event.Event) {
-+	if portal.rejectReadOnlyMirrorWrite(evt) {
-+		return
-+	}
- 	if portal.bridge.DB.Message.GetByMXID(portal.Key, evt.ID) != nil {
- 		return
- 	}
-@@ -1962,6 +1975,9 @@
- }
- 
- func (portal *Portal) handleMatrixReaction(sender *User, evt *event.Event) {
-+	if portal.rejectReadOnlyMirrorWrite(evt) {
-+		return
-+	}
- 	if !sender.IsLoggedIn() {
- 		if !portal.IsPrivateChat() && portal.RelayWebhookID != "" {
- 			portal.handleRelayReaction(sender, evt)
-@@ -2150,6 +2166,9 @@
- }
- 
- func (portal *Portal) handleMatrixRedaction(sender *User, evt *event.Event) {
-+	if portal.rejectReadOnlyMirrorWrite(evt) {
-+		return
-+	}
- 	if portal.IsPrivateChat() {
- 		if !sender.IsLoggedIn() {
- 			go portal.sendMessageMetrics(evt, errUserNotLoggedIn, "Ignoring")
 --- a/backfill.go
 +++ b/backfill.go
 @@ -211,7 +211,7 @@
@@ -113,28 +18,17 @@
  		replyTo := portal.getReplyTarget(source, discordThreadID, msg.MessageReference, msg.Embeds, true)
  		mentions := portal.convertDiscordMentions(msg, false)
  
---- a/portal_convert.go
-+++ b/portal_convert.go
-@@ -636,6 +636,9 @@
- 			return EmbedLinkPreview
- 		}
- 		return EmbedRich
-+	case discordgo.EmbedType("auto_moderation_message"):
-+		// Discord moderation notices carry their content in these rich fields.
-+		return EmbedRich
- 	case discordgo.EmbedTypeRich:
- 		return EmbedRich
- 	default:
-@@ -683,6 +686,9 @@
- </blockquote>`
- 
- func (portal *Portal) convertDiscordTextMessage(ctx context.Context, intent *appservice.IntentAPI, msg *discordgo.Message) *ConvertedMessage {
-+	if converted := convertDiscordSystemMessage(msg); converted != nil {
-+		return converted
-+	}
- 	log := zerolog.Ctx(ctx)
- 	if msg.Type == discordgo.MessageTypeCall {
- 		return &ConvertedMessage{Type: event.EventMessage, Content: &event.MessageEventContent{
+--- a/commands.go
++++ b/commands.go
+@@ -63,6 +63,8 @@
+ 		cmdUnbridge,
+ 		cmdDeletePortal,
+ 		cmdCreatePortal,
++		cmdRetryInitialBackfill,
++		cmdImportThreadHistory,
+ 		cmdSetRelay,
+ 		cmdUnsetRelay,
+ 		cmdGuilds,
 --- /dev/null
 +++ b/history_repair.go
 @@ -0,0 +1,142 @@
@@ -378,3 +272,99 @@
 +		t.Fatal("read-only writes must fail clearly without retrying")
 +	}
 +}
+--- a/portal.go
++++ b/portal.go
+@@ -618,8 +618,12 @@
+ }
+ 
+ func (portal *Portal) handleDiscordMessageCreate(user *User, msg *discordgo.Message, thread *Thread) {
++	portal.handleDiscordMessageCreateWithHistory(user, msg, thread, false)
++}
++
++func (portal *Portal) handleDiscordMessageCreateWithHistory(user *User, msg *discordgo.Message, thread *Thread, historical bool) {
+ 	switch msg.Type {
+-	case discordgo.MessageTypeChannelNameChange, discordgo.MessageTypeChannelIconChange, discordgo.MessageTypeChannelPinnedMessage:
++	case discordgo.MessageTypeChannelIconChange:
+ 		// These are handled via channel updates
+ 		return
+ 	}
+@@ -643,7 +647,7 @@
+ 	handlingStartTime := time.Now()
+ 	puppet := portal.bridge.GetPuppetByID(msg.Author.ID)
+ 	puppet.UpdateInfo(user, msg.Author, msg)
+-	intent := puppet.IntentFor(portal)
++	intent := puppet.messageIntent(portal, historical)
+ 
+ 	var discordThreadID string
+ 	var threadRootEvent, lastThreadEvent id.EventID
+@@ -867,7 +871,8 @@
+ 	}
+ 
+ 	puppet := portal.bridge.GetPuppetByID(msg.Author.ID)
+-	intent := puppet.IntentFor(portal)
++	// Edits must use the identity that authored the original historical part.
++	intent := puppet.messageIntent(portal, existing[0].SenderMXID == puppet.MXID)
+ 
+ 	redactions := zerolog.Dict()
+ 	attachmentMap := map[string]*database.Message{}
+@@ -1231,6 +1236,8 @@
+ func errorToStatusReason(err error) (reason event.MessageStatusReason, status event.MessageStatus, isCertain, sendNotice bool, humanMessage string, checkpointError error) {
+ 	var restErr *discordgo.RESTError
+ 	switch {
++	case errors.Is(err, errReadOnlyMirror):
++		return event.MessageStatusNoPermission, event.MessageStatusFail, true, true, "This is a read-only Discord mirror. Make changes in Discord.", nil
+ 	case errors.Is(err, errUnknownMsgType),
+ 		errors.Is(err, errUnknownRelationType),
+ 		errors.Is(err, errUnexpectedParsedContentType),
+@@ -1525,6 +1532,9 @@
+ }
+ 
+ func (portal *Portal) handleMatrixMessage(sender *User, evt *event.Event) {
++	if portal.rejectReadOnlyMirrorWrite(evt) {
++		return
++	}
+ 	content, ok := evt.Content.Parsed.(*event.MessageEventContent)
+ 	if !ok {
+ 		go portal.sendMessageMetrics(evt, fmt.Errorf("%w %T", errUnexpectedParsedContentType, evt.Content.Parsed), "Ignoring")
+@@ -1949,6 +1959,9 @@
+ }
+ 
+ func (portal *Portal) handleMatrixReaction(sender *User, evt *event.Event) {
++	if portal.rejectReadOnlyMirrorWrite(evt) {
++		return
++	}
+ 	if !sender.IsLoggedIn() {
+ 		if !portal.IsPrivateChat() && portal.RelayWebhookID != "" {
+ 			portal.handleRelayReaction(sender, evt)
+@@ -2137,6 +2150,9 @@
+ }
+ 
+ func (portal *Portal) handleMatrixRedaction(sender *User, evt *event.Event) {
++	if portal.rejectReadOnlyMirrorWrite(evt) {
++		return
++	}
+ 	if portal.IsPrivateChat() {
+ 		if !sender.IsLoggedIn() {
+ 			go portal.sendMessageMetrics(evt, errUserNotLoggedIn, "Ignoring")
+--- a/portal_convert.go
++++ b/portal_convert.go
+@@ -636,6 +636,9 @@
+ 			return EmbedLinkPreview
+ 		}
+ 		return EmbedRich
++	case discordgo.EmbedType("auto_moderation_message"):
++		// Discord moderation notices carry their content in these rich fields.
++		return EmbedRich
+ 	case discordgo.EmbedTypeRich:
+ 		return EmbedRich
+ 	default:
+@@ -683,6 +686,9 @@
+ </blockquote>`
+ 
+ func (portal *Portal) convertDiscordTextMessage(ctx context.Context, intent *appservice.IntentAPI, msg *discordgo.Message) *ConvertedMessage {
++	if converted := convertDiscordSystemMessage(msg); converted != nil {
++		return converted
++	}
+ 	log := zerolog.Ctx(ctx)
+ 	if msg.Type == discordgo.MessageTypeCall {
+ 		return &ConvertedMessage{Type: event.EventMessage, Content: &event.MessageEventContent{

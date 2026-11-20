@@ -1,8 +1,6 @@
-diff --git a/commands.go b/commands.go
-index 92bee19..ff7b14b 100644
 --- a/commands.go
 +++ b/commands.go
-@@ -65,6 +65,7 @@ func (br *DiscordBridge) RegisterCommands() {
+@@ -65,6 +65,7 @@
  		cmdCreatePortal,
  		cmdRetryInitialBackfill,
  		cmdImportThreadHistory,
@@ -10,11 +8,9 @@ index 92bee19..ff7b14b 100644
  		cmdImportReactions,
  		cmdSetRelay,
  		cmdUnsetRelay,
-diff --git a/history_repair.go b/history_repair.go
-index 1c45c87..08a9a07 100644
 --- a/history_repair.go
 +++ b/history_repair.go
-@@ -2,6 +2,8 @@ package main
+@@ -2,6 +2,8 @@
  
  import (
  	"errors"
@@ -23,7 +19,7 @@ index 1c45c87..08a9a07 100644
  	"os"
  	"strings"
  	"github.com/bwmarrin/discordgo"
-@@ -41,6 +43,14 @@ func convertDiscordSystemMessage(msg *discordgo.Message) *ConvertedMessage {
+@@ -41,6 +43,14 @@
  	var body string
  	msgType := event.MsgEmote
  	switch msg.Type {
@@ -38,7 +34,7 @@ index 1c45c87..08a9a07 100644
  	case discordgo.MessageTypeChannelNameChange:
  		body = "changed the channel name"
  		if msg.Content != "" { body += ": " + msg.Content }
-@@ -112,6 +122,40 @@ var cmdImportThreadHistory = &commands.FullHandler{
+@@ -112,6 +122,40 @@
  }
  
  func fnImportThreadHistory(ce *WrappedCommandEvent) {
@@ -79,7 +75,7 @@ index 1c45c87..08a9a07 100644
  	if ce.User.PermissionLevel < bridgeconfig.PermissionLevelAdmin {
  		ce.Reply("Only bridge administrators can import thread history")
  		return
-@@ -121,22 +165,47 @@ func fnImportThreadHistory(ce *WrappedCommandEvent) {
+@@ -121,22 +165,47 @@
  		return
  	}
  	meta, err := ce.User.Session.Channel(ce.Args[0])
@@ -135,9 +131,6 @@ index 1c45c87..08a9a07 100644
  	go ce.Portal.forwardBackfillInitial(ce.User, thread)
  	ce.Reply("Importing public thread history without changing Discord thread membership")
  }
-diff --git a/missing_thread_starter_test.go b/missing_thread_starter_test.go
-new file mode 100644
-index 0000000..9290e8a
 --- /dev/null
 +++ b/missing_thread_starter_test.go
 @@ -0,0 +1,63 @@

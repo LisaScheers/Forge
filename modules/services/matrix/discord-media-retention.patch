@@ -1,13 +1,29 @@
 --- a/config/bridge.go
 +++ b/config/bridge.go
-@@ -21,0 +22 @@
+@@ -19,8 +19,10 @@
+ import (
+ 	"errors"
+ 	"fmt"
 +	"strconv"
-@@ -23,0 +25 @@
+ 	"strings"
+ 	"text/template"
 +	"time"
-@@ -62,0 +65,2 @@
+ 
+ 	"github.com/bwmarrin/discordgo"
+ 
+@@ -60,6 +62,8 @@
+ 
+ 	Proxy string `yaml:"proxy"`
+ 
 +	MediaRetentionBefore map[string]string `yaml:"media_retention_before"`
 +
-@@ -137,0 +142,8 @@
+ 	CacheMedia  string      `yaml:"cache_media"`
+ 	DirectMedia DirectMedia `yaml:"direct_media"`
+ 
+@@ -135,6 +139,14 @@
+ }
+ 
+ func (bc *BridgeConfig) Validate() error {
 +	for guild, raw := range bc.MediaRetentionBefore {
 +		if id, err := strconv.ParseUint(guild, 10, 64); err != nil || id == 0 {
 +			return errors.New("bridge.media_retention_before requires numeric guild IDs")
@@ -16,107 +32,72 @@
 +			return errors.New("bridge.media_retention_before requires nonzero RFC3339 cutoffs")
 +		}
 +	}
+ 	_, hasWildcard := bc.Permissions["*"]
+ 	_, hasExampleDomain := bc.Permissions["example.com"]
+ 	_, hasExampleUser := bc.Permissions["@admin:example.com"]
 --- a/config/upgrade.go
 +++ b/config/upgrade.go
-@@ -67,0 +68 @@
+@@ -65,6 +65,7 @@
+ 	helper.Copy(up.Bool, "bridge", "use_discord_cdn_upload")
+ 	helper.Copy(up.Bool, "bridge", "forbid_dming_strangers")
+ 	helper.Copy(up.Str|up.Null, "bridge", "proxy")
 +	helper.Copy(up.Map, "bridge", "media_retention_before")
+ 	helper.Copy(up.Str, "bridge", "cache_media")
+ 	helper.Copy(up.Bool, "bridge", "direct_media", "enabled")
+ 	helper.Copy(up.Str, "bridge", "direct_media", "server_name")
 --- a/example-config.yaml
 +++ b/example-config.yaml
-@@ -182,0 +183,2 @@
+@@ -180,6 +180,8 @@
+     # Should mxc uris copied from Discord be cached?
+     # This can be `never` to never cache, `unencrypted` to only cache unencrypted mxc uris, or `always` to cache everything.
+     # If you have a media repo that generates non-unique mxc uris, you should set this to never.
 +    # Optional guild ID -> fixed RFC3339 cutoff for message images/videos.
 +    media_retention_before: {}
---- a/portal_convert.go
-+++ b/portal_convert.go
-@@ -108 +108 @@
--func (portal *Portal) convertDiscordSticker(ctx context.Context, intent *appservice.IntentAPI, sticker *discordgo.StickerItem) *ConvertedMessage {
-+func (portal *Portal) convertDiscordSticker(ctx context.Context, intent *appservice.IntentAPI, msg *discordgo.Message, sticker *discordgo.StickerItem) *ConvertedMessage {
-@@ -124,0 +125,5 @@
-+	if strings.HasPrefix(mime, "image/") || strings.HasPrefix(mime, "video/") {
-+		if omission := portal.mediaOmission(msg, "sticker", sticker.ID, sticker.URL()); omission != nil {
-+			return portal.omittedMediaPart(msg, sticker.ID, *omission)
-+		}
-+	}
-@@ -134 +139 @@
--	if mxc.IsEmpty() && mime != "application/json" {
-+	if mxc.IsEmpty() || mime == "application/json" {
-@@ -147 +152,6 @@
--func (portal *Portal) convertDiscordAttachment(ctx context.Context, intent *appservice.IntentAPI, messageID string, att *discordgo.MessageAttachment) *ConvertedMessage {
-+func (portal *Portal) convertDiscordAttachment(ctx context.Context, intent *appservice.IntentAPI, msg *discordgo.Message, att *discordgo.MessageAttachment) *ConvertedMessage {
-+	if imageVideoAttachment(att) {
-+		if omission := portal.mediaOmission(msg, "attachment", att.ID, att.URL, att.ProxyURL); omission != nil {
-+			return portal.omittedMediaPart(msg, att.ID, *omission)
-+		}
-+	}
-@@ -188 +198 @@
--	mxc := portal.bridge.DMA.AttachmentMXC(portal.Key.ChannelID, messageID, att)
-+	mxc := portal.bridge.DMA.AttachmentMXC(portal.Key.ChannelID, msg.ID, att)
-@@ -202 +212 @@
--func (portal *Portal) convertDiscordVideoEmbed(ctx context.Context, intent *appservice.IntentAPI, embed *discordgo.MessageEmbed) *ConvertedMessage {
-+func (portal *Portal) convertDiscordVideoEmbed(ctx context.Context, intent *appservice.IntentAPI, msg *discordgo.Message, embed *discordgo.MessageEmbed, index int) *ConvertedMessage {
-@@ -204,0 +215 @@
-+	kind, slot := "embed_video", "video"
-@@ -207,0 +219 @@
-+		kind, slot = "embed_thumbnail", "thumbnail"
-@@ -219,0 +232,3 @@
-+	if omission := portal.mediaOmission(msg, kind, fmt.Sprintf("embed:%d:%s", index, slot), proxyURL, embed.URL); omission != nil {
-+		return portal.omittedMediaPart(msg, attachmentID, *omission)
-+	}
-@@ -295 +310 @@
--		if part := portal.convertDiscordAttachment(log.WithContext(ctx), intent, msg.ID, att); part != nil {
-+		if part := portal.convertDiscordAttachment(log.WithContext(ctx), intent, msg, att); part != nil {
-@@ -305 +320 @@
--		if part := portal.convertDiscordSticker(log.WithContext(ctx), intent, sticker); part != nil {
-+		if part := portal.convertDiscordSticker(log.WithContext(ctx), intent, msg, sticker); part != nil {
-@@ -324 +339 @@
--		part := portal.convertDiscordVideoEmbed(log.WithContext(ctx), intent, embed)
-+		part := portal.convertDiscordVideoEmbed(log.WithContext(ctx), intent, msg, embed, i)
-@@ -747,0 +763 @@
-+	var omissions []mediaOmission
-@@ -755 +771,8 @@
--		switch getEmbedType(msg, embed) {
-+		embedType := getEmbedType(msg, embed)
-+		filtered, omitted := portal.retainedEmbed(msg, embed, i, embedType)
-+		if len(omitted) > 0 {
-+			omissions = append(omissions, omitted...)
-+			htmlParts = append(htmlParts, "<p>"+html.EscapeString(portal.mediaOmissionBody(msg))+"</p>")
-+		}
-+		embed = filtered
-+		switch embedType {
-@@ -786,0 +810,3 @@
-+	if len(omissions) > 0 {
-+		extraContent[mediaRetentionKey] = portal.mediaReceipt(msg, omissions)
-+	}
---- a/portal.go
-+++ b/portal.go
-@@ -865,0 +866,3 @@
-+		if msg.EditedTimestamp != nil {
-+			creationMessage.EditedTimestamp = msg.EditedTimestamp
-+		}
-@@ -927 +930 @@
--		converted = portal.convertDiscordVideoEmbed(ctx, intent, msg.Embeds[0])
-+		converted = portal.convertDiscordVideoEmbed(ctx, intent, msg, msg.Embeds[0], 0)
+     cache_media: unencrypted
+     # Settings for converting Discord media to custom mxc:// URIs instead of reuploading.
+     # More details can be found at https://docs.mau.fi/bridges/go/discord/direct-media.html
 --- a/gif_update_test.go
 +++ b/gif_update_test.go
-@@ -97,0 +98 @@
+@@ -95,21 +95,27 @@
+ 	file := br.DB.File.New()
+ 	file.URL, file.MXC, file.MimeType, file.Size = proxyURL, id.ContentURI{Homeserver: "test", FileID: "gif"}, "image/gif", 42
+ 	file.Insert(nil)
 +	messageID := retentionTestID(retentionTestCutoff.Add(-time.Hour))
-@@ -99 +100 @@
+ 	original := br.DB.Message.New()
 -	original.DiscordID, original.Channel, original.SenderID = "message", portal.Key, "actor"
 +	original.DiscordID, original.Channel, original.SenderID = messageID, portal.Key, "actor"
-@@ -103 +104 @@
+ 	original.Timestamp, original.SenderMXID = time.UnixMilli(42), ghost
+ 	original.MassInsertParts([]database.MessagePart{{AttachmentID: "video_" + gifURL, MXID: "$original:test"}})
+ 	embed := &discordgo.MessageEmbed{Type: discordgo.EmbedTypeImage, URL: gifURL, Thumbnail: &discordgo.MessageEmbedThumbnail{ProxyURL: proxyURL, Width: 8, Height: 8}}
 -	message := &discordgo.Message{ID: "message", ChannelID: "channel", GuildID: "guild", Author: &discordgo.User{ID: "actor"}, Content: gifURL, Embeds: []*discordgo.MessageEmbed{embed}}
 +	message := &discordgo.Message{ID: messageID, ChannelID: "channel", GuildID: "guild", Author: &discordgo.User{ID: "actor"}, Content: gifURL, Embeds: []*discordgo.MessageEmbed{embed}}
-@@ -108,0 +110,5 @@
+ 	portal.recentMessages.Push(message.ID, message)
+ 
+ 	portal.handleDiscordMessageUpdate(nil, message)
+ 	portal.handleDiscordMessageUpdate(nil, &discordgo.Message{ID: message.ID, Embeds: []*discordgo.MessageEmbed{embed}})
+ 
 +	// A newer authorless source edit must protect older GIF media from retention.
 +	portal.GuildID = "1293572131086667827"
 +	br.Config.Bridge.MediaRetentionBefore = map[string]string{portal.GuildID: retentionTestCutoff.Format(time.RFC3339)}
 +	portal.handleDiscordMessageUpdate(nil, &discordgo.Message{ID: messageID, Embeds: []*discordgo.MessageEmbed{embed}, EditedTimestamp: &retentionTestCutoff})
 +
-@@ -112 +118 @@
+ 	mapped := br.DB.Message.GetByDiscordID(portal.Key, message.ID)
+ 	lock.Lock()
+ 	defer lock.Unlock()
 -	if redactions != 0 || len(mapped) != 1 || len(edits) != 2 {
 +	if redactions != 0 || len(mapped) != 1 || len(edits) != 3 {
-@@ -121 +127 @@
+ 		t.Fatalf("GIF metadata update damaged history: redactions=%d mappings=%d edits=%d", redactions, len(mapped), len(edits))
+ 	}
+ 	if mapped[0].MXID != "$original:test" || mapped[0].AttachmentID != "video_"+gifURL || mapped[0].Timestamp.UnixMilli() != 42 {
+@@ -118,7 +124,7 @@
+ 	for _, edit := range edits {
+ 		relation, _ := edit["m.relates_to"].(map[string]any)
+ 		content, _ := edit["m.new_content"].(map[string]any)
 -		if relation["rel_type"] != "m.replace" || relation["event_id"] != "$original:test" || content["url"] != "mxc://test/gif" {
 +		if relation["rel_type"] != "m.replace" || relation["event_id"] != "$original:test" || content["url"] != "mxc://test/gif" || content[mediaRetentionKey] != nil {
+ 			t.Fatal("metadata update did not edit the existing GIF")
+ 		}
+ 	}
 --- /dev/null
 +++ b/media_retention.go
 @@ -0,0 +1,209 @@
@@ -560,6 +541,169 @@
 +		t.Fatal("JSON source cutoff exemption did not preserve its cached converted sticker")
 +	}
 +}
+--- a/portal.go
++++ b/portal.go
+@@ -863,6 +863,9 @@
+ 		if len(msg.Components) > 0 {
+ 			creationMessage.Components = msg.Components
+ 		}
++		if msg.EditedTimestamp != nil {
++			creationMessage.EditedTimestamp = msg.EditedTimestamp
++		}
+ 		// TODO are there other fields that need copying?
+ 		msg = creationMessage
+ 	} else {
+@@ -924,7 +927,7 @@
+ 	// Slightly hacky special case: messages with gif links will get an embed with the gif.
+ 	// The link isn't rendered on Discord, so just edit the link message into a gif message on Matrix too.
+ 	if isPlainGifMessage(msg) {
+-		converted = portal.convertDiscordVideoEmbed(ctx, intent, msg.Embeds[0])
++		converted = portal.convertDiscordVideoEmbed(ctx, intent, msg, msg.Embeds[0], 0)
+ 	} else {
+ 		converted = portal.convertDiscordTextMessage(ctx, intent, msg)
+ 	}
+--- a/portal_convert.go
++++ b/portal_convert.go
+@@ -105,7 +105,7 @@
+ 	}
+ }
+ 
+-func (portal *Portal) convertDiscordSticker(ctx context.Context, intent *appservice.IntentAPI, sticker *discordgo.StickerItem) *ConvertedMessage {
++func (portal *Portal) convertDiscordSticker(ctx context.Context, intent *appservice.IntentAPI, msg *discordgo.Message, sticker *discordgo.StickerItem) *ConvertedMessage {
+ 	var mime string
+ 	switch sticker.FormatType {
+ 	case discordgo.StickerFormatTypePNG:
+@@ -122,6 +122,11 @@
+ 			Str("sticker_id", sticker.ID).
+ 			Msg("Unknown sticker format")
+ 	}
++	if strings.HasPrefix(mime, "image/") || strings.HasPrefix(mime, "video/") {
++		if omission := portal.mediaOmission(msg, "sticker", sticker.ID, sticker.URL()); omission != nil {
++			return portal.omittedMediaPart(msg, sticker.ID, *omission)
++		}
++	}
+ 	content := &event.MessageEventContent{
+ 		Body: sticker.Name, // TODO find description from somewhere?
+ 		Info: &event.FileInfo{
+@@ -131,7 +136,7 @@
+ 
+ 	mxc := portal.bridge.DMA.StickerMXC(sticker.ID, sticker.FormatType)
+ 	// TODO add config option to use direct media even for lottie stickers
+-	if mxc.IsEmpty() && mime != "application/json" {
++	if mxc.IsEmpty() || mime == "application/json" {
+ 		content = portal.convertDiscordFile(ctx, "sticker", intent, sticker.ID, sticker.URL(), content)
+ 	} else {
+ 		content.URL = mxc.CUString()
+@@ -144,7 +149,12 @@
+ 	}
+ }
+ 
+-func (portal *Portal) convertDiscordAttachment(ctx context.Context, intent *appservice.IntentAPI, messageID string, att *discordgo.MessageAttachment) *ConvertedMessage {
++func (portal *Portal) convertDiscordAttachment(ctx context.Context, intent *appservice.IntentAPI, msg *discordgo.Message, att *discordgo.MessageAttachment) *ConvertedMessage {
++	if imageVideoAttachment(att) {
++		if omission := portal.mediaOmission(msg, "attachment", att.ID, att.URL, att.ProxyURL); omission != nil {
++			return portal.omittedMediaPart(msg, att.ID, *omission)
++		}
++	}
+ 	content := &event.MessageEventContent{
+ 		Body: att.Filename,
+ 		Info: &event.FileInfo{
+@@ -185,7 +195,7 @@
+ 	default:
+ 		content.MsgType = event.MsgFile
+ 	}
+-	mxc := portal.bridge.DMA.AttachmentMXC(portal.Key.ChannelID, messageID, att)
++	mxc := portal.bridge.DMA.AttachmentMXC(portal.Key.ChannelID, msg.ID, att)
+ 	if mxc.IsEmpty() {
+ 		content = portal.convertDiscordFile(ctx, "attachment", intent, att.ID, att.URL, content)
+ 	} else {
+@@ -199,12 +209,14 @@
+ 	}
+ }
+ 
+-func (portal *Portal) convertDiscordVideoEmbed(ctx context.Context, intent *appservice.IntentAPI, embed *discordgo.MessageEmbed) *ConvertedMessage {
++func (portal *Portal) convertDiscordVideoEmbed(ctx context.Context, intent *appservice.IntentAPI, msg *discordgo.Message, embed *discordgo.MessageEmbed, index int) *ConvertedMessage {
+ 	attachmentID := fmt.Sprintf("video_%s", embed.URL)
+ 	var proxyURL string
++	kind, slot := "embed_video", "video"
+ 	if embed.Video != nil {
+ 		proxyURL = embed.Video.ProxyURL
+ 	} else if embed.Thumbnail != nil {
++		kind, slot = "embed_thumbnail", "thumbnail"
+ 		proxyURL = embed.Thumbnail.ProxyURL
+ 	} else {
+ 		zerolog.Ctx(ctx).Warn().Str("embed_url", embed.URL).Msg("No video or thumbnail proxy URL found in embed")
+@@ -217,6 +229,9 @@
+ 			},
+ 		}
+ 	}
++	if omission := portal.mediaOmission(msg, kind, fmt.Sprintf("embed:%d:%s", index, slot), proxyURL, embed.URL); omission != nil {
++		return portal.omittedMediaPart(msg, attachmentID, *omission)
++	}
+ 	dbFile, err := portal.bridge.copyAttachmentToMatrix(intent, proxyURL, portal.Encrypted, NoMeta)
+ 	if err != nil {
+ 		zerolog.Ctx(ctx).Err(err).Msg("Failed to copy video embed to Matrix")
+@@ -292,7 +307,7 @@
+ 		}
+ 		handledIDs[att.ID] = struct{}{}
+ 		log := log.With().Str("attachment_id", att.ID).Logger()
+-		if part := portal.convertDiscordAttachment(log.WithContext(ctx), intent, msg.ID, att); part != nil {
++		if part := portal.convertDiscordAttachment(log.WithContext(ctx), intent, msg, att); part != nil {
+ 			parts = append(parts, part)
+ 		}
+ 	}
+@@ -302,7 +317,7 @@
+ 		}
+ 		handledIDs[sticker.ID] = struct{}{}
+ 		log := log.With().Str("sticker_id", sticker.ID).Logger()
+-		if part := portal.convertDiscordSticker(log.WithContext(ctx), intent, sticker); part != nil {
++		if part := portal.convertDiscordSticker(log.WithContext(ctx), intent, msg, sticker); part != nil {
+ 			parts = append(parts, part)
+ 		}
+ 	}
+@@ -321,7 +336,7 @@
+ 			Str("embed_type", string(embed.Type)).
+ 			Int("embed_index", i).
+ 			Logger()
+-		part := portal.convertDiscordVideoEmbed(log.WithContext(ctx), intent, embed)
++		part := portal.convertDiscordVideoEmbed(log.WithContext(ctx), intent, msg, embed, i)
+ 		if part != nil {
+ 			parts = append(parts, part)
+ 		}
+@@ -745,6 +760,7 @@
+ 		htmlParts = append(htmlParts, fmt.Sprintf(forwardTemplateHTML, forwardedHTML, origLink))
+ 	}
+ 	previews := make([]*BeeperLinkPreview, 0)
++	var omissions []mediaOmission
+ 	for i, embed := range msg.Embeds {
+ 		if i == 0 && msg.MessageReference == nil && isReplyEmbed(embed) {
+ 			continue
+@@ -752,7 +768,14 @@
+ 		with := log.With().
+ 			Str("embed_type", string(embed.Type)).
+ 			Int("embed_index", i)
+-		switch getEmbedType(msg, embed) {
++		embedType := getEmbedType(msg, embed)
++		filtered, omitted := portal.retainedEmbed(msg, embed, i, embedType)
++		if len(omitted) > 0 {
++			omissions = append(omissions, omitted...)
++			htmlParts = append(htmlParts, "<p>"+html.EscapeString(portal.mediaOmissionBody(msg))+"</p>")
++		}
++		embed = filtered
++		switch embedType {
+ 		case EmbedRich:
+ 			log := with.Str("computed_embed_type", "rich").Logger()
+ 			htmlParts = append(htmlParts, portal.convertDiscordRichEmbed(log.WithContext(ctx), intent, embed, msg.ID, i))
+@@ -784,6 +807,9 @@
+ 	extraContent := map[string]any{
+ 		"com.beeper.linkpreviews": previews,
+ 	}
++	if len(omissions) > 0 {
++		extraContent[mediaRetentionKey] = portal.mediaReceipt(msg, omissions)
++	}
+ 
+ 	return &ConvertedMessage{Type: event.EventMessage, Content: &content, Extra: extraContent}
+ }
 --- /dev/null
 +++ b/unbound_portal_test.go
 @@ -0,0 +1,49 @@
