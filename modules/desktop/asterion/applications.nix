@@ -21,10 +21,6 @@
       name = "asterion-slack";
       text = ''exec ${lib.getExe helium} --app=https://app.slack.com/client "$@"'';
     };
-    spotify = pkgs.writeShellApplication {
-      name = "asterion-spotify";
-      text = ''exec ${lib.getExe pkgs.ghostty} --title=Spotify -e ${lib.getExe pkgs.spotaui} "$@"'';
-    };
     codex = pkgs.writeShellApplication {
       name = "asterion-codex";
       text = ''exec ${lib.getExe pkgs.ghostty} --title=Codex -e ${lib.getExe pkgs.codex} "$@"'';
@@ -34,7 +30,6 @@
       chatgpt
       webcord
       slack
-      spotify
       codex
       pkgs.papers
       pkgs.loupe
@@ -63,13 +58,6 @@
         exec = lib.getExe slack;
         icon = "${icons}/slack.svg";
         categories = ["Network" "InstantMessaging"];
-      };
-      asterion-spotify = {
-        name = "Spotify (Spotatui)";
-        genericName = "Spotify terminal player";
-        exec = lib.getExe spotify;
-        icon = "${icons}/spotify.svg";
-        categories = ["AudioVideo" "Audio" "Player"];
       };
       asterion-codex = {
         name = "Codex CLI";

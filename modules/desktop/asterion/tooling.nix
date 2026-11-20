@@ -13,7 +13,7 @@
     };
     zed = pkgs.callPackage ../../../packages/asterion-zed-bin/package.nix {};
   in {
-    imports = [config.home.chrome-tab config.home.spotaui];
+    imports = [config.home.chrome-tab];
 
     programs.zed-editor = {
       enable = lib.mkForce true;

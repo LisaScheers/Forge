@@ -202,11 +202,10 @@ removed before account enrollment.
 
 On 25 October, the application profile added the official native ARM64
 ChatGPT/Codex app, Codex CLI, Discord through WebCord, Thunderbird, a Slack web
-app launcher, and a Ghostty launcher for the existing Spotatui Spotify player.
-The desktop also includes Papers, Loupe, File Roller and Calculator. Helium
-remains the default browser; Thunderbird handles email and calendar links.
-Spotify playback through Spotatui requires Spotify Premium. The native Linux
-ChatGPT app does not yet provide Computer Use.
+app launcher. The Spotatui launcher was removed with the package on
+20 November. The desktop also includes Papers, Loupe, File Roller and
+Calculator. Helium remains the default browser; Thunderbird handles email and
+calendar links. The native Linux ChatGPT app does not yet provide Computer Use.
 
 Codex's initial model, reasoning effort, fonts, queue and detail preferences
 match Vega, with Zed as the editor and `/etc/nixos/forge` trusted. The app keeps
