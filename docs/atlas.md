@@ -104,7 +104,8 @@ Backups live only on Atlas, so before reinstalling copy the latest dump,
 2. Before the Forge configuration first boots or activates, create the
    maintenance marker, `/var/lib/postgresql/.forge-maintenance`, so the updater
    stays held throughout.
-3. PostgreSQL refuses to start until `.forge-upgrade-complete` exists, so
+3. PostgreSQL refuses to start until
+   `/var/lib/postgresql/18/.forge-upgrade-complete` exists, so
    restore by hand. A separate bootstrap role lets the dump recreate `postgres`
    and the other roles; `modules/services/postgresql/tests.nix` exercises the
    same steps.
