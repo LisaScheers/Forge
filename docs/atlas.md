@@ -95,6 +95,9 @@ keeping it and prunes copies older than 14 days. It logs in as `postgres` with a
 key that Atlas restricts to printing the dump; the private half is
 `secrets/nook/atlas-backup-pull-key.age`. A failed copy fails
 `postgresql-backup-pull.service` on Nook and leaves the previous copies alone.
+Atlas serves the dump only while it is under 25 hours old, so a failed nightly
+dump also fails the copy. Each successful copy reports to Uptime Kuma
+([Uptime Kuma](uptime-kuma.md)).
 To check that copies are current:
 
 ```sh
@@ -122,12 +125,14 @@ still reachable. Then:
    stays held throughout.
 3. PostgreSQL refuses to start until
    `/var/lib/postgresql/18/.forge-upgrade-complete` exists. Copy the newest
-   dump from Nook, whose backup directory only root can read (for example with
-   `sudo cat` over SSH), to `/root/all.sql.zstd` on Atlas, and restore it with
+   dump from Nook's root-only backup directory to Atlas, then restore it with
    the script that `modules/services/postgresql/tests.nix` tests:
 
    ```sh
-   sudo forge-postgresql-restore /root/all.sql.zstd
+   # From Vega; pick the newest all-<date>.sql.zstd.
+   ssh nook 'sudo cat /srv/disks/western-digital-hdd/backups/atlas-postgresql/all-<date>.sql.zstd' |
+     ssh atlas 'sudo install -m 0600 /dev/stdin /root/all.sql.zstd'
+   ssh atlas sudo forge-postgresql-restore /root/all.sql.zstd
    ```
 
    It refuses an existing cluster, restores into a new one through a private

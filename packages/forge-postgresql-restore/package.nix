@@ -4,15 +4,14 @@
 {
   coreutils,
   lib,
-  postgresql_18,
   util-linux,
   writeShellApplication,
   zstd,
-  # Atlas passes its own server package, data directory and the databases its
-  # dump must contain (modules/services/postgresql/restore.nix).
-  postgresql ? postgresql_18,
-  dataDir ? "/var/lib/postgresql/18",
-  expectedDatabases ? [],
+  # The host's server package, data directory and the databases its dump must
+  # contain (modules/services/postgresql/restore.nix passes Atlas's).
+  postgresql,
+  dataDir,
+  expectedDatabases,
 }:
 writeShellApplication {
   name = "forge-postgresql-restore";

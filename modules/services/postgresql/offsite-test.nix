@@ -11,9 +11,11 @@
   copyAt = hosts.nook.config.services.postgresqlBackupPull.startAt;
 in {
   perSystem = {pkgs, ...}: {
-    checks.postgresql-backup-schedule = assert lib.assertMsg (dumpAt == ["*-*-* 03:00:00 UTC"] && copyAt == "*-*-* 04:30:00 UTC")
-    "Atlas's dump must run at 03:00 UTC and Nook's copy at 04:30 UTC; got ${toString dumpAt} and ${copyAt}";
-      pkgs.runCommand "postgresql-backup-schedule" {} ''touch "$out"'';
+    checks.postgresql-backup-schedule = let
+      inOrder = dumpAt == ["*-*-* 03:00:00 UTC"] && copyAt == "*-*-* 04:30:00 UTC";
+    in
+      assert lib.assertMsg inOrder "Atlas's dump must run at 03:00 UTC and Nook's copy at 04:30 UTC; got ${toString dumpAt} and ${copyAt}";
+        pkgs.runCommand "postgresql-backup-schedule" {} ''touch "$out"'';
   };
 
   flake.checks.x86_64-linux.postgresql-backup-pull = withSystem "x86_64-linux" ({pkgs, ...}: let
@@ -119,6 +121,14 @@ in {
             puller.fail("systemctl start postgresql-backup-pull.service")
             assert puller.succeed("zstd -dc /srv/backups/all-$(date +%F).sql.zstd").strip() == "CREATE TABLE restored ();"
             puller.fail("ls /srv/backups/*.part")
+
+        with subtest("a stale dump is refused, so the copy fails and keeps the last good one"):
+            source.succeed("echo 'SELECT 2;' | zstd -q -f -o /var/backup/postgresql/all.sql.zstd && chown postgres /var/backup/postgresql/all.sql.zstd && touch -d '2 days ago' /var/backup/postgresql/all.sql.zstd")
+            puller.succeed("cp /srv/backups/all-$(date -u +%F).sql.zstd /root/good.sql.zstd")
+            puller.fail("systemctl start postgresql-backup-pull.service")
+            puller.succeed("journalctl -u postgresql-backup-pull.service | grep -q 'older than'")
+            puller.succeed("cmp /root/good.sql.zstd /srv/backups/all-$(date -u +%F).sql.zstd")
+            source.succeed("touch /var/backup/postgresql/all.sql.zstd")
 
         with subtest("copies older than keepDays are pruned"):
             source.succeed("echo 'SELECT 1;' | zstd -q -f -o /var/backup/postgresql/all.sql.zstd")

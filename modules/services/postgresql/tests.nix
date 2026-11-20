@@ -54,7 +54,11 @@
           "$oldbin/pg_ctl" -D "$PWD/old" -m fast -w stop
 
           # The restore Atlas's runbook uses (docs/atlas.md).
-          restore=${lib.getExe (pkgs.callPackage ../../../packages/forge-postgresql-restore/package.nix {expectedDatabases = ["application"];})}
+          restore=${lib.getExe (pkgs.callPackage ../../../packages/forge-postgresql-restore/package.nix {
+            postgresql = pkgs.postgresql_18;
+            dataDir = "/var/lib/postgresql/18";
+            expectedDatabases = ["application"];
+          })}
           zstd -q "$PWD/backup.sql" -o "$PWD/backup.sql.zstd"
           "$restore" "$PWD/backup.sql.zstd" "$PWD/restored"
           test -f "$PWD/restored/.forge-upgrade-complete"

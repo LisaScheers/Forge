@@ -19,6 +19,15 @@ in {
     ...
   }: let
     cfg = config.services.postgresqlBackupReader;
+    # A dump older than one schedule cycle means the nightly backup failed;
+    # refuse it, so the copy fails too instead of saving stale data as new.
+    serve = pkgs.writeShellScript "serve-postgresql-dump" ''
+      if [ -z "$(${pkgs.findutils}/bin/find ${cfg.dump} -mmin -${toString cfg.maxAgeMinutes})" ]; then
+        echo "${cfg.dump} is missing or older than ${toString cfg.maxAgeMinutes} minutes" >&2
+        exit 1
+      fi
+      exec ${pkgs.coreutils}/bin/cat ${cfg.dump}
+    '';
   in {
     options.services.postgresqlBackupReader = {
       authorizedKey = lib.mkOption {
@@ -31,9 +40,14 @@ in {
         defaultText = lib.literalExpression ''"''${config.services.postgresqlBackup.location}/all.sql.zstd"'';
         description = "Dump to serve.";
       };
+      maxAgeMinutes = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 25 * 60;
+        description = "Serve the dump only while it is younger than this.";
+      };
     };
     config.users.users.postgres.openssh.authorizedKeys.keys = [
-      ''restrict,command="${pkgs.coreutils}/bin/cat ${cfg.dump}" ${cfg.authorizedKey}''
+      ''restrict,command="${serve}" ${cfg.authorizedKey}''
     ];
   };
 
