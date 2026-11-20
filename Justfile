@@ -1,6 +1,7 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 set positional-arguments
 
+# The existing age identity predates the sops-nix removal; keep its path.
 age_identity := home_directory() / ".config/sops/age/keys.txt"
 
 default:

@@ -13,7 +13,7 @@ send its contents for the LSP `nixd` configuration section. No wrapper or
 The shared settings provide:
 
 - Packages from `import <nixpkgs> { }`.
-- Nixfmt from an absolute Nix store path.
+- Alejandra from an absolute Nix store path, matching `checks.lint`.
 - Forge's NixOS, nix-darwin, Home Manager, flake-parts, flake-file, and devenv
   option declarations. The Home Manager selection follows the target platform:
   Vega on Darwin, Asterion on ARM Linux, Nook on x86 Linux.

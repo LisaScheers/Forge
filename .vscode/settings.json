@@ -13,11 +13,11 @@
     "nixd": {
       "formatting": {
         "command": [
-          "nixfmt"
+          "alejandra"
         ]
       },
       "nixpkgs": {
-        "expr": "import (builtins.getFlake \"/private/etc/nix-darwin\").inputs.nixpkgs { }   "
+        "expr": "import (builtins.getFlake (builtins.toString ./.)).inputs.nixpkgs { }"
       },
       "options": {
         "home-manager": {

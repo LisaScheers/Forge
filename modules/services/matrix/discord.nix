@@ -77,6 +77,8 @@
           patches = [
             ./discord-relay-recovery.patch
             ./discord-relay-features.patch
+            # Inert without PLURALMATRIX_ROOMS since PluralMatrix was retired;
+            # discord-history.patch is based on it, so it stays until a rebase.
             ./discord-plural.patch
             ./discord-history.patch
             ./discord-reaction-history.patch
