@@ -13,6 +13,11 @@ target_system=$(bash "$(dirname -- "${BASH_SOURCE[0]}")/deploy-system.sh" "$host
 ssh_args=()
 deploy_args=(--skip-checks)
 if [[ -n "${FORGE_DEPLOY_SSH_CONTROL:-}" ]]; then
+  # deploy-rs splits --ssh-opts on whitespace, so such a path cannot reach it intact.
+  if [[ "$FORGE_DEPLOY_SSH_CONTROL" =~ [[:space:]] ]]; then
+    echo "FORGE_DEPLOY_SSH_CONTROL must not contain whitespace" >&2
+    exit 2
+  fi
   ssh_args=(-S "$FORGE_DEPLOY_SSH_CONTROL")
   deploy_args+=(--ssh-opts "-S $FORGE_DEPLOY_SSH_CONTROL")
 fi
@@ -85,8 +90,9 @@ print_timer_restart() {
   echo "Start it when Atlas should update itself again:" >&2
   echo "  ssh atlas sudo systemctl start nix-auto-sync-update.timer" >&2
 }
-# On exit: a maintenance deploy, an earlier hold or a failed deploy keeps the
-# timer stopped and prints how to start it; otherwise the timer starts again.
+# On exit: a maintenance deploy, an earlier hold or a failed deploy stops the
+# timer again and, if that stop succeeds, prints how to start it; if it fails,
+# the timer may run and the deploy fails. Otherwise the timer starts again.
 settle_atlas_timer() {
   exit_status=$?
   trap - EXIT

@@ -164,8 +164,15 @@ esac
         self.assertIn("ssh -S /tmp/forge-test-socket atlas", commands)
         self.assertIn("--ssh-opts -S /tmp/forge-test-socket", commands)
 
-    def test_the_printed_start_command_does_not_need_the_deploy_socket(self):
+    def test_a_control_path_with_whitespace_is_rejected_before_contact(self):
         self.env.update(FORGE_DEPLOY_SSH_CONTROL="/tmp/forge test socket")
+        result, commands = self.run_deploy("atlas", "switch")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("must not contain whitespace", result.stderr)
+        self.assertNotIn("ssh ", commands)
+
+    def test_the_printed_start_command_does_not_need_the_deploy_socket(self):
+        self.env.update(FORGE_DEPLOY_SSH_CONTROL="/tmp/forge-test-socket")
         result, _ = self.run_deploy("atlas", "switch", "--maintenance")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("  ssh atlas sudo systemctl start nix-auto-sync-update.timer", result.stderr)
