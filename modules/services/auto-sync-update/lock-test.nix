@@ -105,6 +105,14 @@
             machine.fail("test -e /run/env-file-ran")
             machine.succeed("rm /run/fail-rebuild /run/mail.txt /run/auto-sync.env")
 
+        with subtest("an environment file without an SMTP URL fails visibly"):
+            # A malformed line is skipped by systemd, which would lose mail silently.
+            machine.succeed("printf 'export AUTO_SYNC_SMTP_URL=smtp://127.0.0.1:2525\\n' > /run/auto-sync.env; touch /run/reboot-required")
+            machine.fail("systemctl start nix-auto-sync-update.service")
+            machine.succeed("journalctl -u nix-auto-sync-update.service | grep -q 'AUTO_SYNC_SMTP_URL is not set'")
+            machine.succeed("rm /run/auto-sync.env /run/reboot-required")
+            machine.succeed("systemctl stop nix-auto-sync-update-reboot.timer || true")
+
         with subtest("local commits that are not on origin are never rebuilt"):
             machine.succeed("git -c safe.directory='*' -C /root/repository -c user.name=x -c user.email=x@example.invalid -c commit.gpgsign=false commit --allow-empty -m local")
             machine.succeed("rm -f /run/rebuild-start")

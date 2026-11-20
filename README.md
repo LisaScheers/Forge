@@ -2,7 +2,8 @@
 
 ## About
 
-This flake manages Nook, Atlas, Vega, and Asterion. Altair no longer exists and is not a flake output.
+This flake manages Nook, Atlas, Vega, and Asterion. Altair no longer exists and
+is not a flake output.
 
 [Asterion](docs/asterion.md) is the installed Asahi configuration for the
 16-inch M3 Pro MacBook Pro, with a dedicated live installer image. Installation is
@@ -179,8 +180,9 @@ shell code: `AUTO_SYNC_SMTP_URL`, `AUTO_SYNC_SMTP_USERNAME`,
 `AUTO_SYNC_SMTP_PASSWORD`, `AUTO_SYNC_SMTP_FROM`, `AUTO_SYNC_SMTP_TO` and
 `AUTO_SYNC_SMTP_REQUIRE_TLS` for failure mail, and `AUTO_SYNC_GIT_TOKEN`,
 `AUTO_SYNC_GIT_USERNAME`, `AUTO_SYNC_GIT_AUTH_HEADER` or
-`AUTO_SYNC_GIT_REPOSITORY_URL` for Git access. systemd skips lines that are
-not assignments. The updater only fast-forwards to `origin/main`: if the Atlas
+`AUTO_SYNC_GIT_REPOSITORY_URL` for Git access. Write bare values: no quotes, no
+`export`, no `$` expansion. systemd skips lines that are not assignments, and
+the updater fails visibly if the file exists but provides no SMTP URL. The updater only fast-forwards to `origin/main`: if the Atlas
 checkout has local commits, every run fails and mails until the checkout is
 reset to `origin/main`.
 

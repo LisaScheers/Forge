@@ -51,6 +51,11 @@ send_mail() {
     echo "AUTO_SYNC_SMTP_URL is not set; cannot send email: $subject" >&2
     # Drain the body so the writer does not fail with a broken pipe.
     cat >/dev/null
+    # An environment file without a usable URL means mail is silently lost
+    # (systemd skips malformed lines), so fail the unit where it shows.
+    if [ -e "$environment_file" ]; then
+      return 1
+    fi
     return 0
   fi
 

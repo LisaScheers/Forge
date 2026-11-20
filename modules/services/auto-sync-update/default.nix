@@ -62,6 +62,7 @@ in {
           repo_url=${lib.escapeShellArg "git+file://${encodedRepositoryPath}"}
           flake_host=${lib.escapeShellArg cfg.flakeHost}
           branch=${lib.escapeShellArg cfg.branch}
+          environment_file=${lib.escapeShellArg cfg.environmentFile}
           lock_path=${lib.escapeShellArg cfg.lockPath}
           email_to=${lib.escapeShellArg cfg.emailTo}
           mail_host=${lib.escapeShellArg config.networking.fqdnOrHostName}
