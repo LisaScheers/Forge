@@ -5,7 +5,8 @@ import tempfile
 import unittest
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "scripts/deploy.sh"
+REPO = Path(__file__).resolve().parents[1]
+SCRIPT = REPO / "scripts/deploy.sh"
 
 
 class DeployMaintenanceTest(unittest.TestCase):
@@ -32,6 +33,7 @@ case "$command_name:$1" in
         echo inactive > "$DEPLOY_TEST_TIMER"
         ;;
       'sudo systemctl start nix-auto-sync-update.timer') echo active > "$DEPLOY_TEST_TIMER" ;;
+      *'ActiveState --value nix-auto-sync-update.service') echo "${DEPLOY_TEST_UPDATER_STATE:-inactive}" ;;
       *'--property=ActiveState'*) echo inactive ;;
     esac
     ;;
@@ -64,13 +66,13 @@ esac
     def test_normal_success_restarts_updater(self):
         result, commands = self.run_deploy("atlas", "switch")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("nix run .#deploy", commands)
+        self.assertIn(f"nix run git+file://{REPO}?rev=revision#deploy", commands)
         self.assertIn("ssh atlas sudo systemctl start nix-auto-sync-update.timer", commands)
 
     def test_maintenance_success_keeps_updater_stopped(self):
         result, commands = self.run_deploy("atlas", "switch", "--maintenance")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("nix run .#deploy", commands)
+        self.assertIn(f"nix run git+file://{REPO}?rev=revision#deploy", commands)
         self.assertIn("ssh atlas sudo systemctl stop nix-auto-sync-update.timer", commands)
         self.assertEqual(commands.count("ssh atlas sudo systemctl stop nix-auto-sync-update.timer"), 2)
         self.assertNotIn("systemctl start nix-auto-sync-update.timer", commands)
@@ -128,6 +130,24 @@ esac
                 self.assertEqual(result.returncode, 2)
                 self.assertIn("unknown deploy host", result.stderr)
                 self.assertEqual(commands, "")
+
+    def test_atlas_builds_and_activates_the_verified_commit(self):
+        result, commands = self.run_deploy("atlas", "switch")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        pinned = f"git+file://{REPO}?rev=revision"
+        self.assertIn(f'{pinned}#checks.x86_64-linux."atlas"', commands)
+        self.assertIn(f"{pinned}#atlas", commands)
+        for line in commands.splitlines():
+            if line.startswith(("nix build", "nix run")):
+                self.assertNotIn(" .#", line)
+
+    def test_running_updater_aborts_and_restarts_its_timer(self):
+        self.env["DEPLOY_TEST_UPDATER_STATE"] = "active"
+        result, commands = self.run_deploy("atlas", "switch")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Atlas auto-update state is active", result.stderr)
+        self.assertNotIn("nix run", commands)
+        self.assertIn("ssh atlas sudo systemctl start nix-auto-sync-update.timer", commands)
 
     def test_unknown_hosts_are_rejected(self):
         result, _ = self.run_deploy("altair", "switch")

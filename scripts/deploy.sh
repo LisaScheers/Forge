@@ -37,6 +37,7 @@ if [[ "$host" == "vega" ]]; then
   fi
 fi
 
+flake=.
 if [[ "$host" == "atlas" ]]; then
   if [[ -n "$(git status --porcelain)" ]]; then
     echo "Atlas deploys require a clean worktree" >&2
@@ -44,16 +45,19 @@ if [[ "$host" == "atlas" ]]; then
   fi
 
   git fetch --quiet origin main
-  if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
+  verified_rev="$(git rev-parse HEAD)"
+  if [[ "$verified_rev" != "$(git rev-parse origin/main)" ]]; then
     echo "Atlas deploys require HEAD to match origin/main" >&2
     exit 1
   fi
+  # Build and activate exactly the verified commit, not later worktree edits.
+  flake="git+file://$PWD?rev=$verified_rev"
 fi
 
 nix build --no-link \
-  ".#checks.$target_system.deploy-schema-$host" \
-  ".#checks.$target_system.deploy-activate-$host" \
-  ".#checks.$target_system.$host"
+  "$flake#checks.$target_system.\"deploy-schema-$host\"" \
+  "$flake#checks.$target_system.\"deploy-activate-$host\"" \
+  "$flake#checks.$target_system.\"$host\""
 
 atlas_timer_needs_restart=0
 atlas_deploy_started=0
@@ -99,22 +103,17 @@ if [[ "$host" == "atlas" ]]; then
     echo "Atlas reboot timer state is $reboot_state; it was not deployed" >&2
     exit 1
   fi
-  if ! ssh "${ssh_args[@]}" atlas sudo test ! -e /run/matrix-coordinated-state; then
-    echo "Atlas Matrix checkpoint is in progress; it was not deployed" >&2
-    exit 1
-  fi
 
   # Close the race where main changes while the closures are building.
   git fetch --quiet origin main
-  if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
+  if [[ "$(git rev-parse origin/main)" != "$verified_rev" ]]; then
     echo "origin/main changed while building; Atlas was not deployed" >&2
     exit 1
   fi
 fi
 
-# Forge's full flake check has unrelated baseline failures. The three
-# target checks above are the deployment gate.
+# The three host checks built above are the deployment gate; CI builds the rest.
 if [[ "$host" == "atlas" ]]; then
   atlas_deploy_started=1
 fi
-nix run .#deploy -- "${deploy_args[@]}" ".#$host"
+nix run "$flake#deploy" -- "${deploy_args[@]}" "$flake#$host"

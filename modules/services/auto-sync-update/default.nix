@@ -63,11 +63,10 @@
         }
         trap cleanup EXIT
 
-        # Matrix checkpoints and imports use this same advisory lock. Keep
-        # the file so concurrent processes cannot lock different inodes.
+        # Keep the lock file so concurrent runs cannot lock different inodes.
         exec 9>"$lock_dir"
         if ! flock -n 9; then
-          echo "Another nix-auto-sync-update run or Matrix checkpoint is active; exiting."
+          echo "Another nix-auto-sync-update run is active; exiting."
           exit 0
         fi
 
@@ -311,7 +310,7 @@
       lockDirectory = lib.mkOption {
         type = lib.types.str;
         default = "/var/run/nix-auto-sync-update.lock";
-        description = "Advisory lock file shared with Matrix checkpoints to prevent overlapping runs.";
+        description = "Advisory lock file that prevents overlapping runs.";
       };
 
       rebuildCommand = lib.mkOption {
