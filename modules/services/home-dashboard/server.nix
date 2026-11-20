@@ -8,11 +8,11 @@
   # its URLs and probe addresses is one of Nook's (or loopback).
   catalog = builtins.fromJSON (builtins.readFile (source + "/catalog.json"));
   hostOf = url: let
-    match = builtins.match "[a-z]+://([^/:?#]+).*" url;
+    match = builtins.match "[A-Za-z][A-Za-z0-9+.-]*://([^@/]*@)?([^/:?#]+).*" url;
   in
     if match == null
     then null
-    else builtins.head match;
+    else builtins.elemAt match 1;
   endpoints = entry: map hostOf (lib.filter (url: url != null) [(entry.url or null) (entry.probe.url or null)]) ++ [(entry.probe.address or null)];
   isIPv4 = host: host != null && builtins.match "[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+" host != null;
   catalogAddresses = lib.unique (lib.filter isIPv4 (lib.concatMap endpoints catalog));
