@@ -3,24 +3,25 @@
   inputs,
   withSystem,
   ...
-}: {
+}: let
+  system = "x86_64-linux";
+in {
   home.lisa-nook = {
     imports = [config.home.lisa];
 
-    home.homeDirectory = "/home/lisa";
     home.stateVersion = "26.11";
   };
-  flake.homeConfigurations."lisa@nook" = withSystem "x86_64-linux" ({pkgs, ...}:
+  flake.homeConfigurations."lisa@nook" = withSystem system ({pkgs, ...}:
     inputs.home-manager.lib.homeManagerConfiguration {
       inherit pkgs;
       modules = [config.home.lisa-nook];
     });
-  flake.checks.x86_64-linux."home-lisa@nook" =
+  flake.checks.${system}."home-lisa@nook" =
     config.flake.homeConfigurations."lisa@nook".activationPackage;
   ci.targets = [
     {
       target = "homeConfigurations.\"lisa@nook\".activationPackage";
-      system = "x86_64-linux";
+      inherit system;
       checks = ["home-lisa@nook"];
     }
   ];

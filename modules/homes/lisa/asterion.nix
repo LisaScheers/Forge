@@ -3,29 +3,27 @@
   inputs,
   withSystem,
   ...
-}: {
+}: let
+  system = "aarch64-linux";
+in {
   home.lisa-asterion = {
     imports = [config.home.lisa];
 
-    home = {
-      username = "lisa";
-      homeDirectory = "/home/lisa";
-      stateVersion = "26.11";
-    };
+    home.stateVersion = "26.11";
     xdg.enable = true;
     programs.home-manager.enable = true;
   };
-  flake.homeConfigurations."lisa@asterion" = withSystem "aarch64-linux" ({pkgs, ...}:
+  flake.homeConfigurations."lisa@asterion" = withSystem system ({pkgs, ...}:
     inputs.home-manager.lib.homeManagerConfiguration {
       inherit pkgs;
       modules = [config.home.lisa-asterion];
     });
-  flake.checks.aarch64-linux."home-lisa@asterion" =
+  flake.checks.${system}."home-lisa@asterion" =
     config.flake.homeConfigurations."lisa@asterion".activationPackage;
   ci.targets = [
     {
       target = "homeConfigurations.\"lisa@asterion\".activationPackage";
-      system = "aarch64-linux";
+      inherit system;
       checks = ["home-lisa@asterion"];
     }
   ];
