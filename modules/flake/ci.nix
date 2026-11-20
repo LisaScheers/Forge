@@ -19,10 +19,8 @@
     then "2"
     else "3";
   ordered = builtins.sort (a: b: rank a.target + a.target < rank b.target + b.target) config.ci.targets;
-  # No host runs x86_64-darwin, so its per-system checks are not built in CI.
-  unbuiltSystems = ["x86_64-darwin"];
   checkSystems = builtins.filter (system: runners ? ${system}) (builtins.attrNames config.flake.checks);
-  unmappedSystems = lib.subtractLists (checkSystems ++ unbuiltSystems) (builtins.attrNames config.flake.checks);
+  unmappedSystems = lib.subtractLists checkSystems (builtins.attrNames config.flake.checks);
   # Only these runners expose /dev/kvm, so their NixOS VM tests get a job of their own.
   kvmSystems = builtins.filter (system: builtins.elem system checkSystems) ["x86_64-linux"];
   dedicatedChecks = system: lib.concatMap (entry: entry.checks) (builtins.filter (entry: entry.system == system) config.ci.targets);
