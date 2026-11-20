@@ -94,7 +94,8 @@ in {
     # Nook's system SSD has only 19 GiB free. Images and writable layers must
     # live on the data NVMe too, rather than consuming /var/lib/containers.
     virtualisation.podman.enable = true;
-    virtualisation.containers.storage.settings.storage.graphroot = "${storageRoot}/containers";
+    # The oci-containers backend runs Podman as root.
+    virtualisation.containers.storage.rootful.settings.storage.graphroot = "${storageRoot}/containers";
     virtualisation.oci-containers = {
       backend = "podman";
       containers.cognee = {
