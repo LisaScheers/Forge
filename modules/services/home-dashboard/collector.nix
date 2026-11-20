@@ -24,7 +24,7 @@ in {
 
     # Only Atlas can read this status file, over the existing Tailscale path.
     services.nginx.virtualHosts."jellyfin.bylisa.dev".locations."= /.dashboard/sunshine.json".extraConfig = ''
-      allow 100.87.26.75;
+      allow ${config.network.atlas.tailscale};
       deny all;
       alias /var/lib/home-dashboard-checks/sunshine.json;
       default_type application/json;

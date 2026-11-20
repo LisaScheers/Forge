@@ -3,7 +3,7 @@
   inputs,
   ...
 }: let
-  nook = config.network.nook;
+  inherit (config.network) atlas nook;
   # The MoQ relay comes prebuilt from kixelated's cache. Configure it for the
   # host that rebuilds atlas itself and for vega, which deploys it, rather than
   # as flake nixConfig, which Nix ignores unless the flake is trusted.
@@ -56,8 +56,8 @@ in {
       relayUrl = "https://moq.bylisa.dev";
       jellyfinUserId = "466f59ea028949cca3033f222ebec388";
       mediaRoots = ["/srv/disks/western-digital-hdd/media/library"];
-      trustedProxies = ["100.87.26.75"];
-      internalPeers = ["100.87.26.75"];
+      trustedProxies = [atlas.tailscale];
+      internalPeers = [atlas.tailscale];
       adminUsers = ["lisa"];
       openTailscaleFirewall = true;
       rooms = [

@@ -1,5 +1,15 @@
-{config, ...}: let
-  nook = config.network.nook;
+{
+  config,
+  lib,
+  ...
+}: let
+  # The same login blocks as Vega's, from network.
+  remotes = lib.mapAttrs (_: host: {
+    HostName = host.tailscale;
+    User = host.ssh.user;
+    IdentityFile = host.ssh.identityFile;
+    IdentitiesOnly = true;
+  }) (lib.filterAttrs (_: host: host.ssh != null) config.network);
 in {
   nixos.asterion = {
     services.gnome.gcr-ssh-agent.enable = false;
@@ -67,33 +77,17 @@ in {
     programs.ssh = {
       enable = true;
       enableDefaultConfig = false;
-      settings = {
-        "*".IdentityAgent = "~/.1password/agent.sock";
-        "codeberg.org" = {
-          HostName = "codeberg.org";
-          User = "git";
-          IdentityFile = "~/.ssh/codeberg.pub";
-          IdentitiesOnly = true;
+      settings =
+        remotes
+        // {
+          "*".IdentityAgent = "~/.1password/agent.sock";
+          "codeberg.org" = {
+            HostName = "codeberg.org";
+            User = "git";
+            IdentityFile = "~/.ssh/codeberg.pub";
+            IdentitiesOnly = true;
+          };
         };
-        "mail" = {
-          HostName = "100.121.88.128";
-          User = "root";
-          IdentityFile = "~/.ssh/root@mail.pub";
-          IdentitiesOnly = true;
-        };
-        "atlas" = {
-          HostName = "100.87.26.75";
-          User = "lisa";
-          IdentityFile = "~/.ssh/lisa@atlas.pub";
-          IdentitiesOnly = true;
-        };
-        "nook" = {
-          HostName = nook.tailscale;
-          User = "lisa";
-          IdentityFile = "~/.ssh/home-server.pub";
-          IdentitiesOnly = true;
-        };
-      };
     };
     programs.git.settings = {
       gpg = {
