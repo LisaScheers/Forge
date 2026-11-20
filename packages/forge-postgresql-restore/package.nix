@@ -1,4 +1,4 @@
-# Restores a pg_dumpall dump into a new PostgreSQL 18 cluster and marks it
+# Restores a pg_dumpall dump into a new PostgreSQL cluster and marks it
 # ready for Forge only after every step succeeded. Atlas installs it, and
 # modules/services/postgresql/tests.nix runs it.
 {
@@ -22,7 +22,7 @@ writeShellApplication {
       exit 2
     fi
     dump=$1
-    data=''${2:-${dataDir}}
+    data=''${2:-${lib.escapeShellArg dataDir}}
 
     # As root the cluster runs as postgres; tests run it as the calling user.
     as_postgres() {
@@ -73,13 +73,13 @@ writeShellApplication {
     # A valid archive can still hold no real dump; require what Atlas needs.
     expected=(${lib.escapeShellArgs expectedDatabases})
     for database in "''${expected[@]}"; do
-      if [[ "$(sql -At -c "SELECT count(*) FROM pg_database WHERE datname = '$database'")" != 1 ]]; then
+      if [[ "$(sql -At -v database="$database" <<< "SELECT count(*) FROM pg_database WHERE datname = :'database'")" != 1 ]]; then
         echo "The dump did not restore database $database; no marker created" >&2
         exit 1
       fi
     done
-    if [[ "$(sql -At -c "SELECT count(*) FROM pg_roles WHERE rolname = 'postgres'")" != 1 ]]; then
-      echo "The dump did not restore the postgres role; no marker created" >&2
+    if [[ "$(sql -At -c "SELECT count(*) FROM pg_roles WHERE rolname = 'postgres' AND rolcanlogin AND rolsuper")" != 1 ]]; then
+      echo "The dump did not restore a postgres superuser that can log in; no marker created" >&2
       exit 1
     fi
     # The bootstrap role still owns the catalogs; it just may not log in.

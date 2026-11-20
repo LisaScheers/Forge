@@ -19,7 +19,8 @@
     config = {
       environment.systemPackages = [
         (pkgs.callPackage ../../../packages/forge-postgresql-restore/package.nix {
-          postgresql = cfg.package;
+          # With the service's extensions, so the dump's CREATE EXTENSION works.
+          postgresql = cfg.finalPackage;
           inherit (cfg) dataDir;
           inherit (config.forge.postgresqlRestore) expectedDatabases;
         })
@@ -28,8 +29,8 @@
       # migration with an empty cluster; the marker comes from pg_upgrade or
       # forge-postgresql-restore.
       systemd.services.postgresql.preStart = lib.mkBefore ''
-        test "$(cat ${cfg.dataDir}/PG_VERSION)" = ${lib.versions.major cfg.package.version}
-        test -f ${cfg.dataDir}/.forge-upgrade-complete
+        test "$(cat ${lib.escapeShellArg "${cfg.dataDir}/PG_VERSION"})" = ${lib.versions.major cfg.package.version}
+        test -f ${lib.escapeShellArg "${cfg.dataDir}/.forge-upgrade-complete"}
       '';
     };
   };

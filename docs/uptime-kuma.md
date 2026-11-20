@@ -38,7 +38,7 @@ Each host's push tokens are encrypted in its `uptime-kuma-probes.age` secret.
 - Reporting failures do not fail backup or update jobs. Missing reports are
   detected by Kuma's push deadlines.
 
-The eight applicable push monitors are enabled following deployment. When
+The applicable push monitors are enabled following deployment. When
 restoring this setup, deploy from `origin/main`, resume those monitors in Kuma,
 start `uptime-kuma-probes.service` on both hosts, and verify the results.
 Backup and update completion checks receive their first reports after those

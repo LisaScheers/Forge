@@ -98,7 +98,7 @@ key that Atlas restricts to printing the dump; the private half is
 Atlas serves the dump only while it is under 25 hours old, so a failed nightly
 dump also fails the copy. Each successful copy reports to Uptime Kuma
 ([Uptime Kuma](uptime-kuma.md)).
-To check that copies are current:
+To check when the latest copy arrived and whether the last run succeeded:
 
 ```sh
 ssh nook 'sudo ls -lt /srv/disks/western-digital-hdd/backups/atlas-postgresql | head -3'
@@ -137,10 +137,10 @@ still reachable. Then:
 
    It refuses an existing cluster, restores into a new one through a private
    socket with TCP off, and creates the marker only after the restore, a check
-   that the `postgres` role and every backed-up database came back, and a clean
-   shutdown all succeed. It bootstraps with a uniquely named role, left unable
-   to log in, so a later dump restores too. If it fails, move the incomplete
-   cluster aside before trying again:
+   that a `postgres` superuser and every database Atlas configures for backup
+   came back, and a clean shutdown all succeed. It bootstraps with a uniquely
+   named role, left unable to log in, so a later dump restores too. If it fails,
+   move the incomplete cluster aside before trying again:
 
    ```sh
    sudo mv /var/lib/postgresql/18 "/var/lib/postgresql/18.failed-$(date +%s)"
