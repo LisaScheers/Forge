@@ -25,7 +25,8 @@ in {
     nix.package = lib.mkDefault (
       if osConfig != null
       then osConfig.nix.package
-      else pkgs.nix
+      # Standalone homes use Lix, as every host does.
+      else pkgs.lixPackageSets.latest.lix
     );
     nix.nixPath = ["nixpkgs=${inputs.nixpkgs}"];
     nix.keepOldNixPath = false;
