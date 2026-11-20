@@ -20,17 +20,9 @@ in {
     home-manager.users.lisa = config.home.lisa-vega;
     users.users.lisa.home = "/Users/lisa";
   };
-  flake.checks.${system}.${host} = config.flake.darwinConfigurations.${host}.system;
   deploy.hosts.${host} = {
     hostname = "localhost";
     sshUser = "lisa";
     interactiveSudo = true;
   };
-  ci.targets = [
-    {
-      target = "darwinConfigurations.\"${host}\".system";
-      inherit system;
-      checks = [host "deploy-schema-${host}" "deploy-activate-${host}"];
-    }
-  ];
 }

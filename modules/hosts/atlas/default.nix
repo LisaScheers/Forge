@@ -21,13 +21,5 @@ in {
     networking.hostName = host;
     imports = [config.nixos.atlas-hardware];
   };
-  flake.checks.${system}.${host} = config.flake.nixosConfigurations.${host}.config.system.build.toplevel;
   deploy.hosts.${host} = {};
-  ci.targets = [
-    {
-      target = "nixosConfigurations.\"${host}\".config.system.build.toplevel";
-      inherit system;
-      checks = [host "deploy-schema-${host}" "deploy-activate-${host}"];
-    }
-  ];
 }

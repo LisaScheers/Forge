@@ -22,13 +22,5 @@ in {
     ];
     home-manager.users.lisa = config.home.lisa-asterion;
   };
-  flake.checks.${system}.${host} = config.flake.nixosConfigurations.${host}.config.system.build.toplevel;
   deploy.hosts.${host}.sshUser = "root";
-  ci.targets = [
-    {
-      target = "nixosConfigurations.\"${host}\".config.system.build.toplevel";
-      inherit system;
-      checks = [host "deploy-schema-${host}" "deploy-activate-${host}"];
-    }
-  ];
 }

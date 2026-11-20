@@ -51,7 +51,7 @@ in {
       };
     });
     default = [];
-    description = "Build targets declared beside their host, home, or package output.";
+    description = "Build targets declared beside their home or package output; deploy.nix adds one per deployed host.";
   };
   # One job per system builds every remaining flake check, with VM tests split
   # out where KVM is available so slow tests fail separately from fast ones.
