@@ -180,7 +180,7 @@
       };
       restartTriggers = [
         ../../security/agenix/secrets/atlas/authentik-env.age
-        ../../security/agenix/secrets/shared/postplan-env.age
+        ../../security/agenix/secrets/atlas/postplan-env.age
       ];
     };
 

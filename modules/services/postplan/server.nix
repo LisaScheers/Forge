@@ -15,7 +15,7 @@
     };
 
     age.secrets.postplan-env = {
-      file = ../../security/agenix/secrets/shared/postplan-env.age;
+      file = ../../security/agenix/secrets/atlas/postplan-env.age;
       owner = "root";
       group = "postplan";
       mode = "0440";
@@ -81,7 +81,7 @@
       };
       restartTriggers = [
         pkgs.postplan-selfhosted
-        ../../security/agenix/secrets/shared/postplan-env.age
+        ../../security/agenix/secrets/atlas/postplan-env.age
       ];
     };
 
