@@ -1,5 +1,22 @@
-{config, ...}: {
-  nixos.atlas.imports = [config.nixos.auto-sync-update];
+{config, ...}: let
+  features = config.nixos;
+in {
+  nixos.atlas = {config, ...}: {
+    imports = [features.auto-sync-update];
+    services.autoSyncUpdate = {
+      enable = true;
+      flakeHost = "atlas";
+      repositoryPath = "/etc/nix-darwin";
+      environmentFile = config.age.secrets.auto-sync-update-env.path;
+    };
+    age.secrets.auto-sync-update-env = {
+      file = ../../security/agenix/secrets/atlas/auto-sync-update-env.age;
+      owner = "root";
+      group = "root";
+      mode = "0400";
+    };
+    systemd.services.nix-auto-sync-update.restartTriggers = [../../security/agenix/secrets/atlas/auto-sync-update-env.age];
+  };
   nixos.auto-sync-update = {
     config,
     lib,

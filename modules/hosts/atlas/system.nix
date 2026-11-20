@@ -1,9 +1,5 @@
 {
-  nixos.atlas = {
-    config,
-    pkgs,
-    ...
-  }: {
+  nixos.atlas = {pkgs, ...}: {
     environment.systemPackages = with pkgs; [
       git
       htop
@@ -52,10 +48,7 @@
           "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICFzIIn0D0sH6Pual0iAlciIDZo6T0qlWWCgRpQhq8U3"
         ];
       };
-      matrix-synapse.extraGroups = ["matrix-secrets"];
-      turnserver.extraGroups = ["matrix-secrets"];
     };
-    users.groups.matrix-secrets = {};
 
     security.sudo = {
       enable = true;
@@ -64,57 +57,6 @@
 
     security.acme.acceptTerms = true;
     security.acme.defaults.email = "lisa@scheers.tech";
-
-    age.secrets = {
-      auto-sync-update-env = {
-        file = ../../security/agenix/secrets/atlas/auto-sync-update-env.age;
-        owner = "root";
-        group = "root";
-        mode = "0400";
-      };
-      matrix-registration-secret = {
-        file = ../../security/agenix/secrets/atlas/matrix-registration-secret.age;
-        owner = "matrix-synapse";
-        group = "matrix-synapse";
-        mode = "0400";
-      };
-      matrix-turn-secret = {
-        file = ../../security/agenix/secrets/atlas/matrix-turn-secret.age;
-        owner = "root";
-        group = "matrix-secrets";
-        mode = "0440";
-      };
-    };
-
-    services.autoSyncUpdate = {
-      enable = true;
-      flakeHost = "atlas";
-      repositoryPath = "/etc/nix-darwin";
-      environmentFile = config.age.secrets.auto-sync-update-env.path;
-    };
-
-    matrix = {
-      enable = true;
-      rootDomain = "bylisa.dev";
-      subDomain = "matrix";
-      turnRealm = "turn.bylisa.dev";
-      registrationSecretFile = config.age.secrets.matrix-registration-secret.path;
-      turnSecretFile = config.age.secrets.matrix-turn-secret.path;
-    };
-
-    services.matrix-synapse.settings = {
-      enable_registration = true;
-      registration_requires_token = true;
-    };
-
-    systemd.services = {
-      nix-auto-sync-update.restartTriggers = [../../security/agenix/secrets/atlas/auto-sync-update-env.age];
-      matrix-synapse.restartTriggers = [
-        ../../security/agenix/secrets/atlas/matrix-registration-secret.age
-        ../../security/agenix/secrets/atlas/matrix-turn-secret.age
-      ];
-      coturn.restartTriggers = [../../security/agenix/secrets/atlas/matrix-turn-secret.age];
-    };
 
     system.stateVersion = "26.11";
   };
