@@ -8,7 +8,7 @@
   secrets = ../../security/agenix/secrets;
 in {
   overlays.ai-proxy = final: _prev: {
-    cli-proxy-api-plus-capture = final.callPackage ../../../packages/cli-proxy-api-plus-capture.pkg.nix {};
+    cli-proxy-api-plus-capture = final.callPackage ../../../packages/cli-proxy-api-plus-capture/package.nix {};
   };
   flake.agenixRules = {
     "secrets/shared/ai-proxy-client-key.age".publicKeys = with config.secrets.pubkeys; [users.lisa hosts.nook hosts.vega hosts.atlas];

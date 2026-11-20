@@ -5,7 +5,7 @@ in {
     lanAddress = nook.lan;
     lanInterface = "enp7s0";
     audioSink = "Firestorm-Output";
-    firestorm = pkgs.callPackage ../../packages/firestorm.pkg.nix {};
+    firestorm = pkgs.callPackage ../../packages/firestorm/package.nix {};
 
     openboxConfig = pkgs.runCommand "openbox-firestorm-rc.xml" {} ''
       substitute ${pkgs.openbox}/etc/xdg/openbox/rc.xml "$out" \

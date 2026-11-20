@@ -6,7 +6,7 @@
     pkgs,
     ...
   }: let
-    editor = import ../../packages/nixvim/nixvim.pkg.nix {
+    editor = import ../../packages/nixvim/package.nix {
       inherit pkgs system;
       inherit (inputs) nixvim;
       inherit (pkgs) nixd;

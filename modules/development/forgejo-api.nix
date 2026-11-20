@@ -1,6 +1,6 @@
 {
   overlays.forgejo-api = final: _prev: {
-    forgejo-api = final.callPackage ../../packages/forgejo-api/forgejo-api.pkg.nix {};
+    forgejo-api = final.callPackage ../../packages/forgejo-api/package.nix {};
   };
   perSystem = {pkgs, ...}: {
     packages.forgejo-api = pkgs.forgejo-api;

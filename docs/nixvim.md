@@ -107,7 +107,7 @@ Leader is **Space**; press it and wait for Which-key help.
 ## Maintenance
 
 - Feature wiring: `modules/development/nixvim.nix`.
-- Package entry point: `packages/nixvim/nixvim.pkg.nix`.
+- Package entry point: `packages/nixvim/package.nix`.
 - Options, plugins, languages: `packages/nixvim/config.nix`.
 - Keybindings and runtime hooks: `packages/nixvim/keymaps.lua`.
 - Shared nixd settings for all editors: `packages/nixd/settings.nix`;

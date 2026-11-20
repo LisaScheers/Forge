@@ -1,7 +1,7 @@
 {config, ...}: {
   home.lisa-vega.imports = [config.home.chrome-tab];
   overlays.chrome-tab = final: _prev: {
-    chrome-tab = final.callPackage ../../packages/chrome-tab/chrome-tab.pkg.nix {};
+    chrome-tab = final.callPackage ../../packages/chrome-tab/package.nix {};
   };
   perSystem = {pkgs, ...}: {
     packages.chrome-tab = pkgs.chrome-tab;

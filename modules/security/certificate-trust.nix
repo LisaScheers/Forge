@@ -6,7 +6,7 @@ let
     "emSign ECC Root CA - G3"
   ];
   filterApple = pkgs:
-    pkgs.callPackage ../../packages/certificate-trust/filter-apple-ca-roots.pkg.nix {};
+    pkgs.callPackage ../../packages/certificate-trust/package.nix {};
   compatibleBuilder = pkgs:
     pkgs.buildcatrust.overridePythonAttrs (old: {
       postPatch =
