@@ -34,49 +34,18 @@
     };
   };
 in {
-  options.secrets = with lib.types; {
-    secretsPath = lib.mkOption {
-      type = path;
-      default = ./secrets;
-      description = "Path to the actual secrets directory";
-    };
-
-    pubkeys = lib.mkOption {
-      type = attrsOf (attrsOf anything);
-      default = {};
-      description = "Public keys used throughout the flake.";
-    };
-
-    extraPubkeys = lib.mkOption {
-      type = attrsOf (attrsOf anything);
-      default = {};
-      description = "Additional public keys merged into secrets.pubkeys.";
-    };
+  options.secrets.pubkeys = lib.mkOption {
+    type = lib.types.attrsOf (lib.types.attrsOf lib.types.anything);
+    default = {};
+    description = "Public keys used throughout the flake.";
   };
 
   config = {
-    secrets.pubkeys = config.secrets.extraPubkeys;
-
     nixos.base.imports = [config.nixos.agenix];
     darwin.base.imports = [config.darwin.agenix];
     home.lisa-cli.imports = [inputs.agenix.homeManagerModules.default];
     nixos.agenix = mkSystemModule inputs.agenix.nixosModules.default;
     darwin.agenix = mkSystemModule inputs.agenix.darwinModules.default;
-    home.agenix = {
-      config,
-      lib,
-      ...
-    }: let
-      cfg = config.forge.hm.security.agenix;
-    in {
-      imports = [inputs.agenix.homeManagerModules.default];
-
-      options.forge.hm.security.agenix.enable = (lib.mkEnableOption "agenix secret management") // {default = true;};
-
-      config = lib.mkIf cfg.enable {
-        age.identityPaths = ["${config.home.homeDirectory}/.ssh/id_ed25519"];
-      };
-    };
 
     flake-file.inputs.agenix = {
       url = "github:ryantm/agenix";
