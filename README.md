@@ -71,8 +71,9 @@ flake checks that share its closure, such as a host's toplevel and deploy-rs
 checks, and its job builds them together; evaluation fails if a listed check
 does not exist. Every other check, plus the dev shell, builds in one
 `ciChecks.<system>` job per system, and the NixOS VM tests run in
-`ciVmTests.x86_64-linux` on the KVM-capable runner; evaluation fails for a VM
-test on any other platform. Reproduce them locally with:
+`ciVmTests.x86_64-linux` on the KVM-capable runner; a VM test on any other
+platform makes that platform's checks job fail to evaluate. Reproduce them
+locally with:
 
 ```sh
 nix build .#ciChecks.aarch64-darwin   # or x86_64-linux / aarch64-linux

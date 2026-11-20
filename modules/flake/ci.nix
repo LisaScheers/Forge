@@ -34,12 +34,16 @@
   in
     lib.optionalAttrs (shells ? default) {dev-shell = shells.default;};
   remainingChecks = system: removeAttrs config.flake.checks.${system} (dedicatedChecks system) // devShell system;
-  # runNixOSTest names its derivations vm-test-run-<name>.
+  # Nixpkgs' runNixOSTest names its derivations vm-test-run-<name>; ci-routing
+  # pins this contract with its fixtures, so a rename fails that check.
   isVmTest = check: lib.hasPrefix "vm-test-run-" check.name;
-  # A VM test elsewhere would land in the ordinary checks job without KVM.
-  vmTestsWithoutKvm = lib.concatMap (system:
-    map (name: "${system}.${name}") (builtins.attrNames (lib.filterAttrs (_: isVmTest) (remainingChecks system))))
-  (lib.subtractLists kvmSystems checkSystems);
+  # A VM test on a runner without KVM would build in an ordinary job. Target
+  # checks may be host closures whose names need builds to read, so this runs
+  # when the system's checks job is evaluated, not for the matrix.
+  withoutVmTests = system: value: let
+    vmTests = builtins.attrNames (lib.filterAttrs (_: isVmTest) config.flake.checks.${system});
+  in
+    assert lib.assertMsg (vmTests == []) "NixOS VM tests on ${system}, whose CI runner has no KVM: ${toString vmTests}"; value;
   linkChecks = name: system: checks: withSystem system ({pkgs, ...}: pkgs.linkFarm "${name}-${system}" checks);
 in {
   options.ci.targets = lib.mkOption {
@@ -60,17 +64,14 @@ in {
   # One job per system builds every remaining flake check, with VM tests split
   # out where KVM is available so slow tests fail separately from fast ones.
   config.flake.ciChecks = lib.genAttrs checkSystems (system:
-    linkChecks "ci-checks" system (
-      if builtins.elem system kvmSystems
-      then lib.filterAttrs (_: check: !isVmTest check) (remainingChecks system)
-      else remainingChecks system
-    ));
+    if builtins.elem system kvmSystems
+    then linkChecks "ci-checks" system (lib.filterAttrs (_: check: !isVmTest check) (remainingChecks system))
+    else withoutVmTests system (linkChecks "ci-checks" system (remainingChecks system)));
   config.flake.ciVmTests =
     lib.genAttrs kvmSystems (system:
       linkChecks "ci-vm-tests" system (lib.filterAttrs (_: isVmTest) (remainingChecks system)));
   config.flake.ciMatrix.include = assert lib.assertMsg (unknownChecks == []) "ci.targets name unknown checks: ${toString unknownChecks}";
   assert lib.assertMsg (unmappedSystems == []) "checks for systems without a CI runner: ${toString unmappedSystems}";
-  assert lib.assertMsg (vmTestsWithoutKvm == []) "NixOS VM tests on a CI runner without KVM: ${toString vmTestsWithoutKvm}";
     map (entry: {
       inherit (entry) target;
       runner = runners.${entry.system};
