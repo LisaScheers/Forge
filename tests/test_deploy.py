@@ -36,8 +36,9 @@ case "$command_name:$1" in
     esac
     ;;
   nix:eval)
-    [[ "$*" == *'deploySystems."atlas"'* ]] || exit 1
-    echo x86_64-linux
+    [[ "$*" == *'.#deploySystems'* ]] || exit 1
+    if [[ "${DEPLOY_TEST_FAIL_EVAL:-0}" == 1 ]]; then echo "error: flake evaluation failed" >&2; exit 1; fi
+    if [[ "$*" == *'systems."atlas"'* ]]; then echo x86_64-linux; fi
     ;;
   nix:run)
     # NixOS activation can start the wanted timer before failing or rolling back.
@@ -112,6 +113,13 @@ esac
                 result, commands = self.run_deploy(*args)
                 self.assertEqual(result.returncode, 2)
                 self.assertEqual(commands, "")
+
+    def test_evaluation_errors_are_not_reported_as_unknown_hosts(self):
+        self.env["DEPLOY_TEST_FAIL_EVAL"] = "1"
+        result, _ = self.run_deploy("atlas", "switch")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("flake evaluation failed", result.stderr)
+        self.assertNotIn("unknown deploy host", result.stderr)
 
     def test_unknown_hosts_are_rejected(self):
         result, _ = self.run_deploy("altair", "switch")
