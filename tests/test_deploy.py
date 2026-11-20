@@ -121,6 +121,14 @@ esac
         self.assertIn("flake evaluation failed", result.stderr)
         self.assertNotIn("unknown deploy host", result.stderr)
 
+    def test_malformed_hosts_are_rejected_before_evaluation(self):
+        for host in ('atlas"', "../atlas", ""):
+            with self.subTest(host=host):
+                result, commands = self.run_deploy(host, "switch")
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("unknown deploy host", result.stderr)
+                self.assertEqual(commands, "")
+
     def test_unknown_hosts_are_rejected(self):
         result, _ = self.run_deploy("altair", "switch")
         self.assertEqual(result.returncode, 2)

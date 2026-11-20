@@ -8,12 +8,7 @@ if [[ -n "$maintenance" && ( "$maintenance" != "--maintenance" || "$host" != "at
   echo "--maintenance requires an Atlas switch deployment" >&2
   exit 2
 fi
-# Evaluation errors surface as themselves; only a missing host is "unknown".
-target_system=$(nix eval --raw .#deploySystems --apply "systems: systems.\"$host\" or \"\"")
-if [[ -z "$target_system" ]]; then
-  echo "unknown deploy host: $host" >&2
-  exit 2
-fi
+target_system=$(bash "$(dirname -- "${BASH_SOURCE[0]}")/deploy-system.sh" "$host")
 
 ssh_args=()
 deploy_args=(--skip-checks)

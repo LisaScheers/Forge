@@ -209,7 +209,13 @@ confirm the connection:
 just deploy-build nook
 just deploy-build vega
 just deploy nook
-just switch                     # on Vega
+just switch                     # on Vega; opens Apple Terminal
+```
+
+Wait until that Terminal window prints `Vega switched successfully.`, then
+confirm Vega's new key reaches Nook:
+
+```sh
 sudo ssh nook-builder true      # uses /etc/nix/nook-builder
 ```
 
