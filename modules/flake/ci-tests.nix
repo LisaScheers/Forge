@@ -34,10 +34,10 @@
   # Checks for a platform with no runner.
   unmapped = fixture [] {flake.checks.riscv64-linux.unit = stub "unit-tests";};
   # A VM test on a runner without KVM, in the checks job or a target's job.
-  vmWithoutKvm = targetChecks:
+  vmWithoutKvm = targetChecks: vmName:
     fixture [] {
       systems = ["x86_64-linux" "aarch64-linux"];
-      flake.checks.aarch64-linux.vm = stub "vm-test-run-vm";
+      flake.checks.aarch64-linux.vm = stub vmName;
       ci.targets = [
         {
           target = "nixosConfigurations.arm";
@@ -46,7 +46,9 @@
         }
       ];
     };
-  rejectsVm = targetChecks: !(builtins.tryEval (vmWithoutKvm targetChecks).ciChecks.aarch64-linux.name).success;
+  evaluatesArmChecks = targetChecks: vmName: (builtins.tryEval (vmWithoutKvm targetChecks vmName).ciChecks.aarch64-linux.name).success;
+  # The same fixture with an ordinary check evaluates, so a rejection is the guard's.
+  rejectsVm = targetChecks: evaluatesArmChecks targetChecks "unit-tests" && !(evaluatesArmChecks targetChecks "vm-test-run-vm");
   entries = output: builtins.attrNames output.x86_64-linux.entries;
   valid =
     # The fixtures name VM tests the way runNixOSTest names QEMU-node tests; a
