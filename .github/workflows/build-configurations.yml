@@ -95,8 +95,9 @@ jobs:
           df -h / /nix
       - name: Test the build script with the runner's shells
         if: runner.os == 'macOS'
-        # The Nix sandbox has no /bin/bash, so its Bash 3.2 cases run only here.
-        run: python3 -B -m unittest tests.test_ci_build
+        # The Nix sandbox has no /bin/bash, so the Bash 3.2 cases of the CI and
+        # deploy scripts run only here.
+        run: python3 -B -m unittest tests.test_ci_build tests.test_deploy
       - name: Build target without activation
         env:
           TARGET: ${{ matrix.target }}

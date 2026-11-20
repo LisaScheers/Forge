@@ -89,7 +89,6 @@ fi
                 self.assertEqual(attempts, 1)
 
 
-
 @unittest.skipUnless(Path("/bin/bash").exists(), "no /bin/bash")
 class CiBuildSystemBashTest(CiBuildTest):
     """macOS runners and developer machines may run the script with Bash 3.2."""

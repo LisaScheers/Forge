@@ -10,6 +10,8 @@ SCRIPT = REPO / "scripts/deploy.sh"
 
 
 class DeployMaintenanceTest(unittest.TestCase):
+    shell = "bash"
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -78,7 +80,7 @@ esac
 
     def run_deploy(self, *args, fail_activation=False, cwd=None):
         env = dict(self.env, DEPLOY_TEST_FAIL_ACTIVATION="1" if fail_activation else "0")
-        result = subprocess.run(["bash", str(SCRIPT), *args], env=env, cwd=cwd,
+        result = subprocess.run([self.shell, str(SCRIPT), *args], env=env, cwd=cwd,
                                 text=True, capture_output=True, timeout=10)
         commands = self.log.read_text() if self.log.exists() else ""
         return result, commands
@@ -306,6 +308,12 @@ esac
         result, _ = self.run_deploy("altair", "switch")
         self.assertEqual(result.returncode, 2)
         self.assertIn("unknown deploy host: altair", result.stderr)
+
+
+@unittest.skipUnless(Path("/bin/bash").exists(), "no /bin/bash")
+class DeploySystemBashTest(DeployMaintenanceTest):
+    """just runs the recipe with the bash on PATH, which can be macOS's 3.2."""
+    shell = "/bin/bash"
 
 
 if __name__ == "__main__":
