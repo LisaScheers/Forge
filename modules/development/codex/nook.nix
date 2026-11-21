@@ -1,5 +1,19 @@
 {
   nixos.nook = {pkgs, ...}: {
+    home-manager.users.codex = {
+      home = {
+        username = "codex";
+        homeDirectory = "/home/codex";
+        stateVersion = "26.11";
+      };
+      programs.codex = {
+        enable = true;
+        mutableSettings = true;
+        settings = {
+          model_provider = "openai";
+        };
+      };
+    };
     systemd.services.codex = {
       # Renew /home/codex/.codex authentication before re-enabling remote control.
       enable = false;

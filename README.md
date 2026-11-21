@@ -180,7 +180,7 @@ from Forge's pinned Nixpkgs master revision. Update it with
 
 ## Git authentication
 
-Home Manager configures GitHub and Gist to use `gh auth git-credential`.
+On Vega, Home Manager configures GitHub and Gist to use `gh auth git-credential`.
 For `git.bylisa.dev`, Git uses the login stored by `fj`. Since forgejo-cli 0.7
 has no Git credential-helper command, a small adapter lets `fj` refresh its
 OAuth login before reading the saved token. Tokens stay in each CLI's own store.
@@ -388,7 +388,7 @@ activate configurations or deploy hosts.
 | [Aurora Viewer](docs/aurora-viewer.md) | Vega's source-built Second Life viewer and its Metal port |
 | [AI gateway](docs/ai-usage.md) | The shared CLIProxy gateway and token capture |
 | [Cognee](docs/cognee.md) | Cognee on Nook and its MCP endpoint |
-| [Home dashboard](docs/home-dashboard.md), [home media](docs/home-media.md) | Nook's dashboard and media access |
+| [Home dashboard](docs/home-dashboard.md), [home media](docs/home-media.md) | The home dashboard (on Atlas) and Nook's media access |
 | [Minecraft](docs/minecraft.md) | The Nook worlds and Atlas proxy |
 | [Gotify](docs/gotify.md), [Uptime Kuma](docs/uptime-kuma.md) | Notifications and monitoring |
 | [Certificate trust](docs/certificate-trust.md) | The eMudhra root mitigation |

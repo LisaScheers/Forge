@@ -6,7 +6,7 @@
 }: let
   sharedKeybindings = lib.importJSON ./keybindings.json;
 in {
-  home.lisa.imports = [config.home.t3-code];
+  home.lisa-vega.imports = [config.home.t3-code];
   home.t3-code = inputs.t3-code-nix.homeModules.default;
   flake-file.inputs.t3-code-nix = {
     url = "github:LisaScheers/t3-code-nix";

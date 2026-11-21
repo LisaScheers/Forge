@@ -107,20 +107,6 @@ in {
     };
     users.groups.ai-proxy = {};
     users.groups.ai-proxy-clients.members = ["lisa" "codex"];
-    home-manager.users.codex = {
-      home = {
-        username = "codex";
-        homeDirectory = "/home/codex";
-        stateVersion = "26.11";
-      };
-      programs.codex = {
-        enable = true;
-        mutableSettings = true;
-        settings = {
-          model_provider = "openai";
-        };
-      };
-    };
     systemd.tmpfiles.rules = [
       "d ${root} 0700 ai-proxy ai-proxy - -"
       "d ${root}/logs 0700 ai-proxy ai-proxy - -"
@@ -264,18 +250,6 @@ in {
         '';
       };
       locations."^~ /v0/management/".extraConfig = "return 404;";
-    };
-    # Cognee keeps its existing OpenRouter model, but inference now uses the gateway.
-    virtualisation.oci-containers.containers.cognee = {
-      environment = {
-        LLM_ENDPOINT = lib.mkForce "http://127.0.0.1:8317/v1";
-        LLM_MODEL = lib.mkForce "openai/openrouter/glm-5.3-flash";
-      };
-      environmentFiles = lib.mkAfter ["/run/ai-proxy-cognee/client.env"];
-    };
-    systemd.services.podman-cognee = {
-      requires = ["cli-proxy-api-plus.service" "ai-proxy-cognee-env.service"];
-      after = ["cli-proxy-api-plus.service" "ai-proxy-cognee-env.service"];
     };
   };
 }

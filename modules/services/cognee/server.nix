@@ -103,7 +103,8 @@ in {
       containers.cognee = {
         image = "docker.io/cognee/cognee@sha256:84584eade25cd9526ef4fe8dd550be69fb974fb1083bde9e498da451fad0dfc6";
         user = "970:970";
-        environmentFiles = [backendEnvironment];
+        # The gateway's client key, written by ai-proxy-cognee-env.service.
+        environmentFiles = [backendEnvironment "/run/ai-proxy-cognee/client.env"];
         environment = {
           ENV = "prod";
           BIND_ADDRESS = "127.0.0.1";
@@ -120,8 +121,9 @@ in {
           GRAPH_DATABASE_PROVIDER = "kuzu";
           PYTHONPATH = "/etc/cognee-python";
           LLM_PROVIDER = "custom";
-          LLM_MODEL = "openrouter/z-ai/glm-5.3-flash";
-          LLM_ENDPOINT = "https://openrouter.ai/api/v1";
+          # Cognee keeps its OpenRouter model, reached through Nook's AI gateway.
+          LLM_MODEL = "openai/openrouter/glm-5.3-flash";
+          LLM_ENDPOINT = "http://127.0.0.1:8317/v1";
           LLM_MAX_COMPLETION_TOKENS = "16384";
           STRUCTURED_OUTPUT_FRAMEWORK = "litellm_native";
           EMBEDDING_PROVIDER = "fastembed";
@@ -241,7 +243,8 @@ in {
       };
     };
     systemd.services.podman-cognee = {
-      after = ["systemd-tmpfiles-setup.service"];
+      requires = ["cli-proxy-api-plus.service" "ai-proxy-cognee-env.service"];
+      after = ["systemd-tmpfiles-setup.service" "cli-proxy-api-plus.service" "ai-proxy-cognee-env.service"];
       unitConfig.RequiresMountsFor = storageRoot;
       restartTriggers = [config.age.secrets.cognee-backend-env.file];
       serviceConfig = {

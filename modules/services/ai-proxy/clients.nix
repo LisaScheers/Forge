@@ -47,7 +47,9 @@ in {
       OPENAI_BASE_URL = "${endpoint}/v1";
       ANTHROPIC_BASE_URL = endpoint;
     };
-    # Keep T3 on Codex's native provider too.
+  };
+  # Keep Vega's T3 on Codex's native provider too.
+  home.lisa-vega = {lib, ...}: {
     programs.t3code.userSettings.providerInstances.codex.config.launchArgs =
       lib.mkForce "-c model_provider=\"openai\"";
   };
