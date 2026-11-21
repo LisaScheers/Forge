@@ -141,10 +141,12 @@ Each kind of addition touches these places:
   that mapping only if a second home on the same platform needs its own.
 - **Service:** add `modules/services/<feature>/` binding `nixos.<host>`
   (`server.nix`, plus `auth.nix` for its Authentik pieces). Application code and
-  its tests go in `services/<name>/`, run by a check in the module; a VM test is
-  `modules/services/<feature>/<subject>-test.nix`. Its Authentik blueprint sits
-  beside the application source when there is any, otherwise in or beside
-  `auth.nix`.
+  its tests go in `services/<name>/`; the module runs the service from
+  `flake.lib.runtimeSource`, which leaves the tests out, and a check in the
+  module runs the tests. A VM test is
+  `modules/services/<feature>/<subject>-test.nix`. A fixed Authentik blueprint
+  sits beside the application source when there is any, otherwise beside
+  `auth.nix`; one built from Nix values is written inline in `auth.nix`.
 - **Package:** add `packages/<name>/package.nix` and expose it from the feature
   that uses it, through an overlay or `pkgs.callPackage`.
 - **Secret:** add a rule to `modules/security/agenix/recipients.nix` under

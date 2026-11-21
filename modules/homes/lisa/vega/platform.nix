@@ -15,6 +15,8 @@
       tile-type = "file-tile";
     };
   in {
+    xdg.dataFile."java/8".source = "${pkgs.zulu8}";
+
     # Symlinks avoid copying app bundles and the App Management permission loop.
     targets.darwin.copyApps.enable = false;
     targets.darwin.linkApps.enable = true;

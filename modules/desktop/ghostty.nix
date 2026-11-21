@@ -1,5 +1,5 @@
 {
-  home.lisa = {
+  home.workstation = {
     config,
     lib,
     pkgs,
@@ -8,10 +8,13 @@
     inherit (pkgs.stdenv.hostPlatform) isDarwin;
   in {
     programs.ghostty = {
-      enable = isDarwin;
-      # Ghostty is installed system-wide with ghostty-bin because the source
-      # package is not supported on Darwin.
-      package = null;
+      enable = true;
+      # Darwin installs Ghostty system-wide with ghostty-bin because the source
+      # package is not supported there; Asterion builds it from source.
+      package =
+        if isDarwin
+        then null
+        else pkgs.ghostty;
       settings = {
         command = "direct:${lib.getExe pkgs.nushell}";
         env = ["XDG_CONFIG_HOME=${config.xdg.configHome}"];
@@ -29,16 +32,5 @@
       };
     };
     home.packages = lib.optional isDarwin pkgs.ghostty-bin.terminfo;
-  };
-  # Asterion builds Ghostty from source; Darwin keeps the system-wide ghostty-bin.
-  home.lisa-asterion = {
-    lib,
-    pkgs,
-    ...
-  }: {
-    programs.ghostty = {
-      enable = lib.mkForce true;
-      package = lib.mkForce pkgs.ghostty;
-    };
   };
 }
