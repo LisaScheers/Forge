@@ -21,8 +21,8 @@ system settings, home settings, packages, checks, and inputs together.
 Features merge into named profiles such as `nixos.nook`, `darwin.vega` and
 `home.lisa`, Lisa's shell, editors and tools on every machine. The workstation
 homes `home.lisa-vega` and `home.lisa-asterion` import `home.lisa` and
-`home.workstation` (a few shared development packages, Java runtimes, the Chrome
-tab bridge, SSH keys and 1Password), then add their desktop settings. A feature binds itself
+`home.workstation` (shared CLI tools, Java runtimes, Ghostty, Zed, the Chrome tab
+bridge, SSH keys and 1Password), then add their desktop settings. A feature binds itself
 directly to the profile it configures, such as `nixos.nook` or
 `home.lisa-asterion`. A reusable piece that consumers select explicitly is a
 named profile they import, such as `home.workstation`, `home.onepassword` or
@@ -35,7 +35,7 @@ configurations and [Vimjoyer's examples](https://vimjoyer.com/nix/):
 | --- | --- |
 | `modules/flake/` | Inputs, profile types, base system settings, package sets, checks, CI, deployment |
 | `modules/hosts/<host>/` | Host output, explicit profile selection, machine settings |
-| `modules/homes/lisa/` | User profiles and standalone Home Manager outputs |
+| `modules/homes/` | Lisa's profiles and standalone home outputs (`lisa/`), the shared `home.workstation` profile, XDG settings, macOS mutable preferences |
 | `modules/shell/` | Git, Bash, Zsh, Nushell, prompts, direnv, package lookup |
 | `modules/development/` | Editors, AI tools, development shell, local helpers |
 | `modules/desktop/` | Terminal, theme, fonts, desktop settings |

@@ -41,7 +41,7 @@ async def exercise(root):
 
     async def codex_complete(request):
         await request.json()
-        fixture = Path(__file__).with_name("codex_completion_fixture.jsonl")
+        fixture = Path(__file__).with_name("test_codex_completion.jsonl")
         events = [json.loads(line) for line in fixture.read_text().splitlines()]
         events[-1]["response"]["usage"]["future_tokens"] = 2
         response = web.StreamResponse(headers={"Content-Type": "text/event-stream"})

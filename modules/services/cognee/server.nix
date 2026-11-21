@@ -1,5 +1,6 @@
 {config, ...}: let
   inherit (config.flake.lib) runtimeSource;
+  tree = ../../../services/cognee;
   domain = "cognee.local.bylisa.dev";
   oidcSecret = ../../security/agenix/secrets/shared/cognee-oidc-env.age;
 in {
@@ -9,13 +10,13 @@ in {
     packages.cognee-openai-login = pkgs.writeShellApplication {
       name = "cognee-openai-login";
       text = ''
-        exec ${python}/bin/python3 ${../../../services/cognee/openai_plan.py} login \
+        exec ${python}/bin/python3 ${tree}/openai_plan.py login \
           --host-id urn:uuid:128b7566-1f4a-4f61-9df0-94a3d04f2389 \
           --credentials "''${XDG_STATE_HOME:-$HOME/.local/state}/forge-cognee/nook-openai.json" "$@"
       '';
     };
     checks.cognee-openai-plan = pkgs.runCommand "cognee-openai-plan-tests" {} ''
-      ${python}/bin/python3 -B -m unittest discover -s ${../../../services/cognee} -v
+      ${python}/bin/python3 -B -m unittest discover -s ${tree} -v
       touch "$out"
     '';
   };
@@ -26,7 +27,7 @@ in {
   }: let
     storageRoot = "/srv/disks/projects/cognee";
     python = pkgs.python3.withPackages (ps: [ps.aiohttp ps.pyjwt ps.cryptography]);
-    source = runtimeSource ../../../services/cognee;
+    source = runtimeSource tree;
     backendEnvironment = config.age.secrets.cognee-backend-env.path;
     oidcEnvironment = config.age.secrets.cognee-oidc-env.path;
     mcpKeyFile = "${storageRoot}/credentials/mcp.env";
