@@ -366,8 +366,8 @@ ssh nook 'sudo podman healthcheck run cognee && sudo podman healthcheck run cogn
 
 `cognee-bootstrap` is a successful oneshot, so an inactive state after
 completion is normal. `podman-cognee` and `podman-cognee-mcp` should be active;
-Nook's `codex` service stays disabled until its login is renewed. Check ChatGPT
-Settings → Usage for the app's subscription limits.
+Nook's `codex` service stays disabled until its login is renewed. Its inference
+spends Lisa's OpenRouter credits through the gateway.
 
 Never expose the loopback ports directly. There is no remote off-machine backup
 destination configured for Cognee yet. Before an image upgrade, stop MCP and API,

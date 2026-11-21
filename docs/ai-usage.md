@@ -138,13 +138,14 @@ also verified on 2026-11-05. The former copied-app directory is preserved under
 Existing conflicting GPG backups and the local Aurora skill symlink were preserved under
 `~/.local/state/forge-ai-proxy/activation-backup-20261105T140308`.
 
-For subsequent changes, activate Nook first. Verify
-`cli-proxy-api-plus`, `clickhouse`, `ai-usage-schema`, and the
-`ai-usage-ingest.timer`, trusted TLS, rejection of missing API keys, and a real
-request's transcript and usage in ClickHouse before switching clients. Update
-Vega's system configuration to install its agenix key and host record. Restart
-Codex, T3, and CLI sessions after changing provider configuration. These clients
-fail when the gateway is unavailable rather than falling back to a direct route.
+For subsequent changes, activate Nook first. Verify `cli-proxy-api-plus`,
+`clickhouse`, `ai-usage-schema`, and the `ai-usage-ingest.timer`, trusted TLS,
+rejection of missing API keys, and a real request's transcript and usage in
+ClickHouse before switching clients. Update Vega's system configuration to
+install its agenix key and host record. Restart Antigravity and other sessions
+that read `OPENAI_BASE_URL` or `ANTHROPIC_BASE_URL` after changing provider
+configuration; they and Cognee fail when the gateway is unavailable rather than
+falling back to a direct route.
 
 Codex, T3's Codex driver and Nook's `codex` account no longer use a gateway
 provider: since the native-capture change they select Codex's built-in `openai`

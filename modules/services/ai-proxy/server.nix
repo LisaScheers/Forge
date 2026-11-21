@@ -9,9 +9,10 @@
   source = config.flake.lib.runtimeSource tree;
   secrets = ../../security/agenix/secrets;
   port = 8317;
+  gatewayUrl = "http://127.0.0.1:${toString port}";
 in {
   # The gateway's loopback address, for Nook services that call it directly.
-  flake.lib.aiGatewayUrl = "http://127.0.0.1:${toString port}";
+  flake.lib.aiGatewayUrl = gatewayUrl;
   overlays.ai-proxy = final: _prev: {
     cli-proxy-api-plus-capture = final.callPackage ../../../packages/cli-proxy-api-plus-capture/package.nix {};
   };
@@ -228,7 +229,7 @@ in {
           client_max_body_size 0;
         '';
       locations."/" = {
-        proxyPass = config.flake.lib.aiGatewayUrl;
+        proxyPass = gatewayUrl;
         proxyWebsockets = true;
         extraConfig = ''
           proxy_buffering off;

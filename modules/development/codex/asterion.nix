@@ -2,7 +2,6 @@
   home.lisa-asterion = {
     programs.codex.settings = {
       model = "gpt-6.1-sol";
-      model_reasoning_effort = "high";
       desktop = {
         conversationDetailMode = "STEPS_COMMANDS";
         sansFontSize = 12;
