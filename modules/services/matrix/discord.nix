@@ -60,20 +60,7 @@
 
       services.mautrix-discord = {
         enable = true;
-        # Unencrypted rooms do not need the deprecated libolm dependency.
-        package = pkgs.mautrix-discord.overrideAttrs {
-          tags = ["nocrypto"];
-          buildInputs = [];
-          patches = [
-            ./discord-relay-recovery.patch
-            ./discord-relay-features.patch
-            ./discord-history.patch
-            ./discord-reaction-history.patch
-            ./discord-history-content.patch
-            ./discord-missing-thread-starter.patch
-          ];
-          doCheck = true;
-        };
+        package = pkgs.callPackage ../../../packages/mautrix-discord/package.nix {};
         registerToSynapse = true;
         inherit (cfg) environmentFile;
         settings = {
