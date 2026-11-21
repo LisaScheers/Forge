@@ -15,7 +15,7 @@ in {
           --credentials "''${XDG_STATE_HOME:-$HOME/.local/state}/forge-cognee/nook-openai.json" "$@"
       '';
     };
-    checks.cognee-openai-plan = pkgs.runCommand "cognee-openai-plan-tests" {} ''
+    checks.cognee = pkgs.runCommand "cognee-tests" {} ''
       ${python}/bin/python3 -B -m unittest discover -s ${tree} -v
       touch "$out"
     '';

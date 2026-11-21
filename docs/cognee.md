@@ -364,9 +364,10 @@ triggered deploy-rs rollback during normal startup. Manual health checks remain:
 ssh nook 'sudo podman healthcheck run cognee && sudo podman healthcheck run cognee-mcp'
 ```
 
-`cognee-bootstrap` is a successful oneshot, so an inactive state after completion
-is normal. `cognee-openai-plan`, `podman-cognee`, `podman-cognee-mcp` and `codex`
-should be active. Check ChatGPT Settings → Usage for the app's subscription limits.
+`cognee-bootstrap` is a successful oneshot, so an inactive state after
+completion is normal. `podman-cognee` and `podman-cognee-mcp` should be active;
+Nook's `codex` service stays disabled until its login is renewed. Check ChatGPT
+Settings → Usage for the app's subscription limits.
 
 Never expose the loopback ports directly. There is no remote off-machine backup
 destination configured for Cognee yet. Before an image upgrade, stop MCP and API,

@@ -3,7 +3,8 @@
 One CLIProxyAPIPlus instance runs on Nook and archives its full request logs in
 ClickHouse. Nook and Vega were deployed and verified on 2026-11-05, including
 Vega's final system-generation switch. Asterion is excluded for now. Codex,
-T3's Codex driver, Antigravity CLI, and Cognee have client routes in this change.
+T3's Codex driver, Antigravity CLI, and Cognee had client routes in that change;
+Codex and T3 have since moved to Codex's built-in provider (see below).
 
 The API endpoint is `https://cliproxy.local.bylisa.dev`. Managed machines map it to
 Nook's stable Tailscale address, `100.106.233.104`. Tailscale uses a direct LAN path
@@ -145,11 +146,11 @@ Vega's system configuration to install its agenix key and host record. Restart
 Codex, T3, and CLI sessions after changing provider configuration. These clients
 fail when the gateway is unavailable rather than falling back to a direct route.
 
-Codex loads its token with a [command-backed provider auth helper](https://learn.chatgpt.com/docs/config-file/config-reference),
-so its key is absent from the Nix store and does not depend on GUI environment
-variables. Nook's `codex` account uses the same route. T3's active Codex driver
-selects that provider. Cognee uses its existing OpenRouter model through the
-gateway, with a private generated client environment file.
+Codex, T3's Codex driver and Nook's `codex` account no longer use a gateway
+provider: since the native-capture change they select Codex's built-in `openai`
+provider (`model_provider = "openai"`). Cognee uses its existing OpenRouter
+model through the gateway, with a private generated client environment file
+written by `ai-proxy-cognee-env` ([Cognee](cognee.md#models)).
 
 Antigravity CLI uses [Gemini API mode and a custom endpoint](https://antigravity.google/docs/install?tab=cli).
 Its wrapper reads the shared key at runtime, including when launched outside an
