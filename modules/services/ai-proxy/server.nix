@@ -125,21 +125,6 @@ in {
         fi
       '';
     };
-    systemd.services.ai-proxy-cognee-env = {
-      before = ["podman-cognee.service"];
-      serviceConfig = {
-        Type = "oneshot";
-        RuntimeDirectory = "ai-proxy-cognee";
-        RuntimeDirectoryMode = "0700";
-        RemainAfterExit = true;
-        UMask = "0077";
-        LoadCredential = ["client-key:${config.age.secrets.ai-proxy-client-key.path}"];
-      };
-      restartTriggers = [config.age.secrets.ai-proxy-client-key.file];
-      script = ''
-        { printf 'LLM_API_KEY='; cat "$CREDENTIALS_DIRECTORY/client-key"; printf '\n'; } > /run/ai-proxy-cognee/client.env
-      '';
-    };
     services.clickhouse = {
       enable = true;
       serverConfig = {

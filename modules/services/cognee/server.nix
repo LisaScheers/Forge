@@ -103,7 +103,7 @@ in {
       containers.cognee = {
         image = "docker.io/cognee/cognee@sha256:84584eade25cd9526ef4fe8dd550be69fb974fb1083bde9e498da451fad0dfc6";
         user = "970:970";
-        # The gateway's client key, written by ai-proxy-cognee-env.service.
+        # The gateway's client key, written by ai-proxy-cognee-env below.
         environmentFiles = [backendEnvironment "/run/ai-proxy-cognee/client.env"];
         environment = {
           ENV = "prod";
@@ -241,6 +241,23 @@ in {
         ProtectSystem = "strict";
         ReadWritePaths = ["${storageRoot}/credentials"];
       };
+    };
+    # Cognee's inference goes through Nook's AI gateway, so it needs the gateway
+    # running and its shared client key as an environment file.
+    systemd.services.ai-proxy-cognee-env = {
+      before = ["podman-cognee.service"];
+      serviceConfig = {
+        Type = "oneshot";
+        RuntimeDirectory = "ai-proxy-cognee";
+        RuntimeDirectoryMode = "0700";
+        RemainAfterExit = true;
+        UMask = "0077";
+        LoadCredential = ["client-key:${config.age.secrets.ai-proxy-client-key.path}"];
+      };
+      restartTriggers = [config.age.secrets.ai-proxy-client-key.file];
+      script = ''
+        { printf 'LLM_API_KEY='; cat "$CREDENTIALS_DIRECTORY/client-key"; printf '\n'; } > /run/ai-proxy-cognee/client.env
+      '';
     };
     systemd.services.podman-cognee = {
       requires = ["cli-proxy-api-plus.service" "ai-proxy-cognee-env.service"];
