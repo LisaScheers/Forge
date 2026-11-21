@@ -1,5 +1,9 @@
-{
-  nginxErrorPage = {pkgs}: let
+{lib, ...}: {
+  options.nginxErrorPage = lib.mkOption {
+    type = lib.types.functionTo lib.types.attrs;
+    description = "Shared Nginx error-page settings for a package set.";
+  };
+  config.nginxErrorPage = {pkgs}: let
     badGatewayPage = pkgs.writeTextDir "502.html" ''
       <!doctype html>
       <html lang="en">

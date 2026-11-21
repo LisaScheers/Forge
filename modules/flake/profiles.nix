@@ -23,10 +23,6 @@ in {
       default = {};
       description = "Package overlays owned by their features.";
     };
-    nginxErrorPage = lib.mkOption {
-      type = lib.types.functionTo lib.types.attrs;
-      description = "Shared Nginx error-page settings for a package set.";
-    };
   };
   config.flake.modules = {
     inherit (config) nixos darwin;

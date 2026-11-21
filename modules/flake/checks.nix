@@ -28,7 +28,6 @@
     "darwin"
     "home"
     "overlays"
-    "nginxErrorPage"
     "ci"
     "flake"
     "flake-file"
