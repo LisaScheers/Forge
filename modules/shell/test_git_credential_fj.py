@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "modules/shell/git-credential-fj.sh"
+SCRIPT = Path(os.environ.get("GIT_CREDENTIAL_FJ", Path(__file__).with_name("git-credential-fj.sh")))
 
 
 class FjCredentialTest(unittest.TestCase):

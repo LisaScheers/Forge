@@ -8,7 +8,6 @@
       ../../.github/scripts
       ../../Justfile
       ../../.envrc
-      ../../modules/shell/git-credential-fj.sh
     ];
   };
 in {

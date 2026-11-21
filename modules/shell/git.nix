@@ -1,4 +1,12 @@
 {
+  perSystem = {pkgs, ...}: {
+    checks.git-credential-fj = pkgs.runCommand "git-credential-fj-tests" {nativeBuildInputs = [pkgs.bash pkgs.jq pkgs.python3];} ''
+      # The sandbox has no /usr/bin/env for the mock fj the test writes.
+      sed "s|#!/usr/bin/env bash|#!${pkgs.bash}/bin/bash|" ${./test_git_credential_fj.py} > test_git_credential_fj.py
+      GIT_CREDENTIAL_FJ=${./git-credential-fj.sh} python3 -B test_git_credential_fj.py
+      touch "$out"
+    '';
+  };
   home.lisa = {
     lib,
     pkgs,

@@ -4,10 +4,10 @@
     pkgs,
     ...
   }: let
-    comicCodeNerdFont = pkgs.callPackage ../../../packages/comic-code-nerd-font/package.nix {
+    comicCodeNerdFont = pkgs.callPackage ../../../../packages/comic-code-nerd-font/package.nix {
       fontSource = inputs.comic-code-fonts;
     };
-    zed = pkgs.callPackage ../../../packages/asterion-zed-bin/package.nix {};
+    zed = pkgs.callPackage ../../../../packages/asterion-zed-bin/package.nix {};
   in {
     programs.zed-editor = {
       enable = lib.mkForce true;

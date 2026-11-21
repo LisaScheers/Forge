@@ -17,7 +17,7 @@ writeShellApplication {
 
     # Preserve owner and permissions; rename on the same filesystem is atomic.
     cp -p -- "$bundle_file" "$filtered_file"
-    awk -f ${../../tools/certificates/remove-compromised-roots.awk} \
+    awk -f ${./remove-compromised-roots.awk} \
       "$bundle_file" > "$filtered_file"
     if cmp -s -- "$bundle_file" "$filtered_file"; then
       exit 0

@@ -60,7 +60,7 @@
                 print(machine.succeed("journalctl -u matrix-synapse --no-pager; systemctl cat matrix-synapse; ls -ld /srv/matrix; findmnt -nro SOURCE,FSTYPE,FSROOT -M /srv/matrix; findmnt -nro SOURCE,FSTYPE,FSROOT -M /var/lib/matrix-synapse/media_store"))
                 raise
             machine.wait_until_succeeds("curl -fsS http://127.0.0.1:8008/_matrix/client/versions")
-            machine.succeed("python -B ${./media-test.py} upload")
+            machine.succeed("python -B ${./media-fixture.py} upload")
             machine.succeed("findmnt -rn -M /var/lib/matrix-synapse/media_store -t ext4")
             machine.succeed("test $(find /srv/matrix/media_store/local_content -type f | wc -l) -ge 1")
 
@@ -71,14 +71,14 @@
             machine.fail("systemctl start matrix-synapse")
             machine.succeed("systemctl start srv-matrix.mount; mv /srv/matrix/.matrix-volume-held /srv/matrix/.matrix-volume; systemctl reset-failed; systemctl start matrix-synapse")
             machine.wait_until_succeeds("curl -fsS http://127.0.0.1:8008/_matrix/client/versions")
-            machine.succeed("python -B ${./media-test.py} download")
+            machine.succeed("python -B ${./media-fixture.py} download")
 
         with subtest("declarative mounts recover the same authenticated media after reboot"):
             machine.succeed("cp /run/matrix-media-test.json /var/lib/media-test-state.json")
             machine.reboot()
             machine.wait_for_unit("matrix-synapse.service")
             machine.succeed("cp /var/lib/media-test-state.json /run/matrix-media-test.json")
-            machine.succeed("python -B ${./media-test.py} download")
+            machine.succeed("python -B ${./media-fixture.py} download")
       '';
     });
 }

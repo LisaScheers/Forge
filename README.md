@@ -40,8 +40,8 @@ configurations and [Vimjoyer's examples](https://vimjoyer.com/nix/):
 | `modules/services/<feature>/` | Related server, authentication, proxy, or collector pieces |
 | `modules/security/` | Agenix, SSH, GnuPG, 1Password |
 | `modules/hardware/` | Host hardware, disk support, Apple Silicon installers |
-| `services/<name>/` | Source and tests of daemons and web apps that modules run on a host (Python services, catalogs, Authentik blueprints) |
-| `tools/<name>/` | Source and tests of command-line tools installed on workstations (certificate cleanup, Chrome tab bridge, Forgejo API) |
+| `services/<name>/` | Source and tests of daemons and web apps that modules run on a host (Python services, catalogs), with the app's Authentik blueprint |
+| `tools/<name>/` | Source and tests of command-line tools installed on workstations (Chrome tab bridge, Forgejo API) |
 | `scripts/`, `tests/` | Operator scripts run from a checkout (deploy, switch, hardware import, Asterion's tethered boot), and their tests |
 | `packages/<name>/` | Package recipes, overrides and their patches, outside automatic loading; a buildable package's entry point is `package.nix` |
 
@@ -105,17 +105,18 @@ vendored pstack skills are excluded.
 `nix fmt -- modules packages` formats the Nix.
 The dev shell's pre-commit hooks run alejandra on the same paths, nil and
 write-flake. `checks.script-tests` runs the Python tests in
-`tests/` against the repository scripts, Justfile and helpers they exercise.
+`tests/` against `scripts/`, the Justfile, `.envrc` and the CI build script.
 
 Tests sit beside what they cover, and each runs from a flake check: service
 suites in `services/<name>/test_*.py`, tool suites in `tools/<name>/tests/` (run
 by the package build), tests of a module's own helper beside it under `modules/`
 (such as `modules/security/agenix/test_check_recipients.py`), NixOS VM and
-fixture tests in `modules/**/<subject>-test.nix`, and tests of `scripts/` and
-the Justfile in `tests/`, run by `checks.script-tests`. A few packages keep build
-inputs that are not recipes: `asterion-gpu/default.nix` assembles Asterion's GPU
-boot chain from the `asterion-gpu-*` recipes, and `java4shell` and `node2shell`
-hold the patches and test inputs their modules read.
+fixture tests in `modules/**/<subject>-test.nix`, and tests of `scripts/`, the
+Justfile, `.envrc` and the CI build script in `tests/`, run by
+`checks.script-tests`. A few packages keep build inputs that are not recipes:
+`asterion-gpu/default.nix` assembles Asterion's GPU boot chain from the
+`asterion-gpu-*` recipes, and `java4shell` and `node2shell` hold the patches and
+test inputs their modules read.
 
 Hardware regeneration writes `modules/hardware/<host>.nix`. Save the target's
 `nixos-generate-config --show-hardware-config` output locally, then run
@@ -135,7 +136,9 @@ Each kind of addition touches these places:
 - **Service:** add `modules/services/<feature>/` binding `nixos.<host>`
   (`server.nix`, plus `auth.nix` for its Authentik pieces). Application code and
   its tests go in `services/<name>/`, run by a check in the module; a VM test is
-  `modules/services/<feature>/<subject>-test.nix`.
+  `modules/services/<feature>/<subject>-test.nix`. Its Authentik blueprint sits
+  beside the application source when there is any, otherwise in or beside
+  `auth.nix`.
 - **Package:** add `packages/<name>/package.nix` and expose it from the feature
   that uses it, through an overlay or `pkgs.callPackage`.
 - **Secret:** add a rule to `modules/security/agenix/recipients.nix` under
