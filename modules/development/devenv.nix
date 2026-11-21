@@ -1,5 +1,5 @@
 {
-  home."lisa" = {pkgs, ...}: {
+  home.lisa = {pkgs, ...}: {
     home.packages = [
       pkgs.devenv
     ];

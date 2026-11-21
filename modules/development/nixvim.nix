@@ -34,7 +34,7 @@
     '';
   };
 
-  home.lisa-cli = {pkgs, ...}: {
+  home.lisa = {pkgs, ...}: {
     home.packages = [inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.nixvim];
   };
 }

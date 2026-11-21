@@ -18,18 +18,20 @@ Every Nix file under `modules/` is a top-level flake-parts module, loaded by
 system settings, home settings, packages, checks, and inputs together.
 
 `nixos`, `darwin`, and `home` are class-checked deferred-module options.
-Features merge into named profiles such as `nixos.nook`, `darwin.vega`,
-`home.lisa-cli`, and `home.lisa`. The CLI profile supplies shared shell and home
-integration dependencies; Lisa's main profile adds her usual applications.
-Asterion's `home.lisa-asterion` profile imports `home.lisa` and adds its own
-desktop settings.
+Features merge into named profiles such as `nixos.nook`, `darwin.vega` and
+`home.lisa`, Lisa's shell, editors and tools on every machine. The workstation
+profiles `home.lisa-vega` and `home.lisa-asterion` import `home.lisa` and add
+desktop settings. A feature that serves one host binds itself to that host's
+profile; one that several consumers share, such as `nixos.asterion-gpu` (the
+installed system and the live image) or `home.onepassword`, is a named profile
+each consumer imports.
 
 The layout follows the feature-oriented structure in Rose's and Esmee's
 configurations and [Vimjoyer's examples](https://vimjoyer.com/nix/):
 
 | Directory | Contents |
 | --- | --- |
-| `modules/flake/` | Inputs, profile types, package sets, checks, CI, deployment |
+| `modules/flake/` | Inputs, profile types, base system settings, package sets, checks, CI, deployment |
 | `modules/hosts/<host>/` | Host output, explicit profile selection, machine settings |
 | `modules/homes/lisa/` | User profiles and standalone Home Manager outputs |
 | `modules/shell/` | Git, Bash, Zsh, Nushell, prompts, direnv, package lookup |
@@ -112,8 +114,8 @@ by the package build), tests of a module's own helper beside it under `modules/`
 fixture tests in `modules/**/<subject>-test.nix`, and tests of `scripts/` and
 the Justfile in `tests/`, run by `checks.script-tests`. A few packages keep build
 inputs that are not recipes: `asterion-gpu/default.nix` assembles Asterion's GPU
-boot chain from the `asterion-gpu-*` recipes, and `java4shell`, `node2shell` and
-`nixd` hold the patches and settings their modules read.
+boot chain from the `asterion-gpu-*` recipes, and `java4shell` and `node2shell`
+hold the patches and test inputs their modules read.
 
 Hardware regeneration writes `modules/hardware/<host>.nix`. Save the target's
 `nixos-generate-config --show-hardware-config` output locally, then run

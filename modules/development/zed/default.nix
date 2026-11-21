@@ -3,7 +3,7 @@
   lib,
   ...
 }: {
-  home."lisa" = {pkgs, ...}: {
+  home.lisa = {pkgs, ...}: {
     programs.zed-editor.enable = pkgs.stdenv.hostPlatform.isDarwin;
     # Vega installs Zed Nightly system-wide; Asterion selects its own build.
     programs.zed-editor.package = lib.mkDefault null;

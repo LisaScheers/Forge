@@ -1,5 +1,5 @@
 {
-  home."lisa" = {
+  home.lisa = {
     programs.starship = {
       enable = true;
       settings = {

@@ -16,7 +16,7 @@ in {
   nixos.base = base;
   darwin.base = base;
 
-  home.lisa-cli = {
+  home.lisa = {
     lib,
     pkgs,
     osConfig ? null,

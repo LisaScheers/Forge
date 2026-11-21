@@ -1,5 +1,5 @@
 {
-  home."lisa" = {pkgs, ...}: let
+  home.lisa = {pkgs, ...}: let
     inherit (pkgs.stdenv.hostPlatform) isDarwin;
   in {
     home.homeDirectory =

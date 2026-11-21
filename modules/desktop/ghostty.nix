@@ -1,5 +1,5 @@
 {
-  home."lisa" = {
+  home.lisa = {
     config,
     lib,
     pkgs,

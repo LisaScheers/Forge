@@ -21,7 +21,7 @@
       }))
     ];
   };
-  home."lisa" = {
+  home.lisa = {
     pkgs,
     lib,
     osConfig ? null,

@@ -1,5 +1,5 @@
 {config, ...}: {
-  home.lisa-cli.imports = [config.home.xdg-extra];
+  home.lisa.imports = [config.home.xdg-extra];
   home.xdg-extra = {
     config,
     lib,

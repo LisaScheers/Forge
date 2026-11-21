@@ -1,5 +1,5 @@
 {
-  home."lisa" = {
+  home.lisa = {
     programs.btop = {
       enable = true;
     };
