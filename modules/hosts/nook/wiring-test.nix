@@ -6,17 +6,31 @@
 }: let
   nook = config.flake.nixosConfigurations.nook.config;
   gateway = config.flake.lib.aiGatewayUrl;
-  vhosts = lib.filterAttrs (_: vhost: vhost.useACMEHost != null) nook.services.nginx.virtualHosts;
   certs = nook.security.acme.certs;
   dyndns = nook.services.cloudflare-dyndns;
   certNames = cert: [cert.domain] ++ cert.extraDomainNames;
+  # A virtual host serves its serverName (or its attribute name) and aliases,
+  # with the certificate it names or, with enableACME, one of its own.
+  vhosts = lib.filterAttrs (_: vhost: vhost.certificate != null) (lib.mapAttrs (name: vhost: rec {
+      serverName =
+        if vhost.serverName != null
+        then vhost.serverName
+        else name;
+      names = [serverName] ++ vhost.serverAliases;
+      certificate =
+        if vhost.useACMEHost != null
+        then vhost.useACMEHost
+        else if vhost.enableACME
+        then serverName
+        else null;
+    })
+    nook.services.nginx.virtualHosts);
 
   # Each piece below is declared by a different feature module; these are the
   # links between them that evaluation alone would not catch.
-  missingCertificates = lib.attrNames (lib.filterAttrs (_: vhost: !(certs ? ${vhost.useACMEHost})) vhosts);
-  namesOffCertificate = lib.concatLists (lib.mapAttrsToList (name: vhost:
-    lib.optionals (certs ? ${vhost.useACMEHost})
-    (lib.subtractLists (certNames certs.${vhost.useACMEHost}) ([name] ++ vhost.serverAliases)))
+  missingCertificates = lib.attrNames (lib.filterAttrs (_: vhost: !(certs ? ${vhost.certificate})) vhosts);
+  namesOffCertificate = lib.concatLists (lib.mapAttrsToList (_: vhost:
+    lib.optionals (certs ? ${vhost.certificate}) (lib.subtractLists (certNames certs.${vhost.certificate}) vhost.names))
   vhosts);
   publicNames = lib.filter (name: !(lib.hasSuffix ".local.bylisa.dev" name)) (lib.concatMap certNames (lib.attrValues certs));
   namesWithoutDyndns = lib.subtractLists dyndns.domains publicNames;
