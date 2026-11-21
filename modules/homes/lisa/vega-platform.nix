@@ -177,6 +177,7 @@
             "file:///Applications/ChatGPT.app/"
             "file:///Applications/Nix%20Apps/Zed%20Nightly.app/"
             "file:///Applications/Nix%20Apps/Ghostty.app/"
+            "file:///Applications/Nix%20Apps/T3%20Code%20(Nightly).app/"
             "file:///Applications/Discord.app/"
             "file:///Applications/Spotify.app/"
             "file:///System/Applications/System%20Settings.app/"

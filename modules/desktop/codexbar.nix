@@ -22,7 +22,7 @@
             id = "azureopenai";
           }
           {
-            enabled = false;
+            enabled = true;
             id = "claude";
           }
           {
