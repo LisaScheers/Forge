@@ -74,19 +74,22 @@ it building.
 `flake-file` generates `flake.nix` from feature-owned input declarations.
 Regenerate it with `nix run .#write-flake`. The root entry point imports
 `modules/` directly. `modules/security/agenix/_secrets.nix` is the standalone
-agenix CLI entry point and reads the flake's `agenixRules` output. The underscore
-keeps it out of automatic loading. The `dendritic` and `profiles` checks enforce
-top-level feature boundaries and module-class safety.
+agenix CLI entry point and reads the flake's `agenixRules` output. The
+underscore keeps it out of automatic loading. The `dendritic` and `profiles`
+checks enforce top-level feature boundaries and module-class safety.
+`checks.nook-wiring` (`modules/hosts/nook/wiring-test.nix`) checks the links
+between Nook's features: every served name is on its virtual host's certificate,
+every public name is in DynDNS, and the gateway's users share its address.
 
-Secret recipients live in `modules/security/agenix/recipients.nix`.
-`secrets/<host>/` holds secrets that only that host decrypts and
-`secrets/shared/` those that several hosts decrypt; each is encrypted for Lisa
-and exactly its reading hosts. `checks.agenix-rules` checks the rules against
-the hosts' configurations and each file's age header: SSH recipients by key tag,
-age recipients by count, since an X25519 stanza does not name its key. Change
-recipients with `just secret-rekey`. Narrowing recipients does not revoke access
-to older revisions in Git; rotate the credential itself when a former recipient
-must lose access.
+Secret recipients live in `modules/security/agenix/recipients.nix`, and the
+encrypted files under `modules/security/agenix/secrets/`: `secrets/<host>/`
+holds secrets that only that host decrypts and `secrets/shared/` those that
+several hosts decrypt; each is encrypted for Lisa and exactly its reading hosts.
+`checks.agenix-rules` checks the rules against the hosts' configurations and
+each file's age header: SSH recipients by key tag, age recipients by count,
+since an X25519 stanza does not name its key. Change recipients with `just
+secret-rekey`. Narrowing recipients does not revoke access to older revisions in
+Git; rotate the credential itself when a former recipient must lose access.
 
 CI targets are declared beside their home or installer output, and
 `modules/flake/deploy.nix` adds one per deployed host. The CI module maps those

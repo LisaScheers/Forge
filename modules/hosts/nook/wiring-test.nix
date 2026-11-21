@@ -91,13 +91,16 @@
     };
   };
   reports = rule: change: (problemsIn (lib.recursiveUpdate fixture change)).${rule} != [];
+  reportsExactly = rule: change: names: (problemsIn (lib.recursiveUpdate fixture change)).${rule} == names;
   fixtureHolds =
     lib.all (names: names == []) (lib.attrValues (problemsIn fixture))
     && reports "cloudflare-dyndns is disabled" {dyndns.enable = false;}
     && reports "virtual hosts whose certificate nothing requests" {virtualHosts."new.local.bylisa.dev" = vhost {useACMEHost = "missing.local.bylisa.dev";};}
     && reports "served names missing from their virtual host's certificate" {virtualHosts."app.bylisa.dev".serverAliases = ["app.local.bylisa.dev" "extra.bylisa.dev"];}
     && reports "served names missing from their virtual host's certificate" {virtualHosts."renamed".serverName = "other.bylisa.dev";}
-    && reports "public certificate names missing from cloudflare-dyndns" {dyndns.domains = ["app.bylisa.dev"];};
+    && reports "public certificate names missing from cloudflare-dyndns" {dyndns.domains = ["app.bylisa.dev"];}
+    # An enableACME host's own certificate must cover its aliases too.
+    && reportsExactly "served names missing from their virtual host's certificate" {virtualHosts."own.bylisa.dev".serverAliases = ["alias.bylisa.dev"];} ["alias.bylisa.dev"];
 in {
   flake.checks.x86_64-linux.nook-wiring = withSystem "x86_64-linux" ({pkgs, ...}:
     assert lib.assertMsg fixtureHolds "nook-wiring: a fixture rule is no longer detected";
