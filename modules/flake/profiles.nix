@@ -2,6 +2,7 @@
   config,
   inputs,
   lib,
+  options,
   ...
 }: let
   profilesOf = class:
@@ -24,6 +25,18 @@ in {
       description = "Package overlays owned by their features.";
     };
   };
+  # Features bind themselves to profiles, so no file lists what a host gets;
+  # `just features` prints the files that bind a profile, from this function.
+  config.flake.lib.profileFiles = class: profile: let
+    relative = file: let
+      inStore = builtins.match "${builtins.storeDir}/[^/]+/(.*)" (toString file);
+    in
+      if inStore == null
+      then toString file
+      else builtins.head inStore;
+    binds = definition: definition.value ? ${profile};
+  in
+    lib.sort lib.lessThan (map (definition: relative definition.file) (lib.filter binds options.${class}.definitionsWithLocations));
   config.flake.modules = {
     inherit (config) nixos darwin;
     homeManager = config.home;

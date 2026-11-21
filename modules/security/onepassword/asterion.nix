@@ -1,7 +1,4 @@
-{config, ...}: let
-  remotes = config.sshRemotes;
-  inherit (config.home) onepassword;
-in {
+{
   nixos.asterion = {
     services.gnome.gcr-ssh-agent.enable = false;
     programs._1password.enable = true;
@@ -37,8 +34,6 @@ in {
       then osConfig.programs._1password-gui.package
       else pkgs._1password-gui;
   in {
-    imports = [onepassword];
-
     xdg.configFile."net.imput.helium/NativeMessagingHosts/com.1password.1password.json".text = builtins.toJSON {
       name = "com.1password.1password";
       description = "1Password browser integration";
@@ -62,21 +57,6 @@ in {
     };
 
     home.sessionVariables.SSH_AUTH_SOCK = "${config.home.homeDirectory}/.1password/agent.sock";
-    programs.ssh = {
-      enable = true;
-      enableDefaultConfig = false;
-      settings =
-        remotes
-        // {
-          "*".IdentityAgent = "~/.1password/agent.sock";
-          "codeberg.org" = {
-            HostName = "codeberg.org";
-            User = "git";
-            IdentityFile = "~/.ssh/codeberg.pub";
-            IdentitiesOnly = true;
-          };
-        };
-    };
     programs.git.settings.gpg.ssh.program = lib.getExe' gui "op-ssh-sign";
   };
 }

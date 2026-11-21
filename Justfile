@@ -48,7 +48,17 @@ tree:
 # their own names.
 [group('flake')]
 features profile class="nixos":
-    @PROFILE="$1" nix eval --raw --impure ".#debug.options.$2.definitionsWithLocations" --apply 'definitions: let profile = builtins.getEnv "PROFILE"; relative = file: let match = builtins.match "/nix/store/[^/]+/(.*)" file; in if match == null then file else builtins.head match; in builtins.concatStringsSep "\n" (map (definition: relative definition.file) (builtins.filter (definition: definition.value ? ${profile}) definitions)) + "\n"'
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "$1:$2" in
+      *[!a-z0-9:-]*|:*|*:) echo 'Expected a profile name and nixos, darwin or home.' >&2; exit 2 ;;
+    esac
+    files=$(nix eval --raw .#lib.profileFiles --apply "lookup: builtins.concatStringsSep \"\n\" (lookup \"$2\" \"$1\")")
+    if [ -z "$files" ]; then
+      echo "No file binds $2.$1." >&2
+      exit 1
+    fi
+    printf '%s\n' "$files"
 
 # Enter the development shell.
 [group('flake')]

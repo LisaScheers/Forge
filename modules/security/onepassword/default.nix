@@ -1,21 +1,17 @@
-{
-  config,
-  inputs,
-  ...
-}: let
-  inherit (config.home) onepassword;
-in {
+{inputs, ...}: {
   flake-file.inputs.onepassword-shell-plugins = {
     url = "github:1Password/shell-plugins";
     inputs.nixpkgs.follows = "nixpkgs";
   };
-  home.lisa.imports = [inputs.onepassword-shell-plugins.hmModules.default];
-  # Shell plugins and SSH commit signing; each workstation names its signer.
+  # Shell plugins and SSH commit signing for a workstation home. The importer
+  # sets programs.git.settings.gpg.ssh.program to its 1Password signer, and the
+  # allowed-signers file comes from modules/shell/git.nix.
   home.onepassword = {
     config,
     pkgs,
     ...
   }: {
+    imports = [inputs.onepassword-shell-plugins.hmModules.default];
     programs._1password-shell-plugins = {
       enable = true;
       plugins = with pkgs; [awscli2 cachix];
@@ -28,21 +24,5 @@ in {
       };
       commit.gpgsign = true;
     };
-  };
-  home.lisa-vega = {
-    pkgs,
-    lib,
-    config,
-    ...
-  }: {
-    imports = [onepassword];
-    programs.git.settings.gpg.ssh.program = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign";
-    home.sessionVariables = {
-      SSH_AUTH_SOCK = lib.mkDefault "${config.home.homeDirectory}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
-    };
-    home.packages = [
-      pkgs.gh
-      #ghWith1Password disables due to anoying popups when running gh commands that require 1password auth, so we use the normal gh package instead
-    ];
   };
 }
