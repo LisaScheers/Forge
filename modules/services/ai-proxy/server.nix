@@ -1,6 +1,11 @@
-{lib, ...}: let
+{
+  config,
+  lib,
+  ...
+}: let
   domain = "cliproxy.local.bylisa.dev";
-  source = ../../../services/ai-usage;
+  tree = ../../../services/ai-usage;
+  source = config.flake.lib.runtimeSource tree;
   secrets = ../../security/agenix/secrets;
 in {
   overlays.ai-proxy = final: _prev: {
@@ -11,7 +16,7 @@ in {
     checks =
       {
         ai-usage = pkgs.runCommand "ai-usage-tests" {} ''
-          ${pkgs.python3}/bin/python3 -B -m unittest discover -s ${source} -v
+          ${pkgs.python3}/bin/python3 -B -m unittest discover -s ${tree} -v
           touch "$out"
         '';
       }
@@ -22,7 +27,7 @@ in {
             CLIPROXY_BINARY = "${pkgs.cli-proxy-api-plus-capture}/bin/cli-proxy-api-plus";
             AI_USAGE_CLICKHOUSE_PASSWORD = "test";
           } ''
-            ${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 -B -m unittest discover -s ${source} -v
+            ${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 -B -m unittest discover -s ${tree} -v
             touch "$out"
           '';
       };

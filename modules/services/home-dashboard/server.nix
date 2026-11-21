@@ -3,10 +3,11 @@
   lib,
   ...
 }: let
-  source = ../../../services/home-dashboard;
+  tree = ../../../services/home-dashboard;
+  source = config.flake.lib.runtimeSource tree;
   # The catalog is read at runtime, so check here that every IPv4 address in
   # its URLs and probe addresses is one of Nook's (or loopback).
-  catalog = builtins.fromJSON (builtins.readFile (source + "/catalog.json"));
+  catalog = builtins.fromJSON (builtins.readFile (tree + "/catalog.json"));
   hostOf = url: let
     match = builtins.match "[A-Za-z][A-Za-z0-9+.-]*://([^@/?#]*@)?([^/:?#]+).*" url;
   in
@@ -26,7 +27,7 @@ in {
     checks.home-dashboard = assert lib.assertMsg parsesHosts "home-dashboard catalog URL parsing is broken";
     assert lib.assertMsg (staleAddresses == []) "home-dashboard catalog.json has addresses not in network.nook: ${toString staleAddresses}";
       pkgs.runCommand "home-dashboard-tests" {} ''
-        ${pkgs.python3}/bin/python3 -B -m unittest discover -s ${source} -v
+        ${pkgs.python3}/bin/python3 -B -m unittest discover -s ${tree} -v
         touch "$out"
       '';
   };
@@ -112,7 +113,7 @@ in {
 
     forge.authentik.blueprints.home-dashboard = {
       description = "Apply the dashboard Authentik provider";
-      file = source + /authentik.yaml;
+      file = "${source}/authentik.yaml";
       embeddedOutpostProvider = "Home dashboard";
     };
 

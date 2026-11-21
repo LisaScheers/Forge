@@ -1,4 +1,5 @@
-let
+{config, ...}: let
+  inherit (config.flake.lib) runtimeSource;
   domain = "cognee.local.bylisa.dev";
   oidcSecret = ../../security/agenix/secrets/shared/cognee-oidc-env.age;
 in {
@@ -25,7 +26,7 @@ in {
   }: let
     storageRoot = "/srv/disks/projects/cognee";
     python = pkgs.python3.withPackages (ps: [ps.aiohttp ps.pyjwt ps.cryptography]);
-    source = ../../../services/cognee;
+    source = runtimeSource ../../../services/cognee;
     backendEnvironment = config.age.secrets.cognee-backend-env.path;
     oidcEnvironment = config.age.secrets.cognee-oidc-env.path;
     mcpKeyFile = "${storageRoot}/credentials/mcp.env";

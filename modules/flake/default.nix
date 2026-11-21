@@ -18,6 +18,18 @@
   options.flake.lib = lib.mkOption {
     type = lib.types.lazyAttrsOf lib.types.raw;
     default = {};
-    description = "Functions Forge exports to its tools: nixd settings and profile lookup.";
+    description = "Functions Forge exports to its tools and modules: nixd settings, profile lookup, runtime sources.";
   };
+  # A service's files under services/<name>/ without its tests and notes, so
+  # editing those never changes or restarts what runs. Its check reads the
+  # whole directory instead.
+  config.flake.lib.runtimeSource = path:
+    builtins.path {
+      inherit path;
+      name = baseNameOf path;
+      filter = file: _: let
+        name = baseNameOf file;
+      in
+        !(lib.hasPrefix "test_" name || name == "README.md" || name == ".gitignore");
+    };
 }

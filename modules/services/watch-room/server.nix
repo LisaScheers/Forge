@@ -1,9 +1,10 @@
-let
-  source = ../../../services/watch-room;
+{config, ...}: let
+  tree = ../../../services/watch-room;
+  source = config.flake.lib.runtimeSource tree;
 in {
   perSystem = {pkgs, ...}: {
     checks.watch-room = pkgs.runCommand "watch-room-tests" {nativeBuildInputs = [pkgs.ffmpeg];} ''
-      ${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 -B -m unittest discover -s ${source} -v
+      ${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 -B -m unittest discover -s ${tree} -v
       touch "$out"
     '';
   };

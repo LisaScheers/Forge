@@ -1,12 +1,13 @@
-let
+{config, ...}: let
   domain = "ai.local.bylisa.dev";
-  source = ../../../services/ai-archive;
+  tree = ../../../services/ai-archive;
+  source = config.flake.lib.runtimeSource tree;
 in {
   perSystem = {pkgs, ...}: {
-    packages.ai-archive-auth-blueprint = pkgs.writeText "ai-archive.yaml" (builtins.readFile (source + /authentik.yaml));
+    packages.ai-archive-auth-blueprint = pkgs.writeText "ai-archive.yaml" (builtins.readFile "${source}/authentik.yaml");
     checks.ai-archive = pkgs.runCommand "ai-archive-tests" {} ''
-      ${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 -B -m unittest discover -s ${source} -v
-      ${pkgs.nodejs}/bin/node --check ${source}/public/app.js
+      ${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 -B -m unittest discover -s ${tree} -v
+      ${pkgs.nodejs}/bin/node --check ${tree}/public/app.js
       touch "$out"
     '';
   };
@@ -124,7 +125,7 @@ in {
   nixos.atlas = {
     forge.authentik.blueprints.ai-archive = {
       description = "Apply AI Archive's Lisa-only Authentik provider";
-      file = source + /authentik.yaml;
+      file = "${source}/authentik.yaml";
       embeddedOutpostProvider = "AI Archive";
     };
   };

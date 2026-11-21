@@ -1,4 +1,5 @@
-let
+{config, ...}: let
+  inherit (config.flake.lib) runtimeSource;
   secret = ../../security/agenix/secrets/shared/jellyfin-ldap-env.age;
 in {
   perSystem = {pkgs, ...}: {
@@ -13,12 +14,7 @@ in {
     pkgs,
     ...
   }: let
-    # Leave the test out, so editing it never restarts Jellyfin.
-    source = builtins.path {
-      path = ../../../services/jellyfin-auth;
-      name = "jellyfin-auth";
-      filter = path: _: !(lib.hasPrefix "test_" (baseNameOf path));
-    };
+    source = runtimeSource ../../../services/jellyfin-auth;
     plugin = pkgs.fetchzip {
       url = "https://repo.jellyfin.org/files/plugin/ldap-authentication/ldap-authentication_24.0.0.0.zip";
       hash = "sha256-yiyoLahv+tzNWB4JVPoC4fxl+gj8IoYVXv0bi2FGlmM=";
