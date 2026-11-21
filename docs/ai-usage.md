@@ -12,7 +12,7 @@ resolves the name to Nook's LAN address. Nginx accepts LAN and Tailscale source
 addresses, requires trusted TLS, and forwards HTTP streaming and WebSockets.
 CLIProxy validates the shared client key. Its management API is disabled.
 
-The listener on port 8317 and ClickHouse on ports 8123 and 9000 bind to loopback.
+The listener on port 8317 and ClickHouse on ports 8124 and 9000 bind to loopback.
 Provider credentials are provisioned with agenix and refreshed by CLIProxy.
 The seeded Codex credential is replaced only when its encrypted seed changes;
 restarting the service preserves refreshed credentials.
@@ -25,7 +25,7 @@ restarting the service preserves refreshed credentials.
 | Ingestion, proxy renderer and gateway check source | `services/ai-usage/` |
 | Capture build of CLIProxy with the streaming patch | `packages/cli-proxy-api-plus-capture/` |
 | Client routes, hosts entries and the shared client key | `modules/services/ai-proxy/clients.nix` |
-| AI Archive web app (Nook) and its Authentik blueprint (Atlas) | `modules/services/ai-proxy/archive.nix`, `services/ai-archive/` |
+| AI Archive web app (Nook) and its Authentik blueprint (Atlas) | `modules/services/ai-proxy/archive.nix`, `modules/services/ai-proxy/auth.nix`, `services/ai-archive/` |
 | Opt-in local gateway (`home.lisa-proxy`), not deployed | `modules/development/cli-proxy-api-plus/`, `packages/cli-proxy-api-plus/` |
 
 ## Captured data

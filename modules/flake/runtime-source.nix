@@ -18,14 +18,15 @@
         !(lib.hasPrefix "test_" name || builtins.elem name ["README.md" ".gitignore" "authentik.yaml"]);
     };
 
-  # full/app is clean/app plus a test, a nested test helper, notes and a
-  # blueprint, so both must give the same store path.
+  # full/app is clean/app plus a test, a nested test helper, notes, a
+  # .gitignore and a blueprint, so both must give the same store path.
   perSystem = {pkgs, ...}: {
     checks.runtime-source = let
       inherit (config.flake.lib) runtimeSource;
     in
       assert lib.assertMsg (runtimeSource ./runtime-source/full/app == runtimeSource ./runtime-source/clean/app) "runtimeSource must drop tests, notes and blueprints at any depth, and nothing else";
         pkgs.runCommand "runtime-source" {} ''
+          test -f ${runtimeSource ./runtime-source/full/app}/server.py
           test -f ${runtimeSource ./runtime-source/full/app}/public/app.js
           touch "$out"
         '';

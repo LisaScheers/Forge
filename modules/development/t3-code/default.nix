@@ -94,7 +94,8 @@ in {
             config = {
               binaryPath = "codex";
               customModels = [];
-              launchArgs = "";
+              # Codex keeps its native provider here, not the gateway ai-proxy/clients.nix routes other clients to.
+              launchArgs = "-c model_provider=\"openai\"";
             };
             driver = "codex";
             enabled = true;
