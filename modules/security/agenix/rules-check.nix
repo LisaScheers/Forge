@@ -87,6 +87,7 @@ in {
     "agenix-rules: ${lib.concatStringsSep "; " (lib.mapAttrsToList (rule: offenders: "${rule}: ${toString offenders}") failures)}";
     # The rules must also match what each file is actually encrypted for.
       pkgs.runCommand "agenix-rules" {nativeBuildInputs = [pkgs.python3];} ''
+        CHECK_RECIPIENTS=${./check_recipients.py} python3 -I -B ${./test_check_recipients.py}
         python3 -I ${./check_recipients.py} \
           ${pkgs.writeText "agenix-rules.json" (builtins.toJSON (lib.mapAttrs (_: rule: rule.publicKeys) config.flake.agenixRules))} \
           ${lib.fileset.toSource {

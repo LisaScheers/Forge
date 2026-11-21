@@ -12,7 +12,7 @@ import tempfile
 import unittest
 
 
-spec = importlib.util.spec_from_file_location("private_wifi", os.environ.get("ASTERION_PRIVATE_WIFI", Path(__file__).with_name("asterion-private-wifi.py")))
+spec = importlib.util.spec_from_file_location("private_wifi", os.environ.get("ASTERION_PRIVATE_WIFI", Path(__file__).resolve().parents[1] / "scripts" / "asterion-private-wifi.py"))
 wifi = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(wifi)
 

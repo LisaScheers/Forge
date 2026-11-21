@@ -4,7 +4,7 @@
       name = "asterion-fan-control";
       runtimeInputs = [pkgs.python3];
       text = ''
-        exec python3 -B ${../../../scripts/asterion-fan-control.py} "$@"
+        exec python3 -B ${./asterion-fan-control.py} "$@"
       '';
     };
   in {
@@ -31,8 +31,8 @@
       pkgs.runCommand "asterion-fan-control-tests" {
         nativeBuildInputs = [pkgs.python3];
       } ''
-        ASTERION_FAN_CONTROL=${../../../scripts/asterion-fan-control.py} \
-          python3 -B ${../../../scripts/test_asterion_fan_control.py}
+        ASTERION_FAN_CONTROL=${./asterion-fan-control.py} \
+          python3 -B ${./test_asterion_fan_control.py}
         touch "$out"
       '';
   };

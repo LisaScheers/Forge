@@ -232,16 +232,6 @@ in {
         --replace-fail 'u = ProxyUtils(p)' 'u = ProxyUtils(p, heap_size=3 * 1024 * 1024 * 1024)'
     '';
   in {
-    checks.asterion-tether-payload =
-      pkgs.runCommand "asterion-tether-payload-checks" {
-        nativeBuildInputs = [pkgs.python3];
-      } ''
-        ASTERION_TETHER_LOADER=${../../../scripts/asterion-tether-boot.py} \
-          python3 -B ${../../../scripts/test_asterion_tether_boot.py}
-        ASTERION_PRIVATE_WIFI=${../../../scripts/asterion-private-wifi.py} \
-          python3 -B ${../../../scripts/test_asterion_private_wifi.py}
-        touch "$out"
-      '';
     devShells.asahi-gpu-tether = config.devShells.asahi-tether.overrideAttrs {
       M1N1_SOURCE = toString proxySource;
       M1N1_SOURCE_REV = m1n1.sourceRevision;

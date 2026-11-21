@@ -1,6 +1,12 @@
 let
   secret = ../../security/agenix/secrets/shared/jellyfin-ldap-env.age;
 in {
+  perSystem = {pkgs, ...}: {
+    checks.jellyfin-auth = pkgs.runCommand "jellyfin-auth-tests" {} ''
+      ${pkgs.python3}/bin/python3 -B -m unittest discover -s ${../../../services/jellyfin-auth} -v
+      touch "$out"
+    '';
+  };
   nixos.nook = {
     config,
     lib,

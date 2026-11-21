@@ -10,7 +10,7 @@ import tempfile
 import unittest
 
 
-LOADER = Path(os.environ.get("ASTERION_TETHER_LOADER", Path(__file__).with_name("asterion-tether-boot.py")))
+LOADER = Path(os.environ.get("ASTERION_TETHER_LOADER", Path(__file__).resolve().parents[1] / "scripts" / "asterion-tether-boot.py"))
 REVISION = "f5a82fdb6264edd2fb0c02e2d0f750bf33380854"
 
 

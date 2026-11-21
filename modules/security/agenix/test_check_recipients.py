@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -8,8 +9,7 @@ import tempfile
 import unittest
 
 
-REPO = Path(__file__).resolve().parents[1]
-SCRIPT = REPO / "modules/security/agenix/check_recipients.py"
+SCRIPT = Path(os.environ.get("CHECK_RECIPIENTS", Path(__file__).with_name("check_recipients.py")))
 HOST = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEHlf+pLT6XITnorOuDH0j9KtrVgZktsE5rPQzw3An8y"
 USER = "age1" + "q" * 58
 

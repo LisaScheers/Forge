@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 
 
 def load_helper(name):
-    source = Path(__file__).resolve().parents[1] / "services/jellyfin-auth" / f"{name}.py"
+    source = Path(__file__).with_name(f"{name}.py")
     spec = importlib.util.spec_from_file_location(name, source)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
