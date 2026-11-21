@@ -1,5 +1,6 @@
 {config, ...}: {
   home.lisa-vega.imports = [config.home.chrome-tab];
+  home.lisa-asterion.imports = [config.home.chrome-tab];
   overlays.chrome-tab = final: _prev: {
     chrome-tab = final.callPackage ../../packages/chrome-tab/package.nix {};
   };

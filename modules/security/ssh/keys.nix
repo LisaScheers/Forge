@@ -8,4 +8,5 @@
     }) (builtins.filter (key: builtins.match ".*\\.pub" key != null) (builtins.attrNames (builtins.readDir ./public-keys))));
   };
   home.lisa-vega.imports = [config.home.ssh-public-keys];
+  home.lisa-asterion.imports = [config.home.ssh-public-keys];
 }

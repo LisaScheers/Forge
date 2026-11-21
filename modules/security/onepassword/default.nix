@@ -1,41 +1,44 @@
-{inputs, ...}: {
+{
+  config,
+  inputs,
+  ...
+}: let
+  inherit (config.home) onepassword;
+in {
   flake-file.inputs.onepassword-shell-plugins = {
     url = "github:1Password/shell-plugins";
     inputs.nixpkgs.follows = "nixpkgs";
   };
-  home.lisa-cli.imports = [inputs.onepassword-shell-plugins.hmModules.default];
-  home.lisa-vega = {
-    pkgs,
-    lib,
+  home.lisa.imports = [inputs.onepassword-shell-plugins.hmModules.default];
+  # Shell plugins and SSH commit signing; each workstation names its signer.
+  home.onepassword = {
     config,
+    pkgs,
     ...
-  }: let
-    inherit (pkgs.stdenv.hostPlatform) isDarwin;
-    ssh-sock = "${config.home.homeDirectory}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
-    ssh-sign-program =
-      if isDarwin
-      then "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
-      else lib.getExe' pkgs._1password-gui "op-ssh-sign";
-  in {
+  }: {
     programs._1password-shell-plugins = {
       enable = true;
       plugins = with pkgs; [awscli2 cachix];
       package = pkgs._1password-cli;
     };
-
     programs.git.settings = {
       gpg = {
         format = "ssh";
-        ssh = {
-          allowedSignersFile = "${config.xdg.configHome}/git/allowed_signers";
-          program = ssh-sign-program;
-        };
+        ssh.allowedSignersFile = "${config.xdg.configHome}/git/allowed_signers";
       };
       commit.gpgsign = true;
     };
-
+  };
+  home.lisa-vega = {
+    pkgs,
+    lib,
+    config,
+    ...
+  }: {
+    imports = [onepassword];
+    programs.git.settings.gpg.ssh.program = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign";
     home.sessionVariables = {
-      SSH_AUTH_SOCK = lib.mkDefault ssh-sock;
+      SSH_AUTH_SOCK = lib.mkDefault "${config.home.homeDirectory}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock";
     };
     home.packages = [
       pkgs.gh

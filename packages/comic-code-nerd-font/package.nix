@@ -5,7 +5,7 @@
   fontSource,
 }:
 stdenvNoCC.mkDerivation {
-  pname = "asterion-comic-code-nerd-font";
+  pname = "comic-code-nerd-font";
   version = "240323";
   src = fontSource;
   nativeBuildInputs = [nerd-font-patcher];
@@ -14,9 +14,9 @@ stdenvNoCC.mkDerivation {
     runHook preBuild
     patched_dir="$TMPDIR/patched"
     font_list="$TMPDIR/fonts.txt"
-    export XDG_CONFIG_HOME="$TMPDIR/config"
+    export HOME="$TMPDIR/home" XDG_CONFIG_HOME="$TMPDIR/config"
     export XDG_CACHE_HOME="$TMPDIR/cache"
-    mkdir -p "$patched_dir" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
+    mkdir -p "$patched_dir" "$HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
     find . -type f -name '*.otf' -print | sort > "$font_list"
     test -s "$font_list"
     while IFS= read -r font; do
@@ -37,6 +37,6 @@ stdenvNoCC.mkDerivation {
 
   meta = {
     description = "Lisa's Comic Code fonts with the complete Nerd Fonts glyph set";
-    platforms = lib.platforms.linux;
+    platforms = lib.platforms.unix;
   };
 }

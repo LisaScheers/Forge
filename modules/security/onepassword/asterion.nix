@@ -1,6 +1,6 @@
 {config, ...}: let
   remotes = config.sshRemotes;
-  sshPublicKeys = config.home.ssh-public-keys;
+  inherit (config.home) onepassword;
 in {
   nixos.asterion = {
     services.gnome.gcr-ssh-agent.enable = false;
@@ -37,7 +37,7 @@ in {
       then osConfig.programs._1password-gui.package
       else pkgs._1password-gui;
   in {
-    imports = [sshPublicKeys];
+    imports = [onepassword];
 
     xdg.configFile."net.imput.helium/NativeMessagingHosts/com.1password.1password.json".text = builtins.toJSON {
       name = "com.1password.1password";
@@ -77,20 +77,6 @@ in {
           };
         };
     };
-    programs.git.settings = {
-      gpg = {
-        format = "ssh";
-        ssh = {
-          allowedSignersFile = "${config.xdg.configHome}/git/allowed_signers";
-          program = lib.getExe' gui "op-ssh-sign";
-        };
-      };
-      commit.gpgsign = true;
-    };
-    programs._1password-shell-plugins = {
-      enable = true;
-      plugins = with pkgs; [awscli2 cachix];
-      package = pkgs._1password-cli;
-    };
+    programs.git.settings.gpg.ssh.program = lib.getExe' gui "op-ssh-sign";
   };
 }

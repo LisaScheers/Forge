@@ -1,20 +1,14 @@
-{
-  config,
-  inputs,
-  ...
-}: {
+{inputs, ...}: {
   home.lisa-asterion = {
     lib,
     pkgs,
     ...
   }: let
-    comicCodeNerdFont = pkgs.callPackage ../../../packages/asterion-comic-code-font/package.nix {
+    comicCodeNerdFont = pkgs.callPackage ../../../packages/comic-code-nerd-font/package.nix {
       fontSource = inputs.comic-code-fonts;
     };
     zed = pkgs.callPackage ../../../packages/asterion-zed-bin/package.nix {};
   in {
-    imports = [config.home.chrome-tab];
-
     programs.zed-editor = {
       enable = lib.mkForce true;
       package = zed;
