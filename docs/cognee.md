@@ -129,13 +129,16 @@ persistent data store or frontend container.
 
 ## Models
 
-Extraction and reasoning use `openrouter/z-ai/glm-5.3-flash` with
-`LLM_PROVIDER=custom`, `LLM_ENDPOINT=https://openrouter.ai/api/v1` and a 16,384
-output-token budget. The existing OpenRouter key is stored as `LLM_API_KEY` in
-the encrypted `cognee-backend-env.age` secret, readable by Lisa and Nook. No key
-is stored in Nix settings or plaintext staging files. OpenRouter usage consumes
-Lisa's OpenRouter credits. The exact model slug and structured output were
-verified with a real request before changing the secret.
+Extraction and reasoning use OpenRouter's GLM 5.3 Flash through Nook's AI
+gateway ([AI usage](ai-usage.md)): `LLM_PROVIDER=custom`,
+`LLM_ENDPOINT=http://127.0.0.1:8317/v1`,
+`LLM_MODEL=openai/openrouter/glm-5.3-flash` and a 16,384 output-token budget.
+`ai-proxy-cognee-env` in `modules/services/cognee/server.nix` writes the
+gateway's shared client key as `LLM_API_KEY` to a runtime environment file read
+after `cognee-backend-env.age`, so the gateway's OpenRouter key serves the
+requests and they are captured with the other clients'. Cognee does not start
+without the gateway. No key is stored in Nix settings or plaintext staging
+files. Usage consumes Lisa's OpenRouter credits.
 
 Local Fastembed runs `sentence-transformers/all-MiniLM-L6-v2` with 384 dimensions.
 Its weights and tokenizer cache persist on the NVMe; first use requires a model

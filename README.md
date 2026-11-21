@@ -121,9 +121,9 @@ fixture tests in `modules/**/<subject>-test.nix`, and tests of `scripts/`, the
 Justfile, `.envrc` and the CI build script in `tests/`, run by
 `checks.script-tests`. Python tests are `test_*.py` files beside their subject;
 tools and Nixvim keep theirs in a `tests/` directory, and a package's own test
-inputs keep its language's names (`test-*.py`, `test-*.mjs`). A single-file
-helper that one module runs (a script, fixture or certificate) sits beside that
-module. A few packages keep build inputs that are not recipes:
+inputs keep its language's names (`test-*.py`, `test-*.cjs`, `test-*.mjs`). A
+single-file helper that one module runs (a script, fixture or certificate) sits
+beside that module. A few packages keep build inputs that are not recipes:
 `asterion-gpu/default.nix` assembles Asterion's GPU boot chain from the
 `asterion-gpu-*` recipes, and `java4shell` and `node2shell` hold the patches and
 test inputs their modules read.

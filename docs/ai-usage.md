@@ -25,6 +25,7 @@ restarting the service preserves refreshed credentials.
 | Ingestion, proxy renderer and gateway check source | `services/ai-usage/` |
 | Capture build of CLIProxy with the streaming patch | `packages/cli-proxy-api-plus-capture/` |
 | Client routes, hosts entries and the shared client key | `modules/services/ai-proxy/clients.nix` |
+| Cognee's gateway settings and the unit that hands it the client key | `modules/services/cognee/server.nix` |
 | AI Archive web app (Nook) and its Authentik blueprint (Atlas) | `modules/services/ai-proxy/archive.nix`, `modules/services/ai-proxy/auth.nix`, `services/ai-archive/` |
 | Opt-in local gateway (`home.lisa-proxy`), not deployed | `modules/development/cli-proxy-api-plus/`, `packages/cli-proxy-api-plus/` |
 
