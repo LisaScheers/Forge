@@ -2,7 +2,6 @@
   errorPage = config.nginxErrorPage;
 in {
   nixos.nook = {
-    config,
     lib,
     pkgs,
     ...
@@ -82,23 +81,9 @@ in {
       443
     ];
 
-    # Both names follow Nook's public address; the ACME account and DNS
-    # challenge come from nginx/acme.nix.
-    services.cloudflare-dyndns = {
-      enable = true;
-      apiTokenFile = config.age.secrets.cloudflare-dns-api-token.path;
-      domains = [primaryDomain localDomain];
-      ipv4 = true;
-      ipv6 = true;
-      proxied = false;
-    };
-    systemd.services.cloudflare-dyndns = {
-      # Activation stops Unbound before restarting the updater. Wait for the
-      # local resolver so IP discovery does not fail during a system switch.
-      after = ["unbound.service"];
-      wants = ["unbound.service"];
-      restartTriggers = [config.age.secrets.cloudflare-dns-api-token.file];
-    };
+    # Both names follow Nook's public address (dns.nix runs the updater); the
+    # ACME account and DNS challenge come from nginx/acme.nix.
+    services.cloudflare-dyndns.domains = [primaryDomain localDomain];
     security.acme.certs.${primaryDomain} = {
       extraDomainNames = [localDomain];
       extraLegoFlags = [

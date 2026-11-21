@@ -2,6 +2,7 @@
   nook = config.network.nook;
 in {
   nixos.nook = {
+    config,
     lib,
     pkgs,
     ...
@@ -115,6 +116,23 @@ in {
           }
         ];
       };
+    };
+
+    # Keeps the public names that Nook's services add to domains pointed at its
+    # current address.
+    services.cloudflare-dyndns = {
+      enable = true;
+      apiTokenFile = config.age.secrets.cloudflare-dns-api-token.path;
+      ipv4 = true;
+      ipv6 = true;
+      proxied = false;
+    };
+    systemd.services.cloudflare-dyndns = {
+      # Activation stops Unbound before restarting the updater. Wait for the
+      # local resolver so IP discovery does not fail during a system switch.
+      after = ["unbound.service"];
+      wants = ["unbound.service"];
+      restartTriggers = [config.age.secrets.cloudflare-dns-api-token.file];
     };
   };
 }

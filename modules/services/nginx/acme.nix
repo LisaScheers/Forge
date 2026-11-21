@@ -1,7 +1,7 @@
 {
   nixos.nook = {config, ...}: {
     # Nook's ACME account and Cloudflare DNS challenge, shared by every Nook
-    # certificate. cloudflare-dyndns (home-assistant/server.nix) imports this
+    # certificate. cloudflare-dyndns (dns.nix) imports this
     # root-only token through systemd LoadCredential before entering its
     # DynamicUser sandbox.
     age.secrets.cloudflare-dns-api-token = {
