@@ -1,4 +1,4 @@
-{
+{config, ...}: {
   nixos.atlas = {
     # Preserve the application host across both nginx hops so the embedded
     # outpost can select the matching forward-auth provider.
@@ -15,7 +15,7 @@
     };
     forge.authentik.blueprints.watch-room = {
       description = "Apply watch room Authentik provider and owner policy";
-      file = ../../../services/watch-room/authentik.yaml;
+      file = config.flake.lib.appBlueprint ../../../services/watch-room;
       embeddedOutpostProvider = "Watch room host";
     };
   };

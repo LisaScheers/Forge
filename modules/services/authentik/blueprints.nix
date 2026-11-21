@@ -1,4 +1,11 @@
 {
+  # An app's services/<name>/authentik.yaml as its own content-addressed file,
+  # so the blueprint unit changes only when the blueprint does.
+  flake.lib.appBlueprint = tree:
+    builtins.path {
+      path = tree + /authentik.yaml;
+      name = "authentik.yaml";
+    };
   nixos.atlas = {
     config,
     lib,

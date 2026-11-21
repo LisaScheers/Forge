@@ -1,4 +1,5 @@
 let
+  tree = ../../../services/jellyfin-auth;
   secret = ../../security/agenix/secrets/shared/jellyfin-ldap-env.age;
 in {
   nixos.atlas = {
@@ -8,7 +9,7 @@ in {
   }: let
     environmentFile = config.age.secrets.jellyfin-ldap-env.path;
     bootstrapSecret = ../../security/agenix/secrets/atlas/jellyfin-bootstrap-env.age;
-    bootstrap = ../../../services/jellyfin-auth/bootstrap.py;
+    bootstrap = tree + /bootstrap.py;
     blueprint = pkgs.writeText "authentik-jellyfin-blueprint.yaml" ''
       version: 1
       metadata:

@@ -40,7 +40,7 @@ configurations and [Vimjoyer's examples](https://vimjoyer.com/nix/):
 | `modules/hosts/<host>/` | Host output, explicit profile selection, machine settings |
 | `modules/homes/` | Lisa's profiles and standalone home outputs (`lisa/`), the shared `home.workstation` profile, XDG settings, macOS mutable preferences |
 | `modules/shell/` | Git, Bash, Zsh, Nushell, prompts, direnv, package lookup |
-| `modules/development/` | Editors, AI tools, development shell, local helpers |
+| `modules/development/` | Editors, AI tools, development shell, local helpers; vendored pstack skills under `ai-skills/pstack/` |
 | `modules/desktop/` | Terminal, theme, fonts, desktop settings |
 | `modules/services/<feature>/` | Related server, authentication, proxy, or collector pieces |
 | `modules/security/` | Agenix, SSH, GnuPG, 1Password |
@@ -118,10 +118,12 @@ by the package build), tests of a module's own helper beside it under `modules/`
 (such as `modules/security/agenix/test_check_recipients.py`), NixOS VM and
 fixture tests in `modules/**/<subject>-test.nix`, and tests of `scripts/`, the
 Justfile, `.envrc` and the CI build script in `tests/`, run by
-`checks.script-tests`. A few packages keep build inputs that are not recipes:
-`asterion-gpu/default.nix` assembles Asterion's GPU boot chain from the
-`asterion-gpu-*` recipes, and `java4shell` and `node2shell` hold the patches and
-test inputs their modules read.
+`checks.script-tests`. Tools keep tests in a `tests/` directory; elsewhere a
+`test_*` file sits beside its subject. A single-file helper that one module runs
+(a script, fixture or certificate) sits beside that module. A few packages keep
+build inputs that are not recipes: `asterion-gpu/default.nix` assembles
+Asterion's GPU boot chain from the `asterion-gpu-*` recipes, and `java4shell`
+and `node2shell` hold the patches and test inputs their modules read.
 
 Hardware regeneration writes `modules/hardware/<host>.nix`. Save the target's
 `nixos-generate-config --show-hardware-config` output locally, then run

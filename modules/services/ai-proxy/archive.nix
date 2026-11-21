@@ -121,15 +121,4 @@ in {
       };
     };
   };
-  nixos.atlas = {
-    forge.authentik.blueprints.ai-archive = {
-      description = "Apply AI Archive's Lisa-only Authentik provider";
-      # Only the blueprint itself, so app edits never re-apply it.
-      file = builtins.path {
-        path = tree + /authentik.yaml;
-        name = "authentik.yaml";
-      };
-      embeddedOutpostProvider = "AI Archive";
-    };
-  };
 }

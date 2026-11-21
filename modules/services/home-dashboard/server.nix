@@ -111,16 +111,6 @@ in {
       };
     };
 
-    forge.authentik.blueprints.home-dashboard = {
-      description = "Apply the dashboard Authentik provider";
-      # Only the blueprint itself, so app edits never re-apply it.
-      file = builtins.path {
-        path = tree + /authentik.yaml;
-        name = "authentik.yaml";
-      };
-      embeddedOutpostProvider = "Home dashboard";
-    };
-
     services.nginx.virtualHosts."dash.bylisa.dev" = {
       enableACME = true;
       forceSSL = true;
