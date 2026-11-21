@@ -1,6 +1,6 @@
 # Shared Nix language configuration
 
-`packages/nixd/settings.nix` defines nixd settings for all editors. Forge exports
+`modules/development/nixd.nix` defines nixd settings for all editors. Forge exports
 them as `lib.nixdSettings pkgs`; Zed and Nixvim pass that same value through their
 normal LSP settings. Both use the unmodified `pkgs.nixd` from Forge's Nixpkgs pin.
 Zed selects nixd for Nix files; Nixvim delegates Nix formatting to nixd.
