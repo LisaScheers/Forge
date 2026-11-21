@@ -1,4 +1,5 @@
 {config, ...}: let
+  inherit (config.flake.lib) nginxPrivateNetworks;
   domain = "ai.local.bylisa.dev";
   tree = ../../../services/ai-archive;
   source = config.flake.lib.runtimeSource tree;
@@ -66,21 +67,14 @@ in {
     services.nginx.virtualHosts.${domain} = {
       forceSSL = true;
       useACMEHost = domain;
-      extraConfig = ''
-        allow 127.0.0.1;
-        allow ::1;
-        allow 192.168.50.0/24;
-        allow 192.168.111.0/24;
-        allow 2a02:1810:515:c680::/64;
-        allow 2a02:1810:515:c682::/64;
-        allow 100.64.0.0/10;
-        allow fd7a:115c:a1e0::/48;
-        deny all;
-        access_log off;
-        client_max_body_size 1m;
-        proxy_buffers 8 16k;
-        proxy_buffer_size 32k;
-      '';
+      extraConfig =
+        nginxPrivateNetworks
+        + ''
+          access_log off;
+          client_max_body_size 1m;
+          proxy_buffers 8 16k;
+          proxy_buffer_size 32k;
+        '';
       locations."/" = {
         proxyPass = upstream;
         extraConfig =

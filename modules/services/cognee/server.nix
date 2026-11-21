@@ -1,5 +1,5 @@
 {config, ...}: let
-  inherit (config.flake.lib) runtimeSource;
+  inherit (config.flake.lib) nginxPrivateNetworks runtimeSource;
   tree = ../../../services/cognee;
   domain = "cognee.local.bylisa.dev";
   oidcSecret = ../../security/agenix/secrets/shared/cognee-oidc-env.age;
@@ -10,7 +10,7 @@ in {
     packages.cognee-openai-login = pkgs.writeShellApplication {
       name = "cognee-openai-login";
       text = ''
-        exec ${python}/bin/python3 ${tree}/openai_plan.py login \
+        exec ${python}/bin/python3 ${tree + /openai_plan.py} login \
           --host-id urn:uuid:128b7566-1f4a-4f61-9df0-94a3d04f2389 \
           --credentials "''${XDG_STATE_HOME:-$HOME/.local/state}/forge-cognee/nook-openai.json" "$@"
       '';
@@ -298,21 +298,14 @@ in {
     services.nginx.virtualHosts.${domain} = {
       forceSSL = true;
       useACMEHost = domain;
-      extraConfig = ''
-        allow 127.0.0.1;
-        allow ::1;
-        allow 192.168.50.0/24;
-        allow 192.168.111.0/24;
-        allow 2a02:1810:515:c680::/64;
-        allow 2a02:1810:515:c682::/64;
-        allow 100.64.0.0/10;
-        allow fd7a:115c:a1e0::/48;
-        deny all;
-        access_log off;
-        client_max_body_size 20m;
-        proxy_buffers 8 16k;
-        proxy_buffer_size 32k;
-      '';
+      extraConfig =
+        nginxPrivateNetworks
+        + ''
+          access_log off;
+          client_max_body_size 20m;
+          proxy_buffers 8 16k;
+          proxy_buffer_size 32k;
+        '';
       locations."= /graph".extraConfig = "return 302 /graph/;";
       locations."^~ /graph/" = {
         proxyPass = "http://unix:/run/cognee-graph/http.sock:";

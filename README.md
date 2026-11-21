@@ -22,8 +22,9 @@ Features merge into named profiles such as `nixos.nook`, `darwin.vega` and
 `home.lisa`, Lisa's shell, editors and tools on every machine. The workstation
 homes `home.lisa-vega` and `home.lisa-asterion` import `home.lisa` and
 `home.workstation` (shared CLI tools, Java runtimes, Ghostty, Zed, the Chrome tab
-bridge, SSH keys and 1Password), then add their desktop settings. Those tools
-are in Lisa's profile only; root and system daemons on Vega do not get them.
+bridge, SSH keys and 1Password), then add their desktop settings. On Vega those
+CLI tools are in Lisa's profile only, so root and system daemons do not get
+them; GUI apps stay system-wide in `/Applications/Nix Apps`.
 [docs/ai-usage.md](docs/ai-usage.md#where-the-pieces-live) maps the AI gateway's
 service sources to their modules. A feature binds itself
 directly to the profile it configures, such as `nixos.nook` or
@@ -146,9 +147,10 @@ Each kind of addition touches these places:
   that mapping only if a second home on the same platform needs its own.
 - **Service:** add `modules/services/<feature>/` binding `nixos.<host>`
   (`server.nix`, plus `auth.nix` for its Authentik pieces). Application code and
-  its tests go in `services/<name>/`; the module runs the service from
-  `flake.lib.runtimeSource`, which leaves the tests out, and a check in the
-  module runs the tests. A VM test is
+  its tests go in `services/<name>/`, test-only helpers and fixtures named
+  `test_*` too; the module runs the service from `flake.lib.runtimeSource`,
+  which leaves out every `test_*` file, notes and `authentik.yaml`, and a check
+  in the module runs the tests. A VM test is
   `modules/services/<feature>/<subject>-test.nix`. A fixed Authentik blueprint
   sits beside the application source when there is any, otherwise beside
   `auth.nix`; one built from Nix values is written inline in `auth.nix`.

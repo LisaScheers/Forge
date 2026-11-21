@@ -1,4 +1,5 @@
 {config, ...}: let
+  inherit (config.flake.lib) nginxPrivateNetworks;
   tree = ../../../services/watch-room;
   source = config.flake.lib.runtimeSource tree;
 in {
@@ -35,20 +36,13 @@ in {
       forceSSL = true;
       useACMEHost = "watch.local.bylisa.dev";
       # Apply the LAN boundary to the console and all SSO endpoints.
-      extraConfig = ''
-        allow 127.0.0.1;
-        allow ::1;
-        allow 192.168.50.0/24;
-        allow 192.168.111.0/24;
-        allow 2a02:1810:515:c680::/64;
-        allow 2a02:1810:515:c682::/64;
-        allow 100.64.0.0/10;
-        allow fd7a:115c:a1e0::/48;
-        deny all;
-        access_log off;
-        proxy_buffers 8 16k;
-        proxy_buffer_size 32k;
-      '';
+      extraConfig =
+        nginxPrivateNetworks
+        + ''
+          access_log off;
+          proxy_buffers 8 16k;
+          proxy_buffer_size 32k;
+        '';
       locations."/" =
         hostProxy
         // {
