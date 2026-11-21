@@ -11,8 +11,5 @@
       XDG_VIDEOS_DIR = "${homeDirectory}/Videos";
       XDG_PROJECTS_DIR = "${homeDirectory}/Projects";
     };
-    xdg.configFile."nix/nix.conf".text = ''
-      experimental-features = nix-command flakes
-    '';
   };
 }

@@ -30,7 +30,10 @@ in {
     );
     nix.nixPath = ["nixpkgs=${inputs.nixpkgs}"];
     nix.keepOldNixPath = false;
+    # Home Manager writes ~/.config/nix/nix.conf from these; set user Nix
+    # options here, never through xdg.configFile, which this would replace.
     nix.settings.nix-path = ["nixpkgs=${inputs.nixpkgs}"];
+    nix.settings.experimental-features = ["nix-command" "flakes"];
     nix.registry.nixpkgs.flake = inputs.nixpkgs;
   };
 }

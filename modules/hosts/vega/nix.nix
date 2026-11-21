@@ -1,13 +1,9 @@
-{
-  config,
-  lib,
-  ...
-}: let
+{config, ...}: let
   nook = config.network.nook;
   hostKeys = config.secrets.pubkeys.hosts;
 in {
   # Lisa's own Nix commands read the GitHub token that Vega decrypts below.
-  home.lisa-vega.xdg.configFile."nix/nix.conf".text = lib.mkAfter ''
+  home.lisa-vega.nix.extraOptions = ''
     !include /run/secrets/nix/user-github-access-token.conf
   '';
   darwin.vega = {config, ...}: let
