@@ -48,7 +48,7 @@ Rolling back Nix alone does not reverse saved account policy changes.
 Validation:
 
 ```sh
-nix shell nixpkgs#python3 -c python3 -B -m unittest discover -s tests -p test_jellyfin_auth.py
+nix shell nixpkgs#python3 -c python3 -B -m unittest discover -s services/jellyfin-auth
 ```
 
 Sources: [Authentik integration](https://integrations.goauthentik.io/media/jellyfin/),

@@ -4,7 +4,7 @@
   source = config.flake.lib.runtimeSource tree;
 in {
   perSystem = {pkgs, ...}: {
-    packages.ai-archive-auth-blueprint = pkgs.writeText "ai-archive.yaml" (builtins.readFile "${source}/authentik.yaml");
+    packages.ai-archive-auth-blueprint = pkgs.writeText "ai-archive.yaml" (builtins.readFile (tree + /authentik.yaml));
     checks.ai-archive = pkgs.runCommand "ai-archive-tests" {} ''
       ${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 -B -m unittest discover -s ${tree} -v
       ${pkgs.nodejs}/bin/node --check ${tree}/public/app.js
@@ -125,7 +125,11 @@ in {
   nixos.atlas = {
     forge.authentik.blueprints.ai-archive = {
       description = "Apply AI Archive's Lisa-only Authentik provider";
-      file = "${source}/authentik.yaml";
+      # Only the blueprint itself, so app edits never re-apply it.
+      file = builtins.path {
+        path = tree + /authentik.yaml;
+        name = "authentik.yaml";
+      };
       embeddedOutpostProvider = "AI Archive";
     };
   };

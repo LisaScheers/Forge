@@ -22,7 +22,10 @@ Features merge into named profiles such as `nixos.nook`, `darwin.vega` and
 `home.lisa`, Lisa's shell, editors and tools on every machine. The workstation
 homes `home.lisa-vega` and `home.lisa-asterion` import `home.lisa` and
 `home.workstation` (shared CLI tools, Java runtimes, Ghostty, Zed, the Chrome tab
-bridge, SSH keys and 1Password), then add their desktop settings. A feature binds itself
+bridge, SSH keys and 1Password), then add their desktop settings. Those tools
+are in Lisa's profile only; root and system daemons on Vega do not get them.
+[docs/ai-usage.md](docs/ai-usage.md#where-the-pieces-live) maps the AI gateway's
+service sources to their modules. A feature binds itself
 directly to the profile it configures, such as `nixos.nook` or
 `home.lisa-asterion`. A reusable piece that consumers select explicitly is a
 named profile they import, such as `home.workstation`, `home.onepassword` or

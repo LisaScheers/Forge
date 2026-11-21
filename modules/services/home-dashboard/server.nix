@@ -113,7 +113,11 @@ in {
 
     forge.authentik.blueprints.home-dashboard = {
       description = "Apply the dashboard Authentik provider";
-      file = "${source}/authentik.yaml";
+      # Only the blueprint itself, so app edits never re-apply it.
+      file = builtins.path {
+        path = tree + /authentik.yaml;
+        name = "authentik.yaml";
+      };
       embeddedOutpostProvider = "Home dashboard";
     };
 
