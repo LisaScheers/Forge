@@ -8,7 +8,10 @@
   tree = ../../../services/ai-usage;
   source = config.flake.lib.runtimeSource tree;
   secrets = ../../security/agenix/secrets;
+  port = 8317;
 in {
+  # The gateway's loopback address, for Nook services that call it directly.
+  flake.lib.aiGatewayUrl = "http://127.0.0.1:${toString port}";
   overlays.ai-proxy = final: _prev: {
     cli-proxy-api-plus-capture = final.callPackage ../../../packages/cli-proxy-api-plus-capture/package.nix {};
   };
@@ -43,7 +46,7 @@ in {
     databaseEnv = "/srv/disks/projects/ai-usage-secrets/clickhouse.env";
     template = pkgs.writeText "cli-proxy-api-plus.json" (builtins.toJSON {
       host = "127.0.0.1";
-      port = 8317;
+      inherit port;
       auth-dir = "${root}/auth";
       remote-management = {
         allow-remote = false;
@@ -225,7 +228,7 @@ in {
           client_max_body_size 0;
         '';
       locations."/" = {
-        proxyPass = "http://127.0.0.1:8317";
+        proxyPass = config.flake.lib.aiGatewayUrl;
         proxyWebsockets = true;
         extraConfig = ''
           proxy_buffering off;

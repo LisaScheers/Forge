@@ -16,14 +16,14 @@ make an application's functionality public.
 
 The Nix module in `modules/services/home-dashboard/server.nix` owns nginx, TLS,
 the API, and a 30-second status timer; `auth.nix` beside it applies the Authentik
-provider, and `collector.nix` runs a probe on Nook of its LAN-only Sunshine
-listener. Authentik's embedded outpost authenticates `/api/private` and `/login`.
+provider, and `sunshine-probe.nix` runs a probe on Nook of its LAN-only
+Sunshine listener. Authentik's embedded outpost authenticates `/api/private` and `/login`.
 The API listens only on a Unix socket; nginx overwrites its identity header.
 Neither private links nor private status counts appear in public HTML or public
 API responses. Private data is never cached. Signing out goes through the
 outpost's sign-out flow.
 
-The collector reads Kuma's SQLite database in read-only mode. It selects only
+Atlas's collector, `collect.py`, reads Kuma's SQLite database in read-only mode. It selects only
 monitor names, active flags, timing configuration, and heartbeat status/time/ping;
 it never exports credentials, push tokens, URLs, heartbeat messages, or saved
 responses. The API cannot open Kuma's database. It reads reduced snapshots only.

@@ -56,11 +56,12 @@ selects hardware and Home Manager profiles. Home files construct standalone
 outputs using the same home profiles and the shared per-system package set.
 There is no host registry or automatic home registration. For example, Nook's
 host module binds `home-manager.users.lisa = config.home.lisa-nook`. Features
-bind themselves to a host rather than the host listing them, so
-`just features nook` (or `just features lisa home`) lists the files that do. Each
-deployable host also sets `deploy.hosts.<host>` (SSH user and options) in its
-host module; `modules/flake/deploy.nix` derives the host's closure check, deploy
-checks and CI job from that entry.
+bind themselves to a host rather than the host listing them, so `just features
+nook` (or `just features lisa home`) lists the files that do; run it again for
+each profile the host imports, such as `just features base`. Each deployable
+host also sets `deploy.hosts.<host>` (SSH user and options) in its host module;
+`modules/flake/deploy.nix` derives the host's closure check, deploy checks and
+CI job from that entry.
 
 Adding settings to an existing profile requires no file import-list edit.
 Distinct reusable profiles are selected explicitly by name. Selecting a feature
@@ -117,16 +118,17 @@ Tests sit beside what they cover, and each runs from a flake check: service
 suites in `services/<name>/test_*.py`, tool suites in `tools/<name>/tests/` (run
 by the package build), tests of a module's own helper beside it under `modules/`
 (such as `modules/security/agenix/test_check_recipients.py`), NixOS VM and
-fixture tests in `modules/**/<subject>-test.nix`, and tests of `scripts/`, the
-Justfile, `.envrc` and the CI build script in `tests/`, run by
-`checks.script-tests`. Python tests are `test_*.py` files beside their subject;
-tools and Nixvim keep theirs in a `tests/` directory, and a package's own test
-inputs keep its language's names (`test-*.py`, `test-*.cjs`, `test-*.mjs`). A
-single-file helper that one module runs (a script, fixture or certificate) sits
-beside that module. A few packages keep build inputs that are not recipes:
-`asterion-gpu/default.nix` assembles Asterion's GPU boot chain from the
-`asterion-gpu-*` recipes, and `java4shell` and `node2shell` hold the patches and
-test inputs their modules read.
+fixture tests in `modules/**/<subject>-test.nix` (a helper's own fixture check,
+such as `modules/flake/runtime-source.nix`, stays in the helper's module), and
+tests of `scripts/`, the Justfile, `.envrc` and the CI build script in `tests/`,
+run by `checks.script-tests`. Python tests are `test_*.py` files beside their
+subject; tools and Nixvim keep theirs in a `tests/` directory, and a package's
+own test inputs keep its language's names (`test-*.py`, `test-*.cjs`,
+`test-*.mjs`). A single-file helper that one module runs (a script, fixture or
+certificate) sits beside that module. A few packages keep build inputs that are
+not recipes: `asterion-gpu/default.nix` assembles Asterion's GPU boot chain from
+the `asterion-gpu-*` recipes, and `java4shell` and `node2shell` hold the patches
+and test inputs their modules read.
 
 Hardware regeneration writes `modules/hardware/<host>.nix`. Save the target's
 `nixos-generate-config --show-hardware-config` output locally, then run

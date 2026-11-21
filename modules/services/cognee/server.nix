@@ -1,5 +1,5 @@
 {config, ...}: let
-  inherit (config.flake.lib) nginxPrivateNetworks runtimeSource;
+  inherit (config.flake.lib) aiGatewayUrl nginxPrivateNetworks runtimeSource;
   tree = ../../../services/cognee;
   domain = "cognee.local.bylisa.dev";
   oidcSecret = ../../security/agenix/secrets/shared/cognee-oidc-env.age;
@@ -123,7 +123,7 @@ in {
           LLM_PROVIDER = "custom";
           # Cognee keeps its OpenRouter model, reached through Nook's AI gateway.
           LLM_MODEL = "openai/openrouter/glm-5.3-flash";
-          LLM_ENDPOINT = "http://127.0.0.1:8317/v1";
+          LLM_ENDPOINT = "${aiGatewayUrl}/v1";
           LLM_MAX_COMPLETION_TOKENS = "16384";
           STRUCTURED_OUTPUT_FRAMEWORK = "litellm_native";
           EMBEDDING_PROVIDER = "fastembed";
