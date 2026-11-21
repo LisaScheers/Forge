@@ -17,6 +17,17 @@ Provider credentials are provisioned with agenix and refreshed by CLIProxy.
 The seeded Codex credential is replaced only when its encrypted seed changes;
 restarting the service preserves refreshed credentials.
 
+## Where the pieces live
+
+| Piece | Files |
+| --- | --- |
+| Nook's gateway, ClickHouse and ingestion units | `modules/services/ai-proxy/server.nix` |
+| Ingestion, proxy renderer and gateway check source | `services/ai-usage/` |
+| Capture build of CLIProxy with the streaming patch | `packages/cli-proxy-api-plus-capture/` |
+| Client routes, hosts entries and the shared client key | `modules/services/ai-proxy/clients.nix` |
+| AI Archive web app (Nook) and its Authentik blueprint (Atlas) | `modules/services/ai-proxy/archive.nix`, `services/ai-archive/` |
+| Opt-in local gateway (`home.lisa-proxy`), not deployed | `modules/development/cli-proxy-api-plus/`, `packages/cli-proxy-api-plus/` |
+
 ## Captured data
 
 CLIProxy records client and upstream requests, responses, failed attempts, SSE

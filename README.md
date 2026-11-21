@@ -38,10 +38,10 @@ configurations and [Vimjoyer's examples](https://vimjoyer.com/nix/):
 | `modules/services/<feature>/` | Related server, authentication, proxy, or collector pieces |
 | `modules/security/` | Agenix, SSH, GnuPG, 1Password |
 | `modules/hardware/` | Host hardware, disk support, Apple Silicon installers |
-| `services/<name>/` | Application source (Python services, catalogs) that modules package |
-| `tools/<name>/` | Small helpers with their own tests (certificate cleanup, Chrome tab bridge, Forgejo API) |
-| `scripts/`, `tests/` | Deploy and host helper scripts, and the unit tests that run them in `checks.script-tests` |
-| `packages/` | Raw package recipes and patches, one `packages/<name>/package.nix` entry point each (larger recipes keep helpers beside it); outside automatic loading |
+| `services/<name>/` | Source and tests of daemons and web apps that modules run on a host (Python services, catalogs, Authentik blueprints) |
+| `tools/<name>/` | Source and tests of command-line tools installed on workstations (certificate cleanup, Chrome tab bridge, Forgejo API) |
+| `scripts/`, `tests/` | Operator scripts run from a checkout (deploy, switch, hardware import, Asterion's tethered boot), and their tests |
+| `packages/<name>/` | Package recipes, overrides and their patches, outside automatic loading; a buildable package's entry point is `package.nix` |
 
 Each host's `default.nix` constructs its NixOS or Darwin output and visibly
 selects hardware and Home Manager profiles. Home files construct standalone
@@ -104,14 +104,40 @@ write-flake. `checks.script-tests` runs the Python tests in
 `tests/` against the repository scripts, Justfile and helpers they exercise.
 
 Tests sit beside what they cover, and each runs from a flake check: service
-suites in `services/<name>/test_*.py`, host helper tests in `scripts/test_*.py`,
-tool suites in `tools/<name>/tests/` (run by the package build), fixtures beside
-their module under `modules/`, and repository-script tests in `tests/`.
+suites in `services/<name>/test_*.py`, tool suites in `tools/<name>/tests/` (run
+by the package build), tests of a module's own helper beside it under `modules/`
+(such as `modules/security/agenix/test_check_recipients.py`), NixOS VM and
+fixture tests in `modules/**/<subject>-test.nix`, and tests of `scripts/` and
+the Justfile in `tests/`, run by `checks.script-tests`. A few packages keep build
+inputs that are not recipes: `asterion-gpu/default.nix` assembles Asterion's GPU
+boot chain from the `asterion-gpu-*` recipes, and `java4shell`, `node2shell` and
+`nixd` hold the patches and settings their modules read.
 
 Hardware regeneration writes `modules/hardware/<host>.nix`. Save the target's
 `nixos-generate-config --show-hardware-config` output locally, then run
 `just hardware-config nook /path/to/hardware-configuration.nix` and review it.
 The helper wraps the generated configuration in `nixos.<host>-hardware`.
+
+### Adding things
+
+Each kind of addition touches these places:
+
+- **Host:** create `modules/hosts/<host>/default.nix` with its `network.<host>`
+  entry, its `flake.nixosConfigurations` or `darwinConfigurations` output, the
+  profiles it selects and, for a deployed host, `deploy.hosts.<host>`. For NixOS,
+  create `modules/hardware/<host>.nix` declaring `nixos.<host>-hardware`; `just
+  hardware-config <host> <file>` then refreshes it from generated output. Add the
+  host key to `modules/security/agenix/pubkeys.nix` before it reads secrets.
+- **Service:** add `modules/services/<feature>/` binding `nixos.<host>`
+  (`server.nix`, plus `auth.nix` for its Authentik pieces). Application code and
+  its tests go in `services/<name>/`, run by a check in the module; a VM test is
+  `modules/services/<feature>/<subject>-test.nix`.
+- **Package:** add `packages/<name>/package.nix` and expose it from the feature
+  that uses it, through an overlay or `pkgs.callPackage`.
+- **Secret:** add a rule to `modules/security/agenix/recipients.nix` under
+  `secrets/<host>/` (one reader) or `secrets/shared/` (several), create it with
+  `just secret-edit`, and declare it in the consuming host's `age.secrets`;
+  `checks.agenix-rules` fails until rule, file and declaration match.
 
 ## Package lookup
 
