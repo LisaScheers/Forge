@@ -2,6 +2,7 @@
   config,
   inputs,
   lib,
+  options,
   withSystem,
   ...
 }: let
@@ -28,7 +29,6 @@
     "darwin"
     "home"
     "overlays"
-    "nginxErrorPage"
     "ci"
     "flake"
     "flake-file"
@@ -36,12 +36,14 @@
     "systems"
     "debug"
     "secrets"
+    "network"
+    "deploy"
   ];
   validFeature = path: let
     value = import path;
     module =
       if builtins.isFunction value
-      then value {inherit config inputs lib withSystem;}
+      then value {inherit config inputs lib options withSystem;}
       else value;
     relative = lib.removePrefix (toString root) (toString path);
   in

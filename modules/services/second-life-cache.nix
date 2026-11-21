@@ -1,10 +1,12 @@
-{
+{config, ...}: let
+  nook = config.network.nook;
+in {
   nixos.nook = {
     lib,
     pkgs,
     ...
   }: let
-    listenAddress = "192.168.111.2";
+    listenAddress = nook.lan;
     listenPort = 3128;
     socksPort = 1080;
     cacheRoot = "/srv/disks/second-life-cache/squid-cache";

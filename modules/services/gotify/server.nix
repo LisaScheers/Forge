@@ -134,8 +134,8 @@ in {
     };
 
     systemd.services.gotify-server.restartTriggers = [
-      ../../security/agenix/secrets/nook/gotify-env.age
-      ../../security/agenix/secrets/shared/gotify-oidc-env.age
+      config.age.secrets.gotify-env.file
+      config.age.secrets.gotify-oidc-env.file
     ];
   };
 }

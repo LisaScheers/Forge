@@ -5,7 +5,7 @@
     pkgs,
     ...
   }: let
-    cfg = config.matrix;
+    cfg = config.forge.matrix;
     keyFile = "/run/livekit.key";
     fqdn = "${cfg.subDomain}.${cfg.rootDomain}";
   in {

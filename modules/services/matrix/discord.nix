@@ -4,16 +4,16 @@
     lib,
     ...
   }: {
-    matrix.discord = {
+    forge.matrix.discord = {
       enable = true;
       initialBackfillLimit = 90000;
     };
-    age.secrets.discord-bridge-env = lib.mkIf config.matrix.discord.enable {
+    age.secrets.discord-bridge-env = lib.mkIf config.forge.matrix.discord.enable {
       file = ../../security/agenix/secrets/atlas/discord-bridge-env.age;
       owner = "root";
       mode = "0400";
     };
-    matrix.discord.environmentFile = lib.mkIf config.matrix.discord.enable (
+    forge.matrix.discord.environmentFile = lib.mkIf config.forge.matrix.discord.enable (
       lib.mkDefault config.age.secrets.discord-bridge-env.path
     );
   };
@@ -24,10 +24,10 @@
     pkgs,
     ...
   }: let
-    cfg = config.matrix.discord;
+    cfg = config.forge.matrix.discord;
     domain = config.networking.domain;
   in {
-    options.matrix.discord = {
+    options.forge.matrix.discord = {
       enable = lib.mkEnableOption "the Discord bridge";
       environmentFile = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
@@ -42,17 +42,7 @@
       federateRooms = lib.mkOption {
         type = lib.types.bool;
         default = true;
-        description = "Allow federation in newly created rooms; use false only for disposable local pilot rooms";
-      };
-      readOnlyChannels = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [];
-        description = "Discord channel IDs mirrored into Matrix without outbound writes";
-      };
-      mediaRetentionBefore = lib.mkOption {
-        type = lib.types.attrsOf lib.types.str;
-        default = {};
-        description = "Guild IDs and fixed RFC3339 cutoffs for message images/videos; newer messages, edits and attachments remain available";
+        description = "Allow federation in newly created rooms; false keeps new rooms local to this homeserver";
       };
     };
 
@@ -60,32 +50,17 @@
       assertions = [
         {
           assertion = cfg.environmentFile != null;
-          message = "matrix.discord.environmentFile must provide a runtime provisioning secret";
+          message = "forge.matrix.discord.environmentFile must provide a runtime provisioning secret";
         }
         {
           assertion = cfg.initialBackfillLimit > 0;
-          message = "Inventory Discord channels and set matrix.discord.initialBackfillLimit before creating portals";
+          message = "Inventory Discord channels and set forge.matrix.discord.initialBackfillLimit before creating portals";
         }
       ];
 
       services.mautrix-discord = {
         enable = true;
-        # Unencrypted rooms do not need the deprecated libolm dependency.
-        package = pkgs.mautrix-discord.overrideAttrs {
-          tags = ["nocrypto"];
-          buildInputs = [];
-          patches = [
-            ./discord-relay-recovery.patch
-            ./discord-relay-features.patch
-            ./discord-plural.patch
-            ./discord-history.patch
-            ./discord-reaction-history.patch
-            ./discord-history-content.patch
-            ./discord-missing-thread-starter.patch
-            ./discord-media-retention.patch
-          ];
-          doCheck = true;
-        };
+        package = pkgs.callPackage ../../../packages/mautrix-discord/package.nix {};
         registerToSynapse = true;
         inherit (cfg) environmentFile;
         settings = {
@@ -103,7 +78,6 @@
             };
           };
           bridge = {
-            media_retention_before = cfg.mediaRetentionBefore;
             permissions = {
               "*" = "relay";
               "@lisa:${domain}" = "admin";
@@ -156,7 +130,6 @@
         ];
       };
       systemd.services.mautrix-discord = {
-        environment.SEC_HIVE_READ_ONLY_CHANNELS = lib.concatStringsSep "," cfg.readOnlyChannels;
         requires = ["postgresql.service"];
         after = ["postgresql.service"];
         serviceConfig.UMask = lib.mkForce "0077";

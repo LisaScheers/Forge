@@ -1,7 +1,16 @@
-{
+{config, ...}: let
+  inherit (config.flake.lib) nginxPrivateNetworks;
+  tree = ../../../services/watch-room;
+  source = config.flake.lib.runtimeSource tree;
+in {
+  perSystem = {pkgs, ...}: {
+    checks.watch-room = pkgs.runCommand "watch-room-tests" {nativeBuildInputs = [pkgs.ffmpeg];} ''
+      ${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 -B -m unittest discover -s ${tree} -v
+      touch "$out"
+    '';
+  };
   nixos.nook = {pkgs, ...}: let
     python = pkgs.python3.withPackages (ps: [ps.aiohttp]);
-    source = ../../../services/watch-room;
     hls = pkgs.fetchurl {
       url = "https://cdn.jsdelivr.net/npm/hls.js@1.7.4/dist/hls.min.js";
       hash = "sha256-z8cMyen8Y9BxkZ4IdnCrx2DI/RvIibiFiAJuTSIZO74=";
@@ -27,20 +36,13 @@
       forceSSL = true;
       useACMEHost = "watch.local.bylisa.dev";
       # Apply the LAN boundary to the console and all SSO endpoints.
-      extraConfig = ''
-        allow 127.0.0.1;
-        allow ::1;
-        allow 192.168.50.0/24;
-        allow 192.168.111.0/24;
-        allow 2a02:1810:515:c680::/64;
-        allow 2a02:1810:515:c682::/64;
-        allow 100.64.0.0/10;
-        allow fd7a:115c:a1e0::/48;
-        deny all;
-        access_log off;
-        proxy_buffers 8 16k;
-        proxy_buffer_size 32k;
-      '';
+      extraConfig =
+        nginxPrivateNetworks
+        + ''
+          access_log off;
+          proxy_buffers 8 16k;
+          proxy_buffer_size 32k;
+        '';
       locations."/" =
         hostProxy
         // {

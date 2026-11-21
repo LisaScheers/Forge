@@ -2,21 +2,26 @@
   config,
   inputs,
   ...
-}: {
-  flake.nixosConfigurations.nook = inputs.nixpkgs.lib.nixosSystem {
-    system = "x86_64-linux";
-    modules = [config.nixos.base config.nixos.nook];
+}: let
+  host = "nook";
+  system = "x86_64-linux";
+in {
+  network.${host} = {
+    lan = "192.168.111.2";
+    tailscale = "100.106.233.104";
+    ssh = {
+      user = "lisa";
+      identityFile = "~/.ssh/home-server.pub";
+    };
   };
-  nixos.nook = {
-    networking.hostName = "nook";
+  flake.nixosConfigurations.${host} = inputs.nixpkgs.lib.nixosSystem {
+    inherit system;
+    modules = [config.nixos.base config.nixos.${host}];
+  };
+  nixos.${host} = {
+    networking.hostName = host;
     imports = [config.nixos.nook-hardware config.nixos.home-manager];
     home-manager.users.lisa = config.home.lisa-nook;
   };
-  flake.checks.x86_64-linux.nook = config.flake.nixosConfigurations.nook.config.system.build.toplevel;
-  ci.targets = [
-    {
-      target = "nixosConfigurations.\"nook\".config.system.build.toplevel";
-      system = "x86_64-linux";
-    }
-  ];
+  deploy.hosts.${host} = {};
 }

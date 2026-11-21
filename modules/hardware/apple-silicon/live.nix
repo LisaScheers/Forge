@@ -16,11 +16,10 @@
   inherit (live) pkgs;
   kernel = live.config.boot.kernelPackages.kernel;
   mesa = live.config.hardware.graphics.package;
-  gpuModules = pkgs.callPackage ../../../packages/asterion-gpu-modules/package.nix {inherit kernel;};
-  dtb = pkgs.callPackage ../../../packages/asterion-gpu-dtb/package.nix {inherit kernel;};
-  vulkanSmoke = pkgs.callPackage ../../../packages/asterion-vulkan-smoke/package.nix {};
-  gpuSession = pkgs.callPackage ../../../packages/asterion-gpu-session/package.nix {inherit mesa;};
-  m1n1 = pkgs.callPackage ../../../packages/asterion-gpu-m1n1/package.nix {};
+  gpu = import ../../../packages/asterion-gpu {inherit pkgs kernel;};
+  inherit (gpu) dtb vulkanSmoke m1n1;
+  gpuModules = gpu.modules;
+  gpuSession = gpu.session;
   manifest = pkgs.writeText "asterion-live-manifest.json" (builtins.toJSON {
     kind = "asterion-live";
     target = "J516s";
@@ -40,14 +39,14 @@ in {
     lib,
     ...
   }: let
-    kernel = pkgs.callPackage ../../../packages/asterion-gpu-kernel/package.nix {};
-    mesa = pkgs.callPackage ../../../packages/mesa-aurora/package.nix {};
-    smoke = pkgs.callPackage ../../../packages/asterion-gpu-smoke/package.nix {};
-    gpuModules = pkgs.callPackage ../../../packages/asterion-gpu-modules/package.nix {
+    gpu = import ../../../packages/asterion-gpu {
+      inherit pkgs;
       kernel = config.boot.kernelPackages.kernel;
     };
-    vulkanSmoke = pkgs.callPackage ../../../packages/asterion-vulkan-smoke/package.nix {};
-    gpuSession = pkgs.callPackage ../../../packages/asterion-gpu-session/package.nix {inherit mesa;};
+    kernel = gpu.gpuKernel;
+    inherit (gpu) mesa smoke vulkanSmoke;
+    gpuModules = gpu.modules;
+    gpuSession = gpu.session;
     check = pkgs.writeShellApplication {
       name = "asterion-gpu-check";
       runtimeInputs = with pkgs; [coreutils gnugrep kmod systemd util-linux vulkan-tools smoke vulkanSmoke];
@@ -155,7 +154,7 @@ in {
       KbdInteractiveAuthentication = false;
       PermitRootLogin = "prohibit-password";
     };
-    users.users.root.openssh.authorizedKeys.keyFiles = [../../security/ssh/vega/public-keys/dev.pub];
+    users.users.root.openssh.authorizedKeys.keyFiles = [../../security/ssh/public-keys/dev.pub];
     environment.systemPackages = [check smoke vulkanSmoke gpuSession pkgs.mesa-demos pkgs.vulkan-tools];
     environment.etc."asterion-live.json".text = builtins.toJSON {
       inherit (kernel) sourceRevision;
@@ -225,7 +224,7 @@ in {
     pkgs,
     ...
   }: let
-    m1n1 = pkgs.callPackage ../../../packages/asterion-gpu-m1n1/package.nix {};
+    inherit (import ../../../packages/asterion-gpu {inherit pkgs;}) m1n1;
     proxySource = pkgs.runCommand "m1n1-asterion-gpu-proxyclient" {} ''
       cp -r ${m1n1.src} "$out"
       chmod -R u+w "$out"
@@ -233,16 +232,6 @@ in {
         --replace-fail 'u = ProxyUtils(p)' 'u = ProxyUtils(p, heap_size=3 * 1024 * 1024 * 1024)'
     '';
   in {
-    checks.asterion-tether-payload =
-      pkgs.runCommand "asterion-tether-payload-checks" {
-        nativeBuildInputs = [pkgs.python3];
-      } ''
-        ASTERION_TETHER_LOADER=${../../../scripts/asterion-tether-boot.py} \
-          python3 -B ${../../../scripts/test_asterion_tether_boot.py}
-        ASTERION_PRIVATE_WIFI=${../../../scripts/asterion-private-wifi.py} \
-          python3 -B ${../../../scripts/test_asterion_private_wifi.py}
-        touch "$out"
-      '';
     devShells.asahi-gpu-tether = config.devShells.asahi-tether.overrideAttrs {
       M1N1_SOURCE = toString proxySource;
       M1N1_SOURCE_REV = m1n1.sourceRevision;

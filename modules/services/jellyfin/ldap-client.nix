@@ -1,13 +1,21 @@
-let
+{config, ...}: let
+  inherit (config.flake.lib) runtimeSource;
+  tree = ../../../services/jellyfin-auth;
   secret = ../../security/agenix/secrets/shared/jellyfin-ldap-env.age;
 in {
+  perSystem = {pkgs, ...}: {
+    checks.jellyfin-auth = pkgs.runCommand "jellyfin-auth-tests" {} ''
+      ${pkgs.python3}/bin/python3 -B -m unittest discover -s ${tree} -v
+      touch "$out"
+    '';
+  };
   nixos.nook = {
     config,
     lib,
     pkgs,
     ...
   }: let
-    source = ../../../services/jellyfin-auth;
+    source = runtimeSource tree;
     plugin = pkgs.fetchzip {
       url = "https://repo.jellyfin.org/files/plugin/ldap-authentication/ldap-authentication_24.0.0.0.zip";
       hash = "sha256-yiyoLahv+tzNWB4JVPoC4fxl+gj8IoYVXv0bi2FGlmM=";

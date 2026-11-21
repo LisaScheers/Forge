@@ -6,7 +6,7 @@ let
     "emSign ECC Root CA - G3"
   ];
   filterApple = pkgs:
-    pkgs.callPackage ../../packages/certificate-trust/filter-apple-ca-roots.pkg.nix {};
+    pkgs.callPackage ../../packages/certificate-trust/package.nix {};
   compatibleBuilder = pkgs:
     pkgs.buildcatrust.overridePythonAttrs (old: {
       postPatch =
@@ -54,7 +54,7 @@ in {
         nativeBuildInputs = [pkgs.python3 (compatibleBuilder pkgs) filter];
         NSS_CERTDATA = pkgs.cacert.src;
       } ''
-        python3 -B ${../../tests/test_certificate_trust.py}
+        python3 -B ${./test_certificate_trust.py}
         touch "$out"
       '';
   };

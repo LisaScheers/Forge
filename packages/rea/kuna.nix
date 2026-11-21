@@ -36,7 +36,7 @@ in
     version = "1.994";
     src = fetchurl {
       url = "https://github.com/Noelo-Lab/kuna/releases/download/v1.994/kuna-v1.994-${platform.name}.tar.gz";
-      hash = platform.hash;
+      inherit (platform) hash;
     };
     nativeBuildInputs = [makeWrapper] ++ lib.optionals stdenv.hostPlatform.isLinux [autoPatchelfHook];
     buildInputs = lib.optionals stdenv.hostPlatform.isLinux [stdenv.cc.cc.lib];

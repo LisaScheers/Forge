@@ -1,4 +1,6 @@
-let
+{config, ...}: let
+  inherit (config.flake.lib) aiGatewayUrl nginxPrivateNetworks runtimeSource;
+  tree = ../../../services/cognee;
   domain = "cognee.local.bylisa.dev";
   oidcSecret = ../../security/agenix/secrets/shared/cognee-oidc-env.age;
 in {
@@ -8,13 +10,13 @@ in {
     packages.cognee-openai-login = pkgs.writeShellApplication {
       name = "cognee-openai-login";
       text = ''
-        exec ${python}/bin/python3 ${../../../services/cognee/openai_plan.py} login \
+        exec ${python}/bin/python3 ${tree + /openai_plan.py} login \
           --host-id urn:uuid:128b7566-1f4a-4f61-9df0-94a3d04f2389 \
           --credentials "''${XDG_STATE_HOME:-$HOME/.local/state}/forge-cognee/nook-openai.json" "$@"
       '';
     };
-    checks.cognee-openai-plan = pkgs.runCommand "cognee-openai-plan-tests" {} ''
-      ${python}/bin/python3 -B -m unittest discover -s ${../../../services/cognee} -v
+    checks.cognee = pkgs.runCommand "cognee-tests" {} ''
+      ${python}/bin/python3 -B -m unittest discover -s ${tree} -v
       touch "$out"
     '';
   };
@@ -25,7 +27,7 @@ in {
   }: let
     storageRoot = "/srv/disks/projects/cognee";
     python = pkgs.python3.withPackages (ps: [ps.aiohttp ps.pyjwt ps.cryptography]);
-    source = ../../../services/cognee;
+    source = runtimeSource tree;
     backendEnvironment = config.age.secrets.cognee-backend-env.path;
     oidcEnvironment = config.age.secrets.cognee-oidc-env.path;
     mcpKeyFile = "${storageRoot}/credentials/mcp.env";
@@ -94,13 +96,15 @@ in {
     # Nook's system SSD has only 19 GiB free. Images and writable layers must
     # live on the data NVMe too, rather than consuming /var/lib/containers.
     virtualisation.podman.enable = true;
-    virtualisation.containers.storage.settings.storage.graphroot = "${storageRoot}/containers";
+    # The oci-containers backend runs Podman as root.
+    virtualisation.containers.storage.rootful.settings.storage.graphroot = "${storageRoot}/containers";
     virtualisation.oci-containers = {
       backend = "podman";
       containers.cognee = {
         image = "docker.io/cognee/cognee@sha256:84584eade25cd9526ef4fe8dd550be69fb974fb1083bde9e498da451fad0dfc6";
         user = "970:970";
-        environmentFiles = [backendEnvironment];
+        # The gateway's client key, written by ai-proxy-cognee-env below.
+        environmentFiles = [backendEnvironment "/run/ai-proxy-cognee/client.env"];
         environment = {
           ENV = "prod";
           BIND_ADDRESS = "127.0.0.1";
@@ -117,8 +121,9 @@ in {
           GRAPH_DATABASE_PROVIDER = "kuzu";
           PYTHONPATH = "/etc/cognee-python";
           LLM_PROVIDER = "custom";
-          LLM_MODEL = "openrouter/z-ai/glm-5.3-flash";
-          LLM_ENDPOINT = "https://openrouter.ai/api/v1";
+          # Cognee keeps its OpenRouter model, reached through Nook's AI gateway.
+          LLM_MODEL = "openai/openrouter/glm-5.3-flash";
+          LLM_ENDPOINT = "${aiGatewayUrl}/v1";
           LLM_MAX_COMPLETION_TOKENS = "16384";
           STRUCTURED_OUTPUT_FRAMEWORK = "litellm_native";
           EMBEDDING_PROVIDER = "fastembed";
@@ -147,6 +152,7 @@ in {
           CORS_ALLOWED_ORIGINS = "https://${domain}";
           TELEMETRY_DISABLED = "1";
         };
+        # modules/security/node2shell.nix adds the Arrow and Brotli security mounts.
         volumes = [
           "${storageRoot}/system:/cognee-storage/system"
           "${storageRoot}/data:/cognee-storage/data"
@@ -182,6 +188,7 @@ in {
           MCP_CORS_ALLOW_ORIGINS = "https://${domain}";
           TELEMETRY_DISABLED = "1";
         };
+        # modules/security/node2shell.nix adds the Brotli security mounts.
         volumes = [
           "${storageRoot}/mcp:/cognee-mcp"
           "${source}/mcp.py:/etc/cognee-mcp.py:ro"
@@ -237,10 +244,28 @@ in {
         ReadWritePaths = ["${storageRoot}/credentials"];
       };
     };
+    # Cognee's inference goes through Nook's AI gateway, so it needs the gateway
+    # running and its shared client key as an environment file.
+    systemd.services.ai-proxy-cognee-env = {
+      before = ["podman-cognee.service"];
+      serviceConfig = {
+        Type = "oneshot";
+        RuntimeDirectory = "ai-proxy-cognee";
+        RuntimeDirectoryMode = "0700";
+        RemainAfterExit = true;
+        UMask = "0077";
+        LoadCredential = ["client-key:${config.age.secrets.ai-proxy-client-key.path}"];
+      };
+      restartTriggers = [config.age.secrets.ai-proxy-client-key.file];
+      script = ''
+        { printf 'LLM_API_KEY='; cat "$CREDENTIALS_DIRECTORY/client-key"; printf '\n'; } > /run/ai-proxy-cognee/client.env
+      '';
+    };
     systemd.services.podman-cognee = {
-      after = ["systemd-tmpfiles-setup.service"];
+      requires = ["cli-proxy-api-plus.service" "ai-proxy-cognee-env.service"];
+      after = ["systemd-tmpfiles-setup.service" "cli-proxy-api-plus.service" "ai-proxy-cognee-env.service"];
       unitConfig.RequiresMountsFor = storageRoot;
-      restartTriggers = [../../security/agenix/secrets/nook/cognee-backend-env.age];
+      restartTriggers = [config.age.secrets.cognee-backend-env.file];
       serviceConfig = {
         ExecStartPost = "${python}/bin/python3 ${source}/wait_health.py 8321";
       };
@@ -295,21 +320,14 @@ in {
     services.nginx.virtualHosts.${domain} = {
       forceSSL = true;
       useACMEHost = domain;
-      extraConfig = ''
-        allow 127.0.0.1;
-        allow ::1;
-        allow 192.168.50.0/24;
-        allow 192.168.111.0/24;
-        allow 2a02:1810:515:c680::/64;
-        allow 2a02:1810:515:c682::/64;
-        allow 100.64.0.0/10;
-        allow fd7a:115c:a1e0::/48;
-        deny all;
-        access_log off;
-        client_max_body_size 20m;
-        proxy_buffers 8 16k;
-        proxy_buffer_size 32k;
-      '';
+      extraConfig =
+        nginxPrivateNetworks
+        + ''
+          access_log off;
+          client_max_body_size 20m;
+          proxy_buffers 8 16k;
+          proxy_buffer_size 32k;
+        '';
       locations."= /graph".extraConfig = "return 302 /graph/;";
       locations."^~ /graph/" = {
         proxyPass = "http://unix:/run/cognee-graph/http.sock:";

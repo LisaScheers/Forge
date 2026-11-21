@@ -1,5 +1,5 @@
 {
-  home.lisa-cli = {config, ...}: {
+  home.lisa = {config, ...}: {
     programs.zsh = {
       enable = true;
       enableCompletion = true;

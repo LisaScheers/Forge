@@ -9,11 +9,19 @@ import unittest
 ENVRC = Path(__file__).resolve().parents[1] / ".envrc"
 
 
-@unittest.skipUnless(Path("/run/wrappers/bin/sudo").is_file(), "requires NixOS sudo wrapper")
 class DirenvWrapperTest(unittest.TestCase):
     def test_cached_shell_cannot_shadow_privileged_wrappers(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            # direnv approves real paths; macOS temp directories sit behind /var.
+            root = Path(directory).resolve()
+            # Stand-ins for /run/wrappers/bin and /run/current-system/sw/bin, so
+            # the test also runs off NixOS and in the build sandbox.
+            wrappers, system = root / "wrappers", root / "system"
+            for bin_directory in (wrappers, system):
+                bin_directory.mkdir()
+                sudo = bin_directory / "sudo"
+                sudo.write_text("#!/bin/sh\n")
+                sudo.chmod(0o755)
             checkout = root / "checkout with spaces"
             checkout.mkdir()
             for name in ("modules", "packages"):
@@ -23,9 +31,9 @@ class DirenvWrapperTest(unittest.TestCase):
             (checkout / ".envrc").write_text('''
 nix_direnv_version() { return 0; }
 use() {
-  export PATH="/run/current-system/sw/bin:$PATH"
+  export PATH="{system}:$PATH"
 }
-''' + ENVRC.read_text())
+'''.replace("{system}", str(system)) + ENVRC.read_text().replace("/run/wrappers/bin", str(wrappers)))
             env = dict(os.environ,
                        XDG_CONFIG_HOME=str(root / "config"),
                        XDG_CACHE_HOME=str(root / "cache"),
@@ -39,7 +47,7 @@ use() {
 
             # Exercise repeated imports, including the same bad ordering in the caller.
             for caller_path in (os.environ["PATH"],
-                                f"/run/current-system/sw/bin:{os.environ['PATH']}"):
+                                f"{system}:{os.environ['PATH']}"):
                 with self.subTest(caller_path=caller_path):
                     result = subprocess.run(
                         ["direnv", "exec", str(checkout), "bash", "-c", "command -v sudo"],
@@ -47,7 +55,7 @@ use() {
                         capture_output=True, text=True, timeout=10,
                     )
                     self.assertEqual(result.returncode, 0, result.stderr)
-                    self.assertEqual(result.stdout.strip(), "/run/wrappers/bin/sudo")
+                    self.assertEqual(result.stdout.strip(), str(wrappers / "sudo"))
 
 
 if __name__ == "__main__":

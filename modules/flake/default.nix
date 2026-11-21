@@ -1,5 +1,5 @@
 {lib, ...}: {
-  flake-file = {
+  config.flake-file = {
     outputs = "dendritic";
     description = "Multi-host Nix configuration for Darwin and NixOS";
 
@@ -13,5 +13,11 @@
       )
     );
   };
-  debug = true;
+  # nixd reads flake-parts and flake-file option docs from the debug output.
+  config.debug = true;
+  options.flake.lib = lib.mkOption {
+    type = lib.types.lazyAttrsOf lib.types.raw;
+    default = {};
+    description = "Helpers Forge exports to its tools and modules: functions and shared values.";
+  };
 }

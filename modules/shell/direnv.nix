@@ -1,5 +1,5 @@
 {
-  home.lisa-cli = {
+  home.lisa = {
     programs.direnv = {
       enable = true;
       enableZshIntegration = true;

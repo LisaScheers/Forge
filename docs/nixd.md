@@ -1,6 +1,6 @@
 # Shared Nix language configuration
 
-`packages/nixd/settings.nix` defines nixd settings for all editors. Forge exports
+`modules/development/nixd.nix` defines nixd settings for all editors. Forge exports
 them as `lib.nixdSettings pkgs`; Zed and Nixvim pass that same value through their
 normal LSP settings. Both use the unmodified `pkgs.nixd` from Forge's Nixpkgs pin.
 Zed selects nixd for Nix files; Nixvim delegates Nix formatting to nixd.
@@ -8,12 +8,14 @@ Zed selects nixd for Nix files; Nixvim delegates Nix formatting to nixd.
 Home Manager also installs the settings as `~/.config/nixd/config.json`. nixd
 does not read that file automatically: another editor can load the JSON and
 send its contents for the LSP `nixd` configuration section. No wrapper or
-`--config` argument is involved.
+`--config` argument is involved. The checked-in VS Code settings only select
+nixd and the alejandra extension; nixd's defaults read Nixpkgs from Forge's
+pinned `nix-path`.
 
 The shared settings provide:
 
 - Packages from `import <nixpkgs> { }`.
-- Nixfmt from an absolute Nix store path.
+- Alejandra from an absolute Nix store path, matching `checks.lint`.
 - Forge's NixOS, nix-darwin, Home Manager, flake-parts, flake-file, and devenv
   option declarations. The Home Manager selection follows the target platform:
   Vega on Darwin, Asterion on ARM Linux, Nook on x86 Linux.

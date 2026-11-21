@@ -1,20 +1,17 @@
-let
+{config, ...}: let
+  inherit (config.flake.lib) nginxPrivateNetworks;
   domain = "ai.local.bylisa.dev";
-  source = ../../../services/ai-archive;
+  tree = ../../../services/ai-archive;
+  source = config.flake.lib.runtimeSource tree;
 in {
   perSystem = {pkgs, ...}: {
-    packages.ai-archive-auth-blueprint = pkgs.writeText "ai-archive.yaml" (builtins.readFile (source + /authentik.yaml));
     checks.ai-archive = pkgs.runCommand "ai-archive-tests" {} ''
-      ${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 -B -m unittest discover -s ${source} -v
-      ${pkgs.nodejs}/bin/node --check ${source}/public/app.js
+      ${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 -B -m unittest discover -s ${tree} -v
+      ${pkgs.nodejs}/bin/node --check ${tree}/public/app.js
       touch "$out"
     '';
   };
-  nixos.nook = {
-    config,
-    pkgs,
-    ...
-  }: let
+  nixos.nook = {pkgs, ...}: let
     upstream = "http://unix:/run/ai-archive/http.sock:";
     protected = ''
       auth_request /outpost.goauthentik.io/auth/nginx;
@@ -70,21 +67,14 @@ in {
     services.nginx.virtualHosts.${domain} = {
       forceSSL = true;
       useACMEHost = domain;
-      extraConfig = ''
-        allow 127.0.0.1;
-        allow ::1;
-        allow 192.168.50.0/24;
-        allow 192.168.111.0/24;
-        allow 2a02:1810:515:c680::/64;
-        allow 2a02:1810:515:c682::/64;
-        allow 100.64.0.0/10;
-        allow fd7a:115c:a1e0::/48;
-        deny all;
-        access_log off;
-        client_max_body_size 1m;
-        proxy_buffers 8 16k;
-        proxy_buffer_size 32k;
-      '';
+      extraConfig =
+        nginxPrivateNetworks
+        + ''
+          access_log off;
+          client_max_body_size 1m;
+          proxy_buffers 8 16k;
+          proxy_buffer_size 32k;
+        '';
       locations."/" = {
         proxyPass = upstream;
         extraConfig =
@@ -123,34 +113,6 @@ in {
           proxy_set_header Content-Length "";
         '';
       };
-    };
-  };
-  nixos.atlas = {
-    config,
-    pkgs,
-    ...
-  }: {
-    systemd.services.authentik-ai-archive-blueprint = {
-      description = "Apply AI Archive's Lisa-only Authentik provider";
-      wantedBy = ["multi-user.target"];
-      requiredBy = ["authentik.service"];
-      before = ["authentik.service"];
-      after = ["authentik-migrate.service"];
-      requires = ["authentik-migrate.service"];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        DynamicUser = true;
-        User = "authentik";
-        StateDirectory = "authentik";
-        WorkingDirectory = "%S/authentik";
-        EnvironmentFile = [config.age.secrets.authentik-env.path];
-        Environment = ["AUTHENTIK_CONFIG=/etc/authentik/config.yml"];
-        ExecStartPre = "${pkgs.coreutils}/bin/install -D -m 0600 ${source}/authentik.yaml %S/authentik/blueprints/ai-archive.yaml";
-        ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint ai-archive.yaml";
-        ExecStartPost = ''${config.services.authentik.authentikComponents.manage}/bin/manage.py shell -c "from authentik.outposts.models import Outpost; from authentik.providers.proxy.models import ProxyProvider; outpost = Outpost.objects.get(managed='goauthentik.io/outposts/embedded'); outpost.providers.add(ProxyProvider.objects.get(name='AI Archive')); outpost.save()"'';
-      };
-      restartTriggers = [(source + /authentik.yaml)];
     };
   };
 }

@@ -1,5 +1,5 @@
 {
-  home.lisa = {
+  home.workstation = {
     lib,
     pkgs,
     ...

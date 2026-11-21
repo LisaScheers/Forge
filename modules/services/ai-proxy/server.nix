@@ -3,33 +3,39 @@
   lib,
   ...
 }: let
+  inherit (config.flake.lib) nginxPrivateNetworks;
   domain = "cliproxy.local.bylisa.dev";
-  source = ../../../services/ai-usage;
+  tree = ../../../services/ai-usage;
+  source = config.flake.lib.runtimeSource tree;
   secrets = ../../security/agenix/secrets;
+  port = 8317;
+  gatewayUrl = "http://127.0.0.1:${toString port}";
 in {
+  # The gateway's loopback address, for Nook services that call it directly.
+  flake.lib.aiGatewayUrl = gatewayUrl;
   overlays.ai-proxy = final: _prev: {
-    cli-proxy-api-plus-capture = final.callPackage ../../../packages/cli-proxy-api-plus-capture.pkg.nix {};
-  };
-  flake.agenixRules = {
-    "secrets/shared/ai-proxy-client-key.age".publicKeys = with config.secrets.pubkeys; [users.lisa hosts.nook hosts.vega hosts.atlas];
-    "secrets/nook/ai-proxy-openrouter-key.age".publicKeys = with config.secrets.pubkeys; [users.lisa hosts.nook];
-    "secrets/nook/ai-proxy-codex-auth.age".publicKeys = with config.secrets.pubkeys; [users.lisa hosts.nook];
-    "secrets/nook/ai-proxy-antigravity-auth.age".publicKeys = with config.secrets.pubkeys; [users.lisa hosts.nook];
+    cli-proxy-api-plus-capture = final.callPackage ../../../packages/cli-proxy-api-plus-capture/package.nix {};
   };
   perSystem = {pkgs, ...}: {
-    packages.cli-proxy-api-plus-capture = lib.mkIf pkgs.stdenv.hostPlatform.isLinux pkgs.cli-proxy-api-plus-capture;
-    checks.ai-usage = pkgs.runCommand "ai-usage-tests" {} ''
-      ${pkgs.python3}/bin/python3 -B -m unittest discover -s ${source} -v
-      touch "$out"
-    '';
-    checks.ai-usage-clickhouse = lib.mkIf pkgs.stdenv.hostPlatform.isLinux (pkgs.runCommand "ai-usage-clickhouse-tests" {
-        CLICKHOUSE_BINARY = "${pkgs.clickhouse}/bin/clickhouse";
-        CLIPROXY_BINARY = "${pkgs.cli-proxy-api-plus-capture}/bin/cli-proxy-api-plus";
-        AI_USAGE_CLICKHOUSE_PASSWORD = "test";
-      } ''
-        ${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 -B -m unittest discover -s ${source} -v
-        touch "$out"
-      '');
+    packages = lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {inherit (pkgs) cli-proxy-api-plus-capture;};
+    checks =
+      {
+        ai-usage = pkgs.runCommand "ai-usage-tests" {} ''
+          ${pkgs.python3}/bin/python3 -B -m unittest discover -s ${tree} -v
+          touch "$out"
+        '';
+      }
+      // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+        ai-usage-clickhouse =
+          pkgs.runCommand "ai-usage-clickhouse-tests" {
+            CLICKHOUSE_BINARY = "${pkgs.clickhouse}/bin/clickhouse";
+            CLIPROXY_BINARY = "${pkgs.cli-proxy-api-plus-capture}/bin/cli-proxy-api-plus";
+            AI_USAGE_CLICKHOUSE_PASSWORD = "test";
+          } ''
+            ${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 -B -m unittest discover -s ${tree} -v
+            touch "$out"
+          '';
+      };
   };
   nixos.nook = {
     config,
@@ -41,7 +47,7 @@ in {
     databaseEnv = "/srv/disks/projects/ai-usage-secrets/clickhouse.env";
     template = pkgs.writeText "cli-proxy-api-plus.json" (builtins.toJSON {
       host = "127.0.0.1";
-      port = 8317;
+      inherit port;
       auth-dir = "${root}/auth";
       remote-management = {
         allow-remote = false;
@@ -105,20 +111,6 @@ in {
     };
     users.groups.ai-proxy = {};
     users.groups.ai-proxy-clients.members = ["lisa" "codex"];
-    home-manager.users.codex = {
-      home = {
-        username = "codex";
-        homeDirectory = "/home/codex";
-        stateVersion = "26.11";
-      };
-      programs.codex = {
-        enable = true;
-        mutableSettings = true;
-        settings = {
-          model_provider = "openai";
-        };
-      };
-    };
     systemd.tmpfiles.rules = [
       "d ${root} 0700 ai-proxy ai-proxy - -"
       "d ${root}/logs 0700 ai-proxy ai-proxy - -"
@@ -135,21 +127,6 @@ in {
         if [ ! -s ${databaseEnv} ]; then
           ${pkgs.python3}/bin/python3 -c 'import secrets; print("AI_USAGE_CLICKHOUSE_PASSWORD=" + secrets.token_hex(32))' > ${databaseEnv}
         fi
-      '';
-    };
-    systemd.services.ai-proxy-cognee-env = {
-      before = ["podman-cognee.service"];
-      serviceConfig = {
-        Type = "oneshot";
-        RuntimeDirectory = "ai-proxy-cognee";
-        RuntimeDirectoryMode = "0700";
-        RemainAfterExit = true;
-        UMask = "0077";
-        LoadCredential = ["client-key:${config.age.secrets.ai-proxy-client-key.path}"];
-      };
-      restartTriggers = [config.age.secrets.ai-proxy-client-key.file];
-      script = ''
-        { printf 'LLM_API_KEY='; cat "$CREDENTIALS_DIRECTORY/client-key"; printf '\n'; } > /run/ai-proxy-cognee/client.env
       '';
     };
     services.clickhouse = {
@@ -245,21 +222,14 @@ in {
     services.nginx.virtualHosts.${domain} = {
       forceSSL = true;
       useACMEHost = domain;
-      extraConfig = ''
-        allow 127.0.0.1;
-        allow ::1;
-        allow 192.168.50.0/24;
-        allow 192.168.111.0/24;
-        allow 2a02:1810:515:c680::/64;
-        allow 2a02:1810:515:c682::/64;
-        allow 100.64.0.0/10;
-        allow fd7a:115c:a1e0::/48;
-        deny all;
-        access_log off;
-        client_max_body_size 0;
-      '';
+      extraConfig =
+        nginxPrivateNetworks
+        + ''
+          access_log off;
+          client_max_body_size 0;
+        '';
       locations."/" = {
-        proxyPass = "http://127.0.0.1:8317";
+        proxyPass = gatewayUrl;
         proxyWebsockets = true;
         extraConfig = ''
           proxy_buffering off;
@@ -269,18 +239,6 @@ in {
         '';
       };
       locations."^~ /v0/management/".extraConfig = "return 404;";
-    };
-    # Cognee keeps its existing OpenRouter model, but inference now uses the gateway.
-    virtualisation.oci-containers.containers.cognee = {
-      environment = {
-        LLM_ENDPOINT = lib.mkForce "http://127.0.0.1:8317/v1";
-        LLM_MODEL = lib.mkForce "openai/openrouter/glm-5.3-flash";
-      };
-      environmentFiles = lib.mkAfter ["/run/ai-proxy-cognee/client.env"];
-    };
-    systemd.services.podman-cognee = {
-      requires = ["cli-proxy-api-plus.service" "ai-proxy-cognee-env.service"];
-      after = ["cli-proxy-api-plus.service" "ai-proxy-cognee-env.service"];
     };
   };
 }

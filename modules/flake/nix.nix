@@ -16,7 +16,7 @@ in {
   nixos.base = base;
   darwin.base = base;
 
-  home.lisa-cli = {
+  home.lisa = {
     lib,
     pkgs,
     osConfig ? null,
@@ -25,11 +25,15 @@ in {
     nix.package = lib.mkDefault (
       if osConfig != null
       then osConfig.nix.package
-      else pkgs.nix
+      # Standalone homes use Lix, as every host does.
+      else pkgs.lixPackageSets.latest.lix
     );
     nix.nixPath = ["nixpkgs=${inputs.nixpkgs}"];
     nix.keepOldNixPath = false;
+    # Home Manager writes ~/.config/nix/nix.conf from these; set user Nix
+    # options here, never through xdg.configFile, which this would replace.
     nix.settings.nix-path = ["nixpkgs=${inputs.nixpkgs}"];
+    nix.settings.experimental-features = ["nix-command" "flakes"];
     nix.registry.nixpkgs.flake = inputs.nixpkgs;
   };
 }

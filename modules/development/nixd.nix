@@ -1,10 +1,26 @@
 {inputs, ...}: {
-  flake.lib.nixdSettings = pkgs:
-    import ../../packages/nixd/settings.nix {
-      inherit (pkgs) lib;
-      inherit pkgs;
-      forge = inputs.self;
+  # Shared by the nixd config file, Nixvim and Zed.
+  flake.lib.nixdSettings = pkgs: let
+    flake = "(builtins.getFlake ${builtins.toJSON (toString inputs.self)})";
+    homeName =
+      if pkgs.stdenv.hostPlatform.isDarwin
+      then "lisa@vega"
+      else if pkgs.stdenv.hostPlatform.isAarch64
+      then "lisa@asterion"
+      else "lisa@nook";
+  in {
+    nixpkgs.expr = "import <nixpkgs> { }";
+    # Match checks.lint so format-on-save never fights the repository style.
+    formatting.command = ["${pkgs.lib.getExe pkgs.alejandra}"];
+    options = {
+      nixos.expr = "${flake}.nixosConfigurations.atlas.options";
+      darwin.expr = "${flake}.darwinConfigurations.vega.options";
+      home-manager.expr = "${flake}.homeConfigurations.${builtins.toJSON homeName}.options";
+      flake-parts.expr = "${flake}.debug.options";
+      flake-file.expr = "${flake}.debug.options.flake-file.type.getSubOptions []";
+      devenv.expr = "{ devenv.shells.default = ${flake}.allSystems.${builtins.toJSON pkgs.stdenv.hostPlatform.system}.options.devenv.shells.type.getSubOptions []; }";
     };
+  };
 
   perSystem = {pkgs, ...}: {
     packages.nixd-config =
@@ -12,7 +28,7 @@
       (inputs.self.lib.nixdSettings pkgs);
   };
 
-  home.lisa-cli = {pkgs, ...}: {
+  home.lisa = {pkgs, ...}: {
     home.packages = [pkgs.nixd];
     xdg.configFile."nixd/config.json".source =
       inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.nixd-config;

@@ -420,7 +420,7 @@
     ]);
   };
   overlays.cli-proxy-api-plus = final: _prev: {
-    cli-proxy-api-plus = final.callPackage ../../../packages/cli-proxy-api-plus.pkg.nix {};
+    cli-proxy-api-plus = final.callPackage ../../../packages/cli-proxy-api-plus/package.nix {};
   };
   perSystem = {pkgs, ...}: {packages.cli-proxy-api-plus = pkgs.cli-proxy-api-plus;};
 }

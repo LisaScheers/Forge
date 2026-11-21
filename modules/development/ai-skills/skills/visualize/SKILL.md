@@ -37,7 +37,7 @@ For another subject, choose or implement an appropriate renderer using open-sour
      /absolute/artifact-directory/visualization.html
    ```
 
-   `bundle.py` needs only Python 3's standard library. Follow the Nix dependency workflow if a suitable interpreter is missing. Forge's `_package.nix` supplies pinned runtimes and license notices in `assets/vendor/`; the helper also accepts `--runtime-dir` for that directory when working from a source checkout. Put the markers for the libraries actually used before the application script:
+   `bundle.py` needs only Python 3's standard library. Follow the Nix dependency workflow if a suitable interpreter is missing. Forge's `packages/visualize-skill/package.nix` supplies pinned runtimes and license notices in `assets/vendor/`; the helper also accepts `--runtime-dir` for that directory when working from a source checkout. Put the markers for the libraries actually used before the application script:
 
    - `<!-- ECHARTS_RUNTIME -->` exposes `echarts`.
    - `<!-- THREE_RUNTIME -->` exposes `THREE`, including `THREE.OrbitControls`.

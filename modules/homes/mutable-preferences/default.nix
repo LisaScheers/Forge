@@ -91,7 +91,7 @@
       type = lib.types.attrsOf (lib.types.submodule {
         options = {
           settings = lib.mkOption {
-            type = json.type;
+            inherit (json) type;
             description = "Declarative preferences owned by the app's feature module.";
           };
           format = lib.mkOption {

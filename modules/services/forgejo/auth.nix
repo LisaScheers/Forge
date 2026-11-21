@@ -57,24 +57,11 @@
       ACCOUNT_LINKING = "login";
     };
 
-    systemd.services.authentik-forgejo-blueprint = {
+    forge.authentik.blueprints.forgejo = {
       description = "Apply Forgejo Authentik OAuth2/OIDC blueprint";
-      requiredBy = ["authentik.service"];
-      before = ["authentik.service"];
-      after = ["authentik-migrate.service"];
-      requires = ["authentik-migrate.service"];
-      serviceConfig = {
-        Type = "oneshot";
-        DynamicUser = true;
-        User = "authentik";
-        StateDirectory = "authentik";
-        WorkingDirectory = "%S/authentik";
-        EnvironmentFile = [config.age.secrets.authentik-env.path oidcEnvironmentFile];
-        Environment = ["AUTHENTIK_CONFIG=/etc/authentik/config.yml"];
-        ExecStartPre = "${pkgs.coreutils}/bin/install -D -m 0600 ${blueprint} %S/authentik/blueprints/forgejo.yaml";
-        ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint forgejo.yaml";
-      };
-      restartTriggers = [../../security/agenix/secrets/atlas/authentik-env.age oidcSecret];
+      file = blueprint;
+      environmentFiles = [oidcEnvironmentFile];
+      restartTriggers = [oidcSecret];
     };
 
     # Authentik also reapplies discovered blueprints in its worker.

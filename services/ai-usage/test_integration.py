@@ -86,7 +86,7 @@ class ClickHouseTests(unittest.TestCase):
                     self.assertEqual(int(counts["output_tokens_details.reasoning_tokens"]), 3)
                     self.assertEqual(int(counts["future_tokens"]), 2)
                     if os.environ.get("CLIPROXY_BINARY"):
-                        from verify_gateway import verify
+                        from test_gateway_fixture import verify
                         gateway_root = root / "gateway"
                         gateway_root.mkdir()
                         captures = verify(gateway_root)

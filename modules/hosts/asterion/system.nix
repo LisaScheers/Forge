@@ -131,8 +131,8 @@
         PermitRootLogin = "prohibit-password";
       };
     };
-    users.users.root.openssh.authorizedKeys.keyFiles = [../../security/ssh/asterion/public-keys/vega.pub];
-    users.users.lisa.openssh.authorizedKeys.keyFiles = [../../security/ssh/asterion/public-keys/vega.pub];
+    users.users.root.openssh.authorizedKeys.keyFiles = [./vega.pub];
+    users.users.lisa.openssh.authorizedKeys.keyFiles = [./vega.pub];
 
     nix.settings = {
       experimental-features = ["nix-command" "flakes"];

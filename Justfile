@@ -1,6 +1,7 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 set positional-arguments
 
+# The existing age identity predates the sops-nix removal; keep its path.
 age_identity := home_directory() / ".config/sops/age/keys.txt"
 
 default:
@@ -9,12 +10,13 @@ default:
 # Format source modules and packages; flake.nix is generated separately.
 [group('flake')]
 fmt:
-    nix shell --inputs-from . nixpkgs#alejandra -c alejandra modules packages
+    nix fmt -- modules packages
 
-# Check source formatting without modifying files.
+# Run checks.lint (alejandra, deadnix, statix, shellcheck, ruff, actionlint)
+# without modifying files.
 [group('flake')]
-fmt-check:
-    nix shell --inputs-from . nixpkgs#alejandra -c alejandra --check modules packages
+lint:
+    nix build --no-link ".#checks.$(nix eval --raw --impure --expr builtins.currentSystem).lint"
 
 # Run flake checks for the current system.
 [group('flake')]
@@ -40,6 +42,27 @@ write-flake:
 [group('flake')]
 tree:
     nix flake show
+
+# List the files that bind a profile directly, for example `just features nook`
+# or `just features lisa home`; profiles it imports, such as base, list under
+# their own names.
+[group('flake')]
+features profile class="nixos":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "$2" in
+      nixos|darwin|home) ;;
+      *) echo 'Expected a profile name and nixos, darwin or home.' >&2; exit 2 ;;
+    esac
+    case "$1" in
+      ''|*[!a-z0-9-]*) echo 'Expected a profile name and nixos, darwin or home.' >&2; exit 2 ;;
+    esac
+    files=$(nix eval --raw .#lib.profileFiles --apply "lookup: builtins.concatStringsSep \"\n\" (lookup \"$2\" \"$1\")")
+    if [ -z "$files" ]; then
+      echo "No file binds $2.$1." >&2
+      exit 1
+    fi
+    printf '%s\n' "$files"
 
 # Enter the development shell.
 [group('flake')]
@@ -75,13 +98,8 @@ vega-bootstrap: switch
 deploy-build host:
     #!/usr/bin/env bash
     set -euo pipefail
-    case "$1" in
-      nook|atlas) target_system=x86_64-linux ;;
-      asterion) target_system=aarch64-linux ;;
-      vega) target_system=aarch64-darwin ;;
-      *) echo "unknown deploy host: $1" >&2; exit 2 ;;
-    esac
-    nix build ".#checks.$target_system.$1"
+    target_system=$(bash scripts/deploy-system.sh "$1")
+    nix build ".#checks.$target_system.\"$1\""
 
 # Deploy one host in switch, dry, or test mode; Vega supports switch only.
 [group('system')]

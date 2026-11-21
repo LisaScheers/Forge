@@ -137,8 +137,8 @@
         };
         refetchIntervalMinutes = 30;
       };
-      keybindings = { };
-      repoPaths = { };
+      keybindings = {};
+      repoPaths = {};
       theme = {
         ui = {
           sectionsShowCount = true;

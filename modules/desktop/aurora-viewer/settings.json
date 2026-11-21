@@ -1,0 +1,2431 @@
+{
+  "allow_overlays": false,
+  "always_track_payments": false,
+  "anisotropy": 8,
+  "anti_spam": {
+    "amount": 10,
+    "enabled": false,
+    "global": false,
+    "newlines": 70,
+    "own_objects": false,
+    "period": 4,
+    "preload_multiplier": 6,
+    "sound_multiplier": 6
+  },
+  "antialiasing": 1,
+  "ao": {},
+  "ao_method": 1,
+  "appearance_fill_previews": false,
+  "arrow_keys_always_move": false,
+  "arrows_strafe": false,
+  "audio": {
+    "collision_sounds": true,
+    "conversation_voice_indicator": true,
+    "enabled": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ],
+    "explorer": {
+      "avatars": false,
+      "collisions": false,
+      "objects": true,
+      "repeats": false
+    },
+    "gesture_sounds": true,
+    "input_device": "",
+    "lip_sync": true,
+    "media_autoplay": false,
+    "mic_gain": 1.0,
+    "mic_hold": false,
+    "music_autoplay": false,
+    "mute_when_minimized": false,
+    "muted": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ],
+    "output_device": "",
+    "perceptual_volume": false,
+    "reject_adhoc_calls": false,
+    "reject_group_calls": false,
+    "reject_p2p_calls": false,
+    "saved_streams": [],
+    "stream_title": "Chat",
+    "stream_title_announce": false,
+    "stream_title_channel": 362394,
+    "stream_title_text_only": false,
+    "stream_title_window": false,
+    "ui": {
+      "conf_mode": "NewSession",
+      "group_mode": "NewSession",
+      "im_mode": "NewSession",
+      "money_threshold": 50.0,
+      "play": {}
+    },
+    "ui_sounds": true,
+    "voice_automatic_gain": true,
+    "voice_ear": "Camera",
+    "voice_echo_cancellation": true,
+    "voice_enabled": false,
+    "voice_noise_suppression": 4,
+    "voice_visualizer": true,
+    "voice_visualizer_dot": true,
+    "voice_visualizer_self": true,
+    "voice_visualizers_in_calls": true,
+    "volume": [
+      0.8,
+      0.5,
+      0.5,
+      0.5,
+      0.4,
+      0.5,
+      0.7
+    ]
+  },
+  "auto_hover_height": false,
+  "auto_hover_offset": 0.0,
+  "auto_replace": false,
+  "autohide_chat_bar": false,
+  "automatic_fly": false,
+  "automatic_land": true,
+  "autoresponse": {
+    "autorespond": false,
+    "autorespond_text": "The resident you messaged has enabled Aurora Viewer's auto-response mode and does not want to be disturbed. Your message will still appear in their IM window for later reading.",
+    "away_after_minutes": 0,
+    "away_text": "The resident you messaged is away. Your message will appear in their IM window for later reading.",
+    "dnd_text": "This resident has enabled Do Not Disturb and will see your message later.",
+    "ignore_adhoc": false,
+    "muted_text": "The resident you messaged has blocked all messages from you.",
+    "quit_after_away_minutes": 0,
+    "reject_group_invites": false,
+    "reject_teleports": false,
+    "reject_teleports_text": "The resident you messaged has enabled Aurora Viewer's mode that rejects all teleport offers and requests. They do not want to be disturbed by teleport requests, but you can still send them an IM.",
+    "report_ignored_adhoc": false,
+    "send_away": false,
+    "send_muted": false,
+    "sit_when_away": false
+  },
+  "avatar_physics": true,
+  "avatar_physics_detail": 1.0,
+  "background_fps_cap": true,
+  "background_fps_limit": 15,
+  "bandwidth_kbps": 4000,
+  "beacons": {
+    "highlights": true,
+    "info": true,
+    "lines": false,
+    "media": false,
+    "particles": false,
+    "physical": false,
+    "scripted": false,
+    "sound": false,
+    "touch": false,
+    "width": 1
+  },
+  "block_click_sit": false,
+  "bloom": false,
+  "bloom_strength": 0.5,
+  "bridge": {
+    "518d9b42-dcc0-40d7-bc91-082942bf7f25": {
+      "enabled": false,
+      "indicator": false,
+      "mode": "bridge"
+    }
+  },
+  "build": {
+    "actual_root": false,
+    "color_picker": {
+      "apply": true,
+      "palette": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.5,
+          0.5,
+          0.5
+        ],
+        [
+          0.5,
+          0.0,
+          0.0
+        ],
+        [
+          0.5,
+          0.5,
+          0.0
+        ],
+        [
+          0.0,
+          0.5,
+          0.0
+        ],
+        [
+          0.0,
+          0.5,
+          0.5
+        ],
+        [
+          0.0,
+          0.0,
+          0.5
+        ],
+        [
+          0.5,
+          0.0,
+          0.5
+        ],
+        [
+          0.5,
+          0.5,
+          0.0
+        ],
+        [
+          0.0,
+          0.25,
+          0.25
+        ],
+        [
+          0.0,
+          0.5,
+          1.0
+        ],
+        [
+          0.0,
+          0.25,
+          0.5
+        ],
+        [
+          0.5,
+          0.0,
+          1.0
+        ],
+        [
+          0.5,
+          0.25,
+          0.0
+        ],
+        [
+          1.0,
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0,
+          1.0
+        ],
+        [
+          0.75,
+          0.75,
+          0.75
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          1.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          1.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0,
+          0.5
+        ],
+        [
+          0.0,
+          1.0,
+          0.5
+        ],
+        [
+          0.5,
+          1.0,
+          1.0
+        ],
+        [
+          0.5,
+          0.5,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.5
+        ],
+        [
+          1.0,
+          0.5,
+          0.0
+        ],
+        [
+          1.0,
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0,
+          1.0
+        ]
+      ]
+    },
+    "copy_centers": true,
+    "copy_key_separator": ",",
+    "copy_rotates": false,
+    "copy_selection": false,
+    "create_shape": 0,
+    "decimal_precision": 5,
+    "edit_linked": false,
+    "expanded": true,
+    "follow_edit_object": false,
+    "gizmo_scale": 1.0,
+    "grid_draw_size": 12.0,
+    "grid_mode": 0,
+    "grid_opacity": 0.7,
+    "grid_resolution": 0.5,
+    "grid_sub_unit": false,
+    "keep_tool": false,
+    "land_action": 6,
+    "land_brush_force": 1.0,
+    "land_brush_size": 2.0,
+    "layout": {
+      "order": [
+        "manipulators",
+        "face",
+        "stretchTextures",
+        "linked",
+        "scaleBoth",
+        "rootAxis",
+        "snap",
+        "highlight",
+        "probes",
+        "landGroup",
+        "followEdit",
+        "actions",
+        "nav-section-general",
+        "nav-section-shape",
+        "nav-section-materials",
+        "nav-section-features",
+        "nav-section-contents",
+        "nav-tool-camera",
+        "nav-tool-grab",
+        "nav-tool-edit",
+        "nav-tool-create",
+        "nav-tool-land"
+      ]
+    },
+    "limit_drag_distance": true,
+    "limit_select_distance": false,
+    "max_drag_distance": 48.0,
+    "max_select_distance": 128.0,
+    "new_prim_material": 3,
+    "new_prim_size": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "rez_under_land_group": true,
+    "rotation_step": 1.0,
+    "scale_stretch_textures": true,
+    "scale_uniform": false,
+    "show_highlight": true,
+    "show_parcel_owners": false,
+    "show_physics_shape": false,
+    "snap": true,
+    "sync_materials": false,
+    "transform_expanded": true
+  },
+  "camera": {
+    "camera_offset": [
+      -3.0,
+      0.0,
+      0.75
+    ],
+    "click_avatar_keeps_camera": false,
+    "disable_constraints": true,
+    "disable_wheel_zoom": false,
+    "dynamic_strength": 2.0,
+    "enable_mouselook": true,
+    "focus_offset": [
+      1.0,
+      0.0,
+      1.0
+    ],
+    "fov": 1.0471976,
+    "hover_affects_camera": false,
+    "ignore_sim_constraints": true,
+    "mouselook_alt_right_menu": false,
+    "mouselook_follow_eyes": false,
+    "mouselook_zoom_fov": null,
+    "offset_scale": 1.0,
+    "preset": "Rear",
+    "reset_on_movement": true,
+    "reset_on_teleport": true,
+    "reset_view_turns_avatar": false,
+    "show_avatar_in_mouselook": false,
+    "show_interface_in_mouselook": false,
+    "show_mouselook_instructions": true,
+    "smoothing": 1.0,
+    "track_focus_object": true,
+    "wheel_exits_mouselook": true,
+    "zoom_time": 0.4
+  },
+  "camera_shots": [],
+  "chat_bar_width": 0.0,
+  "chat_bubble_opacity": 0.5,
+  "chat_bubbles": false,
+  "chat_bubbles_hide_console": true,
+  "chat_commands": {
+    "announce_channel": 362395,
+    "announce_to_channel": false,
+    "ao": "cao",
+    "bandwidth": "bw",
+    "calc": "calc",
+    "clear_chat": "clrchat",
+    "copy_cam": "cpcampos",
+    "draw_distance": "dd",
+    "enabled": true,
+    "ground": "flr",
+    "height": "gth",
+    "key_to_name": "key2name",
+    "map_to": "mapto",
+    "map_to_keep_pos": false,
+    "media": "/media",
+    "music": "/music",
+    "offer_tp": "offertp",
+    "paste_cam": "pstcampos",
+    "platform_size": 30.0,
+    "pos": "gtp",
+    "rez_platform": "rezplat",
+    "roll_dice": "rolld",
+    "teleport_home": "tph",
+    "teleport_to_cam": "tp2cam",
+    "tp2": "tp2",
+    "track_pos": "trkpos"
+  },
+  "chat_gesture_autocomplete": true,
+  "chat_island_width": 0.0,
+  "chat_keep_focus": true,
+  "chat_log_location": "",
+  "chat_mention_autocomplete": true,
+  "chat_name_prediction": true,
+  "chat_style": "Aurora",
+  "chat_thumbnails": "ChatBar",
+  "chat_thumbnails_flash": true,
+  "chat_toast_seconds": 20.0,
+  "classic_about_land": false,
+  "classic_bars": false,
+  "classic_chat_lines": false,
+  "classic_controls": false,
+  "classic_hover_tips": false,
+  "classic_name_tags": false,
+  "classic_pay_window": false,
+  "classic_people": false,
+  "classic_places": false,
+  "classic_profiles": false,
+  "classic_region_estate": false,
+  "classic_restart_alert": false,
+  "classic_rez_effect": false,
+  "classic_search": false,
+  "collisions": {
+    "channel": -25000,
+    "in_chat": false,
+    "report": false
+  },
+  "colon_emote": false,
+  "color_blindness": "Off",
+  "color_blindness_strength": 1.0,
+  "colors": {
+    "chat_direct": [
+      251,
+      146,
+      60,
+      255
+    ],
+    "chat_errors": [
+      248,
+      113,
+      113,
+      255
+    ],
+    "chat_linden": [
+      244,
+      114,
+      182,
+      255
+    ],
+    "chat_mine": [
+      154,
+      166,
+      198,
+      255
+    ],
+    "chat_muted": [
+      111,
+      123,
+      160,
+      255
+    ],
+    "chat_object_im": [
+      167,
+      139,
+      250,
+      255
+    ],
+    "chat_objects": [
+      74,
+      222,
+      128,
+      255
+    ],
+    "chat_others": [
+      232,
+      237,
+      251,
+      255
+    ],
+    "chat_owner": [
+      252,
+      211,
+      77,
+      255
+    ],
+    "chat_slurl": [
+      94,
+      234,
+      212,
+      255
+    ],
+    "chat_system": [
+      154,
+      166,
+      198,
+      255
+    ],
+    "chat_urls": [
+      94,
+      234,
+      212,
+      255
+    ],
+    "map_linden": [
+      244,
+      114,
+      182,
+      255
+    ],
+    "map_me": [
+      139,
+      92,
+      246,
+      255
+    ],
+    "map_muted": [
+      111,
+      123,
+      160,
+      255
+    ],
+    "map_other": [
+      74,
+      222,
+      128,
+      255
+    ],
+    "map_ranges": true,
+    "map_say": [
+      108,
+      194,
+      74,
+      255
+    ],
+    "map_say_on": true,
+    "map_shout": [
+      224,
+      102,
+      26,
+      255
+    ],
+    "map_shout_on": true,
+    "map_whisper": [
+      108,
+      194,
+      74,
+      255
+    ],
+    "map_whisper_on": true,
+    "mention_me": [
+      79,
+      70,
+      229,
+      255
+    ],
+    "mention_residents": [
+      139,
+      92,
+      246,
+      255
+    ],
+    "mention_text": [
+      252,
+      211,
+      77,
+      255
+    ],
+    "relation_names": true,
+    "sender_avatar": [
+      196,
+      181,
+      253,
+      255
+    ],
+    "sender_object": [
+      74,
+      222,
+      128,
+      255
+    ],
+    "tag_linden": [
+      244,
+      114,
+      182,
+      255
+    ],
+    "tag_match": [
+      232,
+      237,
+      251,
+      255
+    ],
+    "tag_me": [
+      255,
+      255,
+      255,
+      255
+    ],
+    "tag_mismatch": [
+      232,
+      237,
+      251,
+      255
+    ],
+    "tag_muted": [
+      111,
+      123,
+      160,
+      255
+    ]
+  },
+  "compact_automated_chat": false,
+  "compact_im_system_lines": false,
+  "complexity_mode": 1,
+  "confirm_attachment_drop": true,
+  "confirm_hide_interface": true,
+  "confirm_no_transfer_settings": true,
+  "confirm_object_bonus": true,
+  "confirm_payments": true,
+  "confirm_return_to_owner": true,
+  "confirm_script_modify": true,
+  "confirm_teleports": true,
+  "contact_shadows": false,
+  "contacts": {
+    "column_display_name": false,
+    "column_full_name": true,
+    "column_permissions": true,
+    "full_name_display_first": true,
+    "set_list_icons": true,
+    "show_search": true,
+    "sort_by_display_name": false,
+    "tab": 0,
+    "torn_off": false
+  },
+  "conversations_own_windows": false,
+  "crash_reports": "Ask",
+  "crosshair": {
+    "center_dot": false,
+    "color": [
+      255,
+      255,
+      255,
+      230
+    ],
+    "dot_size": 4.0,
+    "gap": 6.0,
+    "outline": true,
+    "shape": "dot",
+    "show": true,
+    "size": 16.0,
+    "thickness": 2.0
+  },
+  "crouch_toggle": false,
+  "customize_animation": true,
+  "display_name_notices": true,
+  "dof": {
+    "enabled": false,
+    "f_number": 9.0,
+    "focal_length": 50.0,
+    "focus": "Camera",
+    "in_edit": false,
+    "max_coc": 10.0,
+    "quality": 0.7,
+    "reference_fov": 60.0,
+    "transition": 0.5
+  },
+  "double_click": "Nothing",
+  "draw_distance": 128.0,
+  "env_manual_transition": 0.0,
+  "env_persist": true,
+  "exposure": 1.0,
+  "flash_conversations_button": true,
+  "flash_conversations_nearby": true,
+  "flash_on_message": true,
+  "flash_on_object_im": true,
+  "flash_on_script_dialog": false,
+  "flash_unread_conversations": true,
+  "fly_after_teleport": false,
+  "follow": {
+    "distance": 2.0,
+    "teleport_if_stuck": false
+  },
+  "font": "Inter",
+  "font_scale": 1.0,
+  "force_midday": false,
+  "fps_cap": true,
+  "fps_limit": 120,
+  "gestures": {},
+  "gifs": {
+    "customer_id": "",
+    "giphy_key": "",
+    "hidden_by_user": false,
+    "klipy_key": "",
+    "provider": "Giphy",
+    "rating": "Moderate",
+    "show_button": false
+  },
+  "glow": true,
+  "gpu_driver_dismissed": "",
+  "grid": "SecondLife",
+  "grids": [],
+  "ground_avatar_feet": false,
+  "ground_feet_max_avatars": 5,
+  "ground_feet_max_height": 0.4,
+  "ground_feet_while_moving": false,
+  "group_snooze_ask": false,
+  "group_snooze_minutes": 15,
+  "group_titles": "All",
+  "gtao_quality": 0,
+  "hdr_emissive": true,
+  "high_contrast": false,
+  "hover_tips": {
+    "all_objects": false,
+    "delay": 0.35,
+    "enabled": false,
+    "form": "Card",
+    "group_titles": true,
+    "land": false
+  },
+  "ignored_update": "",
+  "im_toast_seconds": 30.0,
+  "immersive_huds": true,
+  "immersive_name_tags": false,
+  "imports": {
+    "everyone_copy": false,
+    "limit_texture_size": false,
+    "local_assume_meters": false,
+    "local_mesh_auto_reload": false,
+    "local_reload_seconds": 3.0,
+    "lossless_small": true,
+    "max_height": 1024,
+    "max_width": 1024,
+    "mesh_auto_preview_weights": true,
+    "mesh_auto_weights": true,
+    "mesh_model_limit": 768,
+    "mesh_physics_preset": "",
+    "mesh_reliable_default": false,
+    "mesh_suffixes": [
+      "LOD0",
+      "LOD1",
+      "LOD2",
+      "",
+      "PHYS"
+    ],
+    "mesh_upload_timeout": 600,
+    "next_copy": false,
+    "next_modify": false,
+    "next_transfer": true,
+    "permissions_by_type": {
+      "animation": null,
+      "material": null,
+      "mesh": null,
+      "sound": null,
+      "texture": null
+    },
+    "preview_background": null,
+    "preview_degenerate_edges": null,
+    "preview_degenerate_fill": null,
+    "preview_edges": null,
+    "preview_on_avatar": false,
+    "preview_physics_edges": null,
+    "preview_physics_fill": null,
+    "share_group": false,
+    "show_payment": true
+  },
+  "ims_in_notification_center": false,
+  "inspect_columns": 1023,
+  "interface_colors": {
+    "accent": null,
+    "surface": null,
+    "text": null
+  },
+  "invert_mouse": false,
+  "joystick": {
+    "auto_level": true,
+    "avatar": {
+      "dead_zone": [
+        0.1,
+        0.1,
+        0.1,
+        1.0,
+        0.02,
+        0.01,
+        1.0
+      ],
+      "feather": 6.0,
+      "gain": [
+        1.0,
+        1.0,
+        1.0,
+        0.0,
+        0.1,
+        0.1,
+        0.0
+      ]
+    },
+    "avatar_enabled": true,
+    "device": "",
+    "direct_zoom": false,
+    "enabled": false,
+    "fall_button": -1,
+    "flycam": {
+      "dead_zone": [
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01,
+        0.01
+      ],
+      "feather": 5.0,
+      "gain": [
+        2.1,
+        2.0,
+        2.0,
+        0.0,
+        0.1,
+        0.15,
+        0.0
+      ]
+    },
+    "flycam_button": 0,
+    "flycam_enabled": true,
+    "jump_button": 1,
+    "mapping": [
+      1,
+      0,
+      2,
+      4,
+      3,
+      5,
+      -1
+    ],
+    "mouselook_yaw": false,
+    "rise_button": -1,
+    "run_threshold": 0.7
+  },
+  "keybinds": {
+    "map": [
+      [
+        "Forward",
+        [
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "ArrowUp"
+            },
+            "shift": false
+          },
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "KeyW"
+            },
+            "shift": false
+          }
+        ]
+      ],
+      [
+        "Back",
+        [
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "ArrowDown"
+            },
+            "shift": false
+          },
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "KeyS"
+            },
+            "shift": false
+          }
+        ]
+      ],
+      [
+        "Left",
+        [
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "ArrowLeft"
+            },
+            "shift": false
+          },
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "KeyA"
+            },
+            "shift": false
+          }
+        ]
+      ],
+      [
+        "Right",
+        [
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "ArrowRight"
+            },
+            "shift": false
+          },
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "KeyD"
+            },
+            "shift": false
+          }
+        ]
+      ],
+      [
+        "StrafeLeft",
+        [
+          null,
+          null
+        ]
+      ],
+      [
+        "StrafeRight",
+        [
+          null,
+          null
+        ]
+      ],
+      [
+        "Up",
+        [
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "PageUp"
+            },
+            "shift": false
+          },
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "KeyE"
+            },
+            "shift": false
+          }
+        ]
+      ],
+      [
+        "Down",
+        [
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "PageDown"
+            },
+            "shift": false
+          },
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "KeyC"
+            },
+            "shift": false
+          }
+        ]
+      ],
+      [
+        "Fly",
+        [
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "Home"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "AlwaysRun",
+        [
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "KeyF"
+            },
+            "shift": false
+          },
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyR"
+            },
+            "shift": false
+          }
+        ]
+      ],
+      [
+        "MoveLock",
+        [
+          {
+            "alt": true,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyP"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "MovementEnhancer",
+        [
+          {
+            "alt": true,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyM"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "PassWall",
+        [
+          null,
+          null
+        ]
+      ],
+      [
+        "SitGround",
+        [
+          {
+            "alt": true,
+            "ctrl": false,
+            "input": {
+              "Key": "KeyS"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "Mouselook",
+        [
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "KeyM"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "ResetCamera",
+        [
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "Escape"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "Flycam",
+        [
+          {
+            "alt": true,
+            "ctrl": false,
+            "input": {
+              "Key": "KeyF"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "CameraControls",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyC"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "LensZoomIn",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "Digit0"
+            },
+            "shift": false
+          },
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "Numpad0"
+            },
+            "shift": false
+          }
+        ]
+      ],
+      [
+        "LensZoomOut",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "Digit8"
+            },
+            "shift": false
+          },
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "Numpad8"
+            },
+            "shift": false
+          }
+        ]
+      ],
+      [
+        "LensZoomDefault",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "Digit9"
+            },
+            "shift": false
+          },
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "Numpad9"
+            },
+            "shift": false
+          }
+        ]
+      ],
+      [
+        "CamOrbitCw",
+        [
+          {
+            "alt": true,
+            "ctrl": false,
+            "input": {
+              "Key": "ArrowLeft"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "CamOrbitCcw",
+        [
+          {
+            "alt": true,
+            "ctrl": false,
+            "input": {
+              "Key": "ArrowRight"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "CamOrbitOver",
+        [
+          {
+            "alt": true,
+            "ctrl": false,
+            "input": {
+              "Key": "PageUp"
+            },
+            "shift": false
+          },
+          {
+            "alt": true,
+            "ctrl": true,
+            "input": {
+              "Key": "ArrowUp"
+            },
+            "shift": false
+          }
+        ]
+      ],
+      [
+        "CamOrbitUnder",
+        [
+          {
+            "alt": true,
+            "ctrl": false,
+            "input": {
+              "Key": "PageDown"
+            },
+            "shift": false
+          },
+          {
+            "alt": true,
+            "ctrl": true,
+            "input": {
+              "Key": "ArrowDown"
+            },
+            "shift": false
+          }
+        ]
+      ],
+      [
+        "CamZoomIn",
+        [
+          {
+            "alt": true,
+            "ctrl": false,
+            "input": {
+              "Key": "ArrowUp"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "CamZoomOut",
+        [
+          {
+            "alt": true,
+            "ctrl": false,
+            "input": {
+              "Key": "ArrowDown"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "CamPanLeft",
+        [
+          {
+            "alt": true,
+            "ctrl": true,
+            "input": {
+              "Key": "ArrowLeft"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "CamPanRight",
+        [
+          {
+            "alt": true,
+            "ctrl": true,
+            "input": {
+              "Key": "ArrowRight"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "CamPanUp",
+        [
+          {
+            "alt": true,
+            "ctrl": true,
+            "input": {
+              "Key": "ArrowUp"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "CamPanDown",
+        [
+          {
+            "alt": true,
+            "ctrl": true,
+            "input": {
+              "Key": "ArrowDown"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "Chat",
+        [
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "Enter"
+            },
+            "shift": false
+          },
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "NumpadEnter"
+            },
+            "shift": false
+          }
+        ]
+      ],
+      [
+        "PushToTalk",
+        [
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Mouse": "Middle"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "ToggleMic",
+        [
+          null,
+          null
+        ]
+      ],
+      [
+        "Conversations",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyT"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "People",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyA"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "Inventory",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyI"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "TextureLibrary",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "Space"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "IkEdit",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyK"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "Gestures",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyG"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "Minimap",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyM"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "WorldMap",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyM"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "TeleportHistory",
+        [
+          {
+            "alt": true,
+            "ctrl": false,
+            "input": {
+              "Key": "KeyH"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "RegionEstate",
+        [
+          {
+            "alt": true,
+            "ctrl": false,
+            "input": {
+              "Key": "KeyR"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "Search",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyF"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "Performance",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "Digit1"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "Preferences",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyP"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "ToggleInterface",
+        [
+          {
+            "alt": true,
+            "ctrl": false,
+            "input": {
+              "Key": "KeyU"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "HoverTips",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyT"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "Import",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyU"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "Beacons",
+        [
+          {
+            "alt": true,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyN"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "PropertyLines",
+        [
+          {
+            "alt": true,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyP"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "LandOwners",
+        [
+          {
+            "alt": true,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyO"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "HideParticles",
+        [
+          {
+            "alt": true,
+            "ctrl": true,
+            "input": {
+              "Key": "Equal"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "ShowHuds",
+        [
+          {
+            "alt": true,
+            "ctrl": false,
+            "input": {
+              "Key": "KeyH"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "HudDrag",
+        [
+          {
+            "alt": false,
+            "ctrl": false,
+            "input": {
+              "Key": "ControlLeft"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "ShowTransparency",
+        [
+          {
+            "alt": true,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyT"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "Rebake",
+        [
+          {
+            "alt": true,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyR"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "DevToolbox",
+        [
+          {
+            "alt": true,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyD"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "StopAnimations",
+        [
+          {
+            "alt": true,
+            "ctrl": false,
+            "input": {
+              "Key": "KeyA"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "ResyncAnimations",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyS"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "RefreshAttachments",
+        [
+          {
+            "alt": true,
+            "ctrl": false,
+            "input": {
+              "Key": "KeyR"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "PhotoWindow",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyS"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "PhotoToDisk",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "Backquote"
+            },
+            "shift": false
+          },
+          null
+        ]
+      ],
+      [
+        "EnvSunrise",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyU"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "EnvMidday",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyY"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "EnvSunset",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyN"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "EnvMidnight",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyX"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ],
+      [
+        "EnvShared",
+        [
+          {
+            "alt": false,
+            "ctrl": true,
+            "input": {
+              "Key": "KeyJ"
+            },
+            "shift": true
+          },
+          null
+        ]
+      ]
+    ]
+  },
+  "keywords": {
+    "case_sensitive": false,
+    "change_color": false,
+    "color": [
+      255,
+      153,
+      0,
+      255
+    ],
+    "in_chat": false,
+    "in_im": false,
+    "on": false,
+    "play_sound": false,
+    "speakers_name": false,
+    "whole_words": false,
+    "words": ""
+  },
+  "language": "default",
+  "language_is_public": true,
+  "legacy_money_tracker": false,
+  "letter_keys_move": true,
+  "link_previews": {
+    "blur_groups": true,
+    "groups": true,
+    "hidden_sites": [],
+    "ims": true,
+    "load": "Trusted",
+    "nearby": false,
+    "picture_sites": [],
+    "player": "InCard",
+    "size": "Medium",
+    "subtitle_language": "",
+    "subtitles": false,
+    "video_volume": 1.0
+  },
+  "loading_avatars": 0,
+  "loading_backdrop": true,
+  "lod_factor": 2.0,
+  "log_dated_names": false,
+  "log_im": true,
+  "log_nearby": false,
+  "lookat": {
+    "aim": "Point",
+    "head_pitch": 90.0,
+    "head_yaw": 90.0,
+    "hide_own": true,
+    "limit_distance": false,
+    "lines": false,
+    "max_distance": 1.0,
+    "private": false,
+    "private_local": false,
+    "private_point_at": false,
+    "show_names": 1,
+    "show_targets": false,
+    "static_eyes": false,
+    "style": "Aurora"
+  },
+  "maps": {
+    "ban_lines": 1,
+    "mini_auto_center": true,
+    "mini_collision": true,
+    "mini_double_click": 2,
+    "mini_for_sale": false,
+    "mini_objects": true,
+    "mini_physical": false,
+    "mini_property_lines": true,
+    "mini_rotate": false,
+    "mini_scale": 128.0,
+    "mini_scripted": false,
+    "mini_temp_on_rez": false,
+    "world_adult_events": false,
+    "world_double_click_tp": true,
+    "world_events": true,
+    "world_grid_coords": false,
+    "world_infohubs": true,
+    "world_land_for_sale": true,
+    "world_mature_events": true,
+    "world_people": true,
+    "world_scale": 128.0,
+    "world_telehubs": true
+  },
+  "max_attachment_area": 1000.0,
+  "max_avatars": 19,
+  "max_complexity": 0,
+  "max_particles": 4096,
+  "media": {
+    "allow_scripted": false,
+    "autoplay_huds": true,
+    "enabled": true,
+    "filter": true,
+    "filter_explained": false,
+    "filter_trust_own_worn": true,
+    "max_instances": 8,
+    "plugin_dir": "",
+    "prim_media": true,
+    "show_on_others": false
+  },
+  "mirrors": 0,
+  "moon_beacon": false,
+  "mouse_sensitivity": 1.0,
+  "movements": {
+    "518d9b42-dcc0-40d7-bc91-082942bf7f25": {
+      "controller_version": 6,
+      "discover_strokes": [
+        true,
+        true,
+        true
+      ],
+      "float_height": 0.0,
+      "fly_assist": false,
+      "fly_multiplier": 1.0,
+      "jump_obstacles": true,
+      "pass_wall": false,
+      "run_multiplier": 1.0,
+      "running": false,
+      "style": "Breaststroke",
+      "swim_speed": 5.0,
+      "swimming": false,
+      "water_jumps": true,
+      "water_walk": false
+    }
+  },
+  "mute_all_groups": false,
+  "mute_groups_without_notices": false,
+  "name_tag_distance": 64.0,
+  "name_tag_show_seconds": 10.0,
+  "no_neighbour_regions": false,
+  "notifications_style": "Aurora",
+  "notify_deliveries": true,
+  "object_im_filter": {
+    "on": false,
+    "scope": "Region"
+  },
+  "occlusion_culling": true,
+  "parcel_visibility": {
+    "always_visible": [],
+    "mode": "Off",
+    "parcels": [],
+    "same_group": false,
+    "same_owner": false
+  },
+  "particle_filters": {
+    "objects": [],
+    "owners": []
+  },
+  "payment_confirm_threshold": 200,
+  "payment_opens_conversation": true,
+  "people_tab": 0,
+  "photo_window": "Aurora",
+  "place_bar_rights_text": false,
+  "place_bar_stretch": true,
+  "places_sort": "Visit",
+  "plate_click": "Nothing",
+  "plate_ctrl_click": "Nothing",
+  "plate_shift_click": "Nothing",
+  "plates_click_combo": false,
+  "plates_hover_expand": true,
+  "plates_jiggle": false,
+  "play_typing_anim": true,
+  "pose_requests": {
+    "blocked": [],
+    "policy": "Friends"
+  },
+  "poser": {
+    "also_bvh": false,
+    "confirm_close": true,
+    "confirm_overwrite": false,
+    "dof": false,
+    "markers": true,
+    "natural": true,
+    "sensitivity": 0.5,
+    "stop_on_close": true,
+    "unlock_pelvis": false
+  },
+  "predict_own_motion": false,
+  "presence_position": "TopRight",
+  "probe_count": 32,
+  "profile_rights": true,
+  "projector_shadows": false,
+  "quickjump": false,
+  "radar": {
+    "age_alert": false,
+    "age_alert_days": 7,
+    "chat_enter": false,
+    "chat_leave": false,
+    "color_names": false,
+    "columns": 1023,
+    "compact": false,
+    "draw_enter": false,
+    "draw_leave": false,
+    "enhance_by_bridge": true,
+    "enter_scripts": false,
+    "leave_scripts": false,
+    "limit_range": false,
+    "name_format": 0,
+    "range": 162.0,
+    "script_channel": -777777777,
+    "show_minimap": false,
+    "show_muted": true,
+    "sort": 9,
+    "sort_descending": false,
+    "toasts": false
+  },
+  "received_items_since": 0,
+  "reduce_motion": false,
+  "reflection_probes": 2,
+  "render_exceptions": [],
+  "render_scale_percent": 50,
+  "reopen_ims": false,
+  "report_blocks": false,
+  "rlva": {
+    "allow_environment_locks": true,
+    "allow_ooc": true,
+    "allow_shared_offers": true,
+    "auto_rename": true,
+    "compatibility_list": "",
+    "debug_commands": false,
+    "debug_hide_unset_duplicate": false,
+    "experience_maturity": 2,
+    "experimental_commands": true,
+    "hide_locked_attachments": false,
+    "hide_locked_layers": false,
+    "im_queries": true,
+    "im_queries_auto_share": false,
+    "legacy_naming": true,
+    "replace_unlocked": true,
+    "shared_wear": true,
+    "show_ellipsis": true,
+    "show_redirect_typing": false,
+    "split_redirect_chat": false,
+    "temporary_controllers": true,
+    "wear_add_prefix": "+",
+    "wear_replace_prefix": ""
+  },
+  "rlva_enabled": true,
+  "screen_indirect_intensity": 1.5,
+  "screen_indirect_light": false,
+  "script_count_alert": false,
+  "script_count_threshold": 100,
+  "script_editor": {
+    "colors": {},
+    "convert_tabs": true,
+    "disk_includes": false,
+    "external_editor": "",
+    "font_size": 13.0,
+    "help_follows_cursor": false,
+    "lazy_lists": true,
+    "optimize": true,
+    "owner_say_debug": false,
+    "preprocessor": false,
+    "recompile": false,
+    "search_inline": false,
+    "search_prefer_left": false,
+    "switches": true,
+    "word_wrap": true
+  },
+  "script_errors_channel": 1,
+  "script_errors_in_chat": true,
+  "script_errors_to_channel": false,
+  "search": {
+    "aurora_ratings": {
+      "adult": false,
+      "mature": false,
+      "pg": true
+    },
+    "classifieds": {
+      "adult": false,
+      "mature": false,
+      "pg": true
+    },
+    "events": {
+      "adult": false,
+      "mature": false,
+      "pg": true
+    },
+    "group_maturity": 13,
+    "land": {
+      "adult": false,
+      "mature": false,
+      "pg": true
+    },
+    "land_limit_area": false,
+    "land_limit_price": true,
+    "land_type": 0,
+    "places": {
+      "adult": false,
+      "mature": false,
+      "pg": true
+    },
+    "teleport_action": 1
+  },
+  "send_typing_state": true,
+  "settings_version": 28,
+  "shadow_quality": 0,
+  "shadows": false,
+  "shape_height_feet": false,
+  "shape_show_hints": true,
+  "sharpen": 0.0,
+  "show_ao": false,
+  "show_appearance": false,
+  "show_balance": true,
+  "show_bug_report": true,
+  "show_chat": true,
+  "show_chat_channel": false,
+  "show_contacts_tab": true,
+  "show_huds": true,
+  "show_joined_group_invitations": false,
+  "show_minimap": false,
+  "show_net_stats": false,
+  "show_other_name_tags": true,
+  "show_own_name_tag": true,
+  "show_people": true,
+  "show_perf": false,
+  "sim_version_alert": true,
+  "snap_windows": true,
+  "snapshot": {
+    "aspect": "Window",
+    "auto_refresh": false,
+    "base_name": "Snapshot",
+    "custom": [
+      1920,
+      1080
+    ],
+    "dof": {
+      "distance": 5.0,
+      "enabled": true,
+      "f_number": 2.8,
+      "focus": "Click"
+    },
+    "format": "Png",
+    "guide": "Thirds",
+    "huds": false,
+    "interface": false,
+    "jpeg_quality": 75,
+    "keep_ratio": true,
+    "look_settings": {},
+    "looks": [],
+    "postcard_size": "S800",
+    "profile_location": true,
+    "profile_size": "S640",
+    "quality": false,
+    "resolution": "Uhd",
+    "sound": true,
+    "viewfinder": {
+      "area": "Avatar",
+      "beep": true,
+      "controls": "Always",
+      "display": "Full",
+      "dof_defaulted": false,
+      "hints": true,
+      "pad": false,
+      "peaking": "White",
+      "timer": 0
+    }
+  },
+  "sort_received_items": false,
+  "specular_aa": true,
+  "spelling": {
+    "enabled": true,
+    "extra": [
+      "sl"
+    ],
+    "main": "en_us"
+  },
+  "ssao": 1,
+  "ssr": false,
+  "standalone_place_details": false,
+  "start_location": "last",
+  "start_region": "",
+  "sun_beacon": false,
+  "synchronize_animations": false,
+  "system_island": {
+    "clock": true,
+    "clock_format": "Auto",
+    "clock_seconds": true,
+    "clock_zone": "Slt",
+    "fps": true,
+    "media": true,
+    "ping": true
+  },
+  "system_notifications": false,
+  "system_notifications_when_active": false,
+  "tag_complexity": true,
+  "tag_complexity_own": false,
+  "tag_complexity_too_complex_only": true,
+  "temporary_name_tags": false,
+  "texture_budget_auto": false,
+  "texture_budget_mb": 10000,
+  "texture_library": {
+    "material_preview_size": null,
+    "presentation": "Vertical",
+    "texture_display": {
+      "actual_size": false,
+      "custom_ratio": [
+        1.0,
+        1.0
+      ],
+      "keep_ratio": true,
+      "ratio": 0
+    },
+    "texture_preview_size": null
+  },
+  "time_of_day": 0,
+  "toast_group_im": false,
+  "toast_im": true,
+  "tonemap_mix": 0.7,
+  "tonemapper": 1,
+  "toolbar_common": {
+    "bottom_style": {
+      "align": null,
+      "mode": null,
+      "sizing": null
+    },
+    "buttons": null,
+    "left_style": {
+      "align": null,
+      "mode": null,
+      "sizing": null
+    },
+    "locked": false,
+    "right_style": {
+      "align": null,
+      "mode": null,
+      "sizing": null
+    }
+  },
+  "trim_resident": true,
+  "trusted_sites": {
+    "added": [],
+    "removed": []
+  },
+  "type_during_emote": false,
+  "typing_bubbles": false,
+  "typing_chevron": false,
+  "typing_in_name_tags": true,
+  "ui_scale": 1.0,
+  "update_channel": "Stable",
+  "update_mode": "Ask",
+  "use_display_names": true,
+  "use_pie_menu": false,
+  "vsync": false,
+  "walk_backwards_without_turning": false,
+  "warn_external_links": true,
+  "water_effects": {
+    "absorption": true,
+    "bubbles": true,
+    "caustics": true,
+    "contact_foam": true,
+    "crest_foam": true,
+    "enabled": false,
+    "fresnel": true,
+    "interactions": true,
+    "quality": 1,
+    "shore_foam": true,
+    "splashes": true,
+    "waves": true,
+    "wet_ground": true
+  },
+  "water_reflections": 0,
+  "world_context_menus": {
+    "profiles": {
+      "scene:attachment": {
+        "layout": {
+          "directions": {},
+          "filters": [],
+          "groups": {},
+          "icon_bars": [],
+          "orders": {},
+          "placements": {},
+          "removed": [],
+          "separators": {},
+          "slots": {}
+        },
+        "locked": true,
+        "open": {}
+      },
+      "scene:avatar": {
+        "layout": {
+          "directions": {},
+          "filters": [],
+          "groups": {},
+          "icon_bars": [],
+          "orders": {},
+          "placements": {},
+          "removed": [],
+          "separators": {},
+          "slots": {}
+        },
+        "locked": true,
+        "open": {}
+      },
+      "scene:hud": {
+        "layout": {
+          "directions": {},
+          "filters": [],
+          "groups": {},
+          "icon_bars": [],
+          "orders": {},
+          "placements": {},
+          "removed": [],
+          "separators": {},
+          "slots": {}
+        },
+        "locked": true,
+        "open": {}
+      }
+    }
+  },
+  "world_map_style": "Aurora",
+  "world_mouse_walk": false,
+  "world_overlays": {
+    "property_lines": false
+  }
+}

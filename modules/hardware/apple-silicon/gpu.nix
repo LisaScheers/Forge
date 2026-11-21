@@ -5,11 +5,13 @@
     pkgs,
     ...
   }: let
-    kernel = pkgs.callPackage ../../../packages/asterion-gpu-kernel/package.nix {};
-    mesa = pkgs.callPackage ../../../packages/mesa-aurora/package.nix {};
-    gpuModules = pkgs.callPackage ../../../packages/asterion-gpu-modules/package.nix {
+    gpu = import ../../../packages/asterion-gpu {
+      inherit pkgs;
       kernel = config.boot.kernelPackages.kernel;
     };
+    kernel = gpu.gpuKernel;
+    inherit (gpu) mesa;
+    gpuModules = gpu.modules;
   in {
     boot.kernelPackages = lib.mkForce (pkgs.linuxPackagesFor kernel);
     boot.extraModulePackages = [gpuModules];

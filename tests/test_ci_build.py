@@ -10,13 +10,16 @@ SCRIPT = Path(__file__).resolve().parents[1] / ".github/scripts/build-configurat
 
 
 class CiBuildTest(unittest.TestCase):
-    def run_build(self, message, failures=1):
+    shell = "bash"
+
+    def run_build(self, message, failures=1, checks="", target="test-target"):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             attempts = root / "attempts"
             attempts.write_text("0")
             nix = root / "nix"
             nix.write_text('''#!/usr/bin/env bash
+printf '%s\n' "$@" > "$ARGS_FILE"
 count=$(<"$ATTEMPTS_FILE")
 count=$((count + 1))
 echo "$count" > "$ATTEMPTS_FILE"
@@ -30,17 +33,38 @@ fi
             sleep.write_text("#!/usr/bin/env bash\nexit 0\n")
             sleep.chmod(0o755)
             result = subprocess.run(
-                ["bash", str(SCRIPT)], capture_output=True, text=True,
+                [self.shell, str(SCRIPT)], capture_output=True, text=True,
                 env={
-                    **os.environ,
+                    # Never inherit the caller's TARGET or CHECKS.
+                    **{key: value for key, value in os.environ.items() if key not in ("TARGET", "CHECKS")},
                     "PATH": str(root) + os.pathsep + os.environ["PATH"],
-                    "TARGET": "test-target",
+                    **({"TARGET": target} if target else {}),
                     "ATTEMPTS_FILE": str(attempts),
                     "FAIL_ATTEMPTS": str(failures),
                     "FAIL_MESSAGE": message,
+                    "ARGS_FILE": str(root / "args"),
+                    "CHECKS": checks,
                 },
             )
+            args = root / "args"
+            self.args = args.read_text().splitlines() if args.exists() else []
             return result, int(attempts.read_text())
+
+    def test_checks_build_with_the_target(self):
+        result, _ = self.run_build("", failures=0, checks="checks.x86_64-linux.a checks.x86_64-linux.b")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.args[-3:], [".#test-target", ".#checks.x86_64-linux.a", ".#checks.x86_64-linux.b"])
+
+    def test_no_checks_builds_only_the_target(self):
+        result, attempts = self.run_build("", failures=0)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(attempts, 1)
+        self.assertEqual(self.args[-1], ".#test-target")
+
+    def test_an_aborted_script_fails_the_job(self):
+        result, attempts = self.run_build("", failures=0, target=None)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(attempts, 0)
 
     def test_transient_download_errors_recover(self):
         for message in (
@@ -70,6 +94,12 @@ fi
                 result, attempts = self.run_build(message)
                 self.assertEqual(result.returncode, 77)
                 self.assertEqual(attempts, 1)
+
+
+@unittest.skipUnless(Path("/bin/bash").exists(), "no /bin/bash")
+class CiBuildSystemBashTest(CiBuildTest):
+    """macOS runners and developer machines may run the script with Bash 3.2."""
+    shell = "/bin/bash"
 
 
 if __name__ == "__main__":

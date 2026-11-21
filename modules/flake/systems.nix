@@ -1,8 +1,6 @@
 {inputs, ...}: {
-  # NOTE We use the default `systems` defined by the `nix-systems` flake, if
-  # you need any additional systems, simply add them in the following manner
-  #
-  # `systems = (import inputs.systems) ++ [ "armv7l-linux" ];`
+  # Per-system outputs cover the nix-systems defaults; ci.nix maps each to a
+  # native runner and fails evaluation for one without.
   systems = import inputs.systems;
 
   flake-file.inputs.systems.url = "github:nix-systems/default";
