@@ -5,7 +5,10 @@
     imports = [config.home.chrome-tab config.home.ssh-public-keys config.home.onepassword];
     xdg.enable = true;
     programs.home-manager.enable = true;
-    home.sessionVariables.FJ_FALLBACK_HOST = "https://git.bylisa.dev";
+    home.sessionVariables = {
+      FJ_FALLBACK_HOST = "https://git.bylisa.dev";
+      NIXPKGS_ALLOW_UNFREE = "1";
+    };
     home.packages = with pkgs; [
       just
       sops

@@ -18,6 +18,6 @@
   options.flake.lib = lib.mkOption {
     type = lib.types.lazyAttrsOf lib.types.raw;
     default = {};
-    description = "Functions Forge exports to its tools and modules.";
+    description = "Helpers Forge exports to its tools and modules: functions and shared values.";
   };
 }

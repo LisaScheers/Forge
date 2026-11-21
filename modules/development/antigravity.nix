@@ -14,7 +14,7 @@
       settings = {
         allowNonWorkspaceAccess = true;
         enableTelemetry = false;
-        model = "Gemini 3.7 Flash (High)";
+        model = "Gemini 3.8 Flash (High)";
         permissions = {
           allow = [
             "command(git worktree)"

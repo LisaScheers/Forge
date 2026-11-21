@@ -15,11 +15,13 @@ anonymously. Disabled Mastodon is excluded. A public login page alone does not
 make an application's functionality public.
 
 The Nix module in `modules/services/home-dashboard/server.nix` owns nginx, TLS,
-the Authentik provider, the API, and a 30-second status timer. Authentik's embedded
-outpost authenticates `/api/private` and `/login`. The API listens only on a Unix
-socket; nginx overwrites its identity header. Neither private links nor private
-status counts appear in public HTML or public API responses. Private data is
-never cached. Signing out goes through the outpost's sign-out flow.
+the API, and a 30-second status timer; `auth.nix` beside it applies the Authentik
+provider, and `collector.nix` runs a probe on Nook of its LAN-only Sunshine
+listener. Authentik's embedded outpost authenticates `/api/private` and `/login`.
+The API listens only on a Unix socket; nginx overwrites its identity header.
+Neither private links nor private status counts appear in public HTML or public
+API responses. Private data is never cached. Signing out goes through the
+outpost's sign-out flow.
 
 The collector reads Kuma's SQLite database in read-only mode. It selects only
 monitor names, active flags, timing configuration, and heartbeat status/time/ping;

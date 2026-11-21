@@ -40,7 +40,6 @@ in {
       };
       settings = {
         modelProvider = "gemini";
-        model = lib.mkForce "Gemini 3.8 Flash (High)";
       };
     };
     home.sessionVariables = {
