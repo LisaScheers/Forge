@@ -32,7 +32,8 @@
   lookupWorks =
     builtins.elem "modules/hosts/nook/default.nix" (lookup "nixos" "nook")
     && !(builtins.elem "modules/hosts/atlas/default.nix" (lookup "nixos" "nook"))
-    && lookup "nixos" "no-such-profile" == [];
+    && lookup "nixos" "no-such-profile" == []
+    && !(builtins.tryEval (lookup "network" "nook")).success;
 in {
   perSystem = {pkgs, ...}: {
     checks.profiles = assert lib.assertMsg valid "Profiles must preserve their module class and public exports";

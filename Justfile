@@ -50,8 +50,12 @@ tree:
 features profile class="nixos":
     #!/usr/bin/env bash
     set -euo pipefail
-    case "$1:$2" in
-      *[!a-z0-9:-]*|:*|*:) echo 'Expected a profile name and nixos, darwin or home.' >&2; exit 2 ;;
+    case "$2" in
+      nixos|darwin|home) ;;
+      *) echo 'Expected a profile name and nixos, darwin or home.' >&2; exit 2 ;;
+    esac
+    case "$1" in
+      ''|*[!a-z0-9-]*) echo 'Expected a profile name and nixos, darwin or home.' >&2; exit 2 ;;
     esac
     files=$(nix eval --raw .#lib.profileFiles --apply "lookup: builtins.concatStringsSep \"\n\" (lookup \"$2\" \"$1\")")
     if [ -z "$files" ]; then

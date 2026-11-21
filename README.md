@@ -21,8 +21,8 @@ system settings, home settings, packages, checks, and inputs together.
 Features merge into named profiles such as `nixos.nook`, `darwin.vega` and
 `home.lisa`, Lisa's shell, editors and tools on every machine. The workstation
 homes `home.lisa-vega` and `home.lisa-asterion` import `home.lisa` and
-`home.workstation` (development tools, Java runtimes, the Chrome tab bridge, SSH
-keys and 1Password), then add their desktop settings. A feature binds itself
+`home.workstation` (a few shared development packages, Java runtimes, the Chrome
+tab bridge, SSH keys and 1Password), then add their desktop settings. A feature binds itself
 directly to the profile it configures, such as `nixos.nook` or
 `home.lisa-asterion`. A reusable piece that consumers select explicitly is a
 named profile they import, such as `home.workstation`, `home.onepassword` or
