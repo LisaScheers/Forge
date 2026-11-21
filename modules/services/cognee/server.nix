@@ -152,6 +152,7 @@ in {
           CORS_ALLOWED_ORIGINS = "https://${domain}";
           TELEMETRY_DISABLED = "1";
         };
+        # modules/security/node2shell.nix adds the Arrow and Brotli security mounts.
         volumes = [
           "${storageRoot}/system:/cognee-storage/system"
           "${storageRoot}/data:/cognee-storage/data"
@@ -187,6 +188,7 @@ in {
           MCP_CORS_ALLOW_ORIGINS = "https://${domain}";
           TELEMETRY_DISABLED = "1";
         };
+        # modules/security/node2shell.nix adds the Brotli security mounts.
         volumes = [
           "${storageRoot}/mcp:/cognee-mcp"
           "${source}/mcp.py:/etc/cognee-mcp.py:ro"

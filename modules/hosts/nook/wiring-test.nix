@@ -11,7 +11,8 @@
   # Each piece below is declared by a different feature module; these are the
   # links between them that evaluation alone would not catch.
   problems =
-    map (name: "virtual host ${name} uses a certificate nothing requests") (lib.attrNames (lib.filterAttrs (_: vhost: vhost.useACMEHost != null && !(certs ? ${vhost.useACMEHost})) vhosts))
+    lib.optional (!nook.services.cloudflare-dyndns.enable) "cloudflare-dyndns is disabled, so no public name follows Nook's address"
+    ++ map (name: "virtual host ${name} uses a certificate nothing requests") (lib.attrNames (lib.filterAttrs (_: vhost: vhost.useACMEHost != null && !(certs ? ${vhost.useACMEHost})) vhosts))
     ++ map (name: "${name} has a certificate but is missing from cloudflare-dyndns domains") (lib.filter (name: !(builtins.elem name nook.services.cloudflare-dyndns.domains)) (["ha.bylisa.dev"] ++ certs."ha.bylisa.dev".extraDomainNames))
     ++ lib.optional (vhosts."cliproxy.local.bylisa.dev".locations."/".proxyPass != gateway) "the gateway's nginx upstream is not flake.lib.aiGatewayUrl"
     ++ lib.optional (nook.virtualisation.oci-containers.containers.cognee.environment.LLM_ENDPOINT != "${gateway}/v1") "Cognee does not call flake.lib.aiGatewayUrl";

@@ -60,7 +60,10 @@ The API image's Ladybug 0.19.0 is overridden with hash-pinned 0.21.0 and its
 matching JSON extension. This fixes the [large-record WAL checksum bug](https://github.com/LadybugDB/ladybug/pull/959).
 Both artifacts are read-only Nix mounts; no runtime package installation is used.
 The 8 November 2026 source update advances both images to the 6 November builds
-of Cognee 1.6.7. Ladybug stays at 0.21.0 with its
+of Cognee 1.6.7. The API uses an upstream Arrow 26.0.1 wheel in place of its
+25.0.1 wheel; the MCP image already includes 26.0.1 and needs no Arrow overlay.
+Pillow still needs the Brotli 1.2.1 mounts. `modules/security/node2shell.nix`
+adds those mounts to both containers. Ladybug stays at 0.21.0 with its
 matching extension; later releases require a separate storage compatibility check.
 
 ## Graph storage recovery
@@ -364,8 +367,8 @@ ssh nook 'sudo podman healthcheck run cognee && sudo podman healthcheck run cogn
 
 `cognee-bootstrap` is a successful oneshot, so an inactive state after
 completion is normal. `podman-cognee` and `podman-cognee-mcp` should be active;
-Nook's `codex` service stays disabled until its login is renewed. Its inference
-spends Lisa's OpenRouter credits through the gateway.
+Nook's `codex` service stays disabled until its login is renewed. Cognee's
+inference spends Lisa's OpenRouter credits through the gateway.
 
 Never expose the loopback ports directly. There is no remote off-machine backup
 destination configured for Cognee yet. Before an image upgrade, stop MCP and API,
