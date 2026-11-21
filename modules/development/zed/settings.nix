@@ -1,5 +1,5 @@
 {
-  home.lisa = {
+  home.workstation = {
     programs.zed-editor.userSettings = {
       buffer_font_family = "ComicCodeLigatures Nerd Font";
       project_panel = {

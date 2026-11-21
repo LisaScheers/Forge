@@ -1,5 +1,5 @@
 {
-  home.lisa = {
+  home.workstation = {
     programs.zed-editor.userSettings.terminal = {
       alternate_scroll = "off";
       blinking = "off";

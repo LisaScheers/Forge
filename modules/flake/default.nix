@@ -24,7 +24,8 @@
     default = {};
     description = "Functions Forge exports to its tools and modules: nixd settings, profile lookup, runtime sources.";
   };
-  # A service's files under services/<name>/ without its tests and notes, so
+  # A service's files under services/<name>/ without its tests, notes and
+  # Authentik blueprint (applied separately from its own copy), so
   # editing those never changes or restarts what runs. Its check reads the
   # whole directory instead. Any file named test_* at any depth counts as a
   # test, including test-only helpers and fixtures.
@@ -35,7 +36,7 @@
       filter = file: _: let
         name = baseNameOf file;
       in
-        !(lib.hasPrefix "test_" name || name == "README.md" || name == ".gitignore");
+        !(lib.hasPrefix "test_" name || builtins.elem name ["README.md" ".gitignore" "authentik.yaml"]);
     };
   config.perSystem = {pkgs, ...}: {
     checks.runtime-source = let
@@ -43,7 +44,7 @@
       watchRoom = runtimeFiles "watch-room";
       aiUsage = runtimeFiles "ai-usage";
     in
-      assert lib.assertMsg (builtins.elem "server.py" watchRoom && builtins.all (name: !(builtins.elem name watchRoom)) ["test_server.py" "README.md" ".gitignore"]) "runtimeSource must keep Watch Room's server and drop its tests and notes";
+      assert lib.assertMsg (builtins.elem "server.py" watchRoom && builtins.all (name: !(builtins.elem name watchRoom)) ["test_server.py" "README.md" ".gitignore" "authentik.yaml"]) "runtimeSource must keep Watch Room's server and drop its tests, notes and blueprint";
       assert lib.assertMsg (builtins.elem "ingest.py" aiUsage && builtins.all (name: !(lib.hasPrefix "test_" name)) aiUsage) "runtimeSource must drop AI usage's test helpers";
         pkgs.runCommand "runtime-source" {} ''
           touch "$out"

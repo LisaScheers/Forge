@@ -1,5 +1,5 @@
 {inputs, ...}: {
-  # Zed runs on the workstations; home.lisa carries its settings everywhere.
+  # Zed runs on the workstations, configured by the other files here.
   home.workstation.programs.zed-editor.enable = true;
   # Vega installs Zed Nightly system-wide; Asterion selects its own build.
   home.lisa-vega.programs.zed-editor.package = null;

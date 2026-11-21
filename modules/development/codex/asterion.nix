@@ -1,9 +1,4 @@
-{config, ...}: let
-  nook = config.network.nook;
-in {
-  nixos.asterion.networking.hosts.${nook.tailscale} = [
-    "cognee.local.bylisa.dev"
-  ];
+{
   home.lisa-asterion = {lib, ...}: {
     programs.codex.settings = {
       model = "gpt-6.1-sol";

@@ -1,10 +1,12 @@
 {
-  home.lisa = {
+  home.lisa = {pkgs, ...}: {
+    home.packages = [pkgs.dotnetCorePackages.sdk_10_0];
+  };
+  home.workstation = {
     lib,
     pkgs,
     ...
   }: {
-    home.packages = [pkgs.dotnetCorePackages.sdk_10_0];
     programs.zed-editor.extensions = ["csharp"];
     programs.zed-editor.userSettings = {
       languages.CSharp = {

@@ -4,7 +4,6 @@
   source = config.flake.lib.runtimeSource tree;
 in {
   perSystem = {pkgs, ...}: {
-    packages.ai-archive-auth-blueprint = pkgs.writeText "ai-archive.yaml" (builtins.readFile (tree + /authentik.yaml));
     checks.ai-archive = pkgs.runCommand "ai-archive-tests" {} ''
       ${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 -B -m unittest discover -s ${tree} -v
       ${pkgs.nodejs}/bin/node --check ${tree}/public/app.js

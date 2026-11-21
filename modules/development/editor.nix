@@ -1,5 +1,6 @@
 {
-  home.lisa = {
+  # Zed is the editor wherever home.workstation enables it.
+  home.workstation = {
     config,
     pkgs,
     lib,
@@ -12,7 +13,7 @@
       else pkgs.zed-editor
     );
   in {
-    home.sessionVariables = lib.mkIf config.programs.zed-editor.enable {
+    home.sessionVariables = {
       NIXPKGS_ALLOW_UNFREE = "1";
       EDITOR = "${zed} --wait";
       VISUAL = "${zed} --wait";
