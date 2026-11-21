@@ -58,13 +58,15 @@ The graph buffer pool is explicitly limited to 1 GiB: Cognee's 32 GiB default
 exceeds the container's memory limit and caused a graph-worker OOM on 2026-10-02.
 The API image's Ladybug 0.19.0 is overridden with hash-pinned 0.21.0 and its
 matching JSON extension. This fixes the [large-record WAL checksum bug](https://github.com/LadybugDB/ladybug/pull/959).
-Both artifacts are read-only Nix mounts; no runtime package installation is used.
-The 8 November 2026 source update advances both images to the 6 November builds
-of Cognee 1.6.7. The API uses an upstream Arrow 26.0.1 wheel in place of its
-25.0.1 wheel; the MCP image already includes 26.0.1 and needs no Arrow overlay.
-Pillow still needs the Brotli 1.2.1 mounts. `modules/security/node2shell.nix`
-adds those mounts to both containers. Ladybug stays at 0.21.0 with its
-matching extension; later releases require a separate storage compatibility check.
+Both artifacts are read-only Nix mounts; no runtime package installation is
+used. The 8 November 2026 source update advances both images to the 6 November
+builds of Cognee 1.6.7. The API uses an upstream Arrow 26.0.1 wheel in place of
+its 25.0.1 wheel; the MCP image already includes 26.0.1 and needs no Arrow
+overlay. Pillow still needs the Brotli 1.2.1 mounts in both containers, and the
+API container also mounts the system Brotli 1.2.1 libraries;
+`modules/security/node2shell.nix` adds all of these mounts. Ladybug stays at
+0.21.0 with its matching extension; later releases require a separate storage
+compatibility check.
 
 ## Graph storage recovery
 
