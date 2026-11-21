@@ -9,7 +9,7 @@
       nodes.machine = {pkgs, ...}: {
         imports = [config.nixos.matrix];
         networking.domain = "bridge.test";
-        matrix = {
+        forge.matrix = {
           enable = false;
           discord = {
             enable = true;

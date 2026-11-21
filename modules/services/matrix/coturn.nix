@@ -4,7 +4,7 @@
     lib,
     ...
   }: let
-    cfg = config.matrix;
+    cfg = config.forge.matrix;
   in {
     # enable coturn
     services = lib.mkIf cfg.enable {

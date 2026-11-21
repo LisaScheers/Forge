@@ -5,7 +5,7 @@
     ...
   }: {
     # configuration options for this module
-    options.matrix = with lib; {
+    options.forge.matrix = with lib; {
       enable = mkOption {
         type = types.bool;
         default = true;
@@ -42,22 +42,22 @@
       };
     };
 
-    config.assertions = lib.mkIf config.matrix.enable [
+    config.assertions = lib.mkIf config.forge.matrix.enable [
       {
-        assertion = config.matrix.rootDomain != null;
-        message = "matrix.rootDomain must be set when Matrix is enabled";
+        assertion = config.forge.matrix.rootDomain != null;
+        message = "forge.matrix.rootDomain must be set when Matrix is enabled";
       }
       {
-        assertion = config.matrix.turnRealm != null;
-        message = "matrix.turnRealm must be set when Matrix is enabled";
+        assertion = config.forge.matrix.turnRealm != null;
+        message = "forge.matrix.turnRealm must be set when Matrix is enabled";
       }
       {
-        assertion = config.matrix.registrationSecretFile != null;
-        message = "matrix.registrationSecretFile must be set when Matrix is enabled";
+        assertion = config.forge.matrix.registrationSecretFile != null;
+        message = "forge.matrix.registrationSecretFile must be set when Matrix is enabled";
       }
       {
-        assertion = config.matrix.turnSecretFile != null;
-        message = "matrix.turnSecretFile must be set when Matrix is enabled";
+        assertion = config.forge.matrix.turnSecretFile != null;
+        message = "forge.matrix.turnSecretFile must be set when Matrix is enabled";
       }
     ];
   };

@@ -6,7 +6,7 @@ _: {
     utils,
     ...
   }: let
-    cfg = config.matrix.volume;
+    cfg = config.forge.matrix.volume;
     media = "${config.services.matrix-synapse.dataDir}/media_store";
     diskUnit = "${utils.escapeSystemdPath cfg.mountPoint}.mount";
     mediaUnit = "${utils.escapeSystemdPath media}.mount";
@@ -38,7 +38,7 @@ _: {
       bindsTo = [diskUnit];
     };
   in {
-    options.matrix.volume = {
+    options.forge.matrix.volume = {
       enable = lib.mkEnableOption "Atlas's dedicated Matrix storage volume";
       device = lib.mkOption {type = lib.types.str;};
       mountPoint = lib.mkOption {

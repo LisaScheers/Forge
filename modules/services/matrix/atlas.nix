@@ -6,7 +6,7 @@ in {
   nixos.atlas = {config, ...}: {
     imports = [features.matrix features.matrix-volume];
 
-    matrix = {
+    forge.matrix = {
       enable = true;
       rootDomain = "bylisa.dev";
       subDomain = "matrix";
@@ -23,7 +23,7 @@ in {
       enable_registration = true;
       registration_requires_token = true;
     };
-    services.nginx.virtualHosts."${config.matrix.subDomain}.${config.matrix.rootDomain}".locations."/_matrix".extraConfig = ''
+    services.nginx.virtualHosts."${config.forge.matrix.subDomain}.${config.forge.matrix.rootDomain}".locations."/_matrix".extraConfig = ''
       client_max_body_size 512m;
     '';
 

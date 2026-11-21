@@ -8,7 +8,7 @@
       name = "matrix-volume";
       nodes.machine = {pkgs, ...}: {
         imports = [config.nixos.matrix-volume];
-        matrix.volume = {
+        forge.matrix.volume = {
           enable = true;
           device = "/dev/disk/by-label/matrix-test";
         };

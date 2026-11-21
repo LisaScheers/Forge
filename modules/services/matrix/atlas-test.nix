@@ -8,15 +8,15 @@
   # What Atlas must keep after SEC-Hive: the DM bridge, the core server and its
   # storage, and global backups that leave the Matrix databases out by choice.
   checks = {
-    dmBridgeEnabled = atlas.matrix.discord.enable && atlas.services.mautrix-discord.enable;
+    dmBridgeEnabled = atlas.forge.matrix.discord.enable && atlas.services.mautrix-discord.enable;
     dmRegistrationLoaded = lib.any (filename: lib.hasInfix "discord-registration" filename) atlas.services.matrix-synapse.settings.app_service_config_files;
     dmCredentialDeclared = atlas.age.secrets ? discord-bridge-env;
     personalAdmin = atlas.services.mautrix-discord.settings.bridge.permissions."@lisa:bylisa.dev" == "admin";
     noRelayAdmin = !(builtins.hasAttr "@sec-hive-relay:bylisa.dev" atlas.services.mautrix-discord.settings.bridge.permissions);
     databasesManaged = lib.all (name: builtins.elem name atlas.services.postgresql.ensureDatabases) ["matrix-synapse" "mautrix-discord"];
     # Media lives on the dedicated volume, addressed by a stable device identity.
-    mediaOnVolume = atlas.matrix.volume.enable && lib.any (mount: mount.where == "/var/lib/matrix-synapse/media_store" && mount.what == "${atlas.matrix.volume.mountPoint}/media_store") atlas.systemd.mounts;
-    volumeHasStableDevice = lib.hasPrefix "/dev/disk/by-id/" atlas.matrix.volume.device && atlas.fileSystems.${atlas.matrix.volume.mountPoint}.device == atlas.matrix.volume.device;
+    mediaOnVolume = atlas.forge.matrix.volume.enable && lib.any (mount: mount.where == "/var/lib/matrix-synapse/media_store" && mount.what == "${atlas.forge.matrix.volume.mountPoint}/media_store") atlas.systemd.mounts;
+    volumeHasStableDevice = lib.hasPrefix "/dev/disk/by-id/" atlas.forge.matrix.volume.device && atlas.fileSystems.${atlas.forge.matrix.volume.mountPoint}.device == atlas.forge.matrix.volume.device;
     globalBackupEnabled = atlas.services.postgresqlBackup.enable && atlas.services.postgresqlBackup.backupAll;
     matrixDatabasesExcluded = lib.splitString " " atlas.services.postgresqlBackup.pgdumpAllOptions == ["--exclude-database=matrix-synapse" "--exclude-database=mautrix-discord" "--exclude-database=pluralmatrix"];
   };
