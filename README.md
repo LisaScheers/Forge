@@ -47,7 +47,9 @@ Each host's `default.nix` constructs its NixOS or Darwin output and visibly
 selects hardware and Home Manager profiles. Home files construct standalone
 outputs using the same home profiles and the shared per-system package set.
 There is no host registry or automatic home registration. For example, Nook's
-host module binds `home-manager.users.lisa = config.home.lisa-nook`. Each
+host module binds `home-manager.users.lisa = config.home.lisa-nook`. Features
+bind themselves to a host rather than the host listing them, so
+`just features nook` (or `just features lisa home`) lists the files that do. Each
 deployable host also sets `deploy.hosts.<host>` (SSH user and options) in its
 host module; `modules/flake/deploy.nix` derives the host's closure check, deploy
 checks and CI job from that entry.

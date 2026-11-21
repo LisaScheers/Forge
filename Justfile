@@ -43,6 +43,13 @@ write-flake:
 tree:
     nix flake show
 
+# List the files that bind a profile directly, for example `just features nook`
+# or `just features lisa home`; profiles it imports, such as base, list under
+# their own names.
+[group('flake')]
+features profile class="nixos":
+    @PROFILE="$1" nix eval --raw --impure ".#debug.options.$2.definitionsWithLocations" --apply 'definitions: let profile = builtins.getEnv "PROFILE"; relative = file: let match = builtins.match "/nix/store/[^/]+/(.*)" file; in if match == null then file else builtins.head match; in builtins.concatStringsSep "\n" (map (definition: relative definition.file) (builtins.filter (definition: definition.value ? ${profile}) definitions)) + "\n"'
+
 # Enter the development shell.
 [group('flake')]
 dev:
