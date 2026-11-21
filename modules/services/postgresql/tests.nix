@@ -14,7 +14,7 @@
           oldbin=${pkgs.postgresql_16}/bin
           newbin=${pkgs.postgresql_18}/bin
           cleanup() {
-            for cluster in old new restored again empty; do
+            for cluster in old new restored again empty nologin nosuper; do
               if test -f "$PWD/$cluster/postmaster.pid"; then
                 "$newbin/pg_ctl" -D "$PWD/$cluster" -m immediate stop || true
               fi
@@ -79,6 +79,14 @@
           printf "" | zstd -q -o "$PWD/empty.sql.zstd"
           if "$restore" "$PWD/empty.sql.zstd" "$PWD/empty"; then exit 1; fi
           test ! -e "$PWD/empty/.forge-upgrade-complete"
+          # The expected database is back, but postgres cannot log in or is no
+          # superuser: still no marker.
+          for broken in nologin:NOLOGIN nosuper:NOSUPERUSER; do
+            name=''${broken%%:*}
+            { zstd -dc "$PWD/backup.sql.zstd"; echo "ALTER ROLE postgres ''${broken#*:};"; } | zstd -q -o "$PWD/$name.sql.zstd"
+            if "$restore" "$PWD/$name.sql.zstd" "$PWD/$name"; then exit 1; fi
+            test ! -e "$PWD/$name/.forge-upgrade-complete"
+          done
           if "$restore" "$PWD/backup.sql.zstd" "$PWD/again"; then exit 1; fi
           touch "$out"
         '';

@@ -124,11 +124,12 @@ in {
             assert puller.succeed("zstd -dc /srv/backups/atlas-postgresql/all-$(date -u +%F).sql.zstd").strip() == "CREATE TABLE restored ();"
             puller.fail("ls /srv/backups/atlas-postgresql/*.part")
 
-        with subtest("a stale dump is refused, so the copy fails and keeps the last good one"):
-            source.succeed("echo 'SELECT 2;' | zstd -q -f -o /var/backup/postgresql/all.sql.zstd && chown postgres /var/backup/postgresql/all.sql.zstd && touch -d '2 days ago' /var/backup/postgresql/all.sql.zstd")
+        with subtest("yesterday's dump is refused, so the copy fails and keeps the last good one"):
+            # A missed nightly run: yesterday's dump, younger than the 25-hour cap.
+            source.succeed("echo 'SELECT 2;' | zstd -q -f -o /var/backup/postgresql/all.sql.zstd && chown postgres /var/backup/postgresql/all.sql.zstd && touch -d '24 hours 45 minutes ago' /var/backup/postgresql/all.sql.zstd")
             puller.succeed("cp /srv/backups/atlas-postgresql/all-$(date -u +%F).sql.zstd /root/good.sql.zstd")
             puller.fail("systemctl start postgresql-backup-pull.service")
-            puller.succeed("journalctl -u postgresql-backup-pull.service | grep -q 'older than'")
+            puller.succeed("journalctl -u postgresql-backup-pull.service | grep -q 'not today'")
             puller.succeed("cmp /root/good.sql.zstd /srv/backups/atlas-postgresql/all-$(date -u +%F).sql.zstd")
             source.succeed("touch /var/backup/postgresql/all.sql.zstd")
 

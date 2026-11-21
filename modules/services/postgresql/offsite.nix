@@ -19,15 +19,29 @@ in {
     ...
   }: let
     cfg = config.services.postgresqlBackupReader;
-    # A dump older than one schedule cycle means the nightly backup failed;
-    # refuse it, so the copy fails too instead of saving stale data as new.
-    serve = pkgs.writeShellScript "serve-postgresql-dump" ''
-      if [ -z "$(${pkgs.findutils}/bin/find ${cfg.dump} -mmin -${toString cfg.maxAgeMinutes})" ]; then
-        echo "${cfg.dump} is missing or older than ${toString cfg.maxAgeMinutes} minutes" >&2
-        exit 1
-      fi
-      exec ${pkgs.coreutils}/bin/cat ${cfg.dump}
-    '';
+    # Serve only today's dump (UTC, as both timers run): a dump from another
+    # day, or past the age cap, means tonight's backup failed or was missed,
+    # so the copy must fail too instead of saving stale data as new.
+    serve = pkgs.writeShellApplication {
+      name = "serve-postgresql-dump";
+      runtimeInputs = [pkgs.coreutils pkgs.findutils];
+      text = ''
+        dump=${cfg.dump}
+        if [[ ! -f "$dump" ]]; then
+          echo "$dump is missing" >&2
+          exit 1
+        fi
+        if [[ "$(date -u -r "$dump" +%F)" != "$(date -u +%F)" ]]; then
+          echo "$dump is from $(date -u -r "$dump" +%F), not today (UTC)" >&2
+          exit 1
+        fi
+        if [[ -z "$(find "$dump" -maxdepth 0 -type f -mmin -${toString cfg.maxAgeMinutes})" ]]; then
+          echo "$dump is older than ${toString cfg.maxAgeMinutes} minutes" >&2
+          exit 1
+        fi
+        exec cat "$dump"
+      '';
+    };
   in {
     options.services.postgresqlBackupReader = {
       authorizedKey = lib.mkOption {
@@ -47,7 +61,7 @@ in {
       };
     };
     config.users.users.postgres.openssh.authorizedKeys.keys = [
-      ''restrict,command="${serve}" ${cfg.authorizedKey}''
+      ''restrict,command="${lib.getExe serve}" ${cfg.authorizedKey}''
     ];
   };
 
