@@ -6,6 +6,14 @@
   host = "nook";
   system = "x86_64-linux";
 in {
+  network.${host} = {
+    lan = "192.168.111.2";
+    tailscale = "100.106.233.104";
+    ssh = {
+      user = "lisa";
+      identityFile = "~/.ssh/home-server.pub";
+    };
+  };
   flake.nixosConfigurations.${host} = inputs.nixpkgs.lib.nixosSystem {
     inherit system;
     modules = [config.nixos.base config.nixos.${host}];

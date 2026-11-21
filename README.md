@@ -20,11 +20,13 @@ system settings, home settings, packages, checks, and inputs together.
 `nixos`, `darwin`, and `home` are class-checked deferred-module options.
 Features merge into named profiles such as `nixos.nook`, `darwin.vega` and
 `home.lisa`, Lisa's shell, editors and tools on every machine. The workstation
-profiles `home.lisa-vega` and `home.lisa-asterion` import `home.lisa` and add
-desktop settings. A feature that serves one host binds itself to that host's
-profile; one that several consumers share, such as `nixos.asterion-gpu` (the
-installed system and the live image) or `home.onepassword`, is a named profile
-each consumer imports.
+homes `home.lisa-vega` and `home.lisa-asterion` import `home.lisa` and
+`home.workstation` (development tools, Java runtimes, the Chrome tab bridge, SSH
+keys and 1Password), then add their desktop settings. A feature binds itself
+directly to the profile it configures, such as `nixos.nook` or
+`home.lisa-asterion`. A reusable piece that consumers select explicitly is a
+named profile they import, such as `home.workstation`, `home.onepassword` or
+`nixos.asterion-gpu` (imported by the installed system and the live image).
 
 The layout follows the feature-oriented structure in Rose's and Esmee's
 configurations and [Vimjoyer's examples](https://vimjoyer.com/nix/):
@@ -127,12 +129,16 @@ The helper wraps the generated configuration in `nixos.<host>-hardware`.
 
 Each kind of addition touches these places:
 
-- **Host:** create `modules/hosts/<host>/default.nix` with its `network.<host>`
-  entry, its `flake.nixosConfigurations` or `darwinConfigurations` output, the
-  profiles it selects and, for a deployed host, `deploy.hosts.<host>`. For NixOS,
-  create `modules/hardware/<host>.nix` declaring `nixos.<host>-hardware`; `just
-  hardware-config <host> <file>` then refreshes it from generated output. Add the
-  host key to `modules/security/agenix/pubkeys.nix` before it reads secrets.
+- **Host:** create `modules/hosts/<host>/default.nix` with its
+  `flake.nixosConfigurations` or `darwinConfigurations` output, the profiles it
+  selects, a `network.<host>` entry if other hosts reach it and, for a deployed
+  host, `deploy.hosts.<host>`. For NixOS, create `modules/hardware/<host>.nix`
+  declaring `nixos.<host>-hardware`; `just hardware-config <host> <file>` then
+  refreshes it from generated output. Add the host key to
+  `modules/security/agenix/pubkeys.nix` before it reads secrets. A workstation's
+  home imports `home.lisa` and `home.workstation`. nixd completes Home Manager
+  options from one home per platform (`modules/development/nixd.nix`); change
+  that mapping only if a second home on the same platform needs its own.
 - **Service:** add `modules/services/<feature>/` binding `nixos.<host>`
   (`server.nix`, plus `auth.nix` for its Authentik pieces). Application code and
   its tests go in `services/<name>/`, run by a check in the module; a VM test is

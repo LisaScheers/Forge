@@ -1,4 +1,4 @@
-{config, ...}: {
+{
   # Lisa's public keys under ~/.ssh, where SSH and the 1Password agent pick the
   # identity for each host block.
   home.ssh-public-keys = {
@@ -7,6 +7,4 @@
       value.source = ./public-keys/${key};
     }) (builtins.filter (key: builtins.match ".*\\.pub" key != null) (builtins.attrNames (builtins.readDir ./public-keys))));
   };
-  home.lisa-vega.imports = [config.home.ssh-public-keys];
-  home.lisa-asterion.imports = [config.home.ssh-public-keys];
 }

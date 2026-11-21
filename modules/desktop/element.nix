@@ -1,4 +1,7 @@
 {
+  home.lisa-asterion = {pkgs, ...}: {
+    home.packages = [pkgs.element-desktop];
+  };
   home.lisa-vega.programs.element-desktop = {
     enable = true;
   };

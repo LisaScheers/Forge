@@ -30,4 +30,15 @@
     };
     home.packages = lib.optional isDarwin pkgs.ghostty-bin.terminfo;
   };
+  # Asterion builds Ghostty from source; Darwin keeps the system-wide ghostty-bin.
+  home.lisa-asterion = {
+    lib,
+    pkgs,
+    ...
+  }: {
+    programs.ghostty = {
+      enable = lib.mkForce true;
+      package = lib.mkForce pkgs.ghostty;
+    };
+  };
 }

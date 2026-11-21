@@ -7,13 +7,8 @@
   system = "aarch64-darwin";
 in {
   home.lisa-vega = {
-    imports = [config.home.lisa];
-
+    imports = [config.home.lisa config.home.workstation];
     home.stateVersion = "26.11";
-
-    xdg.enable = true;
-
-    programs.home-manager.enable = true;
     manual.manpages.enable = false;
   };
   flake.homeConfigurations."lisa@vega" = withSystem system ({pkgs, ...}:

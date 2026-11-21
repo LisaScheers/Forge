@@ -7,11 +7,8 @@
   system = "aarch64-linux";
 in {
   home.lisa-asterion = {
-    imports = [config.home.lisa];
-
+    imports = [config.home.lisa config.home.workstation];
     home.stateVersion = "26.11";
-    xdg.enable = true;
-    programs.home-manager.enable = true;
   };
   flake.homeConfigurations."lisa@asterion" = withSystem system ({pkgs, ...}:
     inputs.home-manager.lib.homeManagerConfiguration {
