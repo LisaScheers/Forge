@@ -344,7 +344,7 @@ enrolled locally through the desktop's NetworkManager secret agent.
 The Nix-generated profile was installed at
 `/etc/NetworkManager/system-connections/asterion-lisa-ent.nmconnection`, with a
 GC root at `/nix/var/nix/gcroots/asterion-wifi-profile` retaining its public CA.
-Its UUID matches the declarative profile in `modules/desktop/asterion/wifi.nix`.
+Its UUID matches the declarative profile in `modules/hosts/asterion/wifi.nix`.
 The active Steam generation was preserved during this profile-only update.
 NetworkManager accepted the profile and mirrored it into IWD. On 25 October,
 Lisa completed local password enrollment. The declared UUID then connected at

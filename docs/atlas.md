@@ -126,7 +126,7 @@ still reachable. Then:
 3. PostgreSQL refuses to start until
    `/var/lib/postgresql/18/.forge-upgrade-complete` exists. Copy the newest
    dump from Nook's root-only backup directory to Atlas, then restore it with
-   the script that `modules/services/postgresql/tests.nix` tests:
+   the script that `modules/services/postgresql/upgrade-test.nix` tests:
 
    ```sh
    # From Vega in bash; pick the newest all-<date>.sql.zstd. pipefail stops a

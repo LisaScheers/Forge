@@ -24,7 +24,7 @@
   nixos.atlas = {
     forge.authentik.blueprints.home-assistant = {
       description = "Apply Home Assistant Authentik OIDC provider and owner policy";
-      file = ../../services/home-assistant/authentik.yaml;
+      file = ../../../services/home-assistant/authentik.yaml;
     };
   };
 }

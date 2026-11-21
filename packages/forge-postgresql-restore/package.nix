@@ -1,6 +1,6 @@
 # Restores a pg_dumpall dump into a new PostgreSQL cluster and marks it
 # ready for Forge only after every step succeeded. Atlas installs it, and
-# modules/services/postgresql/tests.nix runs it.
+# modules/services/postgresql/upgrade-test.nix runs it.
 {
   coreutils,
   lib,
