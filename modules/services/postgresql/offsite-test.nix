@@ -125,7 +125,7 @@ in {
             puller.fail("ls /srv/backups/atlas-postgresql/*.part")
 
         with subtest("yesterday's dump is refused, so the copy fails and keeps the last good one"):
-            # A missed nightly run: yesterday's dump, younger than the 25-hour cap.
+            # A missed nightly run: yesterday's dump, less than a day old.
             source.succeed("echo 'SELECT 2;' | zstd -q -f -o /var/backup/postgresql/all.sql.zstd && chown postgres /var/backup/postgresql/all.sql.zstd && touch -d '24 hours 45 minutes ago' /var/backup/postgresql/all.sql.zstd")
             puller.succeed("cp /srv/backups/atlas-postgresql/all-$(date -u +%F).sql.zstd /root/good.sql.zstd")
             puller.fail("systemctl start postgresql-backup-pull.service")
@@ -135,9 +135,11 @@ in {
 
         with subtest("copies older than keepDays are pruned"):
             source.succeed("echo 'SELECT 1;' | zstd -q -f -o /var/backup/postgresql/all.sql.zstd")
-            puller.succeed("cp /srv/backups/atlas-postgresql/all-$(date -u +%F).sql.zstd /srv/backups/atlas-postgresql/all-2000-01-01.sql.zstd && touch -d '10 days ago' /srv/backups/atlas-postgresql/all-2000-01-01.sql.zstd")
+            # keepDays = 3: the copy dated three days back stays, four days back goes.
+            puller.succeed("cd /srv/backups/atlas-postgresql && for age in 3 4; do cp all-$(date -u +%F).sql.zstd all-$(date -u -d \"$age days ago\" +%F).sql.zstd; done")
             puller.succeed("systemctl start postgresql-backup-pull.service")
-            puller.fail("test -e /srv/backups/atlas-postgresql/all-2000-01-01.sql.zstd")
+            puller.succeed("test -e /srv/backups/atlas-postgresql/all-$(date -u -d '3 days ago' +%F).sql.zstd")
+            puller.fail("test -e /srv/backups/atlas-postgresql/all-$(date -u -d '4 days ago' +%F).sql.zstd")
 
         with subtest("the copy lands on the late-mounted disk"):
             puller.succeed("findmnt -n -o FSTYPE /srv/backups | grep -qx tmpfs")

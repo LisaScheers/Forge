@@ -20,11 +20,11 @@ in {
   }: let
     cfg = config.services.postgresqlBackupReader;
     # Serve only today's dump (UTC, as both timers run): a dump from another
-    # day, or past the age cap, means tonight's backup failed or was missed,
-    # so the copy must fail too instead of saving stale data as new.
+    # day means tonight's backup failed or was missed, so the copy must fail
+    # too instead of saving stale data as new.
     serve = pkgs.writeShellApplication {
       name = "serve-postgresql-dump";
-      runtimeInputs = [pkgs.coreutils pkgs.findutils];
+      runtimeInputs = [pkgs.coreutils];
       text = ''
         dump=${cfg.dump}
         if [[ ! -f "$dump" ]]; then
@@ -33,10 +33,6 @@ in {
         fi
         if [[ "$(date -u -r "$dump" +%F)" != "$(date -u +%F)" ]]; then
           echo "$dump is from $(date -u -r "$dump" +%F), not today (UTC)" >&2
-          exit 1
-        fi
-        if [[ -z "$(find "$dump" -maxdepth 0 -type f -mmin -${toString cfg.maxAgeMinutes})" ]]; then
-          echo "$dump is older than ${toString cfg.maxAgeMinutes} minutes" >&2
           exit 1
         fi
         exec cat "$dump"
@@ -53,11 +49,6 @@ in {
         default = "${config.services.postgresqlBackup.location}/all.sql.zstd";
         defaultText = lib.literalExpression ''"''${config.services.postgresqlBackup.location}/all.sql.zstd"'';
         description = "Dump to serve.";
-      };
-      maxAgeMinutes = lib.mkOption {
-        type = lib.types.ints.positive;
-        default = 25 * 60;
-        description = "Serve the dump only while it is younger than this.";
       };
     };
     config.users.users.postgres.openssh.authorizedKeys.keys = [
@@ -76,7 +67,7 @@ in {
     knownHosts = pkgs.writeText "postgresql-backup-pull-known-hosts" "${cfg.host} ${cfg.hostKey}\n";
     pull = pkgs.writeShellApplication {
       name = "postgresql-backup-pull";
-      runtimeInputs = [pkgs.coreutils pkgs.findutils pkgs.openssh pkgs.zstd];
+      runtimeInputs = [pkgs.coreutils pkgs.openssh pkgs.zstd];
       text = ''
         target="${cfg.destination}/all-$(date -u +%F).sql.zstd"
         partial="$target.part"
@@ -89,7 +80,15 @@ in {
         # A truncated or corrupt copy must not replace a good one.
         zstd --quiet --test "$partial"
         mv "$partial" "$target"
-        find "${cfg.destination}" -maxdepth 1 -type f -name 'all-*.sql.zstd' -mtime +${toString cfg.keepDays} -delete
+        # Prune by the UTC date in the name, so the limit doesn't drift with
+        # the run's time of day; ISO dates compare correctly as strings.
+        oldest="all-$(date -u -d '${toString cfg.keepDays} days ago' +%F).sql.zstd"
+        shopt -s nullglob
+        for copy in "${cfg.destination}"/all-*.sql.zstd; do
+          if [[ "''${copy##*/}" < "$oldest" ]]; then
+            rm -f -- "$copy"
+          fi
+        done
       '';
     };
   in {
@@ -118,7 +117,7 @@ in {
       keepDays = lib.mkOption {
         type = lib.types.ints.positive;
         default = 14;
-        description = "Days a copy is kept.";
+        description = "Copies dated more than this many days before today (UTC) are deleted.";
       };
       startAt = lib.mkOption {
         type = lib.types.singleLineStr;

@@ -91,12 +91,12 @@ Atlas dumps at 03:00 UTC and Nook copies the dump at 04:30 UTC, into
 `/srv/disks/western-digital-hdd/backups/atlas-postgresql/all-<UTC date>.sql.zstd`
 (`modules/services/postgresql/offsite.nix`; `checks.postgresql-backup-schedule`
 keeps both timers in UTC). Nook checks each copy with `zstd --test` before
-keeping it and prunes copies older than 14 days. It logs in as `postgres` with a
+keeping it and deletes copies dated more than 14 days before the current UTC date. It logs in as `postgres` with a
 key that Atlas restricts to printing the dump; the private half is
 `secrets/nook/atlas-backup-pull-key.age`. A failed copy fails
 `postgresql-backup-pull.service` on Nook and leaves the previous copies alone.
-Atlas serves the dump only if it was written on the current UTC day and less
-than 25 hours ago, so a failed or missed nightly dump also fails the copy. Each successful copy reports to Uptime Kuma
+Atlas serves the dump only if it was written on the current UTC day, so a
+failed or missed nightly dump also fails the copy. Each successful copy reports to Uptime Kuma
 ([Uptime Kuma](uptime-kuma.md)).
 To check when the latest copy arrived and whether the last run succeeded:
 
@@ -120,6 +120,8 @@ still reachable. Then:
    with. With a new key instead, put its public half in
    `modules/security/agenix/pubkeys.nix` (`hosts.atlas`) and run
    `just secret-rekey` before deploying; otherwise no Atlas secret decrypts.
+   Nook pins that key for its backup pull, so deploy Nook after Atlas and
+   confirm the next pull with `systemctl status postgresql-backup-pull.service`.
 2. Before the Forge configuration first boots or activates, create the
    maintenance marker, `/var/lib/postgresql/.forge-maintenance`, so the updater
    stays held throughout.
