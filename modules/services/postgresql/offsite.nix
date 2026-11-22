@@ -84,7 +84,7 @@ in {
         # the run's time of day; ISO dates compare correctly as strings.
         oldest="all-$(date -u -d '${toString cfg.keepDays} days ago' +%F).sql.zstd"
         shopt -s nullglob
-        for copy in "${cfg.destination}"/all-*.sql.zstd; do
+        for copy in "${cfg.destination}"/all-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].sql.zstd; do
           if [[ "''${copy##*/}" < "$oldest" ]]; then
             rm -f -- "$copy"
           fi
@@ -150,6 +150,8 @@ in {
           Type = "oneshot";
           ExecStart = lib.getExe pull;
           TimeoutStartSec = "1h";
+          # Copies are root-only, like the dump on Atlas.
+          UMask = "0077";
           LoadCredential = "key:${cfg.keyFile}";
           ProtectSystem = "strict";
           ReadWritePaths = [cfg.destination];

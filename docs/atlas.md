@@ -154,8 +154,10 @@ still reachable. Then:
 
    The Matrix databases are not in the dump; see
    [Matrix after SEC-Hive](sec-hive-matrix.md).
-4. Start PostgreSQL with `sudo systemctl reset-failed postgresql.service` and
-   `sudo systemctl start postgresql.service` (it failed while the marker was
-   missing), check `systemctl --failed` and the Uptime Kuma probes, then
-   release the hold as described under
+4. Reboot Atlas with the maintenance marker still in place. PostgreSQL failed
+   while its marker was missing, and the services that need it were skipped;
+   starting PostgreSQL by hand would not start them again. After the reboot,
+   check `systemctl --failed`,
+   `systemctl is-active postgresql authentik forgejo postplan matrix-synapse mautrix-discord`
+   and the Uptime Kuma probes, then release the hold as described under
    [Maintenance and PostgreSQL](#maintenance-and-postgresql).

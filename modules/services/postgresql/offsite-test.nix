@@ -125,7 +125,7 @@ in {
             puller.fail("ls /srv/backups/atlas-postgresql/*.part")
 
         with subtest("yesterday's dump is refused, so the copy fails and keeps the last good one"):
-            # A missed nightly run: yesterday's dump, less than a day old.
+            # A missed nightly run: the dump is from an earlier UTC day.
             source.succeed("echo 'SELECT 2;' | zstd -q -f -o /var/backup/postgresql/all.sql.zstd && chown postgres /var/backup/postgresql/all.sql.zstd && touch -d '24 hours 45 minutes ago' /var/backup/postgresql/all.sql.zstd")
             puller.succeed("cp /srv/backups/atlas-postgresql/all-$(date -u +%F).sql.zstd /root/good.sql.zstd")
             puller.fail("systemctl start postgresql-backup-pull.service")
@@ -135,16 +135,19 @@ in {
 
         with subtest("copies older than keepDays are pruned"):
             source.succeed("echo 'SELECT 1;' | zstd -q -f -o /var/backup/postgresql/all.sql.zstd")
-            # keepDays = 3: the copy dated three days back stays, four days back goes.
-            puller.succeed("cd /srv/backups/atlas-postgresql && for age in 3 4; do cp all-$(date -u +%F).sql.zstd all-$(date -u -d \"$age days ago\" +%F).sql.zstd; done")
+            # keepDays = 3: the copy dated three days back stays, four days back
+            # goes, and a hand-named file is never pruned.
+            puller.succeed("cd /srv/backups/atlas-postgresql && for age in 3 4; do cp all-$(date -u +%F).sql.zstd all-$(date -u -d \"$age days ago\" +%F).sql.zstd; done && cp all-$(date -u +%F).sql.zstd all-before-upgrade.sql.zstd")
             puller.succeed("systemctl start postgresql-backup-pull.service")
             puller.succeed("test -e /srv/backups/atlas-postgresql/all-$(date -u -d '3 days ago' +%F).sql.zstd")
             puller.fail("test -e /srv/backups/atlas-postgresql/all-$(date -u -d '4 days ago' +%F).sql.zstd")
+            puller.succeed("test -e /srv/backups/atlas-postgresql/all-before-upgrade.sql.zstd")
 
         with subtest("the copy lands on the late-mounted disk"):
             puller.succeed("findmnt -n -o FSTYPE /srv/backups | grep -qx tmpfs")
             # Created by the unit after the mount, private to root.
             assert puller.succeed("stat -c %a /srv/backups/atlas-postgresql").strip() == "700"
+            assert puller.succeed("stat -c %a /srv/backups/atlas-postgresql/all-$(date -u +%F).sql.zstd").strip() == "600"
 
         with subtest("a rebuilt host restores Nook's copy as root and only then starts PostgreSQL"):
             # The source serves a real cluster dump; the puller copies it, and
