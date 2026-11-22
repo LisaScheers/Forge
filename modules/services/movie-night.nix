@@ -3,6 +3,7 @@
   inputs,
   ...
 }: let
+  inherit (config.network) atlas nook;
   # The MoQ relay comes prebuilt from kixelated's cache. Configure it for the
   # host that rebuilds atlas itself and for vega, which deploys it, rather than
   # as flake nixConfig, which Nix ignores unless the flake is trusted.
@@ -13,10 +14,6 @@
 in {
   flake-file.inputs.movie-night.url = "github:LisaScheers/movie-night";
   darwin.vega = kixelatedCache;
-  flake.agenixRules."secrets/nook/movie-night-env.age".publicKeys = [
-    config.secrets.pubkeys.users.lisa
-    config.secrets.pubkeys.hosts.nook
-  ];
   nixos.atlas = {
     config,
     options,
@@ -33,7 +30,7 @@ in {
         relay // {meta = relay.meta // {mainProgram = "moq-relay";};};
       domain = "watch.bylisa.dev";
       relayDomain = "moq.bylisa.dev";
-      backendUrl = "http://100.106.233.104:3100";
+      backendUrl = "http://${nook.tailscale}:3100";
       authentikUrl = "https://auth.bylisa.dev";
     };
     services.movie-night-authentik = {
@@ -41,7 +38,14 @@ in {
       domain = "watch.bylisa.dev";
       adminUsers = ["lisa"];
       environmentFile = config.age.secrets.authentik-env.path;
-      manageCommand = "${config.services.authentik.authentikComponents.manage}/bin/manage.py";
+      manageCommand = config.forge.authentik.manage;
+    };
+    # The upstream unit predates forge.authentik.blueprints; give it the same
+    # re-apply behaviour as the others.
+    systemd.services.authentik-movie-night-blueprint = {
+      wantedBy = ["multi-user.target"];
+      serviceConfig.RemainAfterExit = true;
+      restartTriggers = [config.age.secrets.authentik-env.file];
     };
   };
   nixos.nook = {config, ...}: {
@@ -50,13 +54,13 @@ in {
     services.movie-night = {
       enable = true;
       environmentFile = config.age.secrets.movie-night-env.path;
-      listenAddress = "100.106.233.104";
+      listenAddress = nook.tailscale;
       origin = "https://watch.bylisa.dev";
       relayUrl = "https://moq.bylisa.dev";
       jellyfinUserId = "466f59ea028949cca3033f222ebec388";
       mediaRoots = ["/srv/disks/western-digital-hdd/media/library"];
-      trustedProxies = ["100.87.26.75"];
-      internalPeers = ["100.87.26.75"];
+      trustedProxies = [atlas.tailscale];
+      internalPeers = [atlas.tailscale];
       adminUsers = ["lisa"];
       openTailscaleFirewall = true;
       rooms = [

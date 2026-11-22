@@ -1,5 +1,5 @@
 {
-  home.lisa = {
+  home.workstation = {
     programs.zed-editor.userSettings = {
       agent = {
         commit_message_instructions = "Use the Conventional Commits format: <type>(<scope>): <description>.";

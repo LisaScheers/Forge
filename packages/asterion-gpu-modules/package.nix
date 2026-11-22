@@ -7,7 +7,7 @@
 kernel.stdenv.mkDerivation {
   pname = "asterion-gpu-modules";
   version = "${kernel.version}-aurora-opaque1";
-  src = kernel.src;
+  inherit (kernel) src;
   patches = [
     ../asterion-gpu-kernel/j516s-opaque-x.patch
   ];

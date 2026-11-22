@@ -1,10 +1,37 @@
 {
-  nixos.atlas = {
-    config,
-    pkgs,
-    ...
-  }: let
-    source = ../../../services/home-dashboard;
+  config,
+  lib,
+  ...
+}: let
+  tree = ../../../services/home-dashboard;
+  source = config.flake.lib.runtimeSource tree;
+  # The catalog is read at runtime, so check here that every IPv4 address in
+  # its URLs and probe addresses is one of Nook's (or loopback).
+  catalog = builtins.fromJSON (builtins.readFile (tree + "/catalog.json"));
+  hostOf = url: let
+    match = builtins.match "[A-Za-z][A-Za-z0-9+.-]*://([^@/?#]*@)?([^/:?#]+).*" url;
+  in
+    if match == null
+    then null
+    else builtins.elemAt match 1;
+  endpoints = entry: map hostOf (lib.filter (url: url != null) [(entry.url or null) (entry.probe.url or null)]) ++ [(entry.probe.address or null)];
+  isIPv4 = host: host != null && builtins.match "[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+" host != null;
+  catalogAddresses = lib.unique (lib.filter isIPv4 (lib.concatMap endpoints catalog));
+  # Userinfo, scheme case and an "@" after the authority must not hide an address.
+  parsesHosts =
+    map hostOf ["HTTP://user@10.0.0.1:8123/x" "http://10.0.0.2?x=@a.example" "http://10.0.0.3#@b" "https://a.example?b" "tcp://192.0.2.1"]
+    == ["10.0.0.1" "10.0.0.2" "10.0.0.3" "a.example" "192.0.2.1"];
+  staleAddresses = lib.subtractLists ["127.0.0.1" config.network.nook.lan config.network.nook.tailscale] catalogAddresses;
+in {
+  perSystem = {pkgs, ...}: {
+    checks.home-dashboard = assert lib.assertMsg parsesHosts "home-dashboard catalog URL parsing is broken";
+    assert lib.assertMsg (staleAddresses == []) "home-dashboard catalog.json has addresses not in network.nook: ${toString staleAddresses}";
+      pkgs.runCommand "home-dashboard-tests" {} ''
+        ${pkgs.python3}/bin/python3 -B -m unittest discover -s ${tree} -v
+        touch "$out"
+      '';
+  };
+  nixos.atlas = {pkgs, ...}: let
     upstream = "http://unix:/run/home-dashboard/api.sock:";
     securityHeaders = ''
       add_header X-Content-Type-Options nosniff always;
@@ -82,28 +109,6 @@
         OnUnitInactiveSec = "30s";
         AccuracySec = "1s";
       };
-    };
-
-    systemd.services.authentik-home-dashboard-blueprint = {
-      description = "Apply the dashboard Authentik provider";
-      wantedBy = ["multi-user.target"];
-      requiredBy = ["authentik.service"];
-      before = ["authentik.service"];
-      after = ["authentik-migrate.service"];
-      requires = ["authentik-migrate.service"];
-      serviceConfig = {
-        Type = "oneshot";
-        DynamicUser = true;
-        User = "authentik";
-        StateDirectory = "authentik";
-        WorkingDirectory = "%S/authentik";
-        EnvironmentFile = [config.age.secrets.authentik-env.path];
-        Environment = ["AUTHENTIK_CONFIG=/etc/authentik/config.yml"];
-        ExecStartPre = "${pkgs.coreutils}/bin/install -D -m 0600 ${source}/authentik.yaml %S/authentik/blueprints/home-dashboard.yaml";
-        ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint home-dashboard.yaml";
-        ExecStartPost = ''${config.services.authentik.authentikComponents.manage}/bin/manage.py shell -c "from authentik.outposts.models import Outpost; from authentik.providers.proxy.models import ProxyProvider; outpost = Outpost.objects.get(managed='goauthentik.io/outposts/embedded'); outpost.providers.add(ProxyProvider.objects.get(name='Home dashboard')); outpost.save()"'';
-      };
-      restartTriggers = [../../security/agenix/secrets/atlas/authentik-env.age];
     };
 
     services.nginx.virtualHosts."dash.bylisa.dev" = {

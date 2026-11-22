@@ -58,12 +58,15 @@ The graph buffer pool is explicitly limited to 1 GiB: Cognee's 32 GiB default
 exceeds the container's memory limit and caused a graph-worker OOM on 2026-10-02.
 The API image's Ladybug 0.19.0 is overridden with hash-pinned 0.21.0 and its
 matching JSON extension. This fixes the [large-record WAL checksum bug](https://github.com/LadybugDB/ladybug/pull/959).
-Both artifacts are read-only Nix mounts; no runtime package installation is used.
-The 8 November 2026 source update advances both images to the 6 November builds
-of Cognee 1.6.7. The API uses an upstream Arrow 26.0.1 wheel in place of its
-25.0.1 wheel; the MCP image already includes 26.0.1 and needs no Arrow overlay.
-Pillow still needs the Brotli 1.2.1 mounts. Ladybug stays at 0.21.0 with its
-matching extension; later releases require a separate storage compatibility check.
+Both artifacts are read-only Nix mounts; no runtime package installation is
+used. The 8 November 2026 source update advances both images to the 6 November
+builds of Cognee 1.6.7. The API uses an upstream Arrow 26.0.1 wheel in place of
+its 25.0.1 wheel; the MCP image already includes 26.0.1 and needs no Arrow
+overlay. Pillow still needs the Brotli 1.2.1 mounts in both containers, and the
+API container also mounts the system Brotli 1.2.1 libraries;
+`modules/security/node2shell.nix` adds all of these mounts. Ladybug stays at
+0.21.0 with its matching extension; later releases require a separate storage
+compatibility check.
 
 ## Graph storage recovery
 
@@ -129,13 +132,16 @@ persistent data store or frontend container.
 
 ## Models
 
-Extraction and reasoning use `openrouter/z-ai/glm-5.3-flash` with
-`LLM_PROVIDER=custom`, `LLM_ENDPOINT=https://openrouter.ai/api/v1` and a 16,384
-output-token budget. The existing OpenRouter key is stored as `LLM_API_KEY` in
-the encrypted `cognee-backend-env.age` secret, readable by Lisa and Nook. No key
-is stored in Nix settings or plaintext staging files. OpenRouter usage consumes
-Lisa's OpenRouter credits. The exact model slug and structured output were
-verified with a real request before changing the secret.
+Extraction and reasoning use OpenRouter's GLM 5.3 Flash through Nook's AI
+gateway ([AI usage](ai-usage.md)): `LLM_PROVIDER=custom`,
+`LLM_ENDPOINT=http://127.0.0.1:8317/v1`,
+`LLM_MODEL=openai/openrouter/glm-5.3-flash` and a 16,384 output-token budget.
+`ai-proxy-cognee-env` in `modules/services/cognee/server.nix` writes the
+gateway's shared client key as `LLM_API_KEY` to a runtime environment file read
+after `cognee-backend-env.age`, so the gateway's OpenRouter key serves the
+requests and they are captured with the other clients'. Cognee does not start
+without the gateway. No key is stored in Nix settings or plaintext staging
+files. Usage consumes Lisa's OpenRouter credits.
 
 Local Fastembed runs `sentence-transformers/all-MiniLM-L6-v2` with 384 dimensions.
 Its weights and tokenizer cache persist on the NVMe; first use requires a model
@@ -361,9 +367,10 @@ triggered deploy-rs rollback during normal startup. Manual health checks remain:
 ssh nook 'sudo podman healthcheck run cognee && sudo podman healthcheck run cognee-mcp'
 ```
 
-`cognee-bootstrap` is a successful oneshot, so an inactive state after completion
-is normal. `cognee-openai-plan`, `podman-cognee`, `podman-cognee-mcp` and `codex`
-should be active. Check ChatGPT Settings → Usage for the app's subscription limits.
+`cognee-bootstrap` is a successful oneshot, so an inactive state after
+completion is normal. `podman-cognee` and `podman-cognee-mcp` should be active;
+Nook's `codex` service stays disabled until its login is renewed. Cognee's
+inference spends Lisa's OpenRouter credits through the gateway.
 
 Never expose the loopback ports directly. There is no remote off-machine backup
 destination configured for Cognee yet. Before an image upgrade, stop MCP and API,

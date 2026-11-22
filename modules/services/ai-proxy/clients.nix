@@ -1,8 +1,9 @@
-let
+{config, ...}: let
+  nook = config.network.nook;
   endpoint = "https://cliproxy.local.bylisa.dev";
   keyFile = ../../security/agenix/secrets/shared/ai-proxy-client-key.age;
   # Tailscale chooses a direct LAN path at home and keeps the same address remotely.
-  addresses."100.106.233.104" = ["cliproxy.local.bylisa.dev"];
+  addresses.${nook.tailscale} = ["cliproxy.local.bylisa.dev"];
   clientSecret = {
     file = keyFile;
     owner = "lisa";
@@ -10,21 +11,7 @@ let
   };
 in {
   nixos.base.networking.hosts = addresses;
-  darwin.base.system.activationScripts.postActivation.text = ''
-    proxy_hosts_file=$(mktemp /tmp/ai-proxy-hosts.XXXXXX)
-    /usr/bin/awk '
-      $0 == "# nix-darwin: cliproxy begin" { skip = 1; next }
-      $0 == "# nix-darwin: cliproxy end" { skip = 0; next }
-      !skip { print }
-    ' /etc/hosts > "$proxy_hosts_file"
-    cat >> "$proxy_hosts_file" <<'EOF'
-    # nix-darwin: cliproxy begin
-    100.106.233.104 cliproxy.local.bylisa.dev
-    # nix-darwin: cliproxy end
-    EOF
-    install -m 0644 "$proxy_hosts_file" /etc/hosts
-    rm -f "$proxy_hosts_file"
-  '';
+  darwin.base.forge.hosts = addresses;
   darwin.vega.age.secrets.ai-proxy-client-key = clientSecret;
   nixos.atlas.age.secrets.ai-proxy-client-key = clientSecret;
 
@@ -53,15 +40,11 @@ in {
       };
       settings = {
         modelProvider = "gemini";
-        model = lib.mkForce "Gemini 3.8 Flash (High)";
       };
     };
     home.sessionVariables = {
       OPENAI_BASE_URL = "${endpoint}/v1";
       ANTHROPIC_BASE_URL = endpoint;
     };
-    # Keep T3 on Codex's native provider too.
-    programs.t3code.userSettings.providerInstances.codex.config.launchArgs =
-      lib.mkForce "-c model_provider=\"openai\"";
   };
 }

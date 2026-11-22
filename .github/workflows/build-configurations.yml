@@ -19,18 +19,23 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same pull request supersedes its running builds.
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   matrix:
     runs-on: ubuntu-24.04
     outputs:
       configurations: ${{ steps.matrix.outputs.configurations }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.revision || github.sha }}
           persist-credentials: false
       # Lix preserves the tarball revision URLs written by local lock updates.
-      - uses: samueldr/lix-gha-installer-action@38852f089fdd2f5aabeec42c59c8d180bb8a15e9
+      - uses: samueldr/lix-gha-installer-action@38852f089fdd2f5aabeec42c59c8d180bb8a15e9 # latest branch; no release tags
         with:
           extra_nix_config: |
             accept-flake-config = true
@@ -48,11 +53,11 @@ jobs:
       matrix: ${{ fromJSON(needs.matrix.outputs.configurations) }}
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.revision || github.sha }}
           persist-credentials: false
-      - uses: samueldr/lix-gha-installer-action@38852f089fdd2f5aabeec42c59c8d180bb8a15e9
+      - uses: samueldr/lix-gha-installer-action@38852f089fdd2f5aabeec42c59c8d180bb8a15e9 # latest branch; no release tags
         with:
           github_access_token: ${{ secrets.FLAKE_INPUTS_TOKEN || github.token }}
           extra_nix_config: |
@@ -64,6 +69,17 @@ jobs:
           # Change only the disposable CI VM; keep Nix sandboxing and tests enabled.
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           unshare --user --map-root-user --mount true
+      - name: Enable KVM for NixOS VM tests
+        if: runner.os == 'Linux'
+        run: |
+          # x86-64 runners expose /dev/kvm; the NixOS tests in ciVmTests need it.
+          if [[ -e /dev/kvm ]]; then
+            echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+            sudo udevadm control --reload-rules
+            sudo udevadm trigger --name-match=kvm
+            echo 'extra-system-features = kvm nixos-test' | sudo tee -a /etc/nix/nix.conf
+            sudo systemctl restart nix-daemon
+          fi
       - name: Free macOS build space
         if: runner.os == 'macOS'
         run: |
@@ -77,9 +93,15 @@ jobs:
           done
           sudo rm -rf /Library/Developer/CoreSimulator
           df -h / /nix
-      - name: Build configuration without activation
+      - name: Test the CI and deploy scripts with the runner's shells
+        if: runner.os == 'macOS'
+        # The Nix sandbox has no /bin/bash, so the Bash 3.2 cases of the CI and
+        # deploy scripts run only here.
+        run: python3 -B -m unittest tests.test_ci_build tests.test_deploy
+      - name: Build target without activation
         env:
           TARGET: ${{ matrix.target }}
+          CHECKS: ${{ matrix.checks }}
           # Cargo sources contain LFS pointers; fetching example media changes them.
           GIT_LFS_SKIP_SMUDGE: "1"
         run: bash .github/scripts/build-configuration.sh

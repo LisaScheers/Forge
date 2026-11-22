@@ -1,5 +1,5 @@
 {inputs, ...}: {
-  home.lisa = {pkgs, ...}: {
+  home.workstation = {pkgs, ...}: {
     programs.zed-editor.userSettings.languages.Nix.language_servers = ["nixd" "!nil" "..."];
     programs.zed-editor.userSettings.lsp = {
       discord_presence.initialization_options = {

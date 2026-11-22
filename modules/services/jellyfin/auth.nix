@@ -1,4 +1,5 @@
 let
+  tree = ../../../services/jellyfin-auth;
   secret = ../../security/agenix/secrets/shared/jellyfin-ldap-env.age;
 in {
   nixos.atlas = {
@@ -8,7 +9,7 @@ in {
   }: let
     environmentFile = config.age.secrets.jellyfin-ldap-env.path;
     bootstrapSecret = ../../security/agenix/secrets/atlas/jellyfin-bootstrap-env.age;
-    bootstrap = ../../../services/jellyfin-auth/bootstrap.py;
+    bootstrap = tree + /bootstrap.py;
     blueprint = pkgs.writeText "authentik-jellyfin-blueprint.yaml" ''
       version: 1
       metadata:
@@ -138,29 +139,15 @@ in {
   in {
     age.secrets.jellyfin-ldap-env.file = secret;
     age.secrets.jellyfin-bootstrap-env.file = bootstrapSecret;
-    systemd.services.authentik-jellyfin-blueprint = {
+    forge.authentik.blueprints.jellyfin = {
       description = "Apply Jellyfin Authentik LDAP blueprint";
-      requiredBy = ["authentik.service"];
-      before = ["authentik.service"];
-      after = ["authentik-migrate.service"];
-      requires = ["authentik-migrate.service"];
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        DynamicUser = true;
-        User = "authentik";
-        StateDirectory = "authentik";
-        WorkingDirectory = "%S/authentik";
-        EnvironmentFile = [config.age.secrets.authentik-env.path environmentFile config.age.secrets.jellyfin-bootstrap-env.path];
-        Environment = ["AUTHENTIK_CONFIG=/etc/authentik/config.yml"];
-        ExecStartPre = [
-          "${config.services.authentik.authentikComponents.manage}/bin/manage.py shell -c 'exec(compile(open(\"${bootstrap}\").read(), \"${bootstrap}\", \"exec\"), {\"__name__\": \"__main__\"})'"
-          "${pkgs.coreutils}/bin/install -D -m 0600 ${blueprint} %S/authentik/blueprints/jellyfin.yaml"
-        ];
-        ExecStart = "${config.services.authentik.authentikComponents.manage}/bin/manage.py apply_blueprint jellyfin.yaml";
-        ExecStartPost = "${config.services.authentik.authentikComponents.manage}/bin/manage.py shell -c 'exec(open(\"${attachProvider}\").read())'";
-      };
-      restartTriggers = [secret bootstrapSecret bootstrap ../../security/agenix/secrets/atlas/authentik-env.age];
+      file = blueprint;
+      environmentFiles = [environmentFile config.age.secrets.jellyfin-bootstrap-env.path];
+      restartTriggers = [secret bootstrapSecret bootstrap];
+      preStart = [
+        "${config.forge.authentik.manage} shell -c 'exec(compile(open(\"${bootstrap}\").read(), \"${bootstrap}\", \"exec\"), {\"__name__\": \"__main__\"})'"
+      ];
+      postStart = "${config.forge.authentik.manage} shell -c 'exec(open(\"${attachProvider}\").read())'";
     };
     systemd.services.authentik = {
       serviceConfig.EnvironmentFile = [environmentFile];

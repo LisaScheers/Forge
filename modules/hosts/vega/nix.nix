@@ -1,4 +1,11 @@
-{
+{config, ...}: let
+  nook = config.network.nook;
+  hostKeys = config.secrets.pubkeys.hosts;
+in {
+  # Lisa's own Nix commands read the GitHub token that Vega decrypts below.
+  home.lisa-vega.nix.extraOptions = ''
+    !include /run/secrets/nix/user-github-access-token.conf
+  '';
   darwin.vega = {config, ...}: let
     nookBuilderKeyPath = config.age.secrets.nook-builder-ssh-key.path;
     nixGithubAccessTokenSystemPath = "/etc/nix/github-access-token.conf";
@@ -82,17 +89,17 @@
           BatchMode yes
 
         Host nook-builder
-          HostName 192.168.111.2
+          HostName ${nook.lan}
           User nix-remote-builder
           IdentityFile ${nookBuilderKeyPath}
           IdentitiesOnly yes
-          HostKeyAlias 192.168.111.2
+          HostKeyAlias ${nook.lan}
           BatchMode yes
       '';
 
       knownHosts.nook-builder = {
-        hostNames = ["192.168.111.2"];
-        publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEHlf+pLT6XITnorOuDH0j9KtrVgZktsE5rPQzw3An8y";
+        hostNames = [nook.lan];
+        publicKey = hostKeys.nook;
       };
     };
   };

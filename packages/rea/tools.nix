@@ -196,5 +196,5 @@ in
       inherit environment toolPackages;
       unwrapped = rea;
     };
-    meta = rea.meta;
+    inherit (rea) meta;
   }

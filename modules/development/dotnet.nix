@@ -1,9 +1,8 @@
 {
-  home.lisa-cli = {pkgs, ...}: {
+  home.lisa = {pkgs, ...}: {
     home.packages = [pkgs.dotnetCorePackages.sdk_10_0];
   };
-
-  home.lisa = {
+  home.workstation = {
     lib,
     pkgs,
     ...

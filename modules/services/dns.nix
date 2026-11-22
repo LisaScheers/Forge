@@ -1,10 +1,13 @@
-{
+{config, ...}: let
+  nook = config.network.nook;
+in {
   nixos.nook = {
+    config,
     lib,
     pkgs,
     ...
   }: let
-    hostAddress = "192.168.111.2";
+    hostAddress = nook.lan;
     hostIpv6Address = "2a02:1810:515:c680:f22f:74ff:fe1d:7b9b";
     lanIpv6Prefix = "2a02:1810:515:c680::/64";
     clientIpv6Prefix = "2a02:1810:515:c682::/64";
@@ -113,6 +116,23 @@
           }
         ];
       };
+    };
+
+    # Keeps the public names that Nook's services add to domains pointed at its
+    # current address.
+    services.cloudflare-dyndns = {
+      enable = true;
+      apiTokenFile = config.age.secrets.cloudflare-dns-api-token.path;
+      ipv4 = true;
+      ipv6 = true;
+      proxied = false;
+    };
+    systemd.services.cloudflare-dyndns = {
+      # Activation stops Unbound before restarting the updater. Wait for the
+      # local resolver so IP discovery does not fail during a system switch.
+      after = ["unbound.service"];
+      wants = ["unbound.service"];
+      restartTriggers = [config.age.secrets.cloudflare-dns-api-token.file];
     };
   };
 }

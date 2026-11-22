@@ -41,10 +41,8 @@
     networking.firewall.allowedUDPPorts = [24454];
 
     # Keep scoped unit activation persistent without replacing Nook's full system.
-    environment.etc."systemd/system.control/atm10-aero.service".source =
-      "${config.systemd.units."atm10-aero.service".unit}/atm10-aero.service";
-    environment.etc."systemd/system.control/cloudflare-dyndns.service".source =
-      "${config.systemd.units."cloudflare-dyndns.service".unit}/cloudflare-dyndns.service";
+    environment.etc."systemd/system.control/atm10-aero.service".source = "${config.systemd.units."atm10-aero.service".unit}/atm10-aero.service";
+    environment.etc."systemd/system.control/cloudflare-dyndns.service".source = "${config.systemd.units."cloudflare-dyndns.service".unit}/cloudflare-dyndns.service";
 
     systemd.services =
       lib.mapAttrs (name: server: {

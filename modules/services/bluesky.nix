@@ -63,6 +63,6 @@
       webroot = null;
     };
 
-    systemd.services.bluesky-pds.restartTriggers = [../security/agenix/secrets/atlas/bluesky-pds-env.age];
+    systemd.services.bluesky-pds.restartTriggers = [config.age.secrets.bluesky-pds-env.file];
   };
 }

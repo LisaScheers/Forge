@@ -1,0 +1,746 @@
+{
+  "Root": {
+    "BaseApp": {
+      "LogLevels": {
+        "Default": {
+          "type": "int",
+          "value": 2
+        }
+      },
+      "MainWindow": {
+        "DockWindows": {
+          "OverlayBottom": {
+            "Height": {
+              "type": "int",
+              "value": 359
+            },
+            "Sizes": {
+              "type": "text",
+              "value": ""
+            },
+            "Widgets": {
+              "type": "text",
+              "value": ""
+            },
+            "Width": {
+              "type": "int",
+              "value": 1452
+            }
+          },
+          "OverlayLeft": {
+            "Height": {
+              "type": "int",
+              "value": 790
+            },
+            "Sizes": {
+              "type": "text",
+              "value": ""
+            },
+            "Widgets": {
+              "type": "text",
+              "value": ""
+            },
+            "Width": {
+              "type": "int",
+              "value": 564
+            }
+          },
+          "OverlayRight": {
+            "Height": {
+              "type": "int",
+              "value": 648
+            },
+            "Sizes": {
+              "type": "text",
+              "value": "0"
+            },
+            "Widgets": {
+              "type": "text",
+              "value": "Tasks,"
+            },
+            "Width": {
+              "type": "int",
+              "value": 434
+            }
+          },
+          "OverlayTop": {
+            "Height": {
+              "type": "int",
+              "value": 359
+            },
+            "Sizes": {
+              "type": "text",
+              "value": ""
+            },
+            "Widgets": {
+              "type": "text",
+              "value": ""
+            },
+            "Width": {
+              "type": "int",
+              "value": 1028
+            }
+          },
+          "Std_ComboView": {
+            "type": "bool",
+            "value": true
+          },
+          "Std_PythonView": {
+            "type": "bool",
+            "value": false
+          },
+          "Std_ReportView": {
+            "type": "bool",
+            "value": false
+          },
+          "Std_SelectionView": {
+            "type": "bool",
+            "value": false
+          },
+          "Std_TaskView": {
+            "type": "bool",
+            "value": true
+          }
+        },
+        "Toolbars": {
+          "B-Spline Tools": {
+            "type": "bool",
+            "value": true
+          },
+          "Clipboard": {
+            "type": "bool",
+            "value": false
+          },
+          "Constraints": {
+            "type": "bool",
+            "value": true
+          },
+          "Edit": {
+            "type": "bool",
+            "value": true
+          },
+          "Edit Mode": {
+            "type": "bool",
+            "value": true
+          },
+          "File": {
+            "type": "bool",
+            "value": true
+          },
+          "Geometries": {
+            "type": "bool",
+            "value": true
+          },
+          "Help": {
+            "type": "bool",
+            "value": true
+          },
+          "Individual Views": {
+            "type": "bool",
+            "value": false
+          },
+          "Macro": {
+            "type": "bool",
+            "value": false
+          },
+          "Part Design Dress-Up Features": {
+            "type": "bool",
+            "value": true
+          },
+          "Part Design Helper Features": {
+            "type": "bool",
+            "value": true
+          },
+          "Part Design Modeling Features": {
+            "type": "bool",
+            "value": true
+          },
+          "Part Design Transformation Features": {
+            "type": "bool",
+            "value": true
+          },
+          "Sketcher": {
+            "type": "bool",
+            "value": true
+          },
+          "Sketcher Tools": {
+            "type": "bool",
+            "value": true
+          },
+          "Structure": {
+            "type": "bool",
+            "value": true
+          },
+          "View": {
+            "type": "bool",
+            "value": true
+          },
+          "Visual Helpers": {
+            "type": "bool",
+            "value": true
+          },
+          "Workbench": {
+            "type": "bool",
+            "value": true
+          }
+        }
+      },
+      "Preferences": {
+        "DockWindows": {
+          "TaskWatcher": {
+            "Enabled": {
+              "type": "bool",
+              "value": false
+            }
+          }
+        },
+        "Editor": {
+          "Block comment": {
+            "type": "uint",
+            "value": 3465639936
+          },
+          "Bookmark": {
+            "type": "uint",
+            "value": 16776960
+          },
+          "Breakpoint": {
+            "type": "uint",
+            "value": 4278190080
+          },
+          "Character": {
+            "type": "uint",
+            "value": 4278190080
+          },
+          "Class name": {
+            "type": "uint",
+            "value": 1321840640
+          },
+          "Comment": {
+            "type": "uint",
+            "value": 1788433664
+          },
+          "Define name": {
+            "type": "uint",
+            "value": 3705448960
+          },
+          "Keyword": {
+            "type": "uint",
+            "value": 1453118976
+          },
+          "Number": {
+            "type": "uint",
+            "value": 3050219520
+          },
+          "Operator": {
+            "type": "uint",
+            "value": 3570717696
+          },
+          "Python error": {
+            "type": "uint",
+            "value": 4252787200
+          },
+          "Python output": {
+            "type": "uint",
+            "value": 2863300352
+          },
+          "String": {
+            "type": "uint",
+            "value": 3465639936
+          },
+          "Text": {
+            "type": "uint",
+            "value": 3570717696
+          }
+        },
+        "General": {
+          "AutoloadModule": {
+            "type": "text",
+            "value": "PartDesignWorkbench"
+          }
+        },
+        "MainWindow": {
+          "InputHintEnabled": {
+            "type": "bool",
+            "value": true
+          },
+          "Maximized": {
+            "type": "bool",
+            "value": false
+          },
+          "OverlayActiveStyleSheet": {
+            "type": "text",
+            "value": "Freecad Overlay.qss"
+          },
+          "QtStyle": {
+            "type": "text",
+            "value": "FreeCAD"
+          },
+          "QuickMeasureEnabled": {
+            "type": "bool",
+            "value": true
+          },
+          "StatusBar": {
+            "type": "bool",
+            "value": true
+          },
+          "StyleSheet": {
+            "type": "text",
+            "value": "FreeCAD.qss"
+          },
+          "Theme": {
+            "type": "text",
+            "value": "FreeCAD Dark"
+          }
+        },
+        "Mod": {
+          "Arch": {
+            "ColorHelpers": {
+              "type": "uint",
+              "value": 1347440895
+            },
+            "PanelColor": {
+              "type": "uint",
+              "value": 3416289279
+            },
+            "RebarColor": {
+              "type": "uint",
+              "value": 3111475967
+            },
+            "StructureColor": {
+              "type": "uint",
+              "value": 2527705855
+            },
+            "WallColor": {
+              "type": "uint",
+              "value": 3604403967
+            },
+            "defaultSpaceColor": {
+              "type": "uint",
+              "value": 4280090879
+            }
+          },
+          "CAM": {
+            "DefaultBBoxNormalColor": {
+              "type": "uint",
+              "value": 4059297279
+            },
+            "DefaultBBoxSelectionColor": {
+              "type": "uint",
+              "value": 582537215
+            }
+          },
+          "Draft": {
+            "constructioncolor": {
+              "type": "uint",
+              "value": 746455039
+            },
+            "gridColor": {
+              "type": "uint",
+              "value": 1230002175
+            },
+            "gridTransparency": {
+              "type": "int",
+              "value": 0
+            },
+            "snapcolor": {
+              "type": "uint",
+              "value": 4289331455
+            }
+          },
+          "Measure": {
+            "Appearance": {
+              "DefaultLineColor": {
+                "type": "uint",
+                "value": 4177132287
+              },
+              "DefaultTextBackgroundColor": {
+                "type": "uint",
+                "value": 556083711
+              },
+              "DefaultTextColor": {
+                "type": "uint",
+                "value": 4177132287
+              }
+            }
+          },
+          "Sketcher": {
+            "ExpandedConstraintsWidget": {
+              "type": "bool",
+              "value": true
+            },
+            "ExpandedElementsWidget": {
+              "type": "bool",
+              "value": true
+            },
+            "ExpandedMessagesWidget": {
+              "type": "bool",
+              "value": false
+            },
+            "ExpandedSolverAdvancedWidget": {
+              "type": "bool",
+              "value": false
+            },
+            "General": {
+              "": {
+                "type": "int",
+                "value": 0
+              },
+              "ElementFilterEnabled": {
+                "type": "bool",
+                "value": true
+              },
+              "GridDivLineColor": {
+                "type": "uint",
+                "value": 1230002175
+              },
+              "GridLineColor": {
+                "type": "uint",
+                "value": 1230002175
+              }
+            }
+          },
+          "Spreadsheet": {
+            "AliasedCellBackgroundColor": {
+              "type": "text",
+              "value": "#1864ab"
+            },
+            "NegativeNumberColor": {
+              "type": "text",
+              "value": "#f8f9fa"
+            },
+            "PositiveNumberColor": {
+              "type": "text",
+              "value": "#f8f9fa"
+            },
+            "TextColor": {
+              "type": "text",
+              "value": "#f8f9fa"
+            }
+          },
+          "Start": {
+            "CloseStart": {
+              "type": "bool",
+              "value": false
+            },
+            "ShowExamples": {
+              "type": "bool",
+              "value": true
+            },
+            "ShowOnStartup": {
+              "type": "bool",
+              "value": true
+            }
+          },
+          "TechDraw": {
+            "Colors": {
+              "Background": {
+                "type": "uint",
+                "value": 556083711
+              },
+              "CutSurfaceColor": {
+                "type": "uint",
+                "value": 3470056191
+              },
+              "FaceColor": {
+                "type": "uint",
+                "value": 4059297279
+              },
+              "GeomHatch": {
+                "type": "uint",
+                "value": 255
+              },
+              "Hatch": {
+                "type": "uint",
+                "value": 255
+              },
+              "HiddenColor": {
+                "type": "uint",
+                "value": 255
+              },
+              "LightTextColor": {
+                "type": "uint",
+                "value": 4294967295
+              },
+              "NormalColor": {
+                "type": "uint",
+                "value": 255
+              },
+              "PreSelectColor": {
+                "type": "uint",
+                "value": 4240710143
+              },
+              "SelectColor": {
+                "type": "uint",
+                "value": 1958221567
+              }
+            },
+            "Decorations": {
+              "CenterColor": {
+                "type": "uint",
+                "value": 255
+              },
+              "HighlightColor": {
+                "type": "uint",
+                "value": 255
+              },
+              "SectionColor": {
+                "type": "uint",
+                "value": 255
+              },
+              "VertexColor": {
+                "type": "uint",
+                "value": 255
+              }
+            }
+          }
+        },
+        "NaviCube": {
+          "Color": {
+            "type": "uint",
+            "value": 3503345919
+          }
+        },
+        "OutputWindow": {
+          "RedirectPythonErrors": {
+            "type": "bool",
+            "value": true
+          },
+          "RedirectPythonOutput": {
+            "type": "bool",
+            "value": true
+          },
+          "colorError": {
+            "type": "uint",
+            "value": 4252787200
+          },
+          "colorLogging": {
+            "type": "uint",
+            "value": 1437270015
+          },
+          "colorText": {
+            "type": "uint",
+            "value": 3570717951
+          },
+          "colorWarning": {
+            "type": "uint",
+            "value": 4287913983
+          }
+        },
+        "Selection": {
+          "AutoShowSelectionView": {
+            "type": "bool",
+            "value": false
+          }
+        },
+        "Themes": {
+          "ThemeAccentColor1": {
+            "type": "uint",
+            "value": 1252392959
+          },
+          "ThemeAccentColor2": {
+            "type": "uint",
+            "value": 3027763199
+          },
+          "ThemeAccentColor3": {
+            "type": "uint",
+            "value": 1434171135
+          }
+        },
+        "TreeView": {
+          "ColumnSize1": {
+            "type": "int",
+            "value": 260
+          },
+          "ColumnSize2": {
+            "type": "int",
+            "value": 0
+          },
+          "ColumnSize3": {
+            "type": "int",
+            "value": 0
+          },
+          "FontSize": {
+            "type": "int",
+            "value": 11
+          },
+          "ItemBackgroundPadding": {
+            "type": "int",
+            "value": 11
+          },
+          "TreeActiveColor": {
+            "type": "uint",
+            "value": 899696639
+          },
+          "TreeEditColor": {
+            "type": "uint",
+            "value": 1434171135
+          }
+        },
+        "Units": {
+          "UserSchema": {
+            "type": "int",
+            "value": 0
+          }
+        },
+        "View": {
+          "AnnotationTextColor": {
+            "type": "uint",
+            "value": 2914369023
+          },
+          "AxisLetterColor": {
+            "type": "uint",
+            "value": 3301229823
+          },
+          "BackgroundColor": {
+            "type": "uint",
+            "value": 522133503
+          },
+          "BoundingBoxColor": {
+            "type": "uint",
+            "value": 4059297279
+          },
+          "CbLabelColor": {
+            "type": "uint",
+            "value": 2914369023
+          },
+          "ConstrainedDimColor": {
+            "type": "uint",
+            "value": 4199699199
+          },
+          "ConstrainedIcoColor": {
+            "type": "uint",
+            "value": 4199699199
+          },
+          "ConstructionColor": {
+            "type": "uint",
+            "value": 865792255
+          },
+          "CreateLineColor": {
+            "type": "uint",
+            "value": 4059297279
+          },
+          "CursorCrosshairColor": {
+            "type": "uint",
+            "value": 4059297279
+          },
+          "CursorTextColor": {
+            "type": "uint",
+            "value": 2914369023
+          },
+          "DeactivatedConstrDimColor": {
+            "type": "uint",
+            "value": 2257491711
+          },
+          "DefaultShapeColor": {
+            "type": "uint",
+            "value": 1920565503
+          },
+          "EditedEdgeColor": {
+            "type": "uint",
+            "value": 4059297279
+          },
+          "EditedVertexColor": {
+            "type": "uint",
+            "value": 4199699199
+          },
+          "ExprBasedConstrDimColor": {
+            "type": "uint",
+            "value": 4252898559
+          },
+          "ExternalColor": {
+            "type": "uint",
+            "value": 3428706559
+          },
+          "FullyConstrainedColor": {
+            "type": "uint",
+            "value": 1958221567
+          },
+          "FullyConstraintConstructionElementColor": {
+            "type": "uint",
+            "value": 2462511359
+          },
+          "FullyConstraintConstructionPointColor": {
+            "type": "uint",
+            "value": 4205291519
+          },
+          "FullyConstraintElementColor": {
+            "type": "uint",
+            "value": 11173887
+          },
+          "FullyConstraintInternalAlignmentColor": {
+            "type": "uint",
+            "value": 2462511359
+          },
+          "GestureRollBackCommand": {
+            "type": "text",
+            "value": "Std_SelBack"
+          },
+          "GestureRollFwdCommand": {
+            "type": "text",
+            "value": "Std_SelForward"
+          },
+          "Gradient": {
+            "type": "bool",
+            "value": false
+          },
+          "HighlightColor": {
+            "type": "uint",
+            "value": 611232767
+          },
+          "InternalAlignedGeoColor": {
+            "type": "uint",
+            "value": 865792255
+          },
+          "InvalidSketchColor": {
+            "type": "uint",
+            "value": 4252898559
+          },
+          "NavigationStyle": {
+            "type": "text",
+            "value": "Gui::CADNavigationStyle"
+          },
+          "NonDrivingConstrDimColor": {
+            "type": "uint",
+            "value": 865792255
+          },
+          "RadialGradient": {
+            "type": "bool",
+            "value": false
+          },
+          "SelectionColor": {
+            "type": "uint",
+            "value": 899696639
+          },
+          "Simple": {
+            "type": "bool",
+            "value": true
+          },
+          "SketchEdgeColor": {
+            "type": "uint",
+            "value": 4059297279
+          },
+          "SketchVertexColor": {
+            "type": "uint",
+            "value": 4059297279
+          },
+          "UseBackgroundColorMid": {
+            "type": "bool",
+            "value": false
+          }
+        }
+      }
+    },
+    "Tux": {
+      "NavigationIndicator": {
+        "Compact": {
+          "type": "bool",
+          "value": false
+        },
+        "Tooltip": {
+          "type": "bool",
+          "value": true
+        }
+      }
+    }
+  }
+}

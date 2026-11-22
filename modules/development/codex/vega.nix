@@ -33,7 +33,6 @@
 
     programs.codex.settings = {
       model = "gpt-6.1-sol";
-      model_reasoning_effort = "high";
       approvals_reviewer = "user";
       service_tier = "priority";
       desktop = {

@@ -1,5 +1,5 @@
 {
-  home.lisa = {
+  home.workstation = {
     programs.zed-editor.extensions = [
       "nix"
       "toml"

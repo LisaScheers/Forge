@@ -17,6 +17,8 @@
   ];
 
   config.flake-file.inputs = {
+    # Master on purpose for current packages; flake.lock pins the revision and
+    # CI builds every host before a lock update merges.
     nixpkgs.url = "github:NixOS/nixpkgs/master";
     flake-parts.url = "github:hercules-ci/flake-parts";
     flake-file.url = "github:denful/flake-file";

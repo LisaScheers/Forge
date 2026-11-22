@@ -6,10 +6,10 @@
     pkgs,
     ...
   }: let
-    editor = import ../../packages/nixvim/nixvim.pkg.nix {
+    editor = import ../../packages/nixvim/package.nix {
       inherit pkgs system;
       inherit (inputs) nixvim;
-      nixd = pkgs.nixd;
+      inherit (pkgs) nixd;
       nixdSettings = inputs.self.lib.nixdSettings pkgs;
       inherit (pkgs) oxfmt oxlint;
       dotnetSdk = pkgs.dotnetCorePackages.sdk_10_0;
@@ -34,7 +34,7 @@
     '';
   };
 
-  home.lisa-cli = {pkgs, ...}: {
+  home.lisa = {pkgs, ...}: {
     home.packages = [inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.nixvim];
   };
 }

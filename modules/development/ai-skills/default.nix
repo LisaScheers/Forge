@@ -12,7 +12,10 @@
       name = skill;
       value =
         if skill == "visualize"
-        then "${import ./skills/visualize/_package.nix {inherit pkgs;}}"
+        then "${import ../../../packages/visualize-skill/package.nix {
+          inherit pkgs;
+          src = ./skills/visualize;
+        }}"
         else ./skills/${skill};
     }) (builtins.attrNames (builtins.readDir ./skills)));
     pstackSkills = builtins.listToAttrs (map (skill: {

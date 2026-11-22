@@ -5,7 +5,7 @@
     config,
     ...
   }: let
-    cfg = config.matrix;
+    cfg = config.forge.matrix;
     fqdn = "${cfg.subDomain}.${cfg.rootDomain}";
     baseUrl = "https://${fqdn}";
     clientConfig = {

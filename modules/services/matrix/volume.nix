@@ -1,4 +1,4 @@
-{...}: {
+_: {
   nixos.matrix-volume = {
     config,
     lib,
@@ -6,13 +6,10 @@
     utils,
     ...
   }: let
-    cfg = config.matrix.volume;
-    backupEnabled = config.services.restic.backups ? matrix;
+    cfg = config.forge.matrix.volume;
     media = "${config.services.matrix-synapse.dataDir}/media_store";
-    recovery = "/var/backup/matrix-coordinated";
     diskUnit = "${utils.escapeSystemdPath cfg.mountPoint}.mount";
     mediaUnit = "${utils.escapeSystemdPath media}.mount";
-    recoveryUnit = "${utils.escapeSystemdPath recovery}.mount";
     requireDisk = pkgs.writeShellScript "require-matrix-volume" ''
       set -euo pipefail
       test "$(${pkgs.util-linux}/bin/findmnt -nro FSTYPE -M ${lib.escapeShellArg cfg.mountPoint} | ${pkgs.coreutils}/bin/sort -u)" = ext4
@@ -30,13 +27,6 @@
       test "$(${pkgs.util-linux}/bin/findmnt -nro FSTYPE -M ${lib.escapeShellArg media} | ${pkgs.coreutils}/bin/sort -u)" = ext4
       test "$(${pkgs.util-linux}/bin/findmnt -nro FSROOT -M ${lib.escapeShellArg media} | ${pkgs.coreutils}/bin/sort -u)" = /media_store
     '';
-    requireRecovery = pkgs.writeShellScript "require-matrix-volume-recovery" ''
-      set -euo pipefail
-      ${requireMedia}
-      test "$(${pkgs.util-linux}/bin/findmnt -nro UUID -M ${recovery} | ${pkgs.coreutils}/bin/sort -u)" = "$(${pkgs.util-linux}/bin/findmnt -nro UUID -M ${lib.escapeShellArg cfg.mountPoint} | ${pkgs.coreutils}/bin/sort -u)"
-      test "$(${pkgs.util-linux}/bin/findmnt -nro FSTYPE -M ${recovery} | ${pkgs.coreutils}/bin/sort -u)" = ext4
-      test "$(${pkgs.util-linux}/bin/findmnt -nro FSROOT -M ${recovery} | ${pkgs.coreutils}/bin/sort -u)" = /recovery
-    '';
     bind = source: target: {
       what = "${cfg.mountPoint}/${source}";
       where = target;
@@ -48,7 +38,7 @@
       bindsTo = [diskUnit];
     };
   in {
-    options.matrix.volume = {
+    options.forge.matrix.volume = {
       enable = lib.mkEnableOption "Atlas's dedicated Matrix storage volume";
       device = lib.mkOption {type = lib.types.str;};
       mountPoint = lib.mkOption {
@@ -59,12 +49,12 @@
     config = lib.mkIf cfg.enable {
       assertions = [
         {
-          assertion = config.services.matrix-synapse.enable && !(config.matrix.remoteMedia.enable or false);
-          message = "The Matrix volume requires Synapse and replaces remote media storage";
+          assertion = config.services.matrix-synapse.enable;
+          message = "The Matrix volume requires Synapse";
         }
       ];
       fileSystems.${cfg.mountPoint} = {
-        device = cfg.device;
+        inherit (cfg) device;
         fsType = "ext4";
         autoResize = true;
         options = ["nofail" "nodev" "nosuid" "noexec" "x-systemd.device-timeout=30s"];
@@ -86,12 +76,9 @@
         script = ''
           ${pkgs.coreutils}/bin/chmod 0711 ${lib.escapeShellArg cfg.mountPoint}
           ${pkgs.coreutils}/bin/install -d -m 0700 -o matrix-synapse -g matrix-synapse ${lib.escapeShellArg "${cfg.mountPoint}/media_store"}
-          ${lib.optionalString backupEnabled ''
-            ${pkgs.coreutils}/bin/install -d -m 0700 -o root -g root ${lib.escapeShellArg "${cfg.mountPoint}/recovery"}
-          ''}
         '';
       };
-      systemd.mounts = [(bind "media_store" media)] ++ lib.optional backupEnabled (bind "recovery" recovery);
+      systemd.mounts = [(bind "media_store" media)];
       services.matrix-synapse.settings = {
         media_store_path = media;
         max_upload_size = "512M";
@@ -102,12 +89,6 @@
         bindsTo = [mediaUnit diskUnit];
         # The device identity is hidden by Synapse's PrivateDevices sandbox.
         serviceConfig.ExecStartPre = ["+${requireMedia}"];
-      };
-      systemd.services.restic-backups-matrix = lib.mkIf backupEnabled {
-        requires = [mediaUnit recoveryUnit];
-        after = [mediaUnit recoveryUnit];
-        bindsTo = [diskUnit recoveryUnit];
-        serviceConfig.ExecStartPre = [requireRecovery];
       };
     };
   };

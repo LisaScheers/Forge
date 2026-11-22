@@ -1,9 +1,11 @@
-{
+{config, ...}: let
+  nook = config.network.nook;
+in {
   nixos.nook = {pkgs, ...}: let
-    lanAddress = "192.168.111.2";
+    lanAddress = nook.lan;
     lanInterface = "enp7s0";
     audioSink = "Firestorm-Output";
-    firestorm = pkgs.callPackage ../../packages/firestorm.pkg.nix {};
+    firestorm = pkgs.callPackage ../../packages/firestorm/package.nix {};
 
     openboxConfig = pkgs.runCommand "openbox-firestorm-rc.xml" {} ''
       substitute ${pkgs.openbox}/etc/xdg/openbox/rc.xml "$out" \

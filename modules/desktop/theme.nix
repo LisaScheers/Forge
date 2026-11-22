@@ -3,8 +3,8 @@
   inputs,
   ...
 }: {
-  home.lisa-cli.imports = [config.home.catppuccin];
-  home."lisa" = {
+  home.lisa = {
+    imports = [config.home.catppuccin];
     catppuccin = {
       enable = true;
       flavor = "mocha";

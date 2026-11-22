@@ -1,6 +1,6 @@
 # Nixvim
 
-Nixvim provides an AstroNvim-style editor through the shared `lisa-cli` Home
+Nixvim provides an AstroNvim-style editor through the shared `lisa` Home
 Manager profile. All plugins, Treesitter parsers, language servers, formatters,
 linters, and debug adapters are installed by Nix. No Lazy or Mason downloads.
 The editor is a standalone package; its configuration lives in the Nix store.
@@ -107,10 +107,10 @@ Leader is **Space**; press it and wait for Which-key help.
 ## Maintenance
 
 - Feature wiring: `modules/development/nixvim.nix`.
-- Package entry point: `packages/nixvim/nixvim.pkg.nix`.
+- Package entry point: `packages/nixvim/package.nix`.
 - Options, plugins, languages: `packages/nixvim/config.nix`.
 - Keybindings and runtime hooks: `packages/nixvim/keymaps.lua`.
-- Shared nixd settings for all editors: `packages/nixd/settings.nix`;
+- Shared nixd settings for all editors: `modules/development/nixd.nix`;
   see [nixd](nixd.md) for the common Nixpkgs search path and option providers.
 - Keep Nixvim's own tested Nixpkgs pin; it is independent of Forge's system pin.
   Update with `nix flake update nixvim`, then run the targeted check below.

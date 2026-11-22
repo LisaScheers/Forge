@@ -1,5 +1,5 @@
 {config, ...}: {
-  home."lisa" = {pkgs, ...}: {
+  home.lisa = {pkgs, ...}: {
     imports = [config.home.ai-environment];
     forge.ai-skills.enable = true;
     forge.ai-skills.extraSkills.anatomy = "${pkgs.fetchFromGitHub {

@@ -1,0 +1,191 @@
+[
+  {
+    "command": "sidebar.toggle",
+    "key": "mod+b"
+  },
+  {
+    "command": "terminal.toggle",
+    "key": "mod+j"
+  },
+  {
+    "command": "rightPanel.toggle",
+    "key": "mod+alt+b"
+  },
+  {
+    "command": "terminal.split",
+    "key": "mod+d",
+    "when": "terminalFocus"
+  },
+  {
+    "command": "terminal.splitVertical",
+    "key": "mod+shift+d",
+    "when": "terminalFocus"
+  },
+  {
+    "command": "terminal.new",
+    "key": "mod+n",
+    "when": "terminalFocus"
+  },
+  {
+    "command": "terminal.close",
+    "key": "mod+w",
+    "when": "terminalFocus"
+  },
+  {
+    "command": "diff.toggle",
+    "key": "mod+d",
+    "when": "!terminalFocus"
+  },
+  {
+    "command": "preview.toggle",
+    "key": "mod+shift+j"
+  },
+  {
+    "command": "preview.refresh",
+    "key": "mod+r",
+    "when": "previewFocus"
+  },
+  {
+    "command": "preview.focusUrl",
+    "key": "mod+l",
+    "when": "previewFocus"
+  },
+  {
+    "command": "preview.zoomIn",
+    "key": "mod+=",
+    "when": "previewFocus"
+  },
+  {
+    "command": "preview.zoomIn",
+    "key": "mod++",
+    "when": "previewFocus"
+  },
+  {
+    "command": "preview.zoomOut",
+    "key": "mod+-",
+    "when": "previewFocus"
+  },
+  {
+    "command": "preview.resetZoom",
+    "key": "mod+0",
+    "when": "previewFocus"
+  },
+  {
+    "command": "commandPalette.toggle",
+    "key": "mod+k",
+    "when": "!terminalFocus"
+  },
+  {
+    "command": "chat.new",
+    "key": "mod+n",
+    "when": "!terminalFocus"
+  },
+  {
+    "command": "chat.new",
+    "key": "mod+shift+o",
+    "when": "!terminalFocus"
+  },
+  {
+    "command": "chat.newLocal",
+    "key": "mod+shift+n",
+    "when": "!terminalFocus"
+  },
+  {
+    "command": "modelPicker.toggle",
+    "key": "mod+shift+m",
+    "when": "!terminalFocus"
+  },
+  {
+    "command": "editor.openFavorite",
+    "key": "mod+o"
+  },
+  {
+    "command": "thread.previous",
+    "key": "mod+shift+["
+  },
+  {
+    "command": "thread.next",
+    "key": "mod+shift+]"
+  },
+  {
+    "command": "thread.jump.1",
+    "key": "mod+1"
+  },
+  {
+    "command": "thread.jump.2",
+    "key": "mod+2"
+  },
+  {
+    "command": "thread.jump.3",
+    "key": "mod+3"
+  },
+  {
+    "command": "thread.jump.4",
+    "key": "mod+4"
+  },
+  {
+    "command": "thread.jump.5",
+    "key": "mod+5"
+  },
+  {
+    "command": "thread.jump.6",
+    "key": "mod+6"
+  },
+  {
+    "command": "thread.jump.7",
+    "key": "mod+7"
+  },
+  {
+    "command": "thread.jump.8",
+    "key": "mod+8"
+  },
+  {
+    "command": "thread.jump.9",
+    "key": "mod+9"
+  },
+  {
+    "command": "modelPicker.jump.1",
+    "key": "mod+1",
+    "when": "modelPickerOpen"
+  },
+  {
+    "command": "modelPicker.jump.2",
+    "key": "mod+2",
+    "when": "modelPickerOpen"
+  },
+  {
+    "command": "modelPicker.jump.3",
+    "key": "mod+3",
+    "when": "modelPickerOpen"
+  },
+  {
+    "command": "modelPicker.jump.4",
+    "key": "mod+4",
+    "when": "modelPickerOpen"
+  },
+  {
+    "command": "modelPicker.jump.5",
+    "key": "mod+5",
+    "when": "modelPickerOpen"
+  },
+  {
+    "command": "modelPicker.jump.6",
+    "key": "mod+6",
+    "when": "modelPickerOpen"
+  },
+  {
+    "command": "modelPicker.jump.7",
+    "key": "mod+7",
+    "when": "modelPickerOpen"
+  },
+  {
+    "command": "modelPicker.jump.8",
+    "key": "mod+8",
+    "when": "modelPickerOpen"
+  },
+  {
+    "command": "modelPicker.jump.9",
+    "key": "mod+9",
+    "when": "modelPickerOpen"
+  }
+]

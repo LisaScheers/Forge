@@ -1,5 +1,5 @@
 {inputs, ...}: {
-  home."lisa" = {
+  home.lisa = {
     lib,
     pkgs,
     ...

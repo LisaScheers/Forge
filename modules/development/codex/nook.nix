@@ -1,5 +1,19 @@
 {
   nixos.nook = {pkgs, ...}: {
+    home-manager.users.codex = {
+      home = {
+        username = "codex";
+        homeDirectory = "/home/codex";
+        stateVersion = "26.11";
+      };
+      programs.codex = {
+        enable = true;
+        mutableSettings = true;
+        settings = {
+          model_provider = "openai";
+        };
+      };
+    };
     systemd.services.codex = {
       # Renew /home/codex/.codex authentication before re-enabling remote control.
       enable = false;
@@ -20,7 +34,7 @@
         Group = "users";
         WorkingDirectory = "/home/codex";
         # Run in the foreground so systemd owns startup and crash recovery.
-        ExecStart = ''${pkgs.codex-capture}/bin/codex -c 'mcp_servers.cognee.url="https://cognee.local.bylisa.dev/mcp"' -c 'mcp_servers.cognee.startup_timeout_sec=30' -c 'mcp_servers.cognee.tool_timeout_sec=600' -c 'mcp_servers.cognee.tools.forget.approval_mode="prompt"' remote-control'';
+        ExecStart = ''${pkgs.codex}/bin/codex -c 'mcp_servers.cognee.url="https://cognee.local.bylisa.dev/mcp"' -c 'mcp_servers.cognee.startup_timeout_sec=30' -c 'mcp_servers.cognee.tool_timeout_sec=600' -c 'mcp_servers.cognee.tools.forget.approval_mode="prompt"' remote-control'';
         Restart = "always";
         RestartSec = "15s";
         UMask = "0077";

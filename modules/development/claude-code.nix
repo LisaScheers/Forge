@@ -1,5 +1,5 @@
 {
-  home."lisa" = {pkgs, ...}: {
+  home.lisa = {pkgs, ...}: {
     programs.claude-code = {
       enable = true;
       # ai-proxy exports ANTHROPIC_BASE_URL for every shell, but the proxy holds

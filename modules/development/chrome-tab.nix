@@ -1,7 +1,6 @@
-{config, ...}: {
-  home.lisa-vega.imports = [config.home.chrome-tab];
+{
   overlays.chrome-tab = final: _prev: {
-    chrome-tab = final.callPackage ../../packages/chrome-tab/chrome-tab.pkg.nix {};
+    chrome-tab = final.callPackage ../../packages/chrome-tab/package.nix {};
   };
   perSystem = {pkgs, ...}: {
     packages.chrome-tab = pkgs.chrome-tab;
@@ -15,6 +14,9 @@
     ...
   }: let
     cfg = config.forge.chrome-tab;
+    # Built here rather than taken from Forge's overlay, so the exported
+    # profile also works with plain Nixpkgs.
+    chrome-tab = pkgs.callPackage ../../packages/chrome-tab/package.nix {};
     manifestDirectories =
       if pkgs.stdenv.hostPlatform.isDarwin
       then [
@@ -30,21 +32,21 @@
       enable = lib.mkEnableOption "the Chrome and Helium tab JavaScript bridge" // {default = true;};
       extensionId = lib.mkOption {
         type = lib.types.strMatching "[a-p]{32}";
-        default = pkgs.chrome-tab.extensionId;
+        default = chrome-tab.extensionId;
         description = "Extension ID allowed to connect to the native host; defaults to the bundled extension's public key identity.";
       };
     };
     config = lib.mkIf cfg.enable {
-      home.packages = [pkgs.chrome-tab];
+      home.packages = [chrome-tab];
       home.file =
         {
-          ".local/share/chrome-tab/extension".source = "${pkgs.chrome-tab}/share/chrome-tab/extension";
+          ".local/share/chrome-tab/extension".source = "${chrome-tab}/share/chrome-tab/extension";
         }
         // lib.genAttrs (map (directory: "${directory}/dev.bylisa.chrome_tab.json") manifestDirectories) (_: {
           text = builtins.toJSON {
             name = "dev.bylisa.chrome_tab";
             description = "Forge Tab Bridge";
-            path = "${pkgs.chrome-tab}/bin/chrome-tab-native-host";
+            path = "${chrome-tab}/bin/chrome-tab-native-host";
             type = "stdio";
             allowed_origins = ["chrome-extension://${cfg.extensionId}/"];
           };

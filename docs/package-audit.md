@@ -1,5 +1,9 @@
 # Package pins and patches — 10 November 2026 recheck
 
+> Dated record. Each entry describes the tree as audited on that date; later
+> commits may have changed a pin or patch. The flake lock and package files are
+> the current state.
+
 This follows the 8 November audit below. The recheck covers the remaining custom
 versions, forks, local patches, and inline workarounds. Ordinary flake and package
 lockfiles remain reproducibility records; this does not advance unrelated inputs.
@@ -16,7 +20,7 @@ lockfiles remain reproducibility records; this does not advance unrelated inputs
 | REA | 6.8.0 is still the latest published GitHub and NPM release. The exact pwndbg, pwntools, pyelftools, Unicorn and mitmproxy contracts are unchanged; their pins remain. Kuna advances to 1.994 with its matching specs (selected through `KUNA_SPECS`): the old 1.833 verification label is advisory. REA still reports it honestly as unverified upstream; ARM macOS and x86 Linux packages build. Local ARM Mach-O and x86 ELF fixtures validate inventory, pseudocode, assembly, call-graph schema, complete two-function exports and reading from the completed project cache. |
 | CLIProxyAPIPlus | 8.0.56-0 remains the latest release; both lossless logging and structured response-text patches are still required. |
 | mautrix-discord | Latest release remains 0.7.7. Main has only three subsequent changes (category-space condition, sticker reupload condition and dependency/CI updates), none replacing the eight local patches. |
-| Pluralmatrix / Gotify Authentik plugin / Anatomy | Upstream heads are unchanged: `d10e51a4`, `2c167190`, and `1482e846` respectively. Pluralmatrix's three patches and matching dependency selections remain. |
+| Gotify Authentik plugin / Anatomy | Upstream heads are unchanged: `2c167190` and `1482e846` respectively. |
 | Firestorm | Retains 7.2.5.81788, still listed as the current public release in [freshly crawled release coverage](https://modemworld.me/tag/firestorm-reviews/). The official download pages return HTTP 403 to this client; no later release was established. |
 | Cutter / debugpy / installer firmware parser | Latest releases/selected source remain Cutter 2.5.0, debugpy 1.8.22 and asahi-installer `e93743d5`. Their local compatibility fixes remain necessary. Nixpkgs master still packages the older firmware parser. |
 | Nushell | 0.117.0 was released on 10 November, but even current Nixpkgs master still packages 0.116.1. There is no custom version pin to remove; the existing Darwin builder-test workaround still applies to the selected package. |
@@ -87,11 +91,10 @@ No configuration was activated and no deployed database was opened.
 | REA 6.8.0 and its release lockfile | 6.8.0 is the latest published release. The runtime, NativeAOT bridge and dependency lockfile must advance together. |
 | REA WABT 1.0.42, sigrok 0.7.2, mitmproxy 12.2.3 | The current runtime's integration contracts require these versions. WABT is also the latest release. Newer mitmproxy 12.3.1 does not meet that contract. |
 | REA pwndbg 2026.09.15, Unicorn 2.1.2, pyelftools 0.33, unchanged pwntools 4.15.0 | The core/binary integration explicitly requires these exact versions and unchanged upstream sources. Newer pwndbg 2026.10.28 and Unicorn 2.1.4 cannot simply replace them. |
-| REA Kuna 1.833, Wakaru 1.14.0, JADX bridge, NativeAOT and Frida selections | These are the selected REA release's verified tool and ABI set. Independent updates would require changing and validating REA's contracts. |
+| REA Wakaru 1.14.0, JADX bridge, NativeAOT and Frida selections | These are the selected REA release's verified tool and ABI set; Kuna moved past its 1.833 label (above). Independent updates would require changing and validating REA's contracts. |
 | REA Ghidra 12.2 compatibility substitution | REA 6.8's release policy still rejects the packaged Ghidra minor without it. |
 | Cutter Qt template patch | 2.5.0 remains the latest Cutter release and still uses template names in `.ui` files. The typedef and UI substitutions remain necessary with Qt 6.12. |
-| mautrix-discord's eight patches | 0.7.7 remains its latest release. Local relay recovery/features, plural proxying, history/content/reactions, missing thread starters and media-retention behavior are still local. |
-| Pluralmatrix's three patches | `d10e51a4` remains upstream main. Client authentication, integration and reaction-control patches have no later source to move to. Prisma and crypto engine selections match that source's dependency lockfiles. |
+| mautrix-discord's six patches | 0.7.7 remains its latest release. Local relay recovery/features, history/content/reactions and missing thread starters are still local. |
 | Gotify Authentik plugin | `2c167190` remains upstream main. Building the plugin within the server's module preserves Go toolchain/dependency compatibility. |
 | Asterion J516s firmware qualification / opaque-X patches | Current kernel still lacks this Mac's measured firmware TEXT digest and its panel alpha-division fix. Both patches apply to the newer kernel source. |
 | Apple firmware 14.8.3 | Selected byte ranges, board-specific firmware and a verified output digest form one extraction unit. An arbitrary newer macOS image is not interchangeable. |
@@ -146,12 +149,10 @@ The newer Lix candidate failed two functional2 test cases (`test_store_system`
 and `test_trivial_assert`) with daemon-socket connection errors; its lock entry
 was restored to the previously selected revision.
 
-Repository-wide checks have existing blockers: `nix flake check --no-build
---all-systems` fails on devenv's missing `nix2container` / `mk-shell-bin` inputs;
-the dendritic check rejects the vendored `visualize/_package.nix`, reproduced at
-baseline commit `d447e12a5f5fff362083161382d7c9ee4094802c`. The full format check
-also reports six unchanged files: `gh-dash.nix`, `git.nix`, `codex/default.nix`,
-`antigravity.nix`, and Matrix's two backup test modules.
+At the time of this audit, repository-wide checks had blockers: devenv's
+container outputs, the dendritic check on the visualize recipe, and six
+unformatted files. All three were fixed on 2026-11-20; CI now builds every flake
+check and `checks.lint` enforces formatting.
 
 No host configuration was activated. Production database migrations, live Cognee
 retrieval and Asterion boot/GPU qualification remain separate deployment checks.

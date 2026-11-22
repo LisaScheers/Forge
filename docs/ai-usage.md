@@ -3,7 +3,8 @@
 One CLIProxyAPIPlus instance runs on Nook and archives its full request logs in
 ClickHouse. Nook and Vega were deployed and verified on 2026-11-05, including
 Vega's final system-generation switch. Asterion is excluded for now. Codex,
-T3's Codex driver, Antigravity CLI, and Cognee have client routes in this change.
+T3's Codex driver, Antigravity CLI, and Cognee had client routes in that change;
+Codex and T3 have since moved to Codex's built-in provider (see below).
 
 The API endpoint is `https://cliproxy.local.bylisa.dev`. Managed machines map it to
 Nook's stable Tailscale address, `100.106.233.104`. Tailscale uses a direct LAN path
@@ -12,10 +13,22 @@ resolves the name to Nook's LAN address. Nginx accepts LAN and Tailscale source
 addresses, requires trusted TLS, and forwards HTTP streaming and WebSockets.
 CLIProxy validates the shared client key. Its management API is disabled.
 
-The listener on port 8317 and ClickHouse on ports 8123 and 9000 bind to loopback.
+The listener on port 8317 and ClickHouse on ports 8124 and 9000 bind to loopback.
 Provider credentials are provisioned with agenix and refreshed by CLIProxy.
 The seeded Codex credential is replaced only when its encrypted seed changes;
 restarting the service preserves refreshed credentials.
+
+## Where the pieces live
+
+| Piece | Files |
+| --- | --- |
+| Nook's gateway, ClickHouse and ingestion units | `modules/services/ai-proxy/server.nix` |
+| Ingestion, proxy renderer and gateway check source | `services/ai-usage/` |
+| Capture build of CLIProxy with the streaming patch | `packages/cli-proxy-api-plus-capture/` |
+| Client routes, hosts entries and the shared client key | `modules/services/ai-proxy/clients.nix` |
+| Cognee's gateway settings and the unit that hands it the client key | `modules/services/cognee/server.nix` |
+| AI Archive web app (Nook) and its Authentik blueprint (Atlas) | `modules/services/ai-proxy/archive.nix`, `modules/services/ai-proxy/auth.nix`, `services/ai-archive/` |
+| Opt-in local gateway (`home.lisa-proxy`), not deployed | `modules/development/cli-proxy-api-plus/`, `packages/cli-proxy-api-plus/` |
 
 ## Captured data
 
@@ -110,8 +123,9 @@ Build Nook and its deploy-rs checks before activation. Lisa approved the scoped
 `nixpkgs.config.problems.handlers."gtk+".broken = "warn"` exception on Nook on
 2026-11-05, preserving the existing Firestorm dependency at this Nixpkgs lock.
 The host build, deployment schema, and activation checks passed before cutover.
-The repository's `dendritic` check separately fails on the existing
-`modules/development/ai-skills/skills/visualize/_package.nix`.
+That exception was removed on 2026-11-20 once Nook evaluated without it. At
+cutover, the `dendritic` check also failed on the visualize skill's recipe,
+since moved to `packages/visualize-skill/`.
 
 Vega disables `targets.darwin.copyApps.enable` and enables
 `targets.darwin.linkApps.enable` at Lisa's request, following the
@@ -124,19 +138,20 @@ also verified on 2026-11-05. The former copied-app directory is preserved under
 Existing conflicting GPG backups and the local Aurora skill symlink were preserved under
 `~/.local/state/forge-ai-proxy/activation-backup-20261105T140308`.
 
-For subsequent changes, activate Nook first. Verify
-`cli-proxy-api-plus`, `clickhouse`, `ai-usage-schema`, and the
-`ai-usage-ingest.timer`, trusted TLS, rejection of missing API keys, and a real
-request's transcript and usage in ClickHouse before switching clients. Update
-Vega's system configuration to install its agenix key and host record. Restart
-Codex, T3, and CLI sessions after changing provider configuration. These clients
-fail when the gateway is unavailable rather than falling back to a direct route.
+For subsequent changes, activate Nook first. Verify `cli-proxy-api-plus`,
+`clickhouse`, `ai-usage-schema`, and the `ai-usage-ingest.timer`, trusted TLS,
+rejection of missing API keys, and a real request's transcript and usage in
+ClickHouse before switching clients. Update Vega's system configuration to
+install its agenix key and host record. Restart Antigravity and other sessions
+that read `OPENAI_BASE_URL` or `ANTHROPIC_BASE_URL` after changing provider
+configuration; they and Cognee fail when the gateway is unavailable rather than
+falling back to a direct route.
 
-Codex loads its token with a [command-backed provider auth helper](https://learn.chatgpt.com/docs/config-file/config-reference),
-so its key is absent from the Nix store and does not depend on GUI environment
-variables. Nook's `codex` account uses the same route. T3's active Codex driver
-selects that provider. Cognee uses its existing OpenRouter model through the
-gateway, with a private generated client environment file.
+Codex, T3's Codex driver and Nook's `codex` account no longer use a gateway
+provider: since the native-capture change they select Codex's built-in `openai`
+provider (`model_provider = "openai"`). Cognee uses its existing OpenRouter
+model through the gateway, with a private generated client environment file
+written by `ai-proxy-cognee-env` ([Cognee](cognee.md#models)).
 
 Antigravity CLI uses [Gemini API mode and a custom endpoint](https://antigravity.google/docs/install?tab=cli).
 Its wrapper reads the shared key at runtime, including when launched outside an

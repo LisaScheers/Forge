@@ -31,7 +31,7 @@
     };
   fridaBinding = fetchurl {
     url = "https://github.com/frida/frida/releases/download/17.23.2/frida-v17.23.2-napi-v8-${fridaPlatform.name}.tar.gz";
-    hash = fridaPlatform.hash;
+    inherit (fridaPlatform) hash;
   };
 in
   buildNpmPackage {

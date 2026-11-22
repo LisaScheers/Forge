@@ -1,4 +1,4 @@
-{ inputs, ... }: {
+{inputs, ...}: {
   overlays.antigravity-cli = final: _prev: {
     antigravity-cli = inputs.antigravity-cli.packages.${final.stdenv.hostPlatform.system}.default;
   };
@@ -14,7 +14,7 @@
       settings = {
         allowNonWorkspaceAccess = true;
         enableTelemetry = false;
-        model = "Gemini 3.7 Flash (High)";
+        model = "Gemini 3.8 Flash (High)";
         permissions = {
           allow = [
             "command(git worktree)"

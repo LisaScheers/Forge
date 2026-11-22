@@ -2,13 +2,16 @@
   config,
   inputs,
   ...
-}: {
-  flake.nixosConfigurations.asterion = inputs.nixpkgs.lib.nixosSystem {
-    system = "aarch64-linux";
-    modules = [config.nixos.base config.nixos.asterion];
+}: let
+  host = "asterion";
+  system = "aarch64-linux";
+in {
+  flake.nixosConfigurations.${host} = inputs.nixpkgs.lib.nixosSystem {
+    inherit system;
+    modules = [config.nixos.base config.nixos.${host}];
   };
-  nixos.asterion = {
-    networking.hostName = "asterion";
+  nixos.${host} = {
+    networking.hostName = host;
     imports = [
       config.nixos.apple-silicon
       config.nixos.asterion-hardware
@@ -19,11 +22,5 @@
     ];
     home-manager.users.lisa = config.home.lisa-asterion;
   };
-  flake.checks.aarch64-linux.asterion = config.flake.nixosConfigurations.asterion.config.system.build.toplevel;
-  ci.targets = [
-    {
-      target = "nixosConfigurations.\"asterion\".config.system.build.toplevel";
-      system = "aarch64-linux";
-    }
-  ];
+  deploy.hosts.${host}.sshUser = "root";
 }
