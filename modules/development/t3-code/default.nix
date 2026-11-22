@@ -5,14 +5,20 @@
   ...
 }: let
   sharedKeybindings = lib.importJSON ./keybindings.json;
+  t3Home = config.home.t3-code;
 in {
-  home.lisa-vega.imports = [config.home.t3-code];
   home.t3-code = inputs.t3-code-nix.homeModules.default;
   flake-file.inputs.t3-code-nix = {
     url = "github:LisaScheers/t3-code-nix";
     inputs.nixpkgs.follows = "nixpkgs";
   };
-  home.lisa-vega = {
+  # nix-darwin copies this into /Applications/Nix Apps as a real bundle, which
+  # Spotlight and the Dock launch; Home Manager's symlinked copy opens as a folder.
+  darwin.vega = {config, ...}: {
+    environment.systemPackages = [config.home-manager.users.lisa.programs.t3code.package];
+  };
+  home.lisa-vega = {config, ...}: {
+    imports = [t3Home];
     # The native module manages userdata; its legacy dev profile has no option.
     forge.mutablePreferences = {
       ".t3/dev/settings.json".settings = {
@@ -74,7 +80,8 @@ in {
         providerInstances = {
           antigravity = {
             config = {
-              binaryPath = "agy";
+              # Empty uses T3's managed ACP runtime; the agy CLI has no ACP harness.
+              binaryPath = "";
               customModels = [];
             };
             driver = "antigravity";
@@ -82,7 +89,9 @@ in {
           };
           claudeAgent = {
             config = {
-              binaryPath = "claude";
+              # T3's Claude probe spawns without the login-shell PATH, so a bare
+              # "claude" fails with ENOENT. The profile path survives generations.
+              binaryPath = "${config.home.profileDirectory}/bin/claude";
               customModels = [];
               launchArgs = "";
             };

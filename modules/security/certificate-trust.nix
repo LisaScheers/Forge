@@ -44,6 +44,9 @@ in {
     # Built-in pip has its own CA bundle. Honor explicit user overrides.
     environment.variables.PIP_CERT = lib.mkDefault "/etc/ssl/certs/ca-certificates.crt";
     launchd.user.envVariables.PIP_CERT = lib.mkDefault "/etc/ssl/certs/ca-certificates.crt";
+    # Shells get this from nix-darwin, but GUI apps such as T3 Code only see the
+    # launchd environment. Without it, Nix-built Claude Code can't verify TLS.
+    launchd.user.envVariables.NIX_SSL_CERT_FILE = lib.mkDefault "/etc/ssl/certs/ca-certificates.crt";
   };
   perSystem = {pkgs, ...}: let
     filter = filterApple pkgs;
