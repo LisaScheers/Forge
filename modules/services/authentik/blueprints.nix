@@ -16,12 +16,13 @@
     inherit (config.forge.authentik) manage;
     # Attach additively, so every other embedded-outpost provider stays.
     attachToEmbeddedOutpost = provider: ''${manage} shell -c "from authentik.outposts.models import Outpost; from authentik.providers.proxy.models import ProxyProvider; outpost = Outpost.objects.get(managed='goauthentik.io/outposts/embedded'); outpost.providers.add(ProxyProvider.objects.get(name='${provider}')); outpost.save()"'';
-    unit = blueprint: {
+    unitName = name: "authentik-${name}-blueprint";
+    unit = blueprint: previous: {
       inherit (blueprint) description;
       wantedBy = ["multi-user.target"];
       requiredBy = ["authentik.service"];
       before = ["authentik.service"];
-      after = ["authentik-migrate.service"];
+      after = ["authentik-migrate.service"] ++ previous;
       requires = ["authentik-migrate.service"];
       serviceConfig =
         {
@@ -112,6 +113,16 @@
       })
       config.forge.authentik.blueprints;
 
-    config.systemd.services = lib.mapAttrs' (name: blueprint: lib.nameValuePair "authentik-${name}-blueprint" (unit blueprint)) config.forge.authentik.blueprints;
+    # Blueprints apply one at a time: applied together, as when a switch
+    # changes authentik-env, they deadlock in PostgreSQL and Authentik, which
+    # requires them all, stays down.
+    config.systemd.services = let
+      inherit (config.forge.authentik) blueprints;
+      names = builtins.attrNames blueprints;
+    in
+      lib.listToAttrs (lib.imap0 (index: name:
+        lib.nameValuePair (unitName name)
+        (unit blueprints.${name} (lib.optional (index > 0) "${unitName (builtins.elemAt names (index - 1))}.service")))
+      names);
   };
 }

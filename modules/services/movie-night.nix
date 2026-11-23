@@ -41,9 +41,11 @@ in {
       manageCommand = config.forge.authentik.manage;
     };
     # The upstream unit predates forge.authentik.blueprints; give it the same
-    # re-apply behaviour as the others.
+    # re-apply behaviour as the others, and apply it after them, since
+    # blueprints applied together deadlock.
     systemd.services.authentik-movie-night-blueprint = {
       wantedBy = ["multi-user.target"];
+      after = map (name: "authentik-${name}-blueprint.service") (builtins.attrNames config.forge.authentik.blueprints);
       serviceConfig.RemainAfterExit = true;
       restartTriggers = [config.age.secrets.authentik-env.file];
     };
