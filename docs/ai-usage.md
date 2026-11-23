@@ -114,6 +114,17 @@ the gateway's captures. Claude Code sends metrics and events with
 `log_agent_responses` off and its default Statsig metrics disabled.
 `checks.agent-policy` fails if either client starts logging content.
 
+| Signal | Client | Configured | Received on Nook | Last verified |
+| --- | --- | --- | --- | --- |
+| Metrics: tokens, cost, sessions, lines changed | Claude Code | Vega, active since 2026-11-23 | Not yet: Nook still runs the configuration before the collector | Pending Nook deployment |
+| Events: API requests, tool decisions | Claude Code | Vega, active since 2026-11-23 | Not yet | Pending Nook deployment |
+| Events: responses with token counts and latency | Codex | Vega, active since 2026-11-23 | Not yet | Pending Nook deployment |
+| Collector to ClickHouse | Nook | `telemetry.nix` | Integration check only | 2026-11-23, `checks.x86_64-linux.ai-usage-clickhouse` |
+
+Until Nook is deployed, the clients' exporters cannot connect, so these
+signals are lost. After deploying, verify each row with the queries below and
+update this table.
+
 ```sql
 SELECT ServiceName, count() FROM otel.otel_logs GROUP BY ServiceName;
 

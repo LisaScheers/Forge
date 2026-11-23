@@ -91,25 +91,36 @@ unsandboxed Codex session, run `codex --profile full`. T3 Code sets the runtime
 mode per thread, independently of these defaults.
 
 Claude's own auto memory is off, as Codex's memories are: Cognee holds memory
-across sessions, and AGENTS.md says when to use it.
+across sessions, and AGENTS.md says when to use it. Claude also runs with
+`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1`, so subagents cannot nest even without
+the hook, and `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1`, so the commands, hooks and
+stdio MCP servers it starts get no credentials from its environment (GitHub
+tokens excepted). Neither client checks for its own updates; Nix installs both.
 
 ## Mutable settings
 
 Claude Code, Codex and Antigravity use `mutableSettings`. Activation merges the
 declared values into the writable files, so declared keys win, and settings an
 app writes for itself survive (for example, the Codex app's own `node_repl` and
-`computer-use` servers). Removing a declaration does not remove the key from the
-file; delete it by hand after removing it from Nix.
+`computer-use` servers). The merge itself never removes a key, so a later step,
+`codexRetireSettings`, keeps a manifest of the keys Nix declared at the last
+activation in `~/.local/state/forge-agent-policy/codex-managed.json` and deletes
+the ones Nix no longer declares, such as the old gateway provider
+`model_providers.nook`. Keys the app or Lisa added were never in the manifest and
+stay. Claude's and Antigravity's settings files have no such step; remove a key
+there by hand after removing its declaration.
 
-`checks.agent-policy` runs Home Manager's real merge steps for the system's own
-home against a stale home (full access, no rules, an `npx` server, an app-owned
-key) and requires the policy to win and the app-owned keys to survive.
+`checks.agent-policy` runs Home Manager's real merge and retirement steps for the
+system's own home against a stale home (full access, no rules, an `npx` server,
+the retired gateway provider, an app-owned key and server) and requires the
+policy to win, the retired provider to go, and the app-owned entries to stay.
 
 Because those files stay writable, every activation then runs
 `agent-policy-status`, which compares the live `~/.codex/config.toml` and
 `~/.claude/settings.json` with the policy and warns about each difference: the
-Codex sandbox and approval mode, missing Claude ask and deny rules, or a missing
-approval hook. Run `agent-policy-status` at any time for the same report.
+Codex sandbox and approval mode, missing Claude ask and deny rules, a missing
+Claude or Codex approval hook, or Codex approval rules that differ. Run
+`agent-policy-status` at any time for the same report.
 
 ## Telemetry
 

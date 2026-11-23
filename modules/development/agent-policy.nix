@@ -108,7 +108,22 @@
         };
         hook = approvalHook pkgs "claude";
       };
+      codex_hook = approvalHook pkgs "codex";
+      codex_rules = codexRules;
     });
+  # Codex keys Nix declared before the retirement manifest existed.
+  retiredCodexPaths = [["model_providers" "nook"]];
+  # Key paths Nix manages in ~/.codex/config.toml: each top-level key, and each
+  # entry of a top-level table, such as one MCP server.
+  declaredCodexPaths = settings:
+    lib.concatLists (lib.mapAttrsToList (
+        key: value:
+          if builtins.isAttrs value
+          then map (entry: [key entry]) (builtins.attrNames value)
+          else [[key]]
+      )
+      settings);
+  retireCommand = pkgs: "${pkgs.python3.withPackages (ps: [ps.tomli-w])}/bin/python3 -I ${./agent-policy/retire_settings.py}";
   policyStatus = pkgs:
     pkgs.writeShellApplication {
       name = "agent-policy-status";
@@ -116,14 +131,27 @@
     };
 in {
   home.lisa = {
+    config,
     lib,
     pkgs,
     ...
-  }: {
+  }: let
+    codexSettings = config.programs.codex.settings;
+    declared = pkgs.writeText "codex-declared.json" (builtins.toJSON (lib.unique (
+      declaredCodexPaths codexSettings
+      ++ map (name: ["mcp_servers" name]) (builtins.attrNames config.programs.mcp.servers)
+    )));
+  in {
+    # The merge never removes keys; retire the ones Nix stopped declaring.
+    home.activation.codexRetireSettings = lib.hm.dag.entryAfter ["codexMutableSettings"] ''
+      run ${retireCommand pkgs} ${config.home.homeDirectory}/.codex/config.toml \
+        ${config.xdg.stateHome}/forge-agent-policy/codex-managed.json \
+        ${declared} ${pkgs.writeText "codex-retired.json" (builtins.toJSON retiredCodexPaths)}
+    '';
     # Mutable settings can drift from Nix between activations; report it at
     # every switch, and on demand with `agent-policy-status`.
     home.packages = [(policyStatus pkgs)];
-    home.activation.agentPolicyStatus = lib.hm.dag.entryAfter ["codexMutableSettings" "claudeCodeSettings"] ''
+    home.activation.agentPolicyStatus = lib.hm.dag.entryAfter ["codexRetireSettings" "claudeCodeSettings"] ''
       ${lib.getExe (policyStatus pkgs)} "$HOME" || warnEcho "Live agent settings differ from agent-policy.nix; see the lines above."
     '';
     programs.claude-code.settings = {
@@ -238,29 +266,40 @@ in {
         };
         hook = (builtins.head (builtins.head local.programs.claude-code.settings.hooks.PreToolUse).hooks).command;
       };
+      codex_hook = (builtins.head (builtins.head local.programs.codex.hooks.PreToolUse).hooks).command;
+      codex_rules = codexRules;
     });
     # Home Manager's own merge steps, which write the live files at activation.
-    merge = pkgs.writeText "agent-settings-merge.sh" (local.home.activation.codexMutableSettings.data + "\n" + local.home.activation.claudeCodeSettings.data);
+    merge = pkgs.writeText "agent-settings-merge.sh" (lib.concatMapStringsSep "\n" (step: local.home.activation.${step}.data) [
+      "codexMutableSettings"
+      "codexRetireSettings"
+      "claudeCodeSettings"
+    ]);
   in {
     checks.agent-policy = assert lib.assertMsg (failures == []) "Agent configuration no longer matches agent-policy.nix:\n${lib.concatStringsSep "\n" failures}";
       pkgs.runCommand "agent-policy" {
-        nativeBuildInputs = [(pkgs.python3.withPackages (ps: [ps.pyyaml])) pkgs.gnused];
+        nativeBuildInputs = [(pkgs.python3.withPackages (ps: [ps.pyyaml ps.tomli-w])) pkgs.gnused];
         AGENT_POLICY = policyFile pkgs;
       } ''
         cd ${./agent-policy}
-        python3 -B -m unittest test_approval_hook test_policy_status
+        python3 -B -m unittest test_approval_hook test_policy_status test_retire_settings
         python3 -B check_skills.py ${./ai-skills/skills} ${./ai-skills/pstack/skills}
 
         # A home left over from before the policy: full access, no rules, npx.
         home="$TMPDIR/home"
         mkdir -p "$home/.codex" "$home/.claude"
         printf '%s\n' 'approval_policy = "never"' 'sandbox_mode = "danger-full-access"' 'app_owned = "kept"' \
-          '[mcp_servers.webmcp]' 'command = "npx"' > "$home/.codex/config.toml"
+          '[mcp_servers.webmcp]' 'command = "npx"' '[mcp_servers.node_repl]' 'command = "node"' \
+          '[model_providers.nook]' 'base_url = "https://gateway"' > "$home/.codex/config.toml"
         echo '{"theme": "dark", "permissions": {"ask": []}}' > "$home/.claude/settings.json"
         ! python3 -B policy_status.py ${localExpectations} "$home" 2>/dev/null
         # Run the real merge against it, then require the policy and the kept keys.
         sed "s#${local.home.homeDirectory}#$home#g" ${merge} > "$TMPDIR/merge.sh"
-        bash -c 'errorEcho() { echo "$@" >&2; }; set -eu; source "$1"' merge "$TMPDIR/merge.sh"
+        bash -c 'errorEcho() { echo "$@" >&2; }; run() { "$@"; }; set -eu; source "$1"' merge "$TMPDIR/merge.sh"
+        # Home Manager links these two files rather than merging them.
+        mkdir -p "$home/.codex/rules"
+        ln -s ${local.home.file.".codex/hooks.json".source} "$home/.codex/hooks.json"
+        ln -s ${local.home.file.".codex/rules/agent-policy.rules".source} "$home/.codex/rules/agent-policy.rules"
         python3 -B policy_status.py ${localExpectations} "$home"
         python3 -B - "$home" <<'PY'
         import json, pathlib, sys, tomllib
@@ -268,6 +307,8 @@ in {
         codex = tomllib.loads((home / ".codex/config.toml").read_text())
         claude = json.loads((home / ".claude/settings.json").read_text())
         assert codex["app_owned"] == "kept" and claude["theme"] == "dark", "the merge dropped a key the app owns"
+        assert codex["mcp_servers"]["node_repl"]["command"] == "node", "an app-owned server was retired"
+        assert "model_providers" not in codex, "a retired gateway provider survived"
         assert "npx" not in codex["mcp_servers"]["webmcp"]["command"]
         assert codex["mcp_servers"]["rea"]["omit_tools_from"] == ["direct"]
         assert codex["otel"]["log_user_prompt"] is False

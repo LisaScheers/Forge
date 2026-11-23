@@ -13,6 +13,8 @@
         sandbox_workspace_write.network_access = true;
         model_reasoning_effort = lib.mkDefault "high";
         personality = "pragmatic";
+        # Nix installs and updates Codex.
+        check_for_update_on_startup = false;
 
         agents.max_concurrent_threads_per_session = 10;
 

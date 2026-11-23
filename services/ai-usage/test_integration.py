@@ -113,7 +113,7 @@ class ClickHouseTests(unittest.TestCase):
                         raised.exception.close()
                     self.assertEqual(destination.query("SELECT count() FROM ai_usage.requests").strip(), b"1")
                     if os.environ.get("OTELCOL_BINARY"):
-                        self.collector_writes_otel_only(root, tcp_port, port)
+                        self.collector_writes_otel_only(root, tcp_port, port, destination)
                     if os.environ.get("CLIPROXY_BINARY"):
                         from test_gateway_fixture import verify
                         gateway_root = root / "gateway"
@@ -133,7 +133,7 @@ class ClickHouseTests(unittest.TestCase):
                         process.wait()
 
 
-    def collector_writes_otel_only(self, root, tcp_port, http_port):
+    def collector_writes_otel_only(self, root, tcp_port, http_port, destination):
         """Nook's collector configuration stores an OTLP log through its own account."""
         listen = free_port()
         with (root / "collector.log").open("w+") as output:
@@ -164,8 +164,8 @@ class ClickHouseTests(unittest.TestCase):
                     self.fail("collector did not start: " + output.read())
                 for _ in range(300):
                     try:
-                        if archive_query(http_port, "SELECT count() FROM otel.otel_logs "
-                                         "WHERE Body = 'forge-telemetry-test'").strip() == b"1":
+                        if destination.query("SELECT count() FROM otel.otel_logs "
+                                             "WHERE Body = 'forge-telemetry-test'").strip() == b"1":
                             break
                     except HTTPError as error:
                         error.close()
@@ -176,7 +176,10 @@ class ClickHouseTests(unittest.TestCase):
             finally:
                 collector.terminate()
                 collector.wait(timeout=15)
-        # The collector's account cannot read the gateway's captures.
+        # The archive cannot read telemetry, and the collector cannot read captures.
+        with self.assertRaises(HTTPError) as raised:
+            archive_query(http_port, "SELECT count() FROM otel.otel_logs")
+        raised.exception.close()
         request = Request(f"http://127.0.0.1:{http_port}/?" + urlencode({"query": "SELECT count() FROM ai_usage.requests"}),
                           data=b"", headers={"X-ClickHouse-User": "ai_otel", "X-ClickHouse-Key": "otel-test"})
         with self.assertRaises(HTTPError) as raised:

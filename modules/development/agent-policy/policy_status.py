@@ -31,11 +31,28 @@ def differences(expected, home):
         missing = [rule for rule in value if rule not in (permissions.get(key) or [])]
         if missing:
             found.append(f"{claude_path}: permissions.{key} lacks {', '.join(missing)}")
-    hooks = [hook.get("command") for entry in (claude.get("hooks") or {}).get("PreToolUse") or []
-             for hook in entry.get("hooks") or []]
-    if expected["claude"]["hook"] not in hooks:
+    if expected["claude"]["hook"] not in pre_tool_use_commands(claude):
         found.append(f"{claude_path}: the approval hook is not a PreToolUse hook")
+    hooks_path = home / ".codex" / "hooks.json"
+    try:
+        codex_hooks = json.loads(hooks_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        codex_hooks = {}
+    if expected["codex_hook"] not in pre_tool_use_commands(codex_hooks):
+        found.append(f"{hooks_path}: the approval hook is not a PreToolUse hook")
+    rules_path = home / ".codex" / "rules" / "agent-policy.rules"
+    try:
+        rules = rules_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        rules = None
+    if rules != expected["codex_rules"]:
+        found.append(f"{rules_path}: the approval rules are missing or differ from agent-policy.nix")
     return found
+
+
+def pre_tool_use_commands(settings):
+    return [hook.get("command") for entry in (settings.get("hooks") or {}).get("PreToolUse") or []
+            for hook in entry.get("hooks") or []]
 
 
 def main():

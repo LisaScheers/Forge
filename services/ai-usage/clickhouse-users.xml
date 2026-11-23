@@ -20,7 +20,6 @@
       <quota>default</quota>
       <grants>
         <query>GRANT SELECT ON ai_usage.*</query>
-        <query>GRANT SELECT ON otel.*</query>
       </grants>
     </ai_archive>
     <!-- The OpenTelemetry collector: it creates and fills only the otel database. -->
