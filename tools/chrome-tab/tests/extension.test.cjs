@@ -9,6 +9,7 @@ function setup() {
   const commands = [];
   const attached = new Set();
   let result = { result: { type: "number", value: 42 } };
+  let pageUrl = "https://example.test/";
   let reply;
   const listener = (name) => ({ addListener(fn) { events[name] = fn; } });
   const port = {
@@ -28,7 +29,7 @@ function setup() {
       async attach({ tabId }) { attached.add(tabId); },
       async detach({ tabId }) { attached.delete(tabId); events.detach({ tabId }); },
       async getTargets() {
-        return [1, 2].map((tabId) => ({ tabId, title: "Example", url: "https://example.test/" }));
+        return [1, 2].map((tabId) => ({ tabId, title: "Example", url: pageUrl }));
       },
       async sendCommand(target, method, params) {
         commands.push({ target, method, params });
@@ -37,11 +38,12 @@ function setup() {
     },
   };
   vm.runInNewContext(readFileSync(join(__dirname, "../extension/background.js"), "utf8"), {
-    chrome, TextEncoder, console: { error() {} },
+    chrome, TextEncoder, URL, console: { error() {} },
   });
   return {
     events, commands, attached,
     setResult(value) { result = value; },
+    navigate(url) { pageUrl = url; },
     click: (id = 1, url = "https://example.test/") => events.click({ id, url }),
     async send(message) {
       await events.message({ id: "test", ...message });
@@ -108,4 +110,17 @@ test("restricted URLs cannot be attached", async () => {
   const app = setup();
   await app.click(1, "chrome://settings");
   assert.equal(app.attached.size, 0);
+});
+
+test("navigating to another origin revokes the tab", async () => {
+  const app = setup();
+  await app.click();
+  app.navigate("https://example.test/other/path");
+  assert.equal((await app.send({ method: "eval", tabId: 1, expression: "1" })).result.value, 42);
+  app.navigate("https://bank.test/");
+  assert.match((await app.send({ method: "eval", tabId: 1, expression: "1" })).error, /another origin/);
+  assert.equal(app.attached.has(1), false);
+  app.navigate("https://example.test/");
+  assert.match((await app.send({ method: "eval", tabId: 1, expression: "1" })).error, /not connected/);
+  assert.equal(app.commands.filter((command) => command.method === "Runtime.evaluate").length, 1);
 });

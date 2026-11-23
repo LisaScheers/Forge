@@ -1,0 +1,26 @@
+<!-- ClickHouse accounts for Nook's capture database. The NixOS module and the
+     integration test load this same file. -->
+<clickhouse>
+  <profiles>
+    <archive_reader>
+      <readonly>2</readonly>
+    </archive_reader>
+  </profiles>
+  <users>
+    <!-- Schema setup and ingestion. -->
+    <default>
+      <password from_env="AI_USAGE_CLICKHOUSE_PASSWORD"/>
+      <networks replace="replace"><ip>127.0.0.1</ip></networks>
+    </default>
+    <!-- The archive web app: the server, not its client, limits it to reads. -->
+    <ai_archive>
+      <password from_env="AI_ARCHIVE_CLICKHOUSE_PASSWORD"/>
+      <networks replace="replace"><ip>127.0.0.1</ip></networks>
+      <profile>archive_reader</profile>
+      <quota>default</quota>
+      <grants>
+        <query>GRANT SELECT ON ai_usage.*</query>
+      </grants>
+    </ai_archive>
+  </users>
+</clickhouse>

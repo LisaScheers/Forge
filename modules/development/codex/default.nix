@@ -1,54 +1,36 @@
 {inputs, ...}: {
-  home.lisa = {
-    lib,
-    pkgs,
-    ...
-  }: {
-    programs = {
-      codex = {
-        enable = true;
-        enableMcpIntegration = true;
-        mutableSettings = true;
+  home.lisa = {lib, ...}: {
+    programs.codex = {
+      enable = true;
+      mutableSettings = true;
 
-        settings = {
-          approval_policy = "never";
-          sandbox_mode = "danger-full-access";
-          model_reasoning_effort = lib.mkDefault "high";
-          personality = "pragmatic";
+      settings = {
+        # Writes stay inside the workspace and escalation asks first; network
+        # stays on for builds, git and package lookups. agent-policy.nix adds
+        # the commands that always ask.
+        approval_policy = "on-request";
+        sandbox_mode = "workspace-write";
+        sandbox_workspace_write.network_access = true;
+        model_reasoning_effort = lib.mkDefault "high";
+        personality = "pragmatic";
 
-          agents.max_concurrent_threads_per_session = 10;
+        agents.max_concurrent_threads_per_session = 10;
 
-          features = {
-            memories = false;
-            prevent_idle_sleep = true;
-          };
+        features = {
+          memories = false;
+          prevent_idle_sleep = true;
+        };
 
-          memories = {
-            generate_memories = false;
-            use_memories = false;
-          };
-
-          mcp_servers.cognee = {
-            url = "https://cognee.local.bylisa.dev/mcp";
-            startup_timeout_sec = 30;
-            tool_timeout_sec = 600;
-            tools.forget.approval_mode = "prompt";
-          };
-
-          mcp_servers.webmcp = {
-            command = "${pkgs.nodejs}/bin/npx";
-            args = ["-y" "@jason.today/webmcp@0.1.13" "--mcp"];
-            startup_timeout_sec = 60;
-          };
+        memories = {
+          generate_memories = false;
+          use_memories = false;
         };
       };
 
-      mcp = {
-        enable = true;
-        servers.clerk_mcp = {
-          enabled = true;
-          url = "https://mcp.clerk.com/mcp";
-        };
+      # `codex --profile full` restores unsandboxed, unprompted runs for one session.
+      profiles.full = {
+        approval_policy = "never";
+        sandbox_mode = "danger-full-access";
       };
     };
   };

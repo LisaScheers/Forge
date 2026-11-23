@@ -1,5 +1,6 @@
 const HOST = "dev.bylisa.chrome_tab";
-const connected = new Set();
+// Tab ID -> the origin it was on when connected from the toolbar.
+const connected = new Map();
 const toggling = new Set();
 let nativePort;
 
@@ -16,6 +17,15 @@ async function disconnect(tabId) {
     // Closing the tab or Chrome's debugging banner can detach first.
   }
   await badge(tabId, "", "Connect this tab to chrome-tab").catch(() => {});
+}
+
+async function currentOrigin(tabId) {
+  const target = (await chrome.debugger.getTargets()).find((candidate) => candidate.tabId === tabId);
+  try {
+    return new URL(target.url).origin;
+  } catch {
+    return undefined;
+  }
 }
 
 async function dispatch(message) {
@@ -38,6 +48,12 @@ async function dispatch(message) {
   }
   if (message.method !== "eval" || typeof message.expression !== "string") {
     throw new Error("Expected an eval request with a JavaScript expression");
+  }
+  // The click granted one site. After navigating elsewhere the grant ends,
+  // so a page the user never connected cannot be read through this tab.
+  if ((await currentOrigin(tabId)) !== connected.get(tabId)) {
+    await disconnect(tabId);
+    throw new Error("Tab navigated to another origin. Click the extension in that tab to connect it again.");
   }
   const response = await chrome.debugger.sendCommand({ tabId }, "Runtime.evaluate", {
     expression: message.expression,
@@ -86,7 +102,7 @@ function connectHost() {
     const reason = chrome.runtime.lastError?.message || "Native host disconnected";
     console.error(reason);
     if (nativePort === port) nativePort = undefined;
-    for (const tabId of connected) void disconnect(tabId);
+    for (const tabId of connected.keys()) void disconnect(tabId);
   });
   return port;
 }
@@ -105,7 +121,7 @@ chrome.action.onClicked.addListener(async (tab) => {
     }
     const port = connectHost();
     await chrome.debugger.attach({ tabId }, "1.3");
-    connected.add(tabId);
+    connected.set(tabId, new URL(tab.url).origin);
     if (nativePort !== port) throw new Error("Native host disconnected; check its installation");
     await badge(tabId, "ON", "Disconnect this tab from chrome-tab");
   } catch (error) {

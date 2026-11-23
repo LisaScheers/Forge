@@ -2,9 +2,28 @@
 
 One CLIProxyAPIPlus instance runs on Nook and archives its full request logs in
 ClickHouse. Nook and Vega were deployed and verified on 2026-11-05, including
-Vega's final system-generation switch. Asterion is excluded for now. Codex,
-T3's Codex driver, Antigravity CLI, and Cognee had client routes in that change;
-Codex and T3 have since moved to Codex's built-in provider (see below).
+Vega's final system-generation switch. Asterion is excluded for now.
+
+## What is captured
+
+The gateway captures only traffic sent through it. Since the Codex capture
+pipeline was removed on 2026-11-20 (commit `fbf67bc`), that is Antigravity CLI and
+Cognee. Lisa's other clients sign in to their providers directly, and no shell-wide
+variable sends them to the gateway; each gateway client sets its own route.
+
+| Client | Route | Full transcripts | Usage visibility |
+| --- | --- | --- | --- |
+| Antigravity CLI on Vega | Gateway, through its `agy` wrapper | ClickHouse and the archive | ClickHouse token views |
+| Cognee on Nook | Gateway, through `ai-proxy-cognee-env` | ClickHouse and the archive | ClickHouse token views |
+| Codex CLI, desktop app and T3's Codex driver | OpenAI, built-in `openai` provider | Local session files in `~/.codex/sessions` only | CodexBar's plan limits |
+| Claude Code and T3's Claude driver | Anthropic, direct | Local session files in `~/.claude/projects` only | CodexBar's plan limits |
+| Zed agent | Codex subscription; OpenRouter for commit messages | Not captured | Provider dashboards |
+| Antigravity driver in T3 | T3's managed runtime | Not captured | Provider dashboard |
+
+Last verified against the configuration on 2026-11-23. To capture another client,
+route it through the gateway in `modules/services/ai-proxy/clients.nix` with a
+wrapper like Antigravity's, then confirm a real request's transcript and usage in
+ClickHouse.
 
 The API endpoint is `https://cliproxy.local.bylisa.dev`. Managed machines map it to
 Nook's stable Tailscale address, `100.106.233.104`. Tailscale uses a direct LAN path
@@ -100,6 +119,13 @@ checkpoint live under `/srv/disks/projects/ai-proxy`, owned by `ai-proxy` with m
 0700. ClickHouse data lives under `/srv/disks/projects/ai-usage`, owned by
 `clickhouse`. Its random password is generated once in the root-only
 `/srv/disks/projects/ai-usage-secrets/clickhouse.env` and loaded by systemd.
+The archive web app uses a separate ClickHouse account, `ai_archive`, whose
+password is in `archive.env` beside it. ClickHouse grants that account only
+`SELECT` on `ai_usage` and pins it to read-only mode, so the server, not the
+client, stops it from writing. Both accounts are defined in
+`services/ai-usage/clickhouse-users.xml`, which the integration check loads too.
+Nook's `projects-disk` probe reports to Uptime Kuma when that disk is more than
+90% full, since nothing here expires.
 Prompt and response text is intentionally retained in full; upstream logging
 masks authentication headers.
 
@@ -142,9 +168,8 @@ For subsequent changes, activate Nook first. Verify `cli-proxy-api-plus`,
 `clickhouse`, `ai-usage-schema`, and the `ai-usage-ingest.timer`, trusted TLS,
 rejection of missing API keys, and a real request's transcript and usage in
 ClickHouse before switching clients. Update Vega's system configuration to
-install its agenix key and host record. Restart Antigravity and other sessions
-that read `OPENAI_BASE_URL` or `ANTHROPIC_BASE_URL` after changing provider
-configuration; they and Cognee fail when the gateway is unavailable rather than
+install its agenix key and host record. Restart Antigravity after changing provider
+configuration; it and Cognee fail when the gateway is unavailable rather than
 falling back to a direct route.
 
 Codex, T3's Codex driver and Nook's `codex` account no longer use a gateway
@@ -162,8 +187,8 @@ to that subscription model while retaining the original ID. Its subscription
 sign-in completed on Nook on 2026-11-05;
 the resulting credential is encrypted with agenix for provisioning the service.
 
-Real Vega Codex and Antigravity CLI requests both completed through the gateway.
-The Codex verification stored 14,964 total tokens, including 6,272 cached input
+At the 2026-11-05 cutover, real Vega Codex and Antigravity CLI requests both
+completed through the gateway; Codex has since left it. The Codex verification stored 14,964 total tokens, including 6,272 cached input
 tokens. Antigravity's verification stored the full Gemini usage object and
 request/response transcript.
 

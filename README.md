@@ -25,6 +25,7 @@ homes `home.lisa-vega` and `home.lisa-asterion` import `home.lisa` and
 bridge, SSH keys and 1Password), then add their desktop settings. On Vega those
 CLI tools are in Lisa's profile only, so root and system daemons do not get
 them; GUI apps stay system-wide in `/Applications/Nix Apps`.
+[docs/agents.md](docs/agents.md) covers the coding agents, and
 [docs/ai-usage.md](docs/ai-usage.md#where-the-pieces-live) maps the AI gateway's
 service sources to their modules. A feature binds itself
 directly to the profile it configures, such as `nixos.nook` or
@@ -393,8 +394,9 @@ activate configurations or deploy hosts.
 | [Atlas](docs/atlas.md) | Atlas deploys, its auto-updater and database maintenance |
 | [Asterion](docs/asterion.md), [live installer](docs/asterion-live.md) | The Asahi MacBook Pro install, desktop and RAM-booted installer |
 | [Aurora Viewer](docs/aurora-viewer.md) | Vega's source-built Second Life viewer and its Metal port |
-| [AI gateway](docs/ai-usage.md) | The shared CLIProxy gateway and token capture |
-| [Cognee](docs/cognee.md) | Cognee on Nook and its MCP endpoint |
+| [Coding agents](docs/agents.md) | Agent clients, shared instructions, skills, MCP servers and the approval policy |
+| [AI gateway](docs/ai-usage.md) | The shared CLIProxy gateway, what it captures, and token capture |
+| [Cognee](docs/cognee.md) | Cognee on Nook, its MCP endpoint and its off-site backup |
 | [Home dashboard](docs/home-dashboard.md), [home media](docs/home-media.md) | The home dashboard (on Atlas) and Nook's media access |
 | [Minecraft](docs/minecraft.md) | The Nook worlds and Atlas proxy |
 | [Gotify](docs/gotify.md), [Uptime Kuma](docs/uptime-kuma.md) | Notifications and monitoring |

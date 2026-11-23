@@ -47,7 +47,7 @@
         type = lib.types.either lib.types.lines lib.types.path;
         default = ./AGENTS.md;
         defaultText = lib.literalExpression "./AGENTS.md";
-        description = "Global instructions shared by Codex, Claude Code, and GitHub Copilot CLI.";
+        description = "Global instructions shared by Codex, Claude Code, Antigravity CLI and GitHub Copilot CLI.";
       };
 
       enableBundledSkills = lib.mkOption {
@@ -91,6 +91,7 @@
         };
 
         antigravity-cli = {
+          context.GEMINI = cfg.agentsFile;
           skills = effectiveSkills;
         };
 

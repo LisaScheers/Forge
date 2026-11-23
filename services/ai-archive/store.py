@@ -16,15 +16,16 @@ COUNTERS = ("input_tokens", "output_tokens", "cached_tokens", "reasoning_tokens"
 
 
 class ClickHouse:
-    def __init__(self, url, password):
+    def __init__(self, url, password, user="ai_archive"):
         self.url = url.rstrip("/")
         self.password = password
+        self.user = user
 
     def query(self, sql, **parameters):
         params = {"query": sql + " FORMAT JSONEachRow", "readonly": "2", "max_execution_time": "45",
                   "wait_end_of_query": "1", **{"param_" + key: value for key, value in parameters.items()}}
         request = urllib.request.Request(self.url + "/?" + urllib.parse.urlencode(params), data=b"", headers={
-            "X-ClickHouse-User": "default", "X-ClickHouse-Key": self.password})
+            "X-ClickHouse-User": self.user, "X-ClickHouse-Key": self.password})
         with urllib.request.urlopen(request, timeout=60) as response:
             return [json.loads(line) for line in response if line.strip()]
 

@@ -8,8 +8,6 @@
       agent = {
         sidebar_side = "right";
         dock = "right";
-        tool_permissions.default = "allow";
-        sandbox_permissions.allow_unsandboxed = true;
         default_model = {
           provider = "codex";
           model = "gpt-6-astra";

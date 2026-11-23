@@ -7,9 +7,19 @@ import tempfile
 import time
 import unittest
 from urllib.error import HTTPError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from ingest import archive, ClickHouse
 from test_ingest import transcript
+
+
+def archive_query(port, sql, **settings):
+    """Query as the archive's account, the way services/ai-archive does."""
+    request = Request(f"http://127.0.0.1:{port}/?" + urlencode({"query": sql, **settings}), data=b"",
+                      headers={"X-ClickHouse-User": "ai_archive", "X-ClickHouse-Key": "archive-test"})
+    with urlopen(request, timeout=30) as response:
+        return response.read()
 
 
 def free_port():
@@ -29,6 +39,9 @@ class ClickHouseTests(unittest.TestCase):
                 <password>test</password><networks><ip>127.0.0.1</ip></networks>
                 <profile>default</profile><quota>default</quota></default></users>
                 <quotas><default/></quotas></clickhouse>""")
+            # Nook's accounts, merged over the base file as the NixOS module does.
+            (root / "users.d").mkdir()
+            (root / "users.d" / "ai-usage.xml").write_text(Path(__file__).with_name("clickhouse-users.xml").read_text())
             config = root / "config.xml"
             config.write_text(f"""<clickhouse><logger><level>warning</level><console>1</console></logger>
                 <path>{root}/data/</path><tmp_path>{root}/tmp/</tmp_path>
@@ -41,8 +54,10 @@ class ClickHouseTests(unittest.TestCase):
                 <background_buffer_flush_schedule_pool_size>2</background_buffer_flush_schedule_pool_size>
                 </clickhouse>""")
             with (root / "server.log").open("w+") as output:
+                environment = {**os.environ, "AI_USAGE_CLICKHOUSE_PASSWORD": "test",
+                               "AI_ARCHIVE_CLICKHOUSE_PASSWORD": "archive-test"}
                 process = subprocess.Popen([os.environ["CLICKHOUSE_BINARY"], "server", f"--config-file={config}"],
-                                           stdout=output, stderr=output)
+                                           stdout=output, stderr=output, env=environment)
                 destination = ClickHouse(f"http://127.0.0.1:{port}")
                 try:
                     for _ in range(300):
@@ -85,6 +100,16 @@ class ClickHouseTests(unittest.TestCase):
                     self.assertEqual(int(counts["input_tokens_details.cached_tokens"]), 8)
                     self.assertEqual(int(counts["output_tokens_details.reasoning_tokens"]), 3)
                     self.assertEqual(int(counts["future_tokens"]), 2)
+                    # The archive account reads captures but cannot change them,
+                    # even when its client asks to leave read-only mode.
+                    self.assertEqual(archive_query(port, "SELECT count() FROM ai_usage.requests").strip(), b"1")
+                    for sql, settings in [("TRUNCATE TABLE ai_usage.requests", {}),
+                                          ("TRUNCATE TABLE ai_usage.requests", {"readonly": "0"}),
+                                          ("SELECT name FROM system.users", {})]:
+                        with self.assertRaises(HTTPError, msg=sql) as raised:
+                            archive_query(port, sql, **settings)
+                        raised.exception.close()
+                    self.assertEqual(destination.query("SELECT count() FROM ai_usage.requests").strip(), b"1")
                     if os.environ.get("CLIPROXY_BINARY"):
                         from test_gateway_fixture import verify
                         gateway_root = root / "gateway"

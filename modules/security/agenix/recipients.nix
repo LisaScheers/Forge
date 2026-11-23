@@ -23,6 +23,7 @@ in {
     "secrets/atlas/auto-sync-update-env.age".publicKeys = readers ["atlas"];
     "secrets/atlas/bluesky-pds-env.age".publicKeys = readers ["atlas"];
     "secrets/atlas/cf-api-token.age".publicKeys = readers ["atlas"];
+    "secrets/atlas/cognee-backup-pull-key.age".publicKeys = readers ["atlas"];
     "secrets/atlas/forgejo-mailer-password.age".publicKeys = readers ["atlas"];
     "secrets/atlas/forgejo-oidc-env.age".publicKeys = readers ["atlas"];
     "secrets/atlas/jellyfin-bootstrap-env.age".publicKeys = readers ["atlas"];

@@ -42,9 +42,5 @@ in {
         modelProvider = "gemini";
       };
     };
-    home.sessionVariables = {
-      OPENAI_BASE_URL = "${endpoint}/v1";
-      ANTHROPIC_BASE_URL = endpoint;
-    };
   };
 }

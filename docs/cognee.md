@@ -268,10 +268,11 @@ placed in Nix settings or the repository.
 
 ## Codex setup
 
-Home Manager declares the remote MCP entry for Lisa. Its activation updates only
-that entry in the mutable `~/.codex/config.toml`, preserving the model and other
-MCP settings. Nook's `codex` daemon also receives the same entry. MCP operations
-have a 600-second timeout; deleting memory through `forget` requires confirmation.
+`modules/development/mcp.nix` declares the remote MCP entry once for Claude Code,
+Codex and Nook's `codex` daemon ([coding agents](agents.md#mcp-servers)). Codex's
+activation updates only that entry in the mutable `~/.codex/config.toml`,
+preserving the model and other MCP settings. MCP operations have a 600-second
+timeout; deleting memory through `forget` requires confirmation in both clients.
 
 The OAuth proxy issues client access tokens for 24 hours and renews the underlying
 Authentik token on the server, using FastMCP's shared refresh lock. This reduces
@@ -311,7 +312,8 @@ ssh -tt nook 'sudo -iu codex /etc/profiles/per-user/codex/bin/codex -c '\''mcp_s
 Open its URL in Helium. After approval, the browser may show an unreachable
 localhost callback because that callback belongs to Nook. Paste the complete
 callback URL into the waiting SSH prompt and press Enter. Never publish or log
-that URL. Restart `codex.service` after the login is saved. Nook stores these
+that URL. The service is disabled until this login is renewed: once it is saved,
+set `enable = true` in `modules/development/codex/nook.nix` and deploy Nook. Nook stores these
 credentials in `/home/codex/.codex/.credentials.json`, owned by `codex`, mode 0600.
 
 Ask Codex to remember or recall selected information, specifying a dataset when
@@ -319,8 +321,8 @@ separating workloads. For example: "Remember in dataset project_notes: the relea
 checklist lives in docs/release.md." Then use a new chat to ask it to recall that
 checklist location from the same dataset.
 
-MCP lists its four tools directly: `remember`, `recall`, `forget` and
-`cognify_status`. The `all` mode removes the generic `call_tool` proxy, ensuring
+MCP lists its five tools directly: `remember`, `recall`, `forget`,
+`cognify_status` and `code_search`. The `all` mode removes the generic `call_tool` proxy, ensuring
 deletion reaches Codex through the configured `forget` confirmation policy.
 
 The optional Cognee memory plugin captures prompts, traces and responses
@@ -350,7 +352,8 @@ Verified on 2026-10-02:
 - Trusted Let's Encrypt TLS; public health returns 200; anonymous REST and MCP
   return 401; MCP advertises OAuth discovery; public registration returns 403.
 - Authentik provider and administrator-group binding are present. Lisa completed
-  browser authorization; both Vega and Nook Codex accounts discover all four tools.
+  browser authorization; both Vega and Nook Codex accounts discovered the four
+  tools of that release (`code_search` arrived later).
   A separate non-administrator login was not exercised.
 - GPT-6 Luna structured inference and Cognee graph extraction completed through
   the subscription adapter. Synthetic text ingestion completed in about 18 seconds.
@@ -372,11 +375,41 @@ completion is normal. `podman-cognee` and `podman-cognee-mcp` should be active;
 Nook's `codex` service stays disabled until its login is renewed. Cognee's
 inference spends Lisa's OpenRouter credits through the gateway.
 
-Never expose the loopback ports directly. There is no remote off-machine backup
-destination configured for Cognee yet. Before an image upgrade, stop MCP and API,
-take a consistent backup of `system`, `data`, `credentials`, `openai` and `mcp`, and
-retain the agenix secrets. Cached models and images can be re-created. Treat the
-backup as sensitive: graph data, source documents and renewable tokens are in it.
+Never expose the loopback ports directly.
+
+## Backup and restore
+
+`modules/services/cognee/backup.nix` copies Cognee's state off Nook every night:
+
+1. At 03:15 UTC `cognee-backup.service` stops the MCP and API containers, archives
+   `system`, `data`, `credentials`, `openai` and `mcp`, compresses the archive with
+   zstd, encrypts it to Lisa's age key, and starts the containers again. They
+   restart even when the copy fails. Cached models and images are re-created, so
+   they are left out.
+2. At 04:15 UTC Atlas fetches that night's archive over Tailscale with a key whose
+   forced command can only print it. Atlas refuses an archive from an earlier day
+   or one that is not an age file, and keeps seven dated copies in
+   `/var/backups/cognee`.
+3. Uptime Kuma receives `cognee-backup` from Nook and `cognee-backup-copy` from
+   Atlas, so a missed night shows as a missed push.
+
+Atlas holds only ciphertext; Lisa's age identity is the only key that opens it.
+The archive still contains graph data, source documents and renewable tokens.
+`checks.x86_64-linux.cognee-backup` runs the whole path in two VMs: encryption,
+the restricted key, refusal of stale and corrupt archives, and pruning.
+
+To restore, stop `podman-cognee-mcp` and `podman-cognee` on Nook, then unpack a copy
+into `/srv/disks/projects/cognee` and start them again:
+
+```sh
+age -d -i ~/.config/sops/age/keys.txt cognee-YYYY-MM-DD.tar.zst.age | zstd -dc | sudo tar -C /srv/disks/projects/cognee -xpf -
+```
+
+Before the first deployment, create Uptime Kuma push monitors named
+`cognee-backup` and `cognee-backup-copy` and add their tokens to each host's
+`uptime-kuma-probes` secret; until then the reports are skipped. Check Atlas's free
+space against the archive size after the first copy. Before an image upgrade,
+run `systemctl start cognee-backup` and keep the agenix secrets.
 
 ## Documentation review
 

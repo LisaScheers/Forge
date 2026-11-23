@@ -147,7 +147,9 @@ if __name__ == "__main__":
     # The socket is shared with nginx; the index is inside a mode-0700 state directory.
     os.umask(0o007)
     logging.basicConfig(level=logging.INFO)
-    backend = ClickHouse(os.environ.get("AI_ARCHIVE_CLICKHOUSE", "http://127.0.0.1:8124"), os.environ["AI_USAGE_CLICKHOUSE_PASSWORD"])
+    backend = ClickHouse(os.environ.get("AI_ARCHIVE_CLICKHOUSE", "http://127.0.0.1:8124"),
+                         os.environ["AI_ARCHIVE_CLICKHOUSE_PASSWORD"],
+                         os.environ.get("AI_ARCHIVE_CLICKHOUSE_USER", "ai_archive"))
     state = Path(os.environ.get("STATE_DIRECTORY", "/var/lib/ai-archive"))
     archive = Store(state / "index.sqlite", backend)
     socket = Path(os.environ.get("AI_ARCHIVE_SOCKET", "/run/ai-archive/http.sock"))

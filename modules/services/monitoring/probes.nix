@@ -48,6 +48,14 @@
           key = "dante";
           command = "${pkgs.netcat-openbsd}/bin/nc -z -w 5 ${nook.lan} 1080";
         }
+        {
+          # AI captures, ClickHouse and Cognee have no expiry on this disk.
+          key = "projects-disk";
+          command = toString (pkgs.writeShellScript "projects-disk-free" ''
+            used=$(${pkgs.coreutils}/bin/df --output=pcent /srv/disks/projects | ${pkgs.coreutils}/bin/tail -n 1 | ${pkgs.coreutils}/bin/tr -dc 0-9)
+            [ -n "$used" ] && [ "$used" -le 90 ]
+          '');
+        }
       ];
     probeScript = pkgs.writeShellScript "uptime-kuma-probes" (lib.concatMapStringsSep "\n" (probe: ''
         if ${probe.command} >/dev/null 2>&1; then
@@ -109,6 +117,17 @@
     systemd.services.postgresql-backup-pull = lib.mkIf (host == "nook") {
       serviceConfig.ExecStartPost = [
         "-+${lib.getExe report} postgresql-backup-copy"
+      ];
+    };
+    # Cognee's encrypted archive on Nook, and Atlas's off-site copy of it.
+    systemd.services.cognee-backup = lib.mkIf (host == "nook") {
+      serviceConfig.ExecStartPost = [
+        "-+${lib.getExe report} cognee-backup"
+      ];
+    };
+    systemd.services.cognee-backup-pull = lib.mkIf (host == "atlas") {
+      serviceConfig.ExecStartPost = [
+        "-+${lib.getExe report} cognee-backup-copy"
       ];
     };
   };

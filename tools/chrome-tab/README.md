@@ -63,7 +63,9 @@ Tab IDs and session IDs are temporary; discover them again after restarting Chro
 - JavaScript executes in the main frame's page context with access to the DOM,
   page globals and the page's logged-in session. Promises are awaited.
 - The extension only accepts evaluations for tabs connected with its toolbar
-  button. A connected tab stays connected across navigation until detached.
+  button. A connected tab stays connected while it stays on the origin it was
+  connected on; after it navigates to another origin, the next request detaches
+  it and fails until you click the button again.
 - The local bridge uses Chrome native messaging and a Unix socket in a directory
   owned by the current user with mode `0700`. There is no TCP listener, webpage
   message handler, or remote service. Other processes running as this OS user

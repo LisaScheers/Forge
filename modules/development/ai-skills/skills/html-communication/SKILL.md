@@ -36,7 +36,7 @@ Match the document to the request. Prefer clear hierarchy, concise prose, and di
 
 Use one stable local file across revisions. Return a clickable link to that file.
 
-For every plan created with this skill, publication through PostPlan is required. Treat the request to create or present a plan with `html-communication` as authorization to publish that plan. Invoke `postplan` with the finished file and return both the local file and the hosted URL. If publication fails, return the local file and the exact upload error.
+For every plan created with this skill, publication through PostPlan is required. Lisa's global instructions direct plans and visual mocks to PostPlan, so the request to create or present a plan with `html-communication` is her authorization to publish that plan; this is the explicit permission her external-write rule asks for. Invoke `postplan` with the finished file and return both the local file and the hosted URL. If publication fails, return the local file and the exact upload error.
 
 Pause before implementing a newly created plan so the user can review and approve it. A later request to use or execute the plan supplies that approval.
 
