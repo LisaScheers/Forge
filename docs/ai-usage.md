@@ -116,9 +116,9 @@ the gateway's captures. Claude Code sends metrics and events with
 
 | Signal | Client | Configured | Received on Nook | Last verified |
 | --- | --- | --- | --- | --- |
-| Metrics: tokens, cost, sessions, lines changed | Claude Code | Vega, active since 2026-11-23 | Not yet; Claude sessions started after the switch send them | Pending a new Claude session |
-| Events: API requests, tool decisions | Claude Code | Vega, active since 2026-11-23 | Not yet | Pending a new Claude session |
-| Events: responses with token counts and latency | Codex | Vega, active since 2026-11-23 | Yes: `codex-app-server` events from T3 | 2026-11-23 |
+| Metrics: tokens, cost, sessions, active time | Claude Code | Vega, active since 2026-11-23 | Yes: `claude_code.token.usage`, `cost.usage`, `session.count`, `active_time.total` | 2026-11-23 |
+| Events: API requests, tool decisions | Claude Code | Vega, active since 2026-11-23 | Yes: 80 events by 06:41 UTC on the first day | 2026-11-23 |
+| Events: responses with token counts and latency | Codex | Vega, active since 2026-11-23 | Yes: 220 `codex-app-server` events from T3 | 2026-11-23 |
 | Collector to ClickHouse | Nook | `telemetry.nix`, deployed 2026-11-23 | Yes: a test record over the private endpoint | 2026-11-23, and `checks.x86_64-linux.ai-usage-clickhouse` |
 
 Verify each row with the queries below and update this table when it changes.
