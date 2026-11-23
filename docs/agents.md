@@ -110,7 +110,7 @@ lists every skill with its clients and what it does, generated the same way.
 | clerk_mcp | tool search | tool search | not installed | not installed |
 | cognee | tool search | tool search | not installed | not installed |
 | nixos | tool search | tool search | loaded at start | loaded at start |
-| rea | tool search | tool search | not installed | not installed |
+| rea | on demand | tool search | not installed | not installed |
 | webmcp | tool search | tool search | loaded at start | loaded at start |
 <!-- catalogue:end -->
 
@@ -152,6 +152,14 @@ Neither client loads MCP tool schemas up front. Claude Code runs with
 when a task needs them. `checks.agent-policy` and `checks.rea-codex-config` fail
 if either setting goes away.
 
+REA is the exception in Claude. Its 229 tool names alone cost Claude several
+thousand tokens per session even deferred, and few sessions reverse-engineer
+anything, so Claude does not start it by default. Nix writes the same server to
+`~/.claude/mcp-available/rea.json`; attach it for one session with
+`claude --mcp-config ~/.claude/mcp-available/rea.json`. Codex keeps REA, since
+its deferred servers cost nothing up front. `checks.agent-policy` fails if the
+on-demand file and Codex's entry run different commands.
+
 What that saves, measured on Vega on 2026-11-23:
 
 | Measurement | Size |
@@ -180,10 +188,23 @@ or without its servers. Claude's MCP layer is about 12,000 tokens even deferred:
 tool search still lists the name of every deferred tool, and REA's 229 tools,
 Clerk's and the claude.ai connectors' come to several hundred names. Claude's
 skill layer was within the probes' run-to-run noise of about 2,000 tokens.
-Both clients get the same servers; `checks.agent-policy` fails if the sets diverge.
+Apart from REA in Claude, both clients get the same servers;
+`checks.agent-policy` fails if the sets diverge.
 Repository `.mcp.json` servers do not start in Claude unless enabled
 (`enableAllProjectMcpServers = false`), so a cloned repository cannot add servers
 on its own.
+
+## Claude conveniences
+
+`modules/development/claude-code.nix` adds two things Claude Code does not do
+on its own:
+
+- **Language servers.** nixd for Nix (with the same flake-aware settings as the
+  editors, see [nixd](nixd.md)) and Ruff for Python, so Claude sees diagnostics
+  and can jump to definitions after an edit.
+- **File picker.** The `@` file picker runs `fd` and `fzf` over the project,
+  hidden files included and `.git` excluded, so `@comp butt` finds
+  `src/components/Button.tsx`. `checks.agent-policy` runs that exact query.
 
 ## Permissions
 

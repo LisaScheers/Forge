@@ -18,8 +18,61 @@
       "OTEL_METRIC_EXPORT_INTERVAL": "10000",
       "OTEL_TRACES_EXPORTER": "otlp"
     },
+    "fileSuggestion": {
+      "command": "<store>/bin/claude-file-suggestion",
+      "type": "command"
+    },
     "hooks": {
       "PreToolUse": []
+    },
+    "lspServers": {
+      "nix": {
+        "command": "<store>/bin/nixd",
+        "extensionToLanguage": {
+          ".nix": "nix"
+        },
+        "settings": {
+          "nixd": {
+            "formatting": {
+              "command": [
+                "<store>/bin/alejandra"
+              ]
+            },
+            "nixpkgs": {
+              "expr": "import <nixpkgs> { }"
+            },
+            "options": {
+              "darwin": {
+                "expr": "(builtins.getFlake \"<store>\").darwinConfigurations.vega.options"
+              },
+              "devenv": {
+                "expr": "{ devenv.shells.default = (builtins.getFlake \"<store>\").allSystems.\"x86_64-linux\".options.devenv.shells.type.getSubOptions []; }"
+              },
+              "flake-file": {
+                "expr": "(builtins.getFlake \"<store>\").debug.options.flake-file.type.getSubOptions []"
+              },
+              "flake-parts": {
+                "expr": "(builtins.getFlake \"<store>\").debug.options"
+              },
+              "home-manager": {
+                "expr": "(builtins.getFlake \"<store>\").homeConfigurations.\"lisa@nook\".options"
+              },
+              "nixos": {
+                "expr": "(builtins.getFlake \"<store>\").nixosConfigurations.atlas.options"
+              }
+            }
+          }
+        }
+      },
+      "python": {
+        "args": [
+          "server"
+        ],
+        "command": "<store>/bin/ruff",
+        "extensionToLanguage": {
+          ".py": "python"
+        }
+      }
     },
     "mcpServers": {
       "cognee": {
@@ -170,48 +223,6 @@
       "enabled": null,
       "env": {
         "FASTMCP_CHECK_FOR_UPDATES": "off"
-      },
-      "headers": {},
-      "url": null
-    },
-    "rea": {
-      "args": [
-        "mcp"
-      ],
-      "command": "<store>/lib/node_modules/rea-agents/scripts/rea.mjs",
-      "enabled": null,
-      "env": {
-        "GHIDRA_INSTALL_DIR": "<store>/lib/ghidra",
-        "JAVA_HOME": "<store>/lib/openjdk",
-        "PATH": "<store>/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-        "REA_ADB_PATH": "<store>/bin/adb",
-        "REA_ANALYSIS_PROVIDER": "ghidra",
-        "REA_APKTOOL_COMMAND": "<store>/bin/apktool",
-        "REA_BINWALK_COMMAND": "<store>/bin/binwalk",
-        "REA_BROWSER_EXECUTABLE": "<store>/bin/helium",
-        "REA_CAPINFOS_COMMAND": "<store>/bin/capinfos",
-        "REA_EVM_PRLIMIT_COMMAND": "<store>/bin/prlimit",
-        "REA_FIRMWARE_PRLIMIT_COMMAND": "<store>/bin/prlimit",
-        "REA_GDB_COMMAND": "<store>/bin/gdb",
-        "REA_GHIDRA_NATIVEAOT_JAR": "<store>/share/java/rea-ghidra-nativeaot.jar",
-        "REA_ILSPY_CMD_PATH": "<store>/bin/ilspycmd",
-        "REA_JADX_MCP_JAR": "<store>",
-        "REA_JAVASCRIPT_PRLIMIT_COMMAND": "<store>/bin/prlimit",
-        "REA_KUNA_COMMAND": "<store>/bin/kuna",
-        "REA_MITMDUMP_COMMAND": "<store>/bin/mitmdump",
-        "REA_OBJDUMP_COMMAND": "<store>/bin/objdump",
-        "REA_PWNDBG_GDB": "<store>/bin/gdb",
-        "REA_PWNDBG_GDBINIT": "<store>/share/pwndbg/gdbinit.py",
-        "REA_PWNDBG_VENV_PATH": "<store>",
-        "REA_PWNTOOLS_PYTHON": "<store>/bin/python3",
-        "REA_RIZIN_COMMAND": "<store>/bin/rizin",
-        "REA_SIGROK_COMMAND": "<store>/bin/sigrok-cli",
-        "REA_SIGROK_PRLIMIT_COMMAND": "<store>/bin/prlimit",
-        "REA_TSHARK_COMMAND": "<store>/bin/tshark",
-        "REA_TSHARK_PRLIMIT_COMMAND": "<store>/bin/prlimit",
-        "REA_UNBLOB_COMMAND": "<store>/bin/unblob",
-        "REA_WABT_BIN_DIRECTORY": "<store>/bin",
-        "REA_WAKARU_COMMAND": "<store>/bin/wakaru"
       },
       "headers": {},
       "url": null

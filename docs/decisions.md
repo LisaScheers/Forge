@@ -4,6 +4,18 @@ Each entry records a choice that shapes Lisa's agent setup, why it was made, and
 what it costs. The guides describe the current state; this file explains it.
 Newest first.
 
+## 2026-11-23: Claude attaches REA only when a session needs it
+
+**Decision.** Claude no longer starts REA by default; `claude --mcp-config
+~/.claude/mcp-available/rea.json` attaches it. Codex keeps it. This narrows the
+tool-search decision below for one server in one client.
+
+**Why.** Claude's tool search still lists every deferred tool's name, and REA's
+229 names cost several thousand tokens in every session, while few sessions
+reverse-engineer anything. Codex's deferred servers cost nothing up front.
+
+**Cost.** A reverse-engineering session in Claude has to start with the flag.
+
 ## 2026-11-23: session files are backed up to Nook, encrypted
 
 **Decision.** Vega backs up its Claude and Codex session files to Nook daily
@@ -101,7 +113,8 @@ bound abuse. The collector is built with Go 1.26 until Nixpkgs fixes its vendore
 ## 2026-11-23: MCP tools are found through tool search, not loaded
 
 **Decision.** Claude runs with `ENABLE_TOOL_SEARCH=true`; Codex marks every
-server `omit_tools_from = ["direct"]`. All servers stay installed in both clients.
+server `omit_tools_from = ["direct"]`. All servers stay installed in both clients
+(Claude attaches REA on demand since; see above).
 
 **Why.** REA alone has 229 tool schemas, about 950,000 tokens. Deferral keeps
 first requests near 46,000 tokens in Claude and 28,000 in Codex (measured with

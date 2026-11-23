@@ -187,8 +187,12 @@ in {
             && claude.settings.hooks.PreToolUse == []
             && claude.settings.skipDangerousModePermissionPrompt))
         (expect "Claude's own memory must stay off; Cognee holds memory" (claude.settings.autoMemoryEnabled == false))
-        (expect "Claude and Codex must share the same MCP servers"
-          (builtins.attrNames home.programs.mcp.servers == ["clerk_mcp" "nixos" "rea" "webmcp"] && claude.mcpServers ? cognee))
+        (expect "Claude must load Clerk, mcp-nixos, webmcp and Cognee, and attach REA on demand with Codex's REA server"
+          (builtins.attrNames home.programs.mcp.servers
+            == ["clerk_mcp" "nixos" "webmcp"]
+            && claude.mcpServers ? cognee
+            && (builtins.fromJSON (builtins.unsafeDiscardStringContext home.home.file.".claude/mcp-available/rea.json".text)).mcpServers.rea.command
+            == builtins.unsafeDiscardStringContext servers.rea.command))
         (expect "Claude must not auto-start project MCP servers" (claude.settings.enableAllProjectMcpServers == false))
         (expect "Codex and Claude must read the same AGENTS.md" (codex.context == claude.context))
         (expect "Shell-wide gateway variables would reroute clients that sign in directly"
@@ -208,6 +212,7 @@ in {
     zedServers = builtins.attrNames vegaHome.programs.zed-editor.userSettings.context_servers;
     antigravityServers = builtins.attrNames vegaHome.programs.antigravity-cli.mcpServers;
     claudeDefers = (vegaHome.programs.claude-code.settings.env.ENABLE_TOOL_SEARCH or "") == "true";
+    claudeOnDemand = name: vegaHome.home.file ? ".claude/mcp-available/${name}.json";
     loading = present: deferred:
       if !present
       then "not installed"
@@ -216,7 +221,11 @@ in {
       else "loaded at start";
     serverRow = name: let
       codexServer = codexServers.${name} or {};
-    in "| ${name} | ${loading (builtins.elem name claudeServers) claudeDefers} | ${loading (codexServers ? ${name}) (builtins.elem "direct" (codexServer.omit_tools_from or []))} | ${loading (builtins.elem name zedServers) false} | ${loading (builtins.elem name antigravityServers) false} |";
+    in "| ${name} | ${
+      if claudeOnDemand name
+      then "on demand"
+      else loading (builtins.elem name claudeServers) claudeDefers
+    } | ${loading (codexServers ? ${name}) (builtins.elem "direct" (codexServer.omit_tools_from or []))} | ${loading (builtins.elem name zedServers) false} | ${loading (builtins.elem name antigravityServers) false} |";
     skillCount = client: toString (builtins.length (builtins.attrNames vegaHome.programs.${client}.skills));
     pstackCount = toString (builtins.length (builtins.attrNames (builtins.readDir ./ai-skills/pstack/skills)));
     catalogue = lib.concatStringsSep "\n" ([
@@ -354,7 +363,7 @@ in {
     in
       normalise ({
           codex = home.programs.codex.settings;
-          claude = home.programs.claude-code.settings // {inherit (home.programs.claude-code) mcpServers;};
+          claude = home.programs.claude-code.settings // {inherit (home.programs.claude-code) mcpServers lspServers;};
           mcp = home.programs.mcp.servers;
         }
         // lib.optionalAttrs workstation {zed.agent = home.programs.zed-editor.userSettings.agent // {inherit (home.programs.zed-editor.userSettings) context_servers;};}
@@ -425,6 +434,14 @@ in {
         python3 -B -m unittest test_policy_status test_retire_settings test_context_baseline test_skills_catalogue
         python3 -B check_skills.py ${./ai-skills/skills} ${./ai-skills/pstack/skills}
         python3 -B skills_catalogue.py references ${./ai-skills/AGENTS.md} ${agentSkillNames}
+        # `@` completion ranks the fuzzy match first and includes untracked files.
+        project="$TMPDIR/project"
+        mkdir -p "$project/src/components" "$project/.git"
+        touch "$project/src/components/Button.tsx" "$project/src/main.py" "$project/notes.md" "$project/.git/HEAD"
+        first=$(echo '{"query": "comp butt"}' | CLAUDE_PROJECT_DIR="$project" ${local.programs.claude-code.settings.fileSuggestion.command} | head -n 1)
+        [ "$first" = src/components/Button.tsx ] || { echo "file suggestion returned '$first'" >&2; exit 1; }
+        [ "$(echo '{"query": ""}' | CLAUDE_PROJECT_DIR="$project" ${local.programs.claude-code.settings.fileSuggestion.command} | grep -c .git/)" = 0 ]
+
         # The exported module writes the shared instructions for Codex on its own.
         cmp ${standalone.home.file.".codex/AGENTS.md".source} ${./ai-skills/AGENTS.md}
         if ! diff -u ${../../docs/skills.md} ${skillsCatalogue}; then
