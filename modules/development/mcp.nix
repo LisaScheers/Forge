@@ -9,7 +9,6 @@
     // {
       startup_timeout_sec = 30;
       tool_timeout_sec = 600;
-      tools.forget.approval_mode = "prompt";
     };
   clerk = {
     enabled = true;
@@ -41,7 +40,6 @@ in {
     programs = {
       mcp = {
         enable = true;
-        # Clerk's tools change a third-party account, so every client asks first.
         servers = {
           clerk_mcp = clerk;
           webmcp = webmcp pkgs;
@@ -59,7 +57,7 @@ in {
         enableMcpIntegration = true;
         settings.mcp_servers = {
           cognee = codexCognee;
-          clerk_mcp = clerk // {default_tools_approval_mode = "prompt";};
+          clerk_mcp = clerk;
           webmcp = webmcp pkgs // {startup_timeout_sec = 60;};
         };
       };

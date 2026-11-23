@@ -5,12 +5,9 @@
       mutableSettings = true;
 
       settings = {
-        # Writes stay inside the workspace and escalation asks first; network
-        # stays on for builds, git and package lookups. agent-policy.nix adds
-        # the commands that always ask.
-        approval_policy = "on-request";
-        sandbox_mode = "workspace-write";
-        sandbox_workspace_write.network_access = true;
+        # Full access with no approval prompts, as for every agent (agent-policy.nix).
+        approval_policy = "never";
+        sandbox_mode = "danger-full-access";
         model_reasoning_effort = lib.mkDefault "high";
         personality = "pragmatic";
         # Nix installs and updates Codex.
@@ -27,12 +24,6 @@
           generate_memories = false;
           use_memories = false;
         };
-      };
-
-      # `codex --profile full` restores unsandboxed, unprompted runs for one session.
-      profiles.full = {
-        approval_policy = "never";
-        sandbox_mode = "danger-full-access";
       };
     };
   };

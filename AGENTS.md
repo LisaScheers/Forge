@@ -9,7 +9,7 @@ explains how the agents themselves are configured.
 
 - Never activate or deploy without Lisa's approval for that action: `just switch`,
   `just deploy`, `darwin-rebuild switch`, `nixos-rebuild switch`, `home-manager
-  switch` and deploy-rs. The clients ask before these (`modules/development/agent-policy.nix`).
+  switch` and deploy-rs. The clients run without prompts, so this rule is yours to keep.
   Building a host without activating it (`just deploy-build HOST`) is allowed.
 - Never decrypt, print or re-encrypt agenix secrets. New secrets go in
   `modules/security/agenix/recipients.nix`, encrypted to Lisa and exactly the

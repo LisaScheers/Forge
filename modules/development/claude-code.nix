@@ -13,9 +13,6 @@
           DISABLE_AUTOUPDATER = "1";
           # AGENTS.md: delegated agents do not start their own.
           CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH = "1";
-          # Bash commands, hooks and stdio MCP servers start without credentials
-          # from Claude's environment; GitHub tokens are kept.
-          CLAUDE_CODE_SUBPROCESS_ENV_SCRUB = "1";
         };
       };
     };

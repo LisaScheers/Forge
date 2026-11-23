@@ -267,7 +267,8 @@ placed in Nix settings or the repository.
 Codex and Nook's `codex` daemon ([coding agents](agents.md#mcp-servers)). Codex's
 activation updates only that entry in the mutable `~/.codex/config.toml`,
 preserving the model and other MCP settings. MCP operations have a 600-second
-timeout; deleting memory through `forget` requires confirmation in both clients.
+timeout. The clients do not prompt before `forget`; AGENTS.md tells agents to
+delete memory only with Lisa's explicit approval.
 
 The OAuth proxy issues client access tokens for 24 hours and renews the underlying
 Authentik token on the server, using FastMCP's shared refresh lock. This reduces
@@ -317,8 +318,8 @@ checklist lives in docs/release.md." Then use a new chat to ask it to recall tha
 checklist location from the same dataset.
 
 MCP lists its five tools directly: `remember`, `recall`, `forget`,
-`cognify_status` and `code_search`. The `all` mode removes the generic `call_tool` proxy, ensuring
-deletion reaches Codex through the configured `forget` confirmation policy.
+`cognify_status` and `code_search`. The `all` mode removes the generic `call_tool` proxy, so every
+deletion goes through the named `forget` tool.
 
 The optional Cognee memory plugin captures prompts, traces and responses
 automatically. It is not enabled here: the requested MCP connection provides
