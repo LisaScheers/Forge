@@ -116,14 +116,12 @@ the gateway's captures. Claude Code sends metrics and events with
 
 | Signal | Client | Configured | Received on Nook | Last verified |
 | --- | --- | --- | --- | --- |
-| Metrics: tokens, cost, sessions, lines changed | Claude Code | Vega, active since 2026-11-23 | Not yet: Nook still runs the configuration before the collector | Pending Nook deployment |
-| Events: API requests, tool decisions | Claude Code | Vega, active since 2026-11-23 | Not yet | Pending Nook deployment |
-| Events: responses with token counts and latency | Codex | Vega, active since 2026-11-23 | Not yet | Pending Nook deployment |
-| Collector to ClickHouse | Nook | `telemetry.nix` | Integration check only | 2026-11-23, `checks.x86_64-linux.ai-usage-clickhouse` |
+| Metrics: tokens, cost, sessions, lines changed | Claude Code | Vega, active since 2026-11-23 | Not yet; Claude sessions started after the switch send them | Pending a new Claude session |
+| Events: API requests, tool decisions | Claude Code | Vega, active since 2026-11-23 | Not yet | Pending a new Claude session |
+| Events: responses with token counts and latency | Codex | Vega, active since 2026-11-23 | Yes: `codex-app-server` events from T3 | 2026-11-23 |
+| Collector to ClickHouse | Nook | `telemetry.nix`, deployed 2026-11-23 | Yes: a test record over the private endpoint | 2026-11-23, and `checks.x86_64-linux.ai-usage-clickhouse` |
 
-Until Nook is deployed, the clients' exporters cannot connect, so these
-signals are lost. After deploying, verify each row with the queries below and
-update this table.
+Verify each row with the queries below and update this table when it changes.
 
 ```sql
 SELECT ServiceName, count() FROM otel.otel_logs GROUP BY ServiceName;

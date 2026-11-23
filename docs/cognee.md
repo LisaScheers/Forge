@@ -3,7 +3,7 @@
 Cognee runs on Nook as Lisa's personal memory for Claude Code and Codex: a
 graph and vector store behind an Authentik-protected MCP endpoint, a local email
 index with dated sources, a read-only graph viewer and a nightly encrypted
-off-site backup. The dated rollout history is at the end, in
+backup copied off Nook. The dated rollout history is at the end, in
 [Rollout and verification](#rollout-and-verification).
 
 ## Storage and services
@@ -385,7 +385,10 @@ Never expose the loopback ports directly.
 
 ## Backup and restore
 
-`modules/services/cognee/backup.nix` copies Cognee's state off Nook every night:
+`modules/services/cognee/backup.nix` copies Cognee's state off Nook every night.
+Nook's half was deployed on 2026-11-23; its first archive is due at 03:15 UTC on
+2026-11-24. Atlas's copy starts once these modules reach `main`, which Atlas
+deploys and updates from.
 
 1. At 03:15 UTC `cognee-backup.service` stops the MCP and API containers, archives
    `system`, `data`, `credentials`, `openai` and `mcp`, compresses the archive with
