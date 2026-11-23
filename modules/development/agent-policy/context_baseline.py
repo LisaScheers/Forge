@@ -8,9 +8,11 @@ files both clients already keep and summarises recent sessions per client.
 With --probe it instead starts one short headless session per client in an
 empty directory and reports that session's first request: a controlled
 measurement that past sessions, with their varied working directories, are not.
---budget N then exits 1 when a probed client starts above N tokens.
+--budget N then exits 1 when a probed client starts above N tokens. --layers
+also probes each client with its MCP servers left out (and Claude with its skills
+left out too), so the difference shows what each layer costs.
 
-Usage: context_baseline.py [HOME] [--days N] | --probe [--budget N]
+Usage: context_baseline.py [HOME] [--days N] | --probe [--layers] [--budget N]
 """
 
 import argparse
@@ -88,11 +90,19 @@ def codex_probe_input(output):
     raise ValueError("codex exec reported no completed turn")
 
 
-def probe():
-    commands = {
-        "claude": (["claude", "-p", PROBE_PROMPT, "--output-format", "json"], claude_probe_input),
-        "codex": (["codex", "exec", "--json", "--skip-git-repo-check", PROBE_PROMPT], codex_probe_input),
-    }
+CLAUDE = ["claude", "-p", PROBE_PROMPT, "--output-format", "json"]
+CODEX = ["codex", "exec", "--json", "--skip-git-repo-check", PROBE_PROMPT]
+LAYERS = {
+    "claude without MCP": (CLAUDE + ["--strict-mcp-config"], claude_probe_input),
+    "claude without MCP or skills": (CLAUDE + ["--strict-mcp-config", "--disable-slash-commands"], claude_probe_input),
+    "codex without MCP": (CODEX[:2] + ["-c", "mcp_servers={}"] + CODEX[2:], codex_probe_input),
+}
+
+
+def probe(layers=False):
+    commands = {"claude": (CLAUDE, claude_probe_input), "codex": (CODEX, codex_probe_input)}
+    if layers:
+        commands.update(LAYERS)
     sizes = {}
     with tempfile.TemporaryDirectory() as empty:
         for client, (command, parse) in commands.items():
@@ -108,10 +118,11 @@ def main():
     parser.add_argument("--days", type=float, default=7)
     parser.add_argument("--probe", action="store_true", help="start one short session per client and measure it")
     parser.add_argument("--budget", type=int, help="with --probe, fail when a client starts above this many tokens")
+    parser.add_argument("--layers", action="store_true", help="with --probe, also probe without MCP and skills")
     arguments = parser.parse_args()
     if arguments.probe:
         over = []
-        for client, size in probe().items():
+        for client, size in probe(arguments.layers).items():
             print(f"{client}: probe session's first request {size:,} tokens")
             if arguments.budget is not None and size > arguments.budget:
                 over.append(client)

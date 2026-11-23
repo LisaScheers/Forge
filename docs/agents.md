@@ -146,8 +146,9 @@ fails if one is set to. Every stdio server must run from the Nix store: the
 check rejects package runners such as `npx` or `uvx`.
 
 Neither client loads MCP tool schemas up front. Claude Code runs with
-`ENABLE_TOOL_SEARCH=true`, and Codex marks every server
-`omit_tools_from = ["direct"]`; both find a server's tools through tool search
+`ENABLE_TOOL_SEARCH=true`, and Codex marks every server Nix declares
+`omit_tools_from = ["direct"]` (the Codex app's own `node_repl` and
+`computer-use` keep the app's defaults); both find a server's tools through tool search
 when a task needs them. `checks.agent-policy` and `checks.rea-codex-config` fail
 if either setting goes away.
 
@@ -159,7 +160,9 @@ What that saves, measured on Vega on 2026-11-23:
 | Claude's first request in a session, median of 89 sessions over 7 days | 46,446 tokens (33,835 to 80,367) |
 | Codex's first request in a session, median of 22 sessions over 7 days | 28,233 tokens (22,448 to 32,109) |
 | Claude probe: one "Reply with OK." session in an empty directory | 49,865 tokens |
-| Codex probe: the same, with every server deferred | 25,015 tokens |
+| Codex probe: the same, with every Nix-declared server deferred | 25,015 tokens |
+| Claude probe without MCP servers (`--strict-mcp-config`) | 37,807 tokens |
+| Codex probe without MCP servers (`mcp_servers={}`) | 25,151 tokens |
 
 The first request carries the system prompt, instructions, skill descriptions
 and every tool schema loaded up front, so it is what each new session costs
@@ -168,8 +171,15 @@ the session files both clients keep (`--days N`, token counts only), and with
 `--probe` from one short headless session per client in an empty directory,
 which isolates the setup from each project's own files. Add `--budget N` to make
 the probe fail when a client starts above N tokens, for example before and after
-adding a server or skill. The session median predates deferring Clerk, Cognee and
-webmcp in Codex; the probe was run afterwards.
+adding a server or skill, and `--layers` to probe each client again without its
+MCP servers (and Claude without skills). The session median predates deferring
+Clerk, Cognee and webmcp in Codex; the probes were run afterwards.
+
+The layers show where deferral still costs something. Codex starts the same with
+or without its servers. Claude's MCP layer is about 12,000 tokens even deferred:
+tool search still lists the name of every deferred tool, and REA's 229 tools,
+Clerk's and the claude.ai connectors' come to several hundred names. Claude's
+skill layer was within the probes' run-to-run noise of about 2,000 tokens.
 Both clients get the same servers; `checks.agent-policy` fails if the sets diverge.
 Repository `.mcp.json` servers do not start in Claude unless enabled
 (`enableAllProjectMcpServers = false`), so a cloned repository cannot add servers

@@ -163,6 +163,10 @@ in {
             && codex.settings.otel.log_user_prompt == false
             && codex.settings.otel.log_agent_responses == false
             && codex.settings.otel.metrics_exporter == "none"))
+        (expect "Telemetry must reach the collector's OTLP/HTTP routes in the encoding it accepts"
+          (lib.hasSuffix "/v1/logs" codex.settings.otel.exporter.otlp-http.endpoint
+            && codex.settings.otel.exporter.otlp-http.protocol == "binary"
+            && claude.settings.env.OTEL_EXPORTER_OTLP_PROTOCOL == "http/protobuf"))
         (expect "No MCP tool may ask for approval"
           (builtins.all (server: !(server ? default_tools_approval_mode) && !(server ? tools)) (builtins.attrValues servers)))
         (expect "Every stdio MCP server must run from the Nix store, not a package runner such as npx or uvx"
@@ -379,6 +383,11 @@ in {
         == homes."lisa@vega".programs.codex.context
         && vega.settings.allowNonWorkspaceAccess
         && vega.settings.permissions.ask == [])
+      ++ expect "nook: nginx must route OTLP logs and metrics to the collector"
+      (config.flake.nixosConfigurations.nook.config.services.nginx.virtualHosts."otel.local.bylisa.dev".locations ? "~ ^/v1/(logs|metrics)$")
+      # Every client loads the shared instructions in full, in every session.
+      ++ expect "AGENTS.md must stay under 16 KiB"
+      (builtins.stringLength (builtins.readFile ./ai-skills/AGENTS.md) <= 16384)
       ++ expect "nook: the Codex service must use the shared Cognee server"
       (lib.hasInfix "mcp_servers.cognee.url=" nookCodex);
     # The home this system builds, so its generated files exist here.

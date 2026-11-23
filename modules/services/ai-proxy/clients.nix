@@ -27,6 +27,16 @@ in {
       then osConfig.age.secrets.ai-proxy-client-key.path
       else "${config.xdg.configHome}/cli-proxy-api-plus/client-api-key";
   in {
+    # `ai-gateway-probe`: exit 0 when the gateway lists every model its clients
+    # use, 1 when one is missing, 2 when it is unreachable or refuses the key.
+    # Antigravity sends gemini-3.8-flash (server.nix aliases it); Cognee uses
+    # openrouter/glm-5.3-flash (cognee/server.nix).
+    home.packages = [
+      (pkgs.writeShellApplication {
+        name = "ai-gateway-probe";
+        text = ''exec ${pkgs.python3}/bin/python3 -I ${../../../services/ai-usage/gateway_probe.py} ${endpoint} ${lib.escapeShellArg secretPath} gemini-3.8-flash openrouter/glm-5.3-flash'';
+      })
+    ];
     programs.antigravity-cli = lib.mkIf config.programs.antigravity-cli.enable {
       package = pkgs.symlinkJoin {
         name = "antigravity-through-nook";

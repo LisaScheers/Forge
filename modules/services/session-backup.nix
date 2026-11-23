@@ -88,10 +88,15 @@ in {
   home.lisa-vega = {
     config,
     pkgs,
-    osConfig,
+    osConfig ? null,
     ...
   }: let
     home = config.home.homeDirectory;
+    # The standalone home has no system configuration; agenix's default paths apply.
+    secretPath = name:
+      if osConfig != null && osConfig.age.secrets ? ${name}
+      then osConfig.age.secrets.${name}.path
+      else "/run/agenix/${name}";
     knownHosts = pkgs.writeText "session-backup-known-hosts" "${nook.tailscale} ${pubkeys.hosts.nook}\n";
   in {
     launchd.agents.session-backup = {
@@ -101,8 +106,8 @@ in {
           (lib.getExe (backupScript pkgs))
           nook.tailscale
           "${directory}/repo"
-          osConfig.age.secrets.session-backup-password.path
-          osConfig.age.secrets.session-backup-key.path
+          (secretPath "session-backup-password")
+          (secretPath "session-backup-key")
           "${knownHosts}"
           "${home}/.claude/projects"
           "${home}/.codex/sessions"

@@ -26,6 +26,11 @@ route.
 
 CodexBar shows the Claude and Codex plan limits on Vega.
 
+Run `ai-gateway-probe` on Vega to check the route these clients depend on: it
+exits 0 when the gateway lists every model they use (`gemini-3.8-flash` for
+Antigravity, `openrouter/glm-5.3-flash` for Cognee), 1 when one has disappeared
+upstream, and 2 when the gateway is unreachable or refuses the key.
+
 Last verified against the configuration on 2026-11-23. To capture another client,
 route it through the gateway in `modules/services/ai-proxy/clients.nix` with a
 wrapper like Antigravity's, then confirm a real request's transcript and usage in

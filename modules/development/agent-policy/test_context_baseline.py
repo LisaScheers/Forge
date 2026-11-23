@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from context_baseline import claude_probe_input, codex_probe_input, report
+from context_baseline import LAYERS, claude_probe_input, codex_probe_input, report
 
 
 class ContextBaselineTests(unittest.TestCase):
@@ -44,6 +44,12 @@ class ContextBaselineTests(unittest.TestCase):
         self.assertEqual(codex_probe_input(codex), 25077)
         with self.assertRaises(ValueError):
             codex_probe_input(json.dumps({"type": "turn.failed"}))
+
+    def test_layers_change_only_what_they_leave_out(self):
+        command, _ = LAYERS["codex without MCP"]
+        self.assertEqual(command[:4], ["codex", "exec", "-c", "mcp_servers={}"])
+        self.assertIn("--strict-mcp-config", LAYERS["claude without MCP or skills"][0])
+        self.assertIn("--disable-slash-commands", LAYERS["claude without MCP or skills"][0])
 
     def test_no_sessions(self):
         directory = tempfile.TemporaryDirectory()
