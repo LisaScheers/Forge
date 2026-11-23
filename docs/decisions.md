@@ -4,6 +4,39 @@ Each entry records a choice that shapes Lisa's agent setup, why it was made, and
 what it costs. The guides describe the current state; this file explains it.
 Newest first.
 
+## 2026-11-23: skills are installed globally, not linked per repository
+
+**Decision.** Every skill is installed for its clients in every directory; no
+repository-scoped skill groups.
+
+**Why.** The index a client lists up front, the names and descriptions of skills
+the model may load on its own, is about 850 tokens in Claude and Codex
+([context budget](skills.md#context-budget)), under 2% of a session's first
+request. All 49 pstack skills are manual-only and add nothing up front. Per-repo
+linking would save little and add a direnv hook to every project.
+
+**Cost.** Domain skills such as `aurora-viewer-control` are listed in unrelated
+repositories too. Revisit if the index grows past a few thousand tokens.
+
+## 2026-11-23: Zed and Antigravity get only small MCP servers
+
+**Decision.** Zed's agent and Antigravity get `mcp-nixos` and webmcp; REA,
+Cognee and Clerk stay with Claude and Codex.
+
+**Why.** Neither client has tool search, so every schema loads up front, and
+REA's would be about 950,000 tokens. Cognee and Clerk sign in through OAuth.
+
+## 2026-11-23: rendered agent settings are snapshotted
+
+**Decision.** `tests/agent-config/` keeps a normalised snapshot of each home's
+rendered agent settings, and `checks.agent-policy` fails when one changes.
+
+**Why.** Several modules contribute to each client's settings; a snapshot makes
+the combined result reviewable as a diff instead of trusting each module alone.
+
+**Cost.** A deliberate change needs `nix build .#agent-config-snapshots` and a
+copy into `tests/agent-config/`.
+
 ## 2026-11-23: agents run with full access and no prompts
 
 **Decision.** Claude Code starts in `bypassPermissions`, Codex runs
