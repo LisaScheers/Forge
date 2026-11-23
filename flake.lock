@@ -2413,11 +2413,11 @@
         "pre-commit-hooks": "pre-commit-hooks"
       },
       "locked": {
-        "lastModified": 1795139973,
-        "narHash": "sha256-LlmEKaTqR50Ode2eAspuoS+wA0Cn+7UbDx/IbfWwo8s=",
+        "lastModified": 1795385922,
+        "narHash": "sha256-c3dnep7nqFRdKKN4jv0QyRTu99FpuMwjjwAX3gPhUkE=",
         "owner": "LisaScheers",
         "repo": "t3-code-nix",
-        "rev": "795a9a372e6950cc5f1aa5f3e8c4f6dd4d176e7e",
+        "rev": "5159ee1eaefd0020c85f85079fc4bbc38b211864",
         "type": "github"
       },
       "original": {
