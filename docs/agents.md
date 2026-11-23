@@ -74,7 +74,9 @@ changed, and restic keeps 14 daily, 8 weekly and 12 monthly snapshots.
   two VMs: first backup and restore, ciphertext only on the server, a second
   snapshot, and a key that cannot run commands.
 
-The job logs to `~/Library/Logs/session-backup.log`. To restore, decrypt the
+The first run, on 2026-11-23, read 1,566 files (3.36 GiB) and stored 2.95 GiB
+in under a minute; later runs store only the difference. The job logs to
+`~/Library/Logs/session-backup.log`. To restore, decrypt the
 password with Lisa's age identity and point restic at the repository:
 
 ```sh
