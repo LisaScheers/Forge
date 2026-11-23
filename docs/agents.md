@@ -52,7 +52,7 @@ flowchart LR
   otel --> ch
   ch -- read-only --> archive
   claude & codex -- recall and remember --> cognee
-  cognee --> backup --> atlas
+  cognee --> backup -. "from main onwards" .-> atlas
 ```
 
 Claude and Codex transcripts stay in their local session files, and only usage

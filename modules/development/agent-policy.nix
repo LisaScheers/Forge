@@ -424,6 +424,10 @@ in {
       };
     # Home Manager's own merge steps, which write the live files at activation.
     zedMerges = local.home.activation ? zedSettingsActivation;
+    # Each pstack skill as Claude receives it, to compare with the vendored copy.
+    claudePstack = pkgs.writeText "claude-pstack-skills.json" (builtins.toJSON (
+      lib.genAttrs (builtins.attrNames (builtins.readDir ./ai-skills/pstack/skills)) (name: "${local.programs.claude-code.skills.${name}}")
+    ));
     merge = pkgs.writeText "agent-settings-merge.sh" (lib.concatMapStringsSep "\n" (step: local.home.activation.${step}.data) (
       ["codexMutableSettings" "claudeCodeSettings"]
       ++ lib.optional zedMerges "zedSettingsActivation"
@@ -449,6 +453,20 @@ in {
         first=$(echo '{"query": "comp butt"}' | CLAUDE_PROJECT_DIR="$project" ${local.programs.claude-code.settings.fileSuggestion.command} | head -n 1)
         [ "$first" = src/components/Button.tsx ] || { echo "file suggestion returned '$first'" >&2; exit 1; }
         [ "$(echo '{"query": ""}' | CLAUDE_PROJECT_DIR="$project" ${local.programs.claude-code.settings.fileSuggestion.command} | grep -c .git/)" = 0 ]
+        # Claude's pstack copies gain the manual-only flag in their frontmatter,
+        # exactly when Codex's policy says so, and nothing else changes.
+        python3 -B - ${./ai-skills/pstack/skills} ${claudePstack} <<'PY'
+        import json, pathlib, sys
+        vendored = pathlib.Path(sys.argv[1])
+        for name, copy in json.loads(pathlib.Path(sys.argv[2]).read_text()).items():
+            policy = vendored / name / "agents/openai.yaml"
+            manual = policy.is_file() and "allow_implicit_invocation: false" in policy.read_text()
+            _, front, body = (vendored / name / "SKILL.md").read_text().split("---\n", 2)
+            _, claude_front, claude_body = (pathlib.Path(copy) / "SKILL.md").read_text().split("---\n", 2)
+            expected = "disable-model-invocation: true\n" + front if manual else front
+            assert claude_front == expected and claude_body == body, f"{name}: Claude's copy differs from the vendored skill beyond the manual-only flag"
+        print("Claude's pstack copies match their invocation policy")
+        PY
         # The status line shows what Claude reports and skips what it leaves out.
         line=$(echo '{"model": {"display_name": "Opus 5.5"}, "effort": {"level": "high"}, "context_window": {"used_percentage": 23.4}, "rate_limits": {"five_hour": {"used_percentage": 41}}}' \
           | ${local.programs.claude-code.settings.statusLine.command})
