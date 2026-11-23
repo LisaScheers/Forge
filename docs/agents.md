@@ -132,13 +132,18 @@ What that saves, measured on Vega on 2026-11-23:
 | REA's 229 tool schemas, from its `tools/list` result | about 3.8 MB, roughly 950,000 tokens |
 | Claude's first request in a session, median of 89 sessions over 7 days | 46,446 tokens (33,835 to 80,367) |
 | Codex's first request in a session, median of 22 sessions over 7 days | 28,233 tokens (22,448 to 32,109) |
+| Claude probe: one "Reply with OK." session in an empty directory | 49,865 tokens |
+| Codex probe: the same, with every server deferred | 25,015 tokens |
 
 The first request carries the system prompt, instructions, skill descriptions
 and every tool schema loaded up front, so it is what each new session costs
-before any work. Run `agent-context-baseline` (optionally `--days N`) to measure
-it again from the session files both clients keep; it reads only token counts.
-The Codex figure predates deferring Clerk, Cognee and webmcp; REA was already
-deferred.
+before any work. `agent-context-baseline` measures it two ways: by default from
+the session files both clients keep (`--days N`, token counts only), and with
+`--probe` from one short headless session per client in an empty directory,
+which isolates the setup from each project's own files. Add `--budget N` to make
+the probe fail when a client starts above N tokens, for example before and after
+adding a server or skill. The session median predates deferring Clerk, Cognee and
+webmcp in Codex; the probe was run afterwards.
 Both clients get the same servers; `checks.agent-policy` fails if the sets diverge.
 Repository `.mcp.json` servers do not start in Claude unless enabled
 (`enableAllProjectMcpServers = false`), so a cloned repository cannot add servers

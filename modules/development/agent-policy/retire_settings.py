@@ -26,21 +26,33 @@ def load_paths(path):
     return {tuple(entry) for entry in json.loads(Path(path).read_text(encoding="utf-8"))}
 
 
+def related(path, other):
+    """One path contains the other, so retiring it would touch a declared key."""
+    shorter = min(len(path), len(other))
+    return path[:shorter] == other[:shorter]
+
+
+def stale_paths(candidates, declared):
+    return {path for path in candidates if not any(related(path, kept) for kept in declared)}
+
+
 def retire(config, paths):
     removed = []
     for path in sorted(paths):
-        parent = config
+        chain = [config]
         for key in path[:-1]:
-            parent = parent.get(key)
-            if not isinstance(parent, dict):
+            child = chain[-1].get(key)
+            if not isinstance(child, dict):
                 break
+            chain.append(child)
         else:
-            if path[-1] in parent:
-                del parent[path[-1]]
+            if path[-1] in chain[-1]:
+                del chain[-1][path[-1]]
                 removed.append(".".join(path))
-                # Drop a table that only held the retired key.
-                if len(path) > 1 and parent == {}:
-                    del config[path[0]]
+                # Drop the tables that only held the retired key.
+                for depth in range(len(path) - 1, 0, -1):
+                    if chain[depth] == {}:
+                        del chain[depth - 1][path[depth - 1]]
     return removed
 
 
@@ -48,7 +60,7 @@ def main():
     config_path, manifest_path = Path(sys.argv[1]), Path(sys.argv[2])
     declared = load_paths(sys.argv[3])
     previous = load_paths(manifest_path) if manifest_path.exists() else set()
-    stale = (previous | load_paths(sys.argv[4])) - declared
+    stale = stale_paths(previous | load_paths(sys.argv[4]), declared)
     if config_path.exists() and stale:
         is_toml = config_path.suffix == ".toml"
         text = config_path.read_text(encoding="utf-8")

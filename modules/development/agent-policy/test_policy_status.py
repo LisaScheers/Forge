@@ -37,6 +37,15 @@ class PolicyStatusTests(unittest.TestCase):
         home = self.home('approval_policy = "never"\nsandbox_mode = "danger-full-access"\nmodel = "x"\n', claude)
         self.assertEqual(differences(EXPECTED, home), [])
 
+    def test_keys_inside_owned_servers_that_nix_dropped_are_reported(self):
+        claude = {"permissions": {"defaultMode": "bypassPermissions", "deny": ["Read(~/.ssh/id_*)"]}}
+        home = self.home('approval_policy = "never"\nsandbox_mode = "danger-full-access"\n'
+                         '[mcp_servers.clerk_mcp]\nurl = "u"\ndefault_tools_approval_mode = "prompt"\n'
+                         '[mcp_servers.node_repl]\ncommand = "node"\n', claude)
+        found = differences(EXPECTED, home, [["mcp_servers", "clerk_mcp", "url"]])
+        self.assertEqual(found, [f"{home}/.codex/config.toml: mcp_servers.clerk_mcp.default_tools_approval_mode "
+                                 "is not declared by Nix"])
+
     def test_missing_files_are_differences(self):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)

@@ -32,20 +32,28 @@
   };
   # Keys Nix declared in each settings file before its retirement manifest existed.
   retiredPaths = {
-    codex = [["model_providers" "nook"]];
+    codex = [
+      ["model_providers" "nook"]
+      # MCP approval prompts, removed with the switch to full access.
+      ["mcp_servers" "clerk_mcp" "default_tools_approval_mode"]
+      ["mcp_servers" "cognee" "tools"]
+    ];
     claude = [["env" "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB"]];
     antigravity = [];
   };
-  # Key paths Nix manages in a settings file: each top-level key, and each entry
-  # of a top-level table, such as one MCP server or environment variable.
+  # Every leaf key path Nix sets in a settings file, such as
+  # ["mcp_servers" "cognee" "url"]; a nested key dropped from Nix is then retired
+  # too, not left behind inside a table Nix still declares.
   declaredPaths = settings:
     lib.concatLists (lib.mapAttrsToList (
         key: value:
-          if builtins.isAttrs value
-          then map (entry: [key entry]) (builtins.attrNames value)
+          if builtins.isAttrs value && value != {}
+          then map (path: [key] ++ path) (declaredPaths value)
           else [[key]]
       )
       settings);
+  # The leaf paths inside the MCP server tables Nix owns in Codex's config.
+  ownedCodexServers = pkgs: settings: pkgs.writeText "codex-owned-servers.json" (builtins.toJSON (builtins.filter (path: builtins.head path == "mcp_servers") (declaredPaths settings)));
   retireCommand = pkgs: "${pkgs.python3.withPackages (ps: [ps.tomli-w])}/bin/python3 -I ${./agent-policy/retire_settings.py}";
   policyFile = pkgs: pkgs.writeText "agent-policy-live.json" (builtins.toJSON livePolicy);
   contextBaseline = pkgs:
@@ -53,10 +61,10 @@
       name = "agent-context-baseline";
       text = ''exec ${pkgs.python3}/bin/python3 -I ${./agent-policy/context_baseline.py} "$@"'';
     };
-  policyStatus = pkgs:
+  policyStatus = pkgs: codexSettings:
     pkgs.writeShellApplication {
       name = "agent-policy-status";
-      text = ''exec ${pkgs.python3}/bin/python3 -I ${./agent-policy/policy_status.py} ${policyFile pkgs} "''${1:-$HOME}"'';
+      text = ''exec ${pkgs.python3}/bin/python3 -I ${./agent-policy/policy_status.py} ${policyFile pkgs} "''${1:-$HOME}" ${ownedCodexServers pkgs codexSettings}'';
     };
 in {
   home.lisa = {
@@ -72,7 +80,7 @@ in {
         {
           name = "codex";
           path = "${home}/.codex/config.toml";
-          declared = declaredPaths config.programs.codex.settings ++ map (name: ["mcp_servers" name]) (builtins.attrNames config.programs.mcp.servers);
+          declared = declaredPaths config.programs.codex.settings;
         }
         {
           name = "claude";
@@ -98,9 +106,9 @@ in {
       (lib.concatMapStrings retire settingsFiles);
     # Mutable settings can drift from Nix between activations; report it at
     # every switch, and on demand with `agent-policy-status`.
-    home.packages = [(policyStatus pkgs) (contextBaseline pkgs)];
+    home.packages = [(policyStatus pkgs config.programs.codex.settings) (contextBaseline pkgs)];
     home.activation.agentPolicyStatus = lib.hm.dag.entryAfter ["codexRetireSettings"] ''
-      ${lib.getExe (policyStatus pkgs)} "$HOME" || warnEcho "Live agent settings differ from agent-policy.nix; see the lines above."
+      ${lib.getExe (policyStatus pkgs config.programs.codex.settings)} "$HOME" || warnEcho "Live agent settings differ from agent-policy.nix; see the lines above."
     '';
     programs.claude-code.settings = {
       # Declared lists replace saved ones, so the empty lists clear earlier
@@ -416,14 +424,16 @@ in {
         mkdir -p "$home/.codex" "$home/.claude"
         printf '%s\n' 'approval_policy = "on-request"' 'sandbox_mode = "workspace-write"' 'app_owned = "kept"' \
           '[mcp_servers.webmcp]' 'command = "npx"' '[mcp_servers.node_repl]' 'command = "node"' \
-          '[model_providers.nook]' 'base_url = "https://gateway"' > "$home/.codex/config.toml"
+          '[model_providers.nook]' 'base_url = "https://gateway"' \
+          '[mcp_servers.clerk_mcp]' 'default_tools_approval_mode = "prompt"' \
+          '[mcp_servers.cognee.tools.forget]' 'approval_mode = "prompt"' > "$home/.codex/config.toml"
         echo '{"theme": "dark", "permissions": {"ask": ["Bash(just deploy:*)"]}, "hooks": {"PreToolUse": [{"matcher": "Bash"}]}, "env": {"CLAUDE_CODE_SUBPROCESS_ENV_SCRUB": "1"}}' \
           > "$home/.claude/settings.json"
-        ! python3 -B policy_status.py ${policyFile pkgs} "$home" 2>/dev/null
+        ! python3 -B policy_status.py ${policyFile pkgs} "$home" ${ownedCodexServers pkgs local.programs.codex.settings} 2>/dev/null
         # Run the real merge against it, then require the policy and the kept keys.
         sed "s#${local.home.homeDirectory}#$home#g" ${merge} > "$TMPDIR/merge.sh"
         bash -c 'errorEcho() { echo "$@" >&2; }; run() { "$@"; }; set -eu; source "$1"' merge "$TMPDIR/merge.sh"
-        python3 -B policy_status.py ${policyFile pkgs} "$home"
+        python3 -B policy_status.py ${policyFile pkgs} "$home" ${ownedCodexServers pkgs local.programs.codex.settings}
         python3 -B - "$home" <<'PY'
         import json, pathlib, sys, tomllib
         home = pathlib.Path(sys.argv[1])
@@ -432,6 +442,8 @@ in {
         assert codex["app_owned"] == "kept" and claude["theme"] == "dark", "the merge dropped a key the app owns"
         assert codex["mcp_servers"]["node_repl"]["command"] == "node", "an app-owned server was retired"
         assert "model_providers" not in codex, "a retired gateway provider survived"
+        assert "default_tools_approval_mode" not in codex["mcp_servers"]["clerk_mcp"], "a retired nested key survived"
+        assert "tools" not in codex["mcp_servers"]["cognee"], "a retired nested table survived"
         assert "npx" not in codex["mcp_servers"]["webmcp"]["command"]
         assert codex["mcp_servers"]["rea"]["omit_tools_from"] == ["direct"]
         assert codex["otel"]["log_user_prompt"] is False

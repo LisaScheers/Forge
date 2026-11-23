@@ -51,6 +51,17 @@ class RetireSettingsTests(unittest.TestCase):
                         self.root / "declared.json", self.root / "retired.json"], check=True)
         self.assertEqual(json.loads(self.config.read_text()), {"theme": "dark", "env": {"ENABLE_TOOL_SEARCH": "true"}})
 
+    def test_nested_keys_retire_without_touching_their_declared_table(self):
+        self.config.write_text('[mcp_servers.clerk_mcp]\nurl = "u"\ndefault_tools_approval_mode = "prompt"\n'
+                               '[mcp_servers.cognee]\nurl = "c"\n[mcp_servers.cognee.tools.forget]\napproval_mode = "prompt"\n')
+        # The manifest from before leaf tracking named whole tables; they stay.
+        self.manifest.parent.mkdir()
+        self.manifest.write_text(json.dumps([["mcp_servers", "clerk_mcp"], ["mcp_servers", "cognee"]]))
+        config = self.run_retire([["mcp_servers", "clerk_mcp", "url"], ["mcp_servers", "cognee", "url"]],
+                                 [["mcp_servers", "clerk_mcp", "default_tools_approval_mode"],
+                                  ["mcp_servers", "cognee", "tools"]])
+        self.assertEqual(config, {"mcp_servers": {"clerk_mcp": {"url": "u"}, "cognee": {"url": "c"}}})
+
     def test_an_unchanged_file_is_not_rewritten(self):
         self.config.write_text('# kept comment\nmodel = "x"\n')
         self.run_retire([["model"]], [["model_providers", "nook"]])

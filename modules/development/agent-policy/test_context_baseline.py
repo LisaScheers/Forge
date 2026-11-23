@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from context_baseline import report
+from context_baseline import claude_probe_input, codex_probe_input, report
 
 
 class ContextBaselineTests(unittest.TestCase):
@@ -34,6 +34,16 @@ class ContextBaselineTests(unittest.TestCase):
         result = report(home, days=7)
         self.assertEqual(result["claude"], {"sessions": 2, "median": 26002, "min": 21002, "max": 31002})
         self.assertEqual(result["codex"], {"sessions": 1, "median": 23222, "min": 23222, "max": 23222})
+
+    def test_probe_outputs_are_read(self):
+        claude = json.dumps({"result": "OK", "usage": {"input_tokens": 2, "cache_creation_input_tokens": 25727,
+                                                       "cache_read_input_tokens": 24222, "output_tokens": 4}})
+        self.assertEqual(claude_probe_input(claude), 49951)
+        codex = "\n".join([json.dumps({"type": "thread.started"}), "warning: not json",
+                           json.dumps({"type": "turn.completed", "usage": {"input_tokens": 25077}})])
+        self.assertEqual(codex_probe_input(codex), 25077)
+        with self.assertRaises(ValueError):
+            codex_probe_input(json.dumps({"type": "turn.failed"}))
 
     def test_no_sessions(self):
         directory = tempfile.TemporaryDirectory()

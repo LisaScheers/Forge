@@ -5,14 +5,23 @@ skill descriptions and every tool schema loaded up front, before any work. Its
 input size is the cost each new session pays, so this reads it from the session
 files both clients already keep and summarises recent sessions per client.
 
-Usage: context_baseline.py [HOME] [--days N]
+With --probe it instead starts one short headless session per client in an
+empty directory and reports that session's first request: a controlled
+measurement that past sessions, with their varied working directories, are not.
+--budget N then exits 1 when a probed client starts above N tokens.
+
+Usage: context_baseline.py [HOME] [--days N] | --probe [--budget N]
 """
 
 import argparse
 import json
 import statistics
+import subprocess
+import tempfile
 import time
 from pathlib import Path
+
+PROBE_PROMPT = "Reply with OK."
 
 
 def claude_first_input(path):
@@ -60,11 +69,55 @@ def report(home, days):
     }
 
 
+def claude_probe_input(output):
+    """First-request prompt tokens from `claude -p --output-format json`."""
+    usage = json.loads(output)["usage"]
+    return (usage.get("input_tokens", 0) + usage.get("cache_creation_input_tokens", 0)
+            + usage.get("cache_read_input_tokens", 0))
+
+
+def codex_probe_input(output):
+    """Input tokens of the single turn from `codex exec --json`."""
+    for line in output.splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("type") == "turn.completed":
+            return event["usage"]["input_tokens"]
+    raise ValueError("codex exec reported no completed turn")
+
+
+def probe():
+    commands = {
+        "claude": (["claude", "-p", PROBE_PROMPT, "--output-format", "json"], claude_probe_input),
+        "codex": (["codex", "exec", "--json", "--skip-git-repo-check", PROBE_PROMPT], codex_probe_input),
+    }
+    sizes = {}
+    with tempfile.TemporaryDirectory() as empty:
+        for client, (command, parse) in commands.items():
+            result = subprocess.run(command, cwd=empty, stdin=subprocess.DEVNULL, capture_output=True,
+                                    text=True, timeout=300, check=True)
+            sizes[client] = parse(result.stdout)
+    return sizes
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("home", nargs="?", type=Path, default=Path.home())
     parser.add_argument("--days", type=float, default=7)
+    parser.add_argument("--probe", action="store_true", help="start one short session per client and measure it")
+    parser.add_argument("--budget", type=int, help="with --probe, fail when a client starts above this many tokens")
     arguments = parser.parse_args()
+    if arguments.probe:
+        over = []
+        for client, size in probe().items():
+            print(f"{client}: probe session's first request {size:,} tokens")
+            if arguments.budget is not None and size > arguments.budget:
+                over.append(client)
+        if over:
+            raise SystemExit(f"over the {arguments.budget:,}-token budget: {', '.join(over)}")
+        return
     for client, summary in report(arguments.home, arguments.days).items():
         if summary is None:
             print(f"{client}: no sessions in the last {arguments.days:g} days")
