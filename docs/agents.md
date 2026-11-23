@@ -79,13 +79,13 @@ lists every skill with its clients and what it does, generated the same way.
 | Installed | 64 | 65 | 11 | 11 |
 | Of which pstack, manual only | 49 | 49 | 0 | 0 |
 
-| MCP server | Claude | Codex |
-| --- | --- | --- |
-| clerk_mcp | tool search | tool search |
-| cognee | tool search | tool search |
-| nixos | tool search | tool search |
-| rea | tool search | tool search |
-| webmcp | tool search | tool search |
+| MCP server | Claude | Codex | Zed | Antigravity |
+| --- | --- | --- | --- | --- |
+| clerk_mcp | tool search | tool search | not installed | not installed |
+| cognee | tool search | tool search | not installed | not installed |
+| nixos | tool search | tool search | loaded at start | loaded at start |
+| rea | tool search | tool search | not installed | not installed |
+| webmcp | tool search | tool search | loaded at start | loaded at start |
 <!-- catalogue:end -->
 
 | Skill set | Source | Claude | Codex | Antigravity, Copilot |
@@ -113,7 +113,9 @@ memory, OAuth through Authentik; Nook's Codex service gets it too), Clerk,
 `mcp-nixos` (NixOS, Home Manager and nix-darwin package and option lookup),
 webmcp (a Nix-packaged bundle, so nothing is fetched from npm at run time), and
 REA from `modules/development/rea.nix`. The catalogue above shows how each
-client loads them. No MCP tool asks for approval, and `checks.agent-policy`
+client loads them. Zed's agent and Antigravity get only `mcp-nixos` and webmcp:
+they load every tool schema up front, and Cognee and Clerk sign in through
+OAuth. No MCP tool asks for approval, and `checks.agent-policy`
 fails if one is set to. Every stdio server must run from the Nix store: the
 check rejects package runners such as `npx` or `uvx`.
 
@@ -214,6 +216,19 @@ credential deny rule. Run `agent-policy-status` at any time for the same report.
 
 Claude Code and Codex send usage telemetry, without prompt or response text, to
 Nook's collector ([AI gateway](ai-usage.md#usage-telemetry)).
+
+## Snapshots
+
+`tests/agent-config/` holds a snapshot of each home's rendered agent settings:
+Codex, Claude, the shared MCP servers, and on workstations Zed's agent, plus
+Antigravity and T3's drivers on Vega. Store paths appear as `<store>`, so a
+Nixpkgs update alone changes nothing. `checks.agent-policy` fails when the
+rendered settings differ from the snapshot, so every change to a client's
+settings shows up as a diff in review. After checking the change:
+
+```sh
+nix build .#agent-config-snapshots && cp result/*.json tests/agent-config/
+```
 
 ## Verification
 

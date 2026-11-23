@@ -188,6 +188,8 @@ in {
     vegaHome = homes."lisa@vega";
     claudeServers = builtins.attrNames vegaHome.programs.mcp.servers ++ builtins.attrNames vegaHome.programs.claude-code.mcpServers;
     codexServers = vegaHome.programs.codex.settings.mcp_servers;
+    zedServers = builtins.attrNames vegaHome.programs.zed-editor.userSettings.context_servers;
+    antigravityServers = builtins.attrNames vegaHome.programs.antigravity-cli.mcpServers;
     claudeDefers = (vegaHome.programs.claude-code.settings.env.ENABLE_TOOL_SEARCH or "") == "true";
     loading = present: deferred:
       if !present
@@ -197,7 +199,7 @@ in {
       else "loaded at start";
     serverRow = name: let
       codexServer = codexServers.${name} or {};
-    in "| ${name} | ${loading (builtins.elem name claudeServers) claudeDefers} | ${loading (codexServers ? ${name}) (builtins.elem "direct" (codexServer.omit_tools_from or []))} |";
+    in "| ${name} | ${loading (builtins.elem name claudeServers) claudeDefers} | ${loading (codexServers ? ${name}) (builtins.elem "direct" (codexServer.omit_tools_from or []))} | ${loading (builtins.elem name zedServers) false} | ${loading (builtins.elem name antigravityServers) false} |";
     skillCount = client: toString (builtins.length (builtins.attrNames vegaHome.programs.${client}.skills));
     pstackCount = toString (builtins.length (builtins.attrNames (builtins.readDir ./ai-skills/pstack/skills)));
     catalogue = lib.concatStringsSep "\n" ([
@@ -207,8 +209,8 @@ in {
         "| Installed | ${skillCount "claude-code"} | ${skillCount "codex"} | ${skillCount "antigravity-cli"} | ${skillCount "github-copilot-cli"} |"
         "| Of which pstack, manual only | ${pstackCount} | ${pstackCount} | 0 | 0 |"
         ""
-        "| MCP server | Claude | Codex |"
-        "| --- | --- | --- |"
+        "| MCP server | Claude | Codex | Zed | Antigravity |"
+        "| --- | --- | --- | --- | --- |"
       ]
       ++ map serverRow (lib.unique (lib.sort builtins.lessThan (claudeServers ++ builtins.attrNames codexServers)))
       ++ ["<!-- catalogue:end -->"]);
@@ -313,10 +315,55 @@ in {
       && standalone.programs.claude-code.skills ? file-pr
       && standalone.programs.codex.skills ? principle-fix-root-causes;
 
+    # Snapshots of each home's rendered agent settings, kept in tests/agent-config.
+    # Store paths become `<store>`, so a Nixpkgs update alone changes nothing.
+    normalise = value:
+      if builtins.isAttrs value
+      then builtins.mapAttrs (_: normalise) value
+      else if builtins.isList value
+      then map normalise value
+      else if builtins.isString value
+      then
+        builtins.unsafeDiscardStringContext (lib.concatMapStrings (part:
+          if builtins.isList part
+          then "<store>"
+          else part) (builtins.split "/nix/store/[a-z0-9]{32}-[^/\"' ]*" value))
+      else if builtins.isPath value
+      then "<path:${baseNameOf value}>"
+      else value;
+    renderedConfig = name: let
+      home = homes.${name};
+      workstation = builtins.elem name workstations;
+    in
+      normalise ({
+          codex = home.programs.codex.settings;
+          claude = home.programs.claude-code.settings // {inherit (home.programs.claude-code) mcpServers;};
+          mcp = home.programs.mcp.servers;
+        }
+        // lib.optionalAttrs workstation {zed.agent = home.programs.zed-editor.userSettings.agent // {inherit (home.programs.zed-editor.userSettings) context_servers;};}
+        // lib.optionalAttrs (name == "lisa@vega") {
+          antigravity = home.programs.antigravity-cli.settings // {inherit (home.programs.antigravity-cli) mcpServers;};
+          t3.providerInstances = home.programs.t3code.userSettings.providerInstances;
+        });
+    snapshotFile = name: ../../tests/agent-config + "/${name}.json";
+    staleSnapshots = builtins.filter (name:
+      !(builtins.pathExists (snapshotFile name))
+      || builtins.fromJSON (builtins.readFile (snapshotFile name)) != builtins.fromJSON (builtins.toJSON (renderedConfig name)))
+    (builtins.attrNames homes);
+    snapshots = pkgs.runCommand "agent-config-snapshots" {nativeBuildInputs = [pkgs.python3];} ''
+      mkdir "$out"
+      ${lib.concatMapStrings (name: ''
+        python3 -c 'import json, sys; print(json.dumps(json.load(open(sys.argv[1])), indent=2, sort_keys=True))' \
+          ${pkgs.writeText "${name}.json" (builtins.toJSON (renderedConfig name))} > "$out/${name}.json"
+      '') (builtins.attrNames homes)}
+    '';
+
     agentSkillNames = pkgs.writeText "agent-skill-names.json" (builtins.toJSON (lib.unique (installedSkills "claude-code" ++ installedSkills "codex")));
     failures =
       lib.concatMap homeFailures (builtins.attrNames homes)
       ++ clientContracts
+      ++ expect "Zed and Antigravity, which load every schema up front, must get only nixos and webmcp"
+      (zedServers == ["nixos" "webmcp"] && antigravityServers == ["nixos" "webmcp"])
       ++ expect "Skill names must be unique across sets; duplicated: ${toString duplicateSkills}" (duplicateSkills == [])
       ++ expect "modules.homeManager.ai-environment must work on its own" standaloneWorks
       ++ expect "lisa@vega: Antigravity must read AGENTS.md and run without workspace limits or ask rules"
@@ -345,7 +392,9 @@ in {
     ]);
   in {
     packages.agent-skills-catalogue = skillsCatalogue;
+    packages.agent-config-snapshots = snapshots;
     checks.agent-policy = assert lib.assertMsg (failures == []) "Agent configuration no longer matches agent-policy.nix:\n${lib.concatStringsSep "\n" failures}";
+    assert lib.assertMsg (staleSnapshots == []) "Rendered agent settings changed for ${toString staleSnapshots}; review the change, then: nix build .#agent-config-snapshots && cp result/*.json tests/agent-config/";
     assert lib.assertMsg catalogueCurrent "docs/agents.md's catalogue differs from Nix; replace it with:\n${catalogue}";
       pkgs.runCommand "agent-policy" {
         nativeBuildInputs = [(pkgs.python3.withPackages (ps: [ps.pyyaml ps.tomli-w])) pkgs.gnused];

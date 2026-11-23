@@ -86,4 +86,4 @@ description; manual-only skills and deferred MCP tools add nothing up front.
 | Shared instructions (`AGENTS.md`) | 1,635 | 1,635 | 1,635 | 1,635 |
 | Skills the model may load on its own | 15 | 16 | 11 | 11 |
 | Their index: names and descriptions | 848 | 855 | 786 | 786 |
-| MCP tool schemas | deferred | deferred | none | none |
+| MCP tool schemas up front | none: tool search | none: tool search | `mcp-nixos` and webmcp | none |

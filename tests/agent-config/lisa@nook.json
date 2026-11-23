@@ -1,0 +1,224 @@
+{
+  "claude": {
+    "autoMemoryEnabled": false,
+    "enableAllProjectMcpServers": false,
+    "env": {
+      "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+      "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "1",
+      "DISABLE_AUTOUPDATER": "1",
+      "ENABLE_TOOL_SEARCH": "true",
+      "OTEL_EXPORTER_OTLP_ENDPOINT": "https://otel.local.bylisa.dev",
+      "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+      "OTEL_LOGS_EXPORTER": "otlp",
+      "OTEL_LOG_TOOL_DETAILS": "0",
+      "OTEL_LOG_USER_PROMPTS": "0",
+      "OTEL_METRICS_EXPORTER": "otlp",
+      "OTEL_METRIC_EXPORT_INTERVAL": "10000"
+    },
+    "hooks": {
+      "PreToolUse": []
+    },
+    "mcpServers": {
+      "cognee": {
+        "type": "http",
+        "url": "https://cognee.local.bylisa.dev/mcp"
+      }
+    },
+    "permissions": {
+      "ask": [],
+      "defaultMode": "bypassPermissions",
+      "deny": [
+        "Read(~/.ssh/id_*)",
+        "Read(~/.config/sops/age/**)",
+        "Read(~/.codex/auth.json)",
+        "Read(~/.config/cli-proxy-api-plus/client-api-key)",
+        "Read(//run/agenix/**)",
+        "Read(//run/agenix.d/**)"
+      ]
+    },
+    "skipDangerousModePermissionPrompt": true
+  },
+  "codex": {
+    "agents": {
+      "max_concurrent_threads_per_session": 10
+    },
+    "approval_policy": "never",
+    "check_for_update_on_startup": false,
+    "features": {
+      "memories": false,
+      "prevent_idle_sleep": true
+    },
+    "mcp_servers": {
+      "clerk_mcp": {
+        "enabled": true,
+        "omit_tools_from": [
+          "direct"
+        ],
+        "url": "https://mcp.clerk.com/mcp"
+      },
+      "cognee": {
+        "omit_tools_from": [
+          "direct"
+        ],
+        "startup_timeout_sec": 30,
+        "tool_timeout_sec": 600,
+        "url": "https://cognee.local.bylisa.dev/mcp"
+      },
+      "nixos": {
+        "command": "<store>/bin/mcp-nixos",
+        "env": {
+          "FASTMCP_CHECK_FOR_UPDATES": "off"
+        },
+        "omit_tools_from": [
+          "direct"
+        ]
+      },
+      "rea": {
+        "args": [
+          "mcp"
+        ],
+        "command": "<store>/lib/node_modules/rea-agents/scripts/rea.mjs",
+        "env": {
+          "GHIDRA_INSTALL_DIR": "<store>/lib/ghidra",
+          "JAVA_HOME": "<store>/lib/openjdk",
+          "PATH": "<store>/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+          "REA_ADB_PATH": "<store>/bin/adb",
+          "REA_ANALYSIS_PROVIDER": "ghidra",
+          "REA_APKTOOL_COMMAND": "<store>/bin/apktool",
+          "REA_BINWALK_COMMAND": "<store>/bin/binwalk",
+          "REA_BROWSER_EXECUTABLE": "<store>/bin/helium",
+          "REA_CAPINFOS_COMMAND": "<store>/bin/capinfos",
+          "REA_EVM_PRLIMIT_COMMAND": "<store>/bin/prlimit",
+          "REA_FIRMWARE_PRLIMIT_COMMAND": "<store>/bin/prlimit",
+          "REA_GDB_COMMAND": "<store>/bin/gdb",
+          "REA_GHIDRA_NATIVEAOT_JAR": "<store>/share/java/rea-ghidra-nativeaot.jar",
+          "REA_ILSPY_CMD_PATH": "<store>/bin/ilspycmd",
+          "REA_JADX_MCP_JAR": "<store>",
+          "REA_JAVASCRIPT_PRLIMIT_COMMAND": "<store>/bin/prlimit",
+          "REA_KUNA_COMMAND": "<store>/bin/kuna",
+          "REA_MITMDUMP_COMMAND": "<store>/bin/mitmdump",
+          "REA_OBJDUMP_COMMAND": "<store>/bin/objdump",
+          "REA_PWNDBG_GDB": "<store>/bin/gdb",
+          "REA_PWNDBG_GDBINIT": "<store>/share/pwndbg/gdbinit.py",
+          "REA_PWNDBG_VENV_PATH": "<store>",
+          "REA_PWNTOOLS_PYTHON": "<store>/bin/python3",
+          "REA_RIZIN_COMMAND": "<store>/bin/rizin",
+          "REA_SIGROK_COMMAND": "<store>/bin/sigrok-cli",
+          "REA_SIGROK_PRLIMIT_COMMAND": "<store>/bin/prlimit",
+          "REA_TSHARK_COMMAND": "<store>/bin/tshark",
+          "REA_TSHARK_PRLIMIT_COMMAND": "<store>/bin/prlimit",
+          "REA_UNBLOB_COMMAND": "<store>/bin/unblob",
+          "REA_WABT_BIN_DIRECTORY": "<store>/bin",
+          "REA_WAKARU_COMMAND": "<store>/bin/wakaru"
+        },
+        "omit_tools_from": [
+          "direct"
+        ],
+        "startup_timeout_sec": 30,
+        "tool_timeout_sec": 600
+      },
+      "webmcp": {
+        "args": [
+          "--mcp"
+        ],
+        "command": "<store>/bin/webmcp",
+        "omit_tools_from": [
+          "direct"
+        ],
+        "startup_timeout_sec": 60
+      }
+    },
+    "memories": {
+      "generate_memories": false,
+      "use_memories": false
+    },
+    "model_reasoning_effort": "high",
+    "otel": {
+      "environment": "forge",
+      "exporter": {
+        "otlp-http": {
+          "endpoint": "https://otel.local.bylisa.dev/v1/logs",
+          "protocol": "binary"
+        }
+      },
+      "log_agent_responses": false,
+      "log_user_prompt": false,
+      "metrics_exporter": "none",
+      "trace_exporter": "none"
+    },
+    "personality": "pragmatic",
+    "sandbox_mode": "danger-full-access"
+  },
+  "mcp": {
+    "clerk_mcp": {
+      "args": [],
+      "command": null,
+      "enabled": true,
+      "env": {},
+      "headers": {},
+      "url": "https://mcp.clerk.com/mcp"
+    },
+    "nixos": {
+      "args": [],
+      "command": "<store>/bin/mcp-nixos",
+      "enabled": null,
+      "env": {
+        "FASTMCP_CHECK_FOR_UPDATES": "off"
+      },
+      "headers": {},
+      "url": null
+    },
+    "rea": {
+      "args": [
+        "mcp"
+      ],
+      "command": "<store>/lib/node_modules/rea-agents/scripts/rea.mjs",
+      "enabled": null,
+      "env": {
+        "GHIDRA_INSTALL_DIR": "<store>/lib/ghidra",
+        "JAVA_HOME": "<store>/lib/openjdk",
+        "PATH": "<store>/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        "REA_ADB_PATH": "<store>/bin/adb",
+        "REA_ANALYSIS_PROVIDER": "ghidra",
+        "REA_APKTOOL_COMMAND": "<store>/bin/apktool",
+        "REA_BINWALK_COMMAND": "<store>/bin/binwalk",
+        "REA_BROWSER_EXECUTABLE": "<store>/bin/helium",
+        "REA_CAPINFOS_COMMAND": "<store>/bin/capinfos",
+        "REA_EVM_PRLIMIT_COMMAND": "<store>/bin/prlimit",
+        "REA_FIRMWARE_PRLIMIT_COMMAND": "<store>/bin/prlimit",
+        "REA_GDB_COMMAND": "<store>/bin/gdb",
+        "REA_GHIDRA_NATIVEAOT_JAR": "<store>/share/java/rea-ghidra-nativeaot.jar",
+        "REA_ILSPY_CMD_PATH": "<store>/bin/ilspycmd",
+        "REA_JADX_MCP_JAR": "<store>",
+        "REA_JAVASCRIPT_PRLIMIT_COMMAND": "<store>/bin/prlimit",
+        "REA_KUNA_COMMAND": "<store>/bin/kuna",
+        "REA_MITMDUMP_COMMAND": "<store>/bin/mitmdump",
+        "REA_OBJDUMP_COMMAND": "<store>/bin/objdump",
+        "REA_PWNDBG_GDB": "<store>/bin/gdb",
+        "REA_PWNDBG_GDBINIT": "<store>/share/pwndbg/gdbinit.py",
+        "REA_PWNDBG_VENV_PATH": "<store>",
+        "REA_PWNTOOLS_PYTHON": "<store>/bin/python3",
+        "REA_RIZIN_COMMAND": "<store>/bin/rizin",
+        "REA_SIGROK_COMMAND": "<store>/bin/sigrok-cli",
+        "REA_SIGROK_PRLIMIT_COMMAND": "<store>/bin/prlimit",
+        "REA_TSHARK_COMMAND": "<store>/bin/tshark",
+        "REA_TSHARK_PRLIMIT_COMMAND": "<store>/bin/prlimit",
+        "REA_UNBLOB_COMMAND": "<store>/bin/unblob",
+        "REA_WABT_BIN_DIRECTORY": "<store>/bin",
+        "REA_WAKARU_COMMAND": "<store>/bin/wakaru"
+      },
+      "headers": {},
+      "url": null
+    },
+    "webmcp": {
+      "args": [
+        "--mcp"
+      ],
+      "command": "<store>/bin/webmcp",
+      "enabled": null,
+      "env": {},
+      "headers": {},
+      "url": null
+    }
+  }
+}

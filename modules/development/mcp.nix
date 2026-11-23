@@ -74,6 +74,22 @@ in {
     };
   };
 
+  # Zed's agent and Antigravity load every tool schema up front and have no tool
+  # search, so they get only the two small local servers. REA's schemas alone are
+  # about 950,000 tokens, and Cognee and Clerk sign in through OAuth.
+  home.workstation = {pkgs, ...}: {
+    programs.zed-editor.userSettings.context_servers = {
+      nixos = nixos pkgs // {args = [];};
+      webmcp = webmcp pkgs;
+    };
+  };
+  home.lisa-vega = {pkgs, ...}: {
+    programs.antigravity-cli.mcpServers = {
+      nixos = nixos pkgs;
+      webmcp = webmcp pkgs;
+    };
+  };
+
   # Nook's remote-control service passes the same Cognee server as flags.
   nixos.nook = {pkgs, ...}: {
     systemd.services.codex.serviceConfig.ExecStart = lib.escapeShellArgs (

@@ -68,7 +68,7 @@ def budget(entries, agents_text):
         sizes.append(tokens(sum(len(entry["name"]) + len(description(entry["dir"])) for entry in listed)))
     lines.append("| Skills the model may load on its own | " + " | ".join(counts) + " |")
     lines.append("| Their index: names and descriptions | " + " | ".join(sizes) + " |")
-    lines.append("| MCP tool schemas | deferred | deferred | none | none |")
+    lines.append("| MCP tool schemas up front | none: tool search | none: tool search | `mcp-nixos` and webmcp | none |")
     return lines
 
 

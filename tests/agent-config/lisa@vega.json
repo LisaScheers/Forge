@@ -1,0 +1,401 @@
+{
+  "antigravity": {
+    "allowNonWorkspaceAccess": true,
+    "enableTelemetry": false,
+    "mcpServers": {
+      "nixos": {
+        "command": "<store>/bin/mcp-nixos",
+        "env": {
+          "FASTMCP_CHECK_FOR_UPDATES": "off"
+        }
+      },
+      "webmcp": {
+        "args": [
+          "--mcp"
+        ],
+        "command": "<store>/bin/webmcp"
+      }
+    },
+    "model": "Gemini 3.8 Flash (High)",
+    "modelProvider": "gemini",
+    "permissions": {
+      "allow": [
+        "command(git worktree)"
+      ],
+      "ask": []
+    }
+  },
+  "claude": {
+    "autoMemoryEnabled": false,
+    "enableAllProjectMcpServers": false,
+    "env": {
+      "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+      "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "1",
+      "DISABLE_AUTOUPDATER": "1",
+      "ENABLE_TOOL_SEARCH": "true",
+      "OTEL_EXPORTER_OTLP_ENDPOINT": "https://otel.local.bylisa.dev",
+      "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+      "OTEL_LOGS_EXPORTER": "otlp",
+      "OTEL_LOG_TOOL_DETAILS": "0",
+      "OTEL_LOG_USER_PROMPTS": "0",
+      "OTEL_METRICS_EXPORTER": "otlp",
+      "OTEL_METRIC_EXPORT_INTERVAL": "10000"
+    },
+    "hooks": {
+      "PreToolUse": []
+    },
+    "mcpServers": {
+      "cognee": {
+        "type": "http",
+        "url": "https://cognee.local.bylisa.dev/mcp"
+      }
+    },
+    "permissions": {
+      "ask": [],
+      "defaultMode": "bypassPermissions",
+      "deny": [
+        "Read(~/.ssh/id_*)",
+        "Read(~/.config/sops/age/**)",
+        "Read(~/.codex/auth.json)",
+        "Read(~/.config/cli-proxy-api-plus/client-api-key)",
+        "Read(//run/agenix/**)",
+        "Read(//run/agenix.d/**)"
+      ]
+    },
+    "skipDangerousModePermissionPrompt": true
+  },
+  "codex": {
+    "agents": {
+      "max_concurrent_threads_per_session": 10
+    },
+    "approval_policy": "never",
+    "approvals_reviewer": "user",
+    "check_for_update_on_startup": false,
+    "desktop": {
+      "ambient-suggestions-enabled": false,
+      "appearanceDarkChromeTheme": {
+        "accent": "#f5c2e7",
+        "accentSource": "custom",
+        "contrast": 60,
+        "fonts": {
+          "ui": "\"ComicCode Nerd Font\""
+        },
+        "ink": "#cdd6f4",
+        "opaqueWindows": false,
+        "semanticColors": {
+          "diffAdded": "#a6e3a1",
+          "diffRemoved": "#f38ba8",
+          "skill": "#cba6f7"
+        },
+        "surface": "#1e1e2e"
+      },
+      "appearanceDarkCodeThemeId": "catppuccin",
+      "avatar-overlay-pet-visible": false,
+      "codeFontSize": 11,
+      "conversationDetailMode": "STEPS_COMMANDS",
+      "dock-icon-preference": "space-system",
+      "enabled-reasoning-efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "ultra",
+        "max"
+      ],
+      "followUpQueueMode": "queue",
+      "hotkey-window-projectless-default-enabled": true,
+      "keepRemoteControlAwakeWhilePluggedIn": true,
+      "open-in-target-preferences": {
+        "global": "fileManager"
+      },
+      "open-local-url-in-target-preference": "external-browser",
+      "pagesFontSize": 12,
+      "pagesFullWidth": true,
+      "sansFontSize": 12,
+      "show-context-window-usage": true,
+      "show-ultra-in-model-picker-slider": false,
+      "toys-confetti-enabled": true
+    },
+    "features": {
+      "memories": false,
+      "prevent_idle_sleep": true
+    },
+    "mcp_servers": {
+      "clerk_mcp": {
+        "enabled": true,
+        "omit_tools_from": [
+          "direct"
+        ],
+        "url": "https://mcp.clerk.com/mcp"
+      },
+      "cognee": {
+        "omit_tools_from": [
+          "direct"
+        ],
+        "startup_timeout_sec": 30,
+        "tool_timeout_sec": 600,
+        "url": "https://cognee.local.bylisa.dev/mcp"
+      },
+      "nixos": {
+        "command": "<store>/bin/mcp-nixos",
+        "env": {
+          "FASTMCP_CHECK_FOR_UPDATES": "off"
+        },
+        "omit_tools_from": [
+          "direct"
+        ]
+      },
+      "rea": {
+        "args": [
+          "mcp"
+        ],
+        "command": "<store>/lib/node_modules/rea-agents/scripts/rea.mjs",
+        "env": {
+          "GHIDRA_INSTALL_DIR": "<store>/lib/ghidra",
+          "JAVA_HOME": "<store>",
+          "PATH": "<store>/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+          "REA_ADB_PATH": "<store>/bin/adb",
+          "REA_ANALYSIS_PROVIDER": "ghidra",
+          "REA_APKTOOL_COMMAND": "<store>/bin/apktool",
+          "REA_BROWSER_EXECUTABLE": "<store>/bin/helium",
+          "REA_CAPINFOS_COMMAND": "<store>/bin/capinfos",
+          "REA_GHIDRA_NATIVEAOT_JAR": "<store>/share/java/rea-ghidra-nativeaot.jar",
+          "REA_ILSPY_CMD_PATH": "<store>/bin/ilspycmd",
+          "REA_JADX_MCP_JAR": "<store>",
+          "REA_KUNA_COMMAND": "<store>/bin/kuna",
+          "REA_OBJDUMP_COMMAND": "<store>/bin/objdump",
+          "REA_RIZIN_COMMAND": "<store>/bin/rizin",
+          "REA_TSHARK_COMMAND": "<store>/bin/tshark",
+          "REA_WABT_BIN_DIRECTORY": "<store>/bin"
+        },
+        "omit_tools_from": [
+          "direct"
+        ],
+        "startup_timeout_sec": 30,
+        "tool_timeout_sec": 600
+      },
+      "webmcp": {
+        "args": [
+          "--mcp"
+        ],
+        "command": "<store>/bin/webmcp",
+        "omit_tools_from": [
+          "direct"
+        ],
+        "startup_timeout_sec": 60
+      }
+    },
+    "memories": {
+      "generate_memories": false,
+      "use_memories": false
+    },
+    "model": "gpt-6.1-sol",
+    "model_reasoning_effort": "high",
+    "otel": {
+      "environment": "forge",
+      "exporter": {
+        "otlp-http": {
+          "endpoint": "https://otel.local.bylisa.dev/v1/logs",
+          "protocol": "binary"
+        }
+      },
+      "log_agent_responses": false,
+      "log_user_prompt": false,
+      "metrics_exporter": "none",
+      "trace_exporter": "none"
+    },
+    "personality": "pragmatic",
+    "projects": {
+      "/Users/lisa/Documents/fight chat control": {
+        "trust_level": "trusted"
+      },
+      "/Users/lisa/Projects/Scheers/html-plans": {
+        "trust_level": "trusted"
+      },
+      "/Users/lisa/Projects/Scheers/lsl-tester": {
+        "trust_level": "trusted"
+      },
+      "/Users/lisa/Projects/Scheers/nova-viewer": {
+        "trust_level": "trusted"
+      },
+      "/Users/lisa/Projects/Scheers/sl-pony-tack": {
+        "trust_level": "trusted"
+      },
+      "/Users/lisa/Projects/Scheers/sl-remote": {
+        "trust_level": "trusted"
+      },
+      "/Users/lisa/Projects/Scheers/sl/viewer": {
+        "trust_level": "trusted"
+      },
+      "/Users/lisa/Projects/Scheers/t3-code-nix": {
+        "trust_level": "trusted"
+      },
+      "/Users/lisa/Projects/defib/open-field": {
+        "trust_level": "trusted"
+      },
+      "/Users/lisa/Projects/defib/open-field-scale": {
+        "trust_level": "trusted"
+      },
+      "/Users/lisa/Projects/public/firestorm": {
+        "trust_level": "trusted"
+      },
+      "/Users/lisa/Projects/public/nixpgks": {
+        "trust_level": "trusted"
+      },
+      "/Users/lisa/Projects/public/viewer": {
+        "trust_level": "trusted"
+      },
+      "/Users/lisa/alias-bins": {
+        "trust_level": "trusted"
+      },
+      "/Users/lisa/obsidian/brain": {
+        "trust_level": "trusted"
+      },
+      "/private/etc/nix-darwin": {
+        "trust_level": "trusted"
+      }
+    },
+    "sandbox_mode": "danger-full-access",
+    "service_tier": "priority"
+  },
+  "mcp": {
+    "clerk_mcp": {
+      "args": [],
+      "command": null,
+      "enabled": true,
+      "env": {},
+      "headers": {},
+      "url": "https://mcp.clerk.com/mcp"
+    },
+    "nixos": {
+      "args": [],
+      "command": "<store>/bin/mcp-nixos",
+      "enabled": null,
+      "env": {
+        "FASTMCP_CHECK_FOR_UPDATES": "off"
+      },
+      "headers": {},
+      "url": null
+    },
+    "rea": {
+      "args": [
+        "mcp"
+      ],
+      "command": "<store>/lib/node_modules/rea-agents/scripts/rea.mjs",
+      "enabled": null,
+      "env": {
+        "GHIDRA_INSTALL_DIR": "<store>/lib/ghidra",
+        "JAVA_HOME": "<store>",
+        "PATH": "<store>/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+        "REA_ADB_PATH": "<store>/bin/adb",
+        "REA_ANALYSIS_PROVIDER": "ghidra",
+        "REA_APKTOOL_COMMAND": "<store>/bin/apktool",
+        "REA_BROWSER_EXECUTABLE": "<store>/bin/helium",
+        "REA_CAPINFOS_COMMAND": "<store>/bin/capinfos",
+        "REA_GHIDRA_NATIVEAOT_JAR": "<store>/share/java/rea-ghidra-nativeaot.jar",
+        "REA_ILSPY_CMD_PATH": "<store>/bin/ilspycmd",
+        "REA_JADX_MCP_JAR": "<store>",
+        "REA_KUNA_COMMAND": "<store>/bin/kuna",
+        "REA_OBJDUMP_COMMAND": "<store>/bin/objdump",
+        "REA_RIZIN_COMMAND": "<store>/bin/rizin",
+        "REA_TSHARK_COMMAND": "<store>/bin/tshark",
+        "REA_WABT_BIN_DIRECTORY": "<store>/bin"
+      },
+      "headers": {},
+      "url": null
+    },
+    "webmcp": {
+      "args": [
+        "--mcp"
+      ],
+      "command": "<store>/bin/webmcp",
+      "enabled": null,
+      "env": {},
+      "headers": {},
+      "url": null
+    }
+  },
+  "t3": {
+    "providerInstances": {
+      "antigravity": {
+        "config": {
+          "binaryPath": "",
+          "customModels": []
+        },
+        "driver": "antigravity",
+        "enabled": true
+      },
+      "claudeAgent": {
+        "config": {
+          "binaryPath": "/Users/lisa/.nix-profile/bin/claude",
+          "customModels": [],
+          "launchArgs": ""
+        },
+        "driver": "claudeAgent",
+        "enabled": true
+      },
+      "codex": {
+        "accentColor": "#0891b2",
+        "config": {
+          "binaryPath": "codex",
+          "customModels": [],
+          "launchArgs": "-c model_provider=\"openai\""
+        },
+        "driver": "codex",
+        "enabled": true
+      },
+      "grok": {
+        "config": {
+          "binaryPath": "grok",
+          "customModels": []
+        },
+        "driver": "grok",
+        "enabled": false
+      },
+      "opencode": {
+        "config": {
+          "binaryPath": "opencode",
+          "customModels": []
+        },
+        "driver": "opencode",
+        "enabled": false
+      }
+    }
+  },
+  "zed": {
+    "agent": {
+      "commit_message_instructions": "Use the Conventional Commits format: <type>(<scope>): <description>.",
+      "commit_message_model": {
+        "model": "z-ai/glm-5.3-flash",
+        "provider": "openrouter"
+      },
+      "context_servers": {
+        "nixos": {
+          "args": [],
+          "command": "<store>/bin/mcp-nixos",
+          "env": {
+            "FASTMCP_CHECK_FOR_UPDATES": "off"
+          }
+        },
+        "webmcp": {
+          "args": [
+            "--mcp"
+          ],
+          "command": "<store>/bin/webmcp"
+        }
+      },
+      "default_model": {
+        "model": "gpt-6-astra",
+        "provider": "codex"
+      },
+      "dock": "right",
+      "sandbox_permissions": {
+        "allow_unsandboxed": true
+      },
+      "sidebar_side": "right",
+      "tool_permissions": {
+        "default": "allow"
+      }
+    }
+  }
+}
