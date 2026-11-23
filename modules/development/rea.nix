@@ -54,6 +54,7 @@ in {
         assert pathlib.Path(server["env"]["PATH"].split(":")[0], "rea").is_file()
         assert server["startup_timeout_sec"] == 30
         assert server["tool_timeout_sec"] == 600
+        assert server["omit_tools_from"] == ["direct"]
         PY
         touch "$out"
       '';
@@ -111,6 +112,9 @@ in {
           // {
             startup_timeout_sec = 30;
             tool_timeout_sec = 600;
+            # REA's 229 tool schemas are about 3.8 MB; Codex finds them through
+            # tool search instead of loading them into every session.
+            omit_tools_from = ["direct"];
           };
         skills.reverse-engineer-anything = "${cfg.package}/lib/node_modules/rea-agents/skills/reverse-engineer-anything";
       };

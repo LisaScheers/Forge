@@ -20,7 +20,17 @@
       <quota>default</quota>
       <grants>
         <query>GRANT SELECT ON ai_usage.*</query>
+        <query>GRANT SELECT ON otel.*</query>
       </grants>
     </ai_archive>
+    <!-- The OpenTelemetry collector: it creates and fills only the otel database. -->
+    <ai_otel>
+      <password from_env="AI_OTEL_CLICKHOUSE_PASSWORD"/>
+      <networks replace="replace"><ip>127.0.0.1</ip></networks>
+      <quota>default</quota>
+      <grants>
+        <query>GRANT CREATE DATABASE, CREATE TABLE, CREATE VIEW, ALTER, INSERT, SELECT ON otel.*</query>
+      </grants>
+    </ai_otel>
   </users>
 </clickhouse>

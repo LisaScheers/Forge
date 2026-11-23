@@ -34,6 +34,7 @@ class ClickHouseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             port = free_port()
+            tcp_port = free_port()
             users = root / "users.xml"
             users.write_text("""<clickhouse><profiles><default/></profiles><users><default>
                 <password>test</password><networks><ip>127.0.0.1</ip></networks>
@@ -46,7 +47,7 @@ class ClickHouseTests(unittest.TestCase):
             config.write_text(f"""<clickhouse><logger><level>warning</level><console>1</console></logger>
                 <path>{root}/data/</path><tmp_path>{root}/tmp/</tmp_path>
                 <users_config>{users}</users_config><listen_host>127.0.0.1</listen_host>
-                <http_port>{port}</http_port><tcp_port>{free_port()}</tcp_port><timezone>UTC</timezone>
+                <http_port>{port}</http_port><tcp_port>{tcp_port}</tcp_port><timezone>UTC</timezone>
                 <max_server_memory_usage>1073741824</max_server_memory_usage>
                 <background_schedule_pool_size>2</background_schedule_pool_size>
                 <background_message_broker_schedule_pool_size>2</background_message_broker_schedule_pool_size>
@@ -55,7 +56,8 @@ class ClickHouseTests(unittest.TestCase):
                 </clickhouse>""")
             with (root / "server.log").open("w+") as output:
                 environment = {**os.environ, "AI_USAGE_CLICKHOUSE_PASSWORD": "test",
-                               "AI_ARCHIVE_CLICKHOUSE_PASSWORD": "archive-test"}
+                               "AI_ARCHIVE_CLICKHOUSE_PASSWORD": "archive-test",
+                               "AI_OTEL_CLICKHOUSE_PASSWORD": "otel-test"}
                 process = subprocess.Popen([os.environ["CLICKHOUSE_BINARY"], "server", f"--config-file={config}"],
                                            stdout=output, stderr=output, env=environment)
                 destination = ClickHouse(f"http://127.0.0.1:{port}")
@@ -110,6 +112,8 @@ class ClickHouseTests(unittest.TestCase):
                             archive_query(port, sql, **settings)
                         raised.exception.close()
                     self.assertEqual(destination.query("SELECT count() FROM ai_usage.requests").strip(), b"1")
+                    if os.environ.get("OTELCOL_BINARY"):
+                        self.collector_writes_otel_only(root, tcp_port, port)
                     if os.environ.get("CLIPROXY_BINARY"):
                         from test_gateway_fixture import verify
                         gateway_root = root / "gateway"
@@ -127,6 +131,57 @@ class ClickHouseTests(unittest.TestCase):
                     except subprocess.TimeoutExpired:
                         process.kill()
                         process.wait()
+
+
+    def collector_writes_otel_only(self, root, tcp_port, http_port):
+        """Nook's collector configuration stores an OTLP log through its own account."""
+        listen = free_port()
+        with (root / "collector.log").open("w+") as output:
+            collector = subprocess.Popen(
+                [os.environ["OTELCOL_BINARY"], f"--config=file:{os.environ['OTELCOL_CONFIG']}",
+                 f"--set=receivers::otlp::protocols::http::endpoint=127.0.0.1:{listen}",
+                 f"--set=exporters::clickhouse::endpoint=tcp://127.0.0.1:{tcp_port}"],
+                stdout=output, stderr=output, env={**os.environ, "AI_OTEL_CLICKHOUSE_PASSWORD": "otel-test"})
+            try:
+                log = {"resourceLogs": [{"resource": {"attributes": [
+                    {"key": "service.name", "value": {"stringValue": "claude-code"}}]},
+                    "scopeLogs": [{"logRecords": [{"body": {"stringValue": "forge-telemetry-test"}}]}]}]}
+                body = json.dumps(log).encode()
+                for _ in range(300):
+                    try:
+                        request = Request(f"http://127.0.0.1:{listen}/v1/logs", data=body,
+                                          headers={"Content-Type": "application/json"})
+                        with urlopen(request, timeout=5) as response:
+                            self.assertEqual(response.status, 200)
+                        break
+                    except OSError:
+                        if collector.poll() is not None:
+                            output.seek(0)
+                            self.fail(output.read())
+                        time.sleep(0.1)
+                else:
+                    output.seek(0)
+                    self.fail("collector did not start: " + output.read())
+                for _ in range(300):
+                    try:
+                        if archive_query(http_port, "SELECT count() FROM otel.otel_logs "
+                                         "WHERE Body = 'forge-telemetry-test'").strip() == b"1":
+                            break
+                    except HTTPError as error:
+                        error.close()
+                    time.sleep(0.1)
+                else:
+                    output.seek(0)
+                    self.fail("the log never reached otel.otel_logs: " + output.read())
+            finally:
+                collector.terminate()
+                collector.wait(timeout=15)
+        # The collector's account cannot read the gateway's captures.
+        request = Request(f"http://127.0.0.1:{http_port}/?" + urlencode({"query": "SELECT count() FROM ai_usage.requests"}),
+                          data=b"", headers={"X-ClickHouse-User": "ai_otel", "X-ClickHouse-Key": "otel-test"})
+        with self.assertRaises(HTTPError) as raised:
+            urlopen(request, timeout=30).close()
+        raised.exception.close()
 
 
 if __name__ == "__main__":

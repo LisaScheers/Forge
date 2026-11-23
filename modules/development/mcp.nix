@@ -15,6 +15,10 @@
     enabled = true;
     url = "https://mcp.clerk.com/mcp";
   };
+  webmcp = pkgs: {
+    command = lib.getExe pkgs.webmcp;
+    args = ["--mcp"];
+  };
   # `codex -c` takes one dotted key per flag, with TOML values.
   codexOverrides = prefix: attrs:
     lib.concatLists (lib.mapAttrsToList (
@@ -38,12 +42,17 @@ in {
       mcp = {
         enable = true;
         # Clerk's tools change a third-party account, so every client asks first.
-        servers.clerk_mcp = clerk;
+        servers = {
+          clerk_mcp = clerk;
+          webmcp = webmcp pkgs;
+        };
       };
 
       claude-code = {
         enableMcpIntegration = true;
         mcpServers.cognee = cognee // {type = "http";};
+        # Load MCP tool schemas only when a search finds them, whatever their size.
+        settings.env.ENABLE_TOOL_SEARCH = "true";
       };
 
       codex = {
@@ -51,11 +60,7 @@ in {
         settings.mcp_servers = {
           cognee = codexCognee;
           clerk_mcp = clerk // {default_tools_approval_mode = "prompt";};
-          webmcp = {
-            command = lib.getExe pkgs.webmcp;
-            args = ["--mcp"];
-            startup_timeout_sec = 60;
-          };
+          webmcp = webmcp pkgs // {startup_timeout_sec = 60;};
         };
       };
     };

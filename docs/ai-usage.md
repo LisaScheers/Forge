@@ -6,19 +6,25 @@ Vega's final system-generation switch. Asterion is excluded for now.
 
 ## What is captured
 
-The gateway captures only traffic sent through it. Since the Codex capture
-pipeline was removed on 2026-11-20 (commit `fbf67bc`), that is Antigravity CLI and
-Cognee. Lisa's other clients sign in to their providers directly, and no shell-wide
-variable sends them to the gateway; each gateway client sets its own route.
+The gateway captures full transcripts of the traffic sent through it: since the
+Codex capture pipeline was removed on 2026-11-20 (commit `fbf67bc`), that is
+Antigravity CLI and Cognee. Claude Code and Codex sign in to their providers
+directly, and send usage telemetry instead, with no prompt or response text:
+Claude Code's token, cost and session metrics and events, and Codex's events,
+which carry each response's token counts, model and latency.
+No shell-wide variable sends any client to the gateway; each client sets its own
+route.
 
-| Client | Route | Full transcripts | Usage visibility |
+| Client | Route | Full transcripts | Usage in ClickHouse |
 | --- | --- | --- | --- |
-| Antigravity CLI on Vega | Gateway, through its `agy` wrapper | ClickHouse and the archive | ClickHouse token views |
-| Cognee on Nook | Gateway, through `ai-proxy-cognee-env` | ClickHouse and the archive | ClickHouse token views |
-| Codex CLI, desktop app and T3's Codex driver | OpenAI, built-in `openai` provider | Local session files in `~/.codex/sessions` only | CodexBar's plan limits |
-| Claude Code and T3's Claude driver | Anthropic, direct | Local session files in `~/.claude/projects` only | CodexBar's plan limits |
-| Zed agent | Codex subscription; OpenRouter for commit messages | Not captured | Provider dashboards |
-| Antigravity driver in T3 | T3's managed runtime | Not captured | Provider dashboard |
+| Antigravity CLI on Vega | Gateway, through its `agy` wrapper | ClickHouse and the archive | `ai_usage` token views |
+| Cognee on Nook | Gateway, through `ai-proxy-cognee-env` | ClickHouse and the archive | `ai_usage` token views |
+| Claude Code, including T3's Claude driver | Anthropic, direct | Local session files in `~/.claude/projects` only | `otel` metrics and events |
+| Codex CLI, desktop app and T3's Codex driver | OpenAI, built-in `openai` provider | Local session files in `~/.codex/sessions` only | `otel` events |
+| Zed agent | Codex subscription; OpenRouter for commit messages | Not captured | None; provider dashboards |
+| Antigravity driver in T3 | T3's managed runtime | Not captured | None; provider dashboard |
+
+CodexBar shows the Claude and Codex plan limits on Vega.
 
 Last verified against the configuration on 2026-11-23. To capture another client,
 route it through the gateway in `modules/services/ai-proxy/clients.nix` with a
@@ -96,6 +102,32 @@ exact token counts by this collector.
 Cognee's Fastembed embeddings run locally and do not emit provider API usage;
 its remote LLM inference goes through the gateway.
 
+## Usage telemetry
+
+`modules/services/ai-proxy/telemetry.nix` runs an OpenTelemetry collector on Nook.
+nginx accepts OTLP/HTTP logs and metrics at `https://otel.local.bylisa.dev` from LAN
+and Tailscale addresses only, with a 4 MB body limit and a per-address rate limit,
+and the collector writes them to ClickHouse's `otel` database through its own
+`ai_otel` account. That account can create and fill only `otel`; it cannot read
+the gateway's captures. Claude Code sends metrics and events with
+`OTEL_LOG_USER_PROMPTS=0`; Codex sends events with `log_user_prompt` and
+`log_agent_responses` off and its default Statsig metrics disabled.
+`checks.agent-policy` fails if either client starts logging content.
+
+```sql
+SELECT ServiceName, count() FROM otel.otel_logs GROUP BY ServiceName;
+
+SELECT MetricName, sum(Value) FROM otel.otel_metrics_sum
+WHERE MetricName = 'claude_code.token.usage' GROUP BY MetricName;
+```
+
+The endpoint has no client credential: Codex can only send static headers, which
+would put a secret in the Nix store. The network allowlist, the size and rate
+limits, and the write-only account bound what a misbehaving client on the LAN
+can do. The ClickHouse integration check runs this collector configuration
+against a temporary ClickHouse and confirms an OTLP log arrives and that the
+collector's account cannot read captures.
+
 ## Storage and queries
 
 The private browser and analytics dashboard is at
@@ -143,7 +175,26 @@ GROUP BY token_category;
 SELECT file_name, model, usage_json FROM ai_usage.usage_events LIMIT 10;
 ```
 
-## Cutover requirements
+## Verification
+
+```sh
+nix build path:.#packages.x86_64-linux.cli-proxy-api-plus-capture --no-link
+nix build path:.#checks.x86_64-linux.ai-usage-clickhouse --no-link
+nix build path:.#checks.aarch64-darwin.ai-usage --no-link
+nix build path:.#checks.x86_64-linux.ai-archive --no-link
+```
+
+The Linux integration check runs the real proxy against an isolated fake upstream
+and a temporary ClickHouse server. It verifies non-streaming completions, streamed
+Responses, WebSockets, a prompt larger than 1 MiB, complete transcripts, future
+token categories, and idempotent replay. It uses synthetic credentials and incurs
+no provider usage. Unit tests cover upload failures, changing logs, Unicode chunk
+boundaries, partial usage, and preservation of refreshed OAuth credentials.
+
+## Rollout record
+
+A dated record of the 2026-11-05 cutover and the deploy order it set. The
+sections above describe the current state.
 
 Build Nook and its deploy-rs checks before activation. Lisa approved the scoped
 `nixpkgs.config.problems.handlers."gtk+".broken = "warn"` exception on Nook on
@@ -199,19 +250,3 @@ yet a recipient of the shared agenix secret, so this change does not declare an
 undecryptable system secret for it. Standalone Home Manager installations use
 `~/.config/cli-proxy-api-plus/client-api-key`; integrated Vega/Nook configurations
 read their agenix secret paths.
-
-## Verification
-
-```sh
-nix build path:.#packages.x86_64-linux.cli-proxy-api-plus-capture --no-link
-nix build path:.#checks.x86_64-linux.ai-usage-clickhouse --no-link
-nix build path:.#checks.aarch64-darwin.ai-usage --no-link
-nix build path:.#checks.x86_64-linux.ai-archive --no-link
-```
-
-The Linux integration check runs the real proxy against an isolated fake upstream
-and a temporary ClickHouse server. It verifies non-streaming completions, streamed
-Responses, WebSockets, a prompt larger than 1 MiB, complete transcripts, future
-token categories, and idempotent replay. It uses synthetic credentials and incurs
-no provider usage. Unit tests cover upload failures, changing logs, Unicode chunk
-boundaries, partial usage, and preservation of refreshed OAuth credentials.

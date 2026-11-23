@@ -22,6 +22,22 @@
       name = skill;
       value = ./pstack/skills/${skill};
     }) (builtins.attrNames (builtins.readDir ./pstack/skills)));
+    # Codex reads a skill's invocation policy from agents/openai.yaml; Claude
+    # reads it from the SKILL.md frontmatter. Carry the manual-only policy over.
+    manualOnly = path: lib.hasInfix "allow_implicit_invocation: false" (builtins.readFile (path + "/agents/openai.yaml"));
+    claudePstackSkills =
+      lib.mapAttrs (
+        name: path:
+          if manualOnly path
+          then
+            pkgs.runCommandLocal "claude-skill-${name}" {} ''
+              cp -r ${path} "$out"
+              chmod -R u+w "$out"
+              sed -i '0,/^---$/s//---\ndisable-model-invocation: true/' "$out/SKILL.md"
+            ''
+          else path
+      )
+      pstackSkills;
     tstack = pkgs.fetchFromGitHub {
       owner = "t3dotgg";
       repo = "tstack";
@@ -39,6 +55,9 @@
     effectiveCodexSkills =
       effectiveAgentSkills
       // lib.optionalAttrs cfg.enablePstackSkills pstackSkills;
+    effectiveClaudeSkills =
+      effectiveAgentSkills
+      // lib.optionalAttrs cfg.enablePstackSkills claudePstackSkills;
   in {
     options.forge.ai-skills = {
       enable = (lib.mkEnableOption "the declarative ai skills environment") // {default = true;};
@@ -59,7 +78,7 @@
       enablePstackSkills = lib.mkOption {
         type = lib.types.bool;
         default = true;
-        description = "Whether to install the separately maintained pstack skills in Codex.";
+        description = "Whether to install the separately maintained pstack skills in Codex and Claude Code.";
       };
 
       enableTstackSkills = lib.mkOption {
@@ -87,7 +106,7 @@
 
         claude-code = {
           context = cfg.agentsFile;
-          skills = effectiveAgentSkills;
+          skills = effectiveClaudeSkills;
         };
 
         antigravity-cli = {
