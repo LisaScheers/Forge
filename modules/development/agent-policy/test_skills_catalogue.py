@@ -12,12 +12,20 @@ class SkillsCatalogueTests(unittest.TestCase):
         skill = Path(directory.name, "file-pr")
         skill.mkdir()
         (skill / "SKILL.md").write_text('---\nname: file-pr\ndescription: "Use when filing a PR. Also | more."\n---\nBody\n')
+        manual = Path(directory.name, "principle-x")
+        (manual / "agents").mkdir(parents=True)
+        (manual / "SKILL.md").write_text("---\nname: principle-x\ndescription: " + "y" * 400 + "\n---\n")
+        (manual / "agents" / "openai.yaml").write_text("policy:\n  allow_implicit_invocation: false\n")
         text = render([
             {"name": "file-pr", "source": "bundled", "clients": ["Claude", "Codex"], "dir": str(skill)},
+            {"name": "principle-x", "source": "pstack", "clients": ["Claude", "Codex"], "dir": str(manual)},
             {"name": "reverse-engineer-anything", "source": "REA", "clients": ["Codex"], "dir": None},
-        ])
+        ], "a" * 4000)
         self.assertIn("| `file-pr` | bundled | yes | yes |  |  | Use when filing a PR. |", text)
         self.assertIn("| `reverse-engineer-anything` | REA |  | yes |  |  | Shipped by its package", text)
+        # Manual-only skills stay out of the index; the instructions count in full.
+        self.assertIn("| Shared instructions (`AGENTS.md`) | 1,000 | 1,000 | 1,000 | 1,000 |", text)
+        self.assertIn("| Skills the model may load on its own | 1 | 2 | 0 | 0 |", text)
 
     def test_named_skills_must_be_installed(self):
         agents = "Use `file-pr`, then `babysit-pr`. Ask the `council`. Set `background=true` in `life`."

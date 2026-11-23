@@ -21,7 +21,48 @@ records why each part is the way it is.
 Which of these routes the gateway captures is in
 [the AI gateway guide](ai-usage.md#what-is-captured).
 
+## Where data goes
+
+```mermaid
+flowchart LR
+  subgraph Vega
+    claude[Claude Code]
+    codex[Codex and T3's Codex driver]
+    agy[Antigravity CLI]
+  end
+  subgraph Nook
+    gateway[CLIProxy gateway]
+    otel[OpenTelemetry collector]
+    ch[(ClickHouse: ai_usage and otel)]
+    archive[AI archive web app]
+    cognee[Cognee MCP and email index]
+    backup[Encrypted nightly backup]
+  end
+  atlas[(Atlas: off-site ciphertext)]
+  anthropic[Anthropic]
+  openai[OpenAI]
+  google[Gemini subscription]
+
+  claude -- requests --> anthropic
+  codex -- requests --> openai
+  agy -- requests --> gateway --> google
+  gateway -- full transcripts --> ch
+  claude -- usage, no text --> otel
+  codex -- usage, no text --> otel
+  otel --> ch
+  ch -- read-only --> archive
+  claude & codex -- recall and remember --> cognee
+  cognee --> backup --> atlas
+```
+
+Claude and Codex transcripts stay in their local session files; only usage
+reaches Nook. Cognee's own model calls also go through the gateway.
+
 ## Instructions and skills
+
+Everything in this section is the exported Home Manager module
+`modules.homeManager.ai-environment`; `checks.agent-policy` evaluates it in a
+home with nothing else of Lisa's, so another flake can import it on its own.
 
 `modules/development/ai-skills/AGENTS.md` is the global instruction file. Home
 Manager writes it as `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`,
@@ -42,6 +83,7 @@ lists every skill with its clients and what it does, generated the same way.
 | --- | --- | --- |
 | clerk_mcp | tool search | tool search |
 | cognee | tool search | tool search |
+| nixos | tool search | tool search |
 | rea | tool search | tool search |
 | webmcp | tool search | tool search |
 <!-- catalogue:end -->
@@ -59,12 +101,16 @@ policy from frontmatter, so its copies gain `disable-model-invocation: true` at
 build time: they run only when named and add nothing to the model's context.
 `checks.agent-policy` validates every bundled and pstack `SKILL.md`: its
 frontmatter, a name equal to its directory, a description within the
-1,024-character limit, and the reference files it names.
+1,024-character limit, and the reference files it names. It also fails when two
+sets ship a skill with the same name, which would silently replace one with the
+other. [Skills](skills.md#context-budget) estimates what the skill index costs
+each session.
 
 ## MCP servers
 
 `modules/development/mcp.nix` declares the shared servers once: Cognee (personal
 memory, OAuth through Authentik; Nook's Codex service gets it too), Clerk,
+`mcp-nixos` (NixOS, Home Manager and nix-darwin package and option lookup),
 webmcp (a Nix-packaged bundle, so nothing is fetched from npm at run time), and
 REA from `modules/development/rea.nix`. The catalogue above shows how each
 client loads them. No MCP tool asks for approval, and `checks.agent-policy`

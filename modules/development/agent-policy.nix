@@ -4,6 +4,7 @@
 # Claude's Read tool), and checks that the rendered configuration still matches.
 {
   config,
+  inputs,
   lib,
   ...
 }: let
@@ -143,8 +144,8 @@ in {
         (expect "Codex must run with full access and no approval prompts"
           (codex.settings.sandbox_mode == "danger-full-access" && codex.settings.approval_policy == "never"))
         (expect "Codex must have no approval rules or hooks" (codex.rules == {} && codex.hooks == {}))
-        (expect "Codex MCP servers must be exactly clerk_mcp, cognee, rea and webmcp"
-          (builtins.attrNames servers == ["clerk_mcp" "cognee" "rea" "webmcp"]))
+        (expect "Codex MCP servers must be exactly clerk_mcp, cognee, nixos, rea and webmcp"
+          (builtins.attrNames servers == ["clerk_mcp" "cognee" "nixos" "rea" "webmcp"]))
         (expect "Codex must keep every MCP server's tools out of the initial context and reach them through tool search"
           (builtins.all (server: (server.omit_tools_from or []) == ["direct"]) (builtins.attrValues servers)))
         (expect "Claude must always defer MCP tools to tool search" (claude.settings.env.ENABLE_TOOL_SEARCH == "true"))
@@ -170,7 +171,7 @@ in {
             && claude.settings.skipDangerousModePermissionPrompt))
         (expect "Claude's own memory must stay off; Cognee holds memory" (claude.settings.autoMemoryEnabled == false))
         (expect "Claude and Codex must share the same MCP servers"
-          (builtins.attrNames home.programs.mcp.servers == ["clerk_mcp" "rea" "webmcp"] && claude.mcpServers ? cognee))
+          (builtins.attrNames home.programs.mcp.servers == ["clerk_mcp" "nixos" "rea" "webmcp"] && claude.mcpServers ? cognee))
         (expect "Claude must not auto-start project MCP servers" (claude.settings.enableAllProjectMcpServers == false))
         (expect "Codex and Claude must read the same AGENTS.md" (codex.context == claude.context))
         (expect "Shell-wide gateway variables would reroute clients that sign in directly"
@@ -253,11 +254,71 @@ in {
     skillNames = lib.unique (lib.concatMap installedSkills (builtins.attrValues skillClients));
     catalogueTools = pkgs.python3.withPackages (ps: [ps.pyyaml]);
     skillsCatalogue = pkgs.runCommand "skills.md" {nativeBuildInputs = [catalogueTools];} ''
-      python3 -B ${./agent-policy/skills_catalogue.py} render ${pkgs.writeText "skills.json" (builtins.toJSON (map skillEntry skillNames))} > "$out"
+      python3 -B ${./agent-policy/skills_catalogue.py} render ${pkgs.writeText "skills.json" (builtins.toJSON (map skillEntry skillNames))} ${./ai-skills/AGENTS.md} > "$out"
     '';
+    # Each skill name must come from exactly one set; a second copy would
+    # silently replace the first in whichever client merges them last.
+    skillSets = {
+      bundled = builtins.attrNames (builtins.readDir ./ai-skills/skills);
+      pstack = builtins.attrNames (builtins.readDir ./ai-skills/pstack/skills);
+      tstack = tstackNames;
+      extra = builtins.attrNames local.forge.ai-skills.extraSkills;
+      rea = ["reverse-engineer-anything"];
+    };
+    allSetNames = lib.concatLists (builtins.attrValues skillSets);
+    duplicateSkills = lib.unique (builtins.filter (name: builtins.length (builtins.filter (other: other == name) allSetNames) > 1) allSetNames);
+
+    # T3 Code and Zed on Vega: the drivers and models Lisa uses.
+    t3 = vegaHome.programs.t3code.userSettings;
+    clientContracts =
+      expect "T3 must enable its Codex, Claude and Antigravity drivers, with Codex on its own provider and Claude from the profile"
+      (t3.providerInstances.codex.enabled
+        && t3.providerInstances.codex.config.launchArgs == "-c model_provider=\"openai\""
+        && t3.providerInstances.claudeAgent.enabled
+        && t3.providerInstances.claudeAgent.config.binaryPath == "${vegaHome.home.profileDirectory}/bin/claude"
+        && t3.providerInstances.antigravity.enabled
+        && t3.defaultModelSelection.instanceId == "codex")
+      ++ expect "Zed's agent must use the Codex subscription"
+      (vegaHome.programs.zed-editor.userSettings.agent.default_model.provider == "codex");
+
+    # The exported module, in a home that has nothing else of Lisa's.
+    standalone =
+      (inputs.home-manager.lib.homeManagerConfiguration {
+        inherit pkgs;
+        modules = [
+          config.flake.modules.homeManager.ai-environment
+          {
+            home = {
+              username = "ai-environment-test";
+              homeDirectory =
+                if pkgs.stdenv.hostPlatform.isDarwin
+                then "/Users/ai-environment-test"
+                else "/home/ai-environment-test";
+              stateVersion = "26.11";
+            };
+            programs.codex = {
+              enable = true;
+              package = null;
+            };
+            programs.claude-code = {
+              enable = true;
+              package = null;
+            };
+          }
+        ];
+      }).config;
+    standaloneWorks =
+      standalone.programs.codex.context
+      == ./ai-skills/AGENTS.md
+      && standalone.programs.claude-code.skills ? file-pr
+      && standalone.programs.codex.skills ? principle-fix-root-causes;
+
     agentSkillNames = pkgs.writeText "agent-skill-names.json" (builtins.toJSON (lib.unique (installedSkills "claude-code" ++ installedSkills "codex")));
     failures =
       lib.concatMap homeFailures (builtins.attrNames homes)
+      ++ clientContracts
+      ++ expect "Skill names must be unique across sets; duplicated: ${toString duplicateSkills}" (duplicateSkills == [])
+      ++ expect "modules.homeManager.ai-environment must work on its own" standaloneWorks
       ++ expect "lisa@vega: Antigravity must read AGENTS.md and run without workspace limits or ask rules"
       (vega.context.GEMINI
         == homes."lisa@vega".programs.codex.context
@@ -293,6 +354,8 @@ in {
         python3 -B -m unittest test_policy_status test_retire_settings test_context_baseline test_skills_catalogue
         python3 -B check_skills.py ${./ai-skills/skills} ${./ai-skills/pstack/skills}
         python3 -B skills_catalogue.py references ${./ai-skills/AGENTS.md} ${agentSkillNames}
+        # The exported module writes the shared instructions for Codex on its own.
+        cmp ${standalone.home.file.".codex/AGENTS.md".source} ${./ai-skills/AGENTS.md}
         if ! diff -u ${../../docs/skills.md} ${skillsCatalogue}; then
           echo "docs/skills.md is out of date: nix build .#agent-skills-catalogue && cp result docs/skills.md" >&2
           exit 1

@@ -73,3 +73,17 @@ explains where each set comes from. pstack skills run only when named.
 | `full-send` | tstack | yes | yes |  |  | Trigger this if the user says 'full send'. |
 | `full-stop` | tstack | yes | yes |  |  | Trigger this if the user says 'full stop', even as a closing "Full stop." that reads like emphasis. |
 | `sol-loop` | tstack | yes | yes |  |  | Use when the user says "sol loop". |
+
+## Context budget
+
+What every session loads before any work, estimated at four characters per
+token. A client lists each skill it may load on its own by name and
+description; manual-only skills and deferred MCP tools add nothing up front.
+`agent-context-baseline` measures the whole first request of real sessions.
+
+| Part | Claude | Codex | Antigravity | Copilot |
+| --- | ---: | ---: | ---: | ---: |
+| Shared instructions (`AGENTS.md`) | 1,635 | 1,635 | 1,635 | 1,635 |
+| Skills the model may load on its own | 15 | 16 | 11 | 11 |
+| Their index: names and descriptions | 848 | 855 | 786 | 786 |
+| MCP tool schemas | deferred | deferred | none | none |

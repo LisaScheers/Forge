@@ -18,6 +18,11 @@
     command = lib.getExe pkgs.webmcp;
     args = ["--mcp"];
   };
+  # NixOS, Home Manager and nix-darwin package and option lookup; two tools.
+  nixos = pkgs: {
+    command = lib.getExe pkgs.mcp-nixos;
+    env.FASTMCP_CHECK_FOR_UPDATES = "off";
+  };
   # Codex finds these servers' tools through tool search instead of loading
   # their schemas into every session, as Claude does with ENABLE_TOOL_SEARCH.
   deferred = {omit_tools_from = ["direct"];};
@@ -45,6 +50,7 @@ in {
         enable = true;
         servers = {
           clerk_mcp = clerk;
+          nixos = nixos pkgs;
           webmcp = webmcp pkgs;
         };
       };
@@ -61,6 +67,7 @@ in {
         settings.mcp_servers = {
           cognee = codexCognee // deferred;
           clerk_mcp = clerk // deferred;
+          nixos = nixos pkgs // deferred;
           webmcp = webmcp pkgs // deferred // {startup_timeout_sec = 60;};
         };
       };

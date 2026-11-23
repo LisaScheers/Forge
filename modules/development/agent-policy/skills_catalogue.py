@@ -1,7 +1,7 @@
 """Render docs/skills.md from the installed skill sets, and check AGENTS.md.
 
 Usage:
-  skills_catalogue.py render ENTRIES_JSON          prints the catalogue
+  skills_catalogue.py render ENTRIES_JSON AGENTS_MD  prints the catalogue
   skills_catalogue.py references AGENTS_MD NAMES_JSON
       fails if AGENTS.md names a skill (`a-hyphenated-name` in backticks, or one
       listed in ALSO_SKILLS) that no client installs
@@ -20,17 +20,59 @@ CLIENTS = ["Claude", "Codex", "Antigravity", "Copilot"]
 ALSO_SKILLS = {"council", "postplan"}
 
 
+def description(directory):
+    if directory is None:
+        return ""
+    text = Path(directory, "SKILL.md").read_text(encoding="utf-8")
+    meta = yaml.safe_load(text.split("---", 2)[1]) or {}
+    return " ".join(str(meta.get("description", "")).split())
+
+
 def summary(directory):
     if directory is None:
         return "Shipped by its package; see the package's own documentation."
-    text = Path(directory, "SKILL.md").read_text(encoding="utf-8")
-    meta = yaml.safe_load(text.split("---", 2)[1]) or {}
-    description = " ".join(str(meta.get("description", "")).split())
-    sentence = re.split(r"(?<=[.!?])\s", description, maxsplit=1)[0]
+    sentence = re.split(r"(?<=[.!?])\s", description(directory), maxsplit=1)[0]
     return sentence.replace("|", "\\|")
 
 
-def render(entries):
+def manual_only(entry):
+    """Codex's openai.yaml policy, which Claude's copies carry as frontmatter."""
+    if entry["dir"] is None:
+        return False
+    policy = Path(entry["dir"], "agents", "openai.yaml")
+    return policy.is_file() and "allow_implicit_invocation: false" in policy.read_text(encoding="utf-8")
+
+
+def tokens(characters):
+    # About four characters per token for English prose and identifiers.
+    return f"{round(characters / 4):,}"
+
+
+def budget(entries, agents_text):
+    lines = [
+        "## Context budget",
+        "",
+        "What every session loads before any work, estimated at four characters per",
+        "token. A client lists each skill it may load on its own by name and",
+        "description; manual-only skills and deferred MCP tools add nothing up front.",
+        "`agent-context-baseline` measures the whole first request of real sessions.",
+        "",
+        "| Part | " + " | ".join(CLIENTS) + " |",
+        "| --- | " + " | ".join("---:" for _ in CLIENTS) + " |",
+        "| Shared instructions (`AGENTS.md`) | " + " | ".join(tokens(len(agents_text)) for _ in CLIENTS) + " |",
+    ]
+    counts, sizes = [], []
+    for client in CLIENTS:
+        listed = [entry for entry in entries if client in entry["clients"] and not manual_only(entry)]
+        counts.append(str(len(listed)))
+        sizes.append(tokens(sum(len(entry["name"]) + len(description(entry["dir"])) for entry in listed)))
+    lines.append("| Skills the model may load on its own | " + " | ".join(counts) + " |")
+    lines.append("| Their index: names and descriptions | " + " | ".join(sizes) + " |")
+    lines.append("| MCP tool schemas | deferred | deferred | none | none |")
+    return lines
+
+
+def render(entries, agents_text):
     lines = [
         "# Skills",
         "",
@@ -46,7 +88,7 @@ def render(entries):
     for entry in sorted(entries, key=lambda item: (item["source"], item["name"])):
         marks = " | ".join("yes" if client in entry["clients"] else "" for client in CLIENTS)
         lines.append(f"| `{entry['name']}` | {entry['source']} | {marks} | {summary(entry['dir'])} |")
-    return "\n".join(lines) + "\n"
+    return "\n".join(lines + [""] + budget(entries, agents_text)) + "\n"
 
 
 def missing_references(agents_text, installed):
@@ -57,7 +99,8 @@ def missing_references(agents_text, installed):
 
 def main():
     if sys.argv[1] == "render":
-        sys.stdout.write(render(json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))))
+        sys.stdout.write(render(json.loads(Path(sys.argv[2]).read_text(encoding="utf-8")),
+                                Path(sys.argv[3]).read_text(encoding="utf-8")))
     elif sys.argv[1] == "references":
         missing = missing_references(Path(sys.argv[2]).read_text(encoding="utf-8"),
                                      json.loads(Path(sys.argv[3]).read_text(encoding="utf-8")))
