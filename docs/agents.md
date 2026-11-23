@@ -152,7 +152,7 @@ Neither client loads MCP tool schemas up front. Claude Code runs with
 when a task needs them. `checks.agent-policy` and `checks.rea-codex-config` fail
 if either setting goes away.
 
-REA is the exception in Claude. Its 229 tool names alone cost Claude several
+REA is the exception in Claude. Its 229 tool names alone cost Claude about 6,000
 thousand tokens per session even deferred, and few sessions reverse-engineer
 anything, so Claude does not start it by default. Nix writes the same server to
 `~/.claude/mcp-available/rea.json`; attach it for one session with
@@ -167,10 +167,10 @@ What that saves, measured on Vega on 2026-11-23:
 | REA's 229 tool schemas, from its `tools/list` result | about 3.8 MB, roughly 950,000 tokens |
 | Claude's first request in a session, median of 89 sessions over 7 days | 46,446 tokens (33,835 to 80,367) |
 | Codex's first request in a session, median of 22 sessions over 7 days | 28,233 tokens (22,448 to 32,109) |
-| Claude probe: one "Reply with OK." session in an empty directory | 49,865 tokens |
-| Codex probe: the same, with every Nix-declared server deferred | 25,015 tokens |
-| Claude probe without MCP servers (`--strict-mcp-config`) | 37,807 tokens |
-| Codex probe without MCP servers (`mcp_servers={}`) | 25,151 tokens |
+| Claude probe: one "Reply with OK." session in an empty directory | 44,557 tokens (50,651 with REA attached) |
+| Codex probe: the same, with every Nix-declared server deferred | 25,089 tokens |
+| Claude probe without MCP servers (`--strict-mcp-config`) | 37,723 tokens |
+| Codex probe without MCP servers (`mcp_servers={}`) | 25,089 tokens |
 
 The first request carries the system prompt, instructions, skill descriptions
 and every tool schema loaded up front, so it is what each new session costs
@@ -184,9 +184,10 @@ MCP servers (and Claude without skills). The session median predates deferring
 Clerk, Cognee and webmcp in Codex; the probes were run afterwards.
 
 The layers show where deferral still costs something. Codex starts the same with
-or without its servers. Claude's MCP layer is about 12,000 tokens even deferred:
-tool search still lists the name of every deferred tool, and REA's 229 tools,
-Clerk's and the claude.ai connectors' come to several hundred names. Claude's
+or without its servers. Claude's MCP layer is about 6,800 tokens even deferred:
+tool search still lists the name of every deferred tool, and Clerk's and the
+claude.ai connectors' come to a few hundred names. With REA it was about 12,900,
+which is why Claude attaches REA on demand. Claude's
 skill layer was within the probes' run-to-run noise of about 2,000 tokens.
 Apart from REA in Claude, both clients get the same servers;
 `checks.agent-policy` fails if the sets diverge.

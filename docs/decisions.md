@@ -11,7 +11,7 @@ Newest first.
 tool-search decision below for one server in one client.
 
 **Why.** Claude's tool search still lists every deferred tool's name, and REA's
-229 names cost several thousand tokens in every session, while few sessions
+229 names cost about 6,000 tokens in every session, while few sessions
 reverse-engineer anything. Codex's deferred servers cost nothing up front.
 
 **Cost.** A reverse-engineering session in Claude has to start with the flag.
