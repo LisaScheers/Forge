@@ -202,15 +202,22 @@ on its own.
 
 ## Claude conveniences
 
-`modules/development/claude-code.nix` adds two things Claude Code does not do
+`modules/development/claude-code.nix` adds three things Claude Code does not do
 on its own:
 
 - **Language servers.** nixd for Nix (with the same flake-aware settings as the
-  editors, see [nixd](nixd.md)) and Ruff for Python, so Claude sees diagnostics
-  and can jump to definitions after an edit.
+  editors, see [nixd](nixd.md)), Ruff for Python, `typescript-language-server`
+  for TypeScript and JavaScript, and `bash-language-server` for shell scripts,
+  so Claude sees diagnostics and can jump to definitions after an edit.
+- **Status line.** Model and effort, context used, and the five-hour and weekly
+  plan limits, for example `Opus 5.5 high · context 23% · 5h 41% · week 12%`.
+  Codex's TUI footer shows the same through `tui.status_line`.
 - **File picker.** The `@` file picker runs `fd` and `fzf` over the project,
   hidden files included and `.git` excluded, so `@comp butt` finds
-  `src/components/Button.tsx`. `checks.agent-policy` runs that exact query.
+  `src/components/Button.tsx`.
+
+`checks.agent-policy` runs that file query and feeds the status line sample
+input, including one where Claude has not reported context use yet.
 
 ## Permissions
 

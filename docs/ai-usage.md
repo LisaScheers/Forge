@@ -23,13 +23,16 @@ route.
 | Codex CLI, desktop app and T3's Codex driver | OpenAI, built-in `openai` provider | Local session files in `~/.codex/sessions` only | `otel` events |
 | Zed agent | Codex subscription; OpenRouter for commit messages | Not captured | None; provider dashboards |
 | Antigravity driver in T3 | T3's managed runtime | Not captured | None; provider dashboard |
+| Copilot CLI | GitHub, direct | Local files only | None; provider dashboard |
 
 CodexBar shows the Claude and Codex plan limits on Vega.
 
 Run `ai-gateway-probe` on Vega to check the route these clients depend on: it
 exits 0 when the gateway lists every model they use (`gemini-3.8-flash` for
 Antigravity, `openrouter/glm-5.3-flash` for Cognee), 1 when one has disappeared
-upstream, and 2 when the gateway is unreachable or refuses the key.
+upstream, and 2 when the gateway is unreachable or refuses the key. Add
+`--infer` to also ask each model for one token: a model can stay listed while
+its upstream fails.
 
 Last verified against the configuration on 2026-11-23. To capture another client,
 route it through the gateway in `modules/services/ai-proxy/clients.nix` with a
@@ -136,6 +139,14 @@ Codex events from before 07:43 CET on 2026-11-23 can hold command output; see
 | Collector to ClickHouse | Nook | `telemetry.nix`, deployed 2026-11-23 | Yes: a test record over the private endpoint | 2026-11-23, and `checks.x86_64-linux.ai-usage-clickhouse` |
 
 Verify each row with the queries below and update this table when it changes.
+
+Signals the clients offer that are deliberately not wired, as of 2026-11-23:
+
+| Signal | Why it stays off |
+| --- | --- |
+| Codex metrics (`otel.metrics_exporter`) | Its events already carry each response's tokens, model and latency; the setting stays `none` so nothing goes to Statsig. |
+| Codex traces (`otel.trace_exporter`) | Not checked for tool arguments or output, unlike Claude's redacted spans; enable it only after a content check like the one for events. |
+| Zed agent, Copilot CLI, T3's Antigravity driver | No OTLP export to configure; their providers' dashboards show usage. |
 
 ```sql
 SELECT ServiceName, count() FROM otel.otel_logs GROUP BY ServiceName;

@@ -26,6 +26,16 @@
       "PreToolUse": []
     },
     "lspServers": {
+      "bash": {
+        "args": [
+          "start"
+        ],
+        "command": "<store>/bin/bash-language-server",
+        "extensionToLanguage": {
+          ".bash": "shellscript",
+          ".sh": "shellscript"
+        }
+      },
       "nix": {
         "command": "<store>/bin/nixd",
         "extensionToLanguage": {
@@ -72,6 +82,19 @@
         "extensionToLanguage": {
           ".py": "python"
         }
+      },
+      "typescript": {
+        "args": [
+          "--stdio"
+        ],
+        "command": "<store>/bin/typescript-language-server",
+        "extensionToLanguage": {
+          ".js": "javascript",
+          ".jsx": "javascriptreact",
+          ".mjs": "javascript",
+          ".ts": "typescript",
+          ".tsx": "typescriptreact"
+        }
       }
     },
     "mcpServers": {
@@ -92,7 +115,12 @@
         "Read(//run/agenix.d/**)"
       ]
     },
-    "skipDangerousModePermissionPrompt": true
+    "skipDangerousModePermissionPrompt": true,
+    "statusLine": {
+      "command": "<store>/bin/claude-status-line",
+      "padding": 0,
+      "type": "command"
+    }
   },
   "codex": {
     "agents": {
@@ -206,7 +234,15 @@
       "trace_exporter": "none"
     },
     "personality": "pragmatic",
-    "sandbox_mode": "danger-full-access"
+    "sandbox_mode": "danger-full-access",
+    "tui": {
+      "status_line": [
+        "model-with-reasoning",
+        "context-used",
+        "five-hour-limit",
+        "weekly-limit"
+      ]
+    }
   },
   "mcp": {
     "clerk_mcp": {

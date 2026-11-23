@@ -267,8 +267,9 @@ placed in Nix settings or the repository.
 `modules/development/mcp.nix` declares the remote MCP entry once for Claude Code,
 Codex and Nook's `codex` daemon ([coding agents](agents.md#mcp-servers)). Codex's
 activation updates only that entry in the mutable `~/.codex/config.toml`,
-preserving the model and other MCP settings. MCP operations have a 600-second
-timeout. The clients do not prompt before `forget`; AGENTS.md tells agents to
+preserving the model and other MCP settings. Codex allows each Cognee tool call
+600 seconds (`tool_timeout_sec`), since a graph build can take minutes; Claude
+Code uses its own default. The clients do not prompt before `forget`; AGENTS.md tells agents to
 delete memory only with Lisa's explicit approval.
 
 The OAuth proxy issues client access tokens for 24 hours and renews the underlying

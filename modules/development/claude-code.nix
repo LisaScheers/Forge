@@ -24,6 +24,16 @@ in {
             text = builtins.readFile ./claude-code/file-suggestion.sh;
           });
         };
+        # Model, context used and plan limits under the prompt, as Codex shows them.
+        statusLine = {
+          type = "command";
+          command = lib.getExe (pkgs.writeShellApplication {
+            name = "claude-status-line";
+            runtimeInputs = [pkgs.jq];
+            text = builtins.readFile ./claude-code/statusline.sh;
+          });
+          padding = 0;
+        };
         env = {
           # Nix installs and updates Claude Code.
           DISABLE_AUTOUPDATER = "1";
@@ -31,7 +41,7 @@ in {
           CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH = "1";
         };
       };
-      # Diagnostics and navigation from the same language servers as Lisa's editors.
+      # Diagnostics and navigation after each edit, in the languages Forge's tools use.
       lspServers = {
         nix = {
           command = lib.getExe pkgs.nixd;
@@ -42,6 +52,25 @@ in {
           command = lib.getExe pkgs.ruff;
           args = ["server"];
           extensionToLanguage.".py" = "python";
+        };
+        typescript = {
+          command = lib.getExe pkgs.typescript-language-server;
+          args = ["--stdio"];
+          extensionToLanguage = {
+            ".ts" = "typescript";
+            ".tsx" = "typescriptreact";
+            ".js" = "javascript";
+            ".jsx" = "javascriptreact";
+            ".mjs" = "javascript";
+          };
+        };
+        bash = {
+          command = lib.getExe pkgs.bash-language-server;
+          args = ["start"];
+          extensionToLanguage = {
+            ".sh" = "shellscript";
+            ".bash" = "shellscript";
+          };
         };
       };
     };

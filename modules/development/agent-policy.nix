@@ -449,6 +449,11 @@ in {
         first=$(echo '{"query": "comp butt"}' | CLAUDE_PROJECT_DIR="$project" ${local.programs.claude-code.settings.fileSuggestion.command} | head -n 1)
         [ "$first" = src/components/Button.tsx ] || { echo "file suggestion returned '$first'" >&2; exit 1; }
         [ "$(echo '{"query": ""}' | CLAUDE_PROJECT_DIR="$project" ${local.programs.claude-code.settings.fileSuggestion.command} | grep -c .git/)" = 0 ]
+        # The status line shows what Claude reports and skips what it leaves out.
+        line=$(echo '{"model": {"display_name": "Opus 5.5"}, "effort": {"level": "high"}, "context_window": {"used_percentage": 23.4}, "rate_limits": {"five_hour": {"used_percentage": 41}}}' \
+          | ${local.programs.claude-code.settings.statusLine.command})
+        [ "$line" = "Opus 5.5 high · context 23% · 5h 41%" ] || { echo "status line printed '$line'" >&2; exit 1; }
+        [ "$(echo '{"model": {"display_name": "Opus 5.5"}, "context_window": {"used_percentage": null}}' | ${local.programs.claude-code.settings.statusLine.command})" = "Opus 5.5" ]
 
         # The exported module writes the shared instructions for Codex on its own.
         cmp ${standalone.home.file.".codex/AGENTS.md".source} ${./ai-skills/AGENTS.md}

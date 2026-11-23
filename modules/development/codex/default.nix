@@ -15,6 +15,9 @@
 
         agents.max_concurrent_threads_per_session = 10;
 
+        # The TUI footer: model and effort, context used, and plan limits.
+        tui.status_line = ["model-with-reasoning" "context-used" "five-hour-limit" "weekly-limit"];
+
         features = {
           memories = false;
           prevent_idle_sleep = true;
