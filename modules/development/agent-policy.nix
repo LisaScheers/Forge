@@ -29,11 +29,15 @@
       deny = claudeDeny;
     };
   };
-  # Codex keys Nix declared before the retirement manifest existed.
-  retiredCodexPaths = [["model_providers" "nook"]];
-  # Key paths Nix manages in ~/.codex/config.toml: each top-level key, and each
-  # entry of a top-level table, such as one MCP server.
-  declaredCodexPaths = settings:
+  # Keys Nix declared in each settings file before its retirement manifest existed.
+  retiredPaths = {
+    codex = [["model_providers" "nook"]];
+    claude = [["env" "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB"]];
+    antigravity = [];
+  };
+  # Key paths Nix manages in a settings file: each top-level key, and each entry
+  # of a top-level table, such as one MCP server or environment variable.
+  declaredPaths = settings:
     lib.concatLists (lib.mapAttrsToList (
         key: value:
           if builtins.isAttrs value
@@ -43,6 +47,11 @@
       settings);
   retireCommand = pkgs: "${pkgs.python3.withPackages (ps: [ps.tomli-w])}/bin/python3 -I ${./agent-policy/retire_settings.py}";
   policyFile = pkgs: pkgs.writeText "agent-policy-live.json" (builtins.toJSON livePolicy);
+  contextBaseline = pkgs:
+    pkgs.writeShellApplication {
+      name = "agent-context-baseline";
+      text = ''exec ${pkgs.python3}/bin/python3 -I ${./agent-policy/context_baseline.py} "$@"'';
+    };
   policyStatus = pkgs:
     pkgs.writeShellApplication {
       name = "agent-policy-status";
@@ -55,22 +64,41 @@ in {
     pkgs,
     ...
   }: let
-    codexSettings = config.programs.codex.settings;
-    declared = pkgs.writeText "codex-declared.json" (builtins.toJSON (lib.unique (
-      declaredCodexPaths codexSettings
-      ++ map (name: ["mcp_servers" name]) (builtins.attrNames config.programs.mcp.servers)
-    )));
-  in {
-    # The merge never removes keys; retire the ones Nix stopped declaring.
-    home.activation.codexRetireSettings = lib.hm.dag.entryAfter ["codexMutableSettings"] ''
-      run ${retireCommand pkgs} ${config.home.homeDirectory}/.codex/config.toml \
-        ${config.xdg.stateHome}/forge-agent-policy/codex-managed.json \
-        ${declared} ${pkgs.writeText "codex-retired.json" (builtins.toJSON retiredCodexPaths)}
+    home = config.home.homeDirectory;
+    # Each mutable settings file, the keys Nix declares in it now, and its manifest.
+    settingsFiles =
+      [
+        {
+          name = "codex";
+          path = "${home}/.codex/config.toml";
+          declared = declaredPaths config.programs.codex.settings ++ map (name: ["mcp_servers" name]) (builtins.attrNames config.programs.mcp.servers);
+        }
+        {
+          name = "claude";
+          path = "${home}/.claude/settings.json";
+          declared = declaredPaths config.programs.claude-code.settings;
+        }
+      ]
+      ++ lib.optional config.programs.antigravity-cli.enable {
+        name = "antigravity";
+        path = "${home}/.gemini/antigravity-cli/settings.json";
+        declared = declaredPaths config.programs.antigravity-cli.settings;
+      };
+    retire = file: ''
+      run ${retireCommand pkgs} ${file.path} ${config.xdg.stateHome}/forge-agent-policy/${file.name}-managed.json \
+        ${pkgs.writeText "${file.name}-declared.json" (builtins.toJSON (lib.unique file.declared))} \
+        ${pkgs.writeText "${file.name}-retired.json" (builtins.toJSON retiredPaths.${file.name})}
     '';
+  in {
+    # The merges never remove keys; retire the ones Nix stopped declaring. The
+    # step keeps its old name, so earlier manifests and ordering still apply.
+    home.activation.codexRetireSettings =
+      lib.hm.dag.entryAfter ["codexMutableSettings" "claudeCodeSettings" "antigravitySettings"]
+      (lib.concatMapStrings retire settingsFiles);
     # Mutable settings can drift from Nix between activations; report it at
     # every switch, and on demand with `agent-policy-status`.
-    home.packages = [(policyStatus pkgs)];
-    home.activation.agentPolicyStatus = lib.hm.dag.entryAfter ["codexRetireSettings" "claudeCodeSettings"] ''
+    home.packages = [(policyStatus pkgs) (contextBaseline pkgs)];
+    home.activation.agentPolicyStatus = lib.hm.dag.entryAfter ["codexRetireSettings"] ''
       ${lib.getExe (policyStatus pkgs)} "$HOME" || warnEcho "Live agent settings differ from agent-policy.nix; see the lines above."
     '';
     programs.claude-code.settings = {
@@ -117,8 +145,8 @@ in {
         (expect "Codex must have no approval rules or hooks" (codex.rules == {} && codex.hooks == {}))
         (expect "Codex MCP servers must be exactly clerk_mcp, cognee, rea and webmcp"
           (builtins.attrNames servers == ["clerk_mcp" "cognee" "rea" "webmcp"]))
-        (expect "Codex must keep REA's tools out of the initial context and reach them through tool search"
-          (servers.rea.omit_tools_from == ["direct"]))
+        (expect "Codex must keep every MCP server's tools out of the initial context and reach them through tool search"
+          (builtins.all (server: (server.omit_tools_from or []) == ["direct"]) (builtins.attrValues servers)))
         (expect "Claude must always defer MCP tools to tool search" (claude.settings.env.ENABLE_TOOL_SEARCH == "true"))
         (expect "Telemetry must leave out prompts and responses"
           (claude.settings.env.OTEL_LOG_USER_PROMPTS
@@ -184,6 +212,50 @@ in {
       ++ map serverRow (lib.unique (lib.sort builtins.lessThan (claudeServers ++ builtins.attrNames codexServers)))
       ++ ["<!-- catalogue:end -->"]);
     catalogueCurrent = lib.hasInfix catalogue (builtins.readFile ../../docs/agents.md);
+
+    # docs/skills.md: every skill on Vega, its set, its clients and its summary.
+    skillClients = {
+      Claude = "claude-code";
+      Codex = "codex";
+      Antigravity = "antigravity-cli";
+      Copilot = "github-copilot-cli";
+    };
+    installedSkills = client: builtins.attrNames vegaHome.programs.${client}.skills;
+    tstackNames = ["council" "full-send" "full-stop" "sol-loop"];
+    skillEntry = name: let
+      bundled = ./ai-skills/skills + "/${name}";
+      pstack = ./ai-skills/pstack/skills + "/${name}";
+      isTstack = builtins.elem name tstackNames;
+      extra = local.forge.ai-skills.extraSkills;
+    in {
+      inherit name;
+      clients = builtins.filter (client: builtins.elem name (installedSkills skillClients.${client})) (builtins.attrNames skillClients);
+      source =
+        if builtins.pathExists bundled
+        then "bundled"
+        else if builtins.pathExists pstack
+        then "pstack"
+        else if isTstack
+        then "tstack"
+        else if extra ? ${name}
+        then "pinned extra"
+        else "REA";
+      # This system's own copy of tstack, so nothing is built for Vega here.
+      dir =
+        if builtins.pathExists bundled
+        then bundled
+        else if builtins.pathExists pstack
+        then pstack
+        else if isTstack
+        then local.programs.codex.skills.${name}
+        else extra.${name} or null;
+    };
+    skillNames = lib.unique (lib.concatMap installedSkills (builtins.attrValues skillClients));
+    catalogueTools = pkgs.python3.withPackages (ps: [ps.pyyaml]);
+    skillsCatalogue = pkgs.runCommand "skills.md" {nativeBuildInputs = [catalogueTools];} ''
+      python3 -B ${./agent-policy/skills_catalogue.py} render ${pkgs.writeText "skills.json" (builtins.toJSON (map skillEntry skillNames))} > "$out"
+    '';
+    agentSkillNames = pkgs.writeText "agent-skill-names.json" (builtins.toJSON (lib.unique (installedSkills "claude-code" ++ installedSkills "codex")));
     failures =
       lib.concatMap homeFailures (builtins.attrNames homes)
       ++ expect "lisa@vega: Antigravity must read AGENTS.md and run without workspace limits or ask rules"
@@ -207,18 +279,24 @@ in {
     # Home Manager's own merge steps, which write the live files at activation.
     merge = pkgs.writeText "agent-settings-merge.sh" (lib.concatMapStringsSep "\n" (step: local.home.activation.${step}.data) [
       "codexMutableSettings"
-      "codexRetireSettings"
       "claudeCodeSettings"
+      "codexRetireSettings"
     ]);
   in {
+    packages.agent-skills-catalogue = skillsCatalogue;
     checks.agent-policy = assert lib.assertMsg (failures == []) "Agent configuration no longer matches agent-policy.nix:\n${lib.concatStringsSep "\n" failures}";
     assert lib.assertMsg catalogueCurrent "docs/agents.md's catalogue differs from Nix; replace it with:\n${catalogue}";
       pkgs.runCommand "agent-policy" {
         nativeBuildInputs = [(pkgs.python3.withPackages (ps: [ps.pyyaml ps.tomli-w])) pkgs.gnused];
       } ''
         cd ${./agent-policy}
-        python3 -B -m unittest test_policy_status test_retire_settings
+        python3 -B -m unittest test_policy_status test_retire_settings test_context_baseline test_skills_catalogue
         python3 -B check_skills.py ${./ai-skills/skills} ${./ai-skills/pstack/skills}
+        python3 -B skills_catalogue.py references ${./ai-skills/AGENTS.md} ${agentSkillNames}
+        if ! diff -u ${../../docs/skills.md} ${skillsCatalogue}; then
+          echo "docs/skills.md is out of date: nix build .#agent-skills-catalogue && cp result docs/skills.md" >&2
+          exit 1
+        fi
 
         # A home left from the earlier approval policy: a sandbox, ask rules,
         # a hook, an npx server and the retired gateway provider.
@@ -227,7 +305,7 @@ in {
         printf '%s\n' 'approval_policy = "on-request"' 'sandbox_mode = "workspace-write"' 'app_owned = "kept"' \
           '[mcp_servers.webmcp]' 'command = "npx"' '[mcp_servers.node_repl]' 'command = "node"' \
           '[model_providers.nook]' 'base_url = "https://gateway"' > "$home/.codex/config.toml"
-        echo '{"theme": "dark", "permissions": {"ask": ["Bash(just deploy:*)"]}, "hooks": {"PreToolUse": [{"matcher": "Bash"}]}}' \
+        echo '{"theme": "dark", "permissions": {"ask": ["Bash(just deploy:*)"]}, "hooks": {"PreToolUse": [{"matcher": "Bash"}]}, "env": {"CLAUDE_CODE_SUBPROCESS_ENV_SCRUB": "1"}}' \
           > "$home/.claude/settings.json"
         ! python3 -B policy_status.py ${policyFile pkgs} "$home" 2>/dev/null
         # Run the real merge against it, then require the policy and the kept keys.
@@ -246,6 +324,7 @@ in {
         assert codex["mcp_servers"]["rea"]["omit_tools_from"] == ["direct"]
         assert codex["otel"]["log_user_prompt"] is False
         assert claude["permissions"]["ask"] == [] and claude["hooks"]["PreToolUse"] == [], "old ask rules or hooks survived"
+        assert "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB" not in claude["env"], "a retired Claude setting survived"
         assert claude["autoMemoryEnabled"] is False and claude["env"]["ENABLE_TOOL_SEARCH"] == "true"
         PY
         touch "$out"

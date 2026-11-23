@@ -394,7 +394,7 @@ activate configurations or deploy hosts.
 | [Atlas](docs/atlas.md) | Atlas deploys, its auto-updater and database maintenance |
 | [Asterion](docs/asterion.md), [live installer](docs/asterion-live.md) | The Asahi MacBook Pro install, desktop and RAM-booted installer |
 | [Aurora Viewer](docs/aurora-viewer.md) | Vega's source-built Second Life viewer and its Metal port |
-| [Coding agents](docs/agents.md) | Agent clients, shared instructions, skills, MCP servers and the approval policy |
+| [Coding agents](docs/agents.md), [skills](docs/skills.md), [decisions](docs/decisions.md) | Agent clients, shared instructions, skills, MCP servers and permissions; the generated skill list; why the setup is the way it is |
 | [AI gateway](docs/ai-usage.md) | The shared CLIProxy gateway, what it captures, and token capture |
 | [Cognee](docs/cognee.md) | Cognee on Nook, its MCP endpoint and its off-site backup |
 | [Home dashboard](docs/home-dashboard.md), [home media](docs/home-media.md) | The home dashboard (on Atlas) and Nook's media access |

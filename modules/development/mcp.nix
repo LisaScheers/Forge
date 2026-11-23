@@ -18,6 +18,9 @@
     command = lib.getExe pkgs.webmcp;
     args = ["--mcp"];
   };
+  # Codex finds these servers' tools through tool search instead of loading
+  # their schemas into every session, as Claude does with ENABLE_TOOL_SEARCH.
+  deferred = {omit_tools_from = ["direct"];};
   # `codex -c` takes one dotted key per flag, with TOML values.
   codexOverrides = prefix: attrs:
     lib.concatLists (lib.mapAttrsToList (
@@ -56,9 +59,9 @@ in {
       codex = {
         enableMcpIntegration = true;
         settings.mcp_servers = {
-          cognee = codexCognee;
-          clerk_mcp = clerk;
-          webmcp = webmcp pkgs // {startup_timeout_sec = 60;};
+          cognee = codexCognee // deferred;
+          clerk_mcp = clerk // deferred;
+          webmcp = webmcp pkgs // deferred // {startup_timeout_sec = 60;};
         };
       };
     };

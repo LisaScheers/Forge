@@ -184,6 +184,16 @@ GROUP BY token_category;
 SELECT file_name, model, usage_json FROM ai_usage.usage_events LIMIT 10;
 ```
 
+Captures have no expiry, so check their growth before Nook's `projects-disk` probe
+fires. This lists captures and stored bytes per month:
+
+```sql
+SELECT toStartOfMonth(observed_at) AS month, count() AS captures,
+       formatReadableSize(sum(bytes)) AS stored
+FROM ai_usage.files FINAL
+GROUP BY month ORDER BY month;
+```
+
 ## Verification
 
 ```sh

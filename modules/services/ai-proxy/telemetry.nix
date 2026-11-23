@@ -53,6 +53,8 @@ in {
       OTEL_LOGS_EXPORTER = "otlp";
       OTEL_EXPORTER_OTLP_PROTOCOL = "http/protobuf";
       OTEL_EXPORTER_OTLP_ENDPOINT = endpoint;
+      # Flush every 10 s rather than 60 s, so short sessions keep their last metrics.
+      OTEL_METRIC_EXPORT_INTERVAL = "10000";
       # Prompt text and tool details stay out unless these are set to 1.
       OTEL_LOG_USER_PROMPTS = "0";
       OTEL_LOG_TOOL_DETAILS = "0";

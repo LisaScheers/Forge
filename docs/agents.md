@@ -3,7 +3,8 @@
 Lisa's coding agents are declared in Home Manager. One instruction file, one
 skill set, one MCP catalog and one permission setup are each written once and
 rendered into every client's own format. `checks.agent-policy` fails when a
-rendered configuration drifts from those sources.
+rendered configuration drifts from those sources. [Decisions](decisions.md)
+records why each part is the way it is.
 
 ## Clients by host
 
@@ -28,7 +29,8 @@ Manager writes it as `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`,
 own rules for agents are in the root [AGENTS.md](../AGENTS.md).
 
 Counts and MCP loading on Vega, rendered from Nix; `checks.agent-policy` fails
-when this block no longer matches and prints the current version:
+when this block no longer matches and prints the current version. [Skills](skills.md)
+lists every skill with its clients and what it does, generated the same way.
 
 <!-- catalogue:start: rendered from Nix; checks.agent-policy prints the current version when this differs -->
 | Skills on Vega | Claude | Codex | Antigravity | Copilot |
@@ -38,10 +40,10 @@ when this block no longer matches and prints the current version:
 
 | MCP server | Claude | Codex |
 | --- | --- | --- |
-| clerk_mcp | tool search | loaded at start |
-| cognee | tool search | loaded at start |
+| clerk_mcp | tool search | tool search |
+| cognee | tool search | tool search |
 | rea | tool search | tool search |
-| webmcp | tool search | loaded at start |
+| webmcp | tool search | tool search |
 <!-- catalogue:end -->
 
 | Skill set | Source | Claude | Codex | Antigravity, Copilot |
@@ -69,12 +71,26 @@ client loads them. No MCP tool asks for approval, and `checks.agent-policy`
 fails if one is set to. Every stdio server must run from the Nix store: the
 check rejects package runners such as `npx` or `uvx`.
 
-REA's 229 tool schemas measured about 3.8 MB on 2026-11-23, roughly 950,000 tokens, so neither
-client loads them up front. Claude Code runs with `ENABLE_TOOL_SEARCH=true`, and
-Codex marks REA `omit_tools_from = ["direct"]`; both find REA's tools through tool
-search when a task needs them. `checks.agent-policy` and `checks.rea-codex-config`
-fail if either setting goes away. To measure a server again, list its tools over
-MCP and count the bytes of the `tools/list` result.
+Neither client loads MCP tool schemas up front. Claude Code runs with
+`ENABLE_TOOL_SEARCH=true`, and Codex marks every server
+`omit_tools_from = ["direct"]`; both find a server's tools through tool search
+when a task needs them. `checks.agent-policy` and `checks.rea-codex-config` fail
+if either setting goes away.
+
+What that saves, measured on Vega on 2026-11-23:
+
+| Measurement | Size |
+| --- | --- |
+| REA's 229 tool schemas, from its `tools/list` result | about 3.8 MB, roughly 950,000 tokens |
+| Claude's first request in a session, median of 89 sessions over 7 days | 46,446 tokens (33,835 to 80,367) |
+| Codex's first request in a session, median of 22 sessions over 7 days | 28,233 tokens (22,448 to 32,109) |
+
+The first request carries the system prompt, instructions, skill descriptions
+and every tool schema loaded up front, so it is what each new session costs
+before any work. Run `agent-context-baseline` (optionally `--days N`) to measure
+it again from the session files both clients keep; it reads only token counts.
+The Codex figure predates deferring Clerk, Cognee and webmcp; REA was already
+deferred.
 Both clients get the same servers; `checks.agent-policy` fails if the sets diverge.
 Repository `.mcp.json` servers do not start in Claude unless enabled
 (`enableAllProjectMcpServers = false`), so a cloned repository cannot add servers
@@ -129,12 +145,12 @@ Claude Code, Codex and Antigravity use `mutableSettings`. Activation merges the
 declared values into the writable files, so declared keys win, and settings an
 app writes for itself survive (for example, the Codex app's own `node_repl` and
 `computer-use` servers). The merge itself never removes a key, so a later step,
-`codexRetireSettings`, keeps a manifest of the keys Nix declared at the last
-activation in `~/.local/state/forge-agent-policy/codex-managed.json` and deletes
-the ones Nix no longer declares, such as the old gateway provider
-`model_providers.nook`. Keys the app or Lisa added were never in the manifest and
-stay. Claude's and Antigravity's settings files have no such step; remove a key
-there by hand after removing its declaration.
+`codexRetireSettings`, keeps a manifest per file of the keys Nix declared at the
+last activation, in `~/.local/state/forge-agent-policy/`, and deletes the ones
+Nix no longer declares from `~/.codex/config.toml`, `~/.claude/settings.json` and
+Antigravity's `settings.json`. That is how the old gateway provider
+`model_providers.nook` and Claude's former `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` left
+the live files. Keys the app or Lisa added were never in a manifest and stay.
 
 `checks.agent-policy` runs Home Manager's real merge and retirement steps for the
 system's own home against a stale home (the earlier sandbox, ask rules and hook,

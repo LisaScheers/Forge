@@ -41,6 +41,16 @@ class RetireSettingsTests(unittest.TestCase):
         config = self.run_retire([["mcp_servers", "rea"]])
         self.assertEqual(sorted(config["mcp_servers"]), ["computer-use", "rea"])
 
+    def test_json_settings_are_retired_too(self):
+        self.config = self.root / "settings.json"
+        self.config.write_text(json.dumps({"theme": "dark", "env": {"CLAUDE_CODE_SUBPROCESS_ENV_SCRUB": "1",
+                                                                    "ENABLE_TOOL_SEARCH": "true"}}))
+        (self.root / "declared.json").write_text(json.dumps([["env", "ENABLE_TOOL_SEARCH"]]))
+        (self.root / "retired.json").write_text(json.dumps([["env", "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB"]]))
+        subprocess.run([sys.executable, "-B", SCRIPT, self.config, self.manifest,
+                        self.root / "declared.json", self.root / "retired.json"], check=True)
+        self.assertEqual(json.loads(self.config.read_text()), {"theme": "dark", "env": {"ENABLE_TOOL_SEARCH": "true"}})
+
     def test_an_unchanged_file_is_not_rewritten(self):
         self.config.write_text('# kept comment\nmodel = "x"\n')
         self.run_retire([["model"]], [["model_providers", "nook"]])
