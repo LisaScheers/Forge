@@ -24,6 +24,8 @@ def probe(base_url, key, expected):
     try:
         listed = listed_models(base_url, key)
     except (urllib.error.URLError, OSError, ValueError, KeyError) as error:
+        if isinstance(error, urllib.error.HTTPError):
+            error.close()
         return 2, f"gateway unreachable or refused the key: {error}"
     missing = sorted(set(expected) - listed)
     if missing:

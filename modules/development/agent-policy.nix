@@ -162,7 +162,12 @@ in {
             == "0"
             && codex.settings.otel.log_user_prompt == false
             && codex.settings.otel.log_agent_responses == false
-            && codex.settings.otel.metrics_exporter == "none"))
+            && codex.settings.otel.metrics_exporter == "none"
+            && codex.settings.otel.tool_result.max_bytes == 0
+            && claude.settings.env.OTEL_LOG_TOOL_DETAILS == "0"
+            && claude.settings.env.OTEL_LOG_TOOL_CONTENT == "0"))
+        (expect "Codex telemetry must name its host"
+          (builtins.elem codex.settings.otel.environment ["vega" "asterion" "nook"]))
         (expect "Telemetry must reach the collector's OTLP/HTTP routes in the encoding it accepts"
           (lib.hasSuffix "/v1/logs" codex.settings.otel.exporter.otlp-http.endpoint
             && codex.settings.otel.exporter.otlp-http.protocol == "binary"
@@ -383,8 +388,8 @@ in {
         == homes."lisa@vega".programs.codex.context
         && vega.settings.allowNonWorkspaceAccess
         && vega.settings.permissions.ask == [])
-      ++ expect "nook: nginx must route OTLP logs and metrics to the collector"
-      (config.flake.nixosConfigurations.nook.config.services.nginx.virtualHosts."otel.local.bylisa.dev".locations ? "~ ^/v1/(logs|metrics)$")
+      ++ expect "nook: nginx must route OTLP logs, metrics and traces to the collector"
+      (config.flake.nixosConfigurations.nook.config.services.nginx.virtualHosts."otel.local.bylisa.dev".locations ? "~ ^/v1/(logs|metrics|traces)$")
       # Every client loads the shared instructions in full, in every session.
       ++ expect "AGENTS.md must stay under 16 KiB"
       (builtins.stringLength (builtins.readFile ./ai-skills/AGENTS.md) <= 16384)

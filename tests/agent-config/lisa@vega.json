@@ -30,16 +30,19 @@
     "enableAllProjectMcpServers": false,
     "env": {
       "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+      "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA": "1",
       "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "1",
       "DISABLE_AUTOUPDATER": "1",
       "ENABLE_TOOL_SEARCH": "true",
       "OTEL_EXPORTER_OTLP_ENDPOINT": "https://otel.local.bylisa.dev",
       "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
       "OTEL_LOGS_EXPORTER": "otlp",
+      "OTEL_LOG_TOOL_CONTENT": "0",
       "OTEL_LOG_TOOL_DETAILS": "0",
       "OTEL_LOG_USER_PROMPTS": "0",
       "OTEL_METRICS_EXPORTER": "otlp",
-      "OTEL_METRIC_EXPORT_INTERVAL": "10000"
+      "OTEL_METRIC_EXPORT_INTERVAL": "10000",
+      "OTEL_TRACES_EXPORTER": "otlp"
     },
     "hooks": {
       "PreToolUse": []
@@ -192,7 +195,7 @@
     "model": "gpt-6.1-sol",
     "model_reasoning_effort": "high",
     "otel": {
-      "environment": "forge",
+      "environment": "vega",
       "exporter": {
         "otlp-http": {
           "endpoint": "https://otel.local.bylisa.dev/v1/logs",
@@ -202,6 +205,9 @@
       "log_agent_responses": false,
       "log_user_prompt": false,
       "metrics_exporter": "none",
+      "tool_result": {
+        "max_bytes": 0
+      },
       "trace_exporter": "none"
     },
     "personality": "pragmatic",

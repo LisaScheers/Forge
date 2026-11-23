@@ -134,7 +134,7 @@ class ClickHouseTests(unittest.TestCase):
 
 
     def collector_writes_otel_only(self, root, tcp_port, http_port, destination):
-        """Nook's collector configuration stores an OTLP log through its own account."""
+        """Nook's collector configuration stores an OTLP log and span through its own account."""
         listen = free_port()
         with (root / "collector.log").open("w+") as output:
             collector = subprocess.Popen(
@@ -173,6 +173,27 @@ class ClickHouseTests(unittest.TestCase):
                 else:
                     output.seek(0)
                     self.fail("the log never reached otel.otel_logs: " + output.read())
+                span = {"resourceSpans": [{"resource": {"attributes": [
+                    {"key": "service.name", "value": {"stringValue": "claude-code"}}]},
+                    "scopeSpans": [{"spans": [{"traceId": "5b8efff798038103d269b633813fc60c",
+                                               "spanId": "eee19b7ec3c1b174", "name": "forge-trace-test", "kind": 1,
+                                               "startTimeUnixNano": "1700000000000000000",
+                                               "endTimeUnixNano": "1700000000500000000"}]}]}]}
+                request = Request(f"http://127.0.0.1:{listen}/v1/traces", data=json.dumps(span).encode(),
+                                  headers={"Content-Type": "application/json"})
+                with urlopen(request, timeout=5) as response:
+                    self.assertEqual(response.status, 200)
+                for _ in range(300):
+                    try:
+                        if destination.query("SELECT count() FROM otel.otel_traces "
+                                             "WHERE SpanName = 'forge-trace-test'").strip() == b"1":
+                            break
+                    except HTTPError as error:
+                        error.close()
+                    time.sleep(0.1)
+                else:
+                    output.seek(0)
+                    self.fail("the span never reached otel.otel_traces: " + output.read())
             finally:
                 collector.terminate()
                 collector.wait(timeout=15)
