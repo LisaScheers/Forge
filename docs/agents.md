@@ -153,7 +153,7 @@ when a task needs them. `checks.agent-policy` and `checks.rea-codex-config` fail
 if either setting goes away.
 
 REA is the exception in Claude. Its 229 tool names alone cost Claude about 6,000
-thousand tokens per session even deferred, and few sessions reverse-engineer
+tokens per session even deferred, and few sessions reverse-engineer
 anything, so Claude does not start it by default. Nix writes the same server to
 `~/.claude/mcp-available/rea.json`; attach it for one session with
 `claude --mcp-config ~/.claude/mcp-available/rea.json`. Codex keeps REA, since
