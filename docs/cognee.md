@@ -3,7 +3,8 @@
 Cognee runs on Nook as Lisa's personal memory for Claude Code and Codex: a
 graph and vector store behind an Authentik-protected MCP endpoint, a local email
 index with dated sources, a read-only graph viewer and a nightly encrypted
-backup copied off Nook. The dated rollout history is in
+backup, which Atlas copies off Nook once the backup module reaches `main`
+([Backup and restore](#backup-and-restore)). The dated rollout history is in
 [history](history/cognee-rollout.md).
 
 ## Storage and services

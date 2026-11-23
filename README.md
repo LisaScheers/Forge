@@ -405,6 +405,7 @@ activate configurations or deploy hosts.
 | [REA](docs/rea.md) | Reverse-engineering tooling |
 | [Matrix after SEC-Hive](docs/sec-hive-matrix.md) | What Atlas keeps after the SEC-Hive removal, and the check for it |
 | [Package audit](docs/package-audit.md) | Dated record of pin and patch decisions |
+| History: [AI gateway cutover](docs/history/ai-gateway-cutover.md), [Cognee rollout](docs/history/cognee-rollout.md), [Codex tool output](docs/history/codex-tool-output.md) | Dated rollout and incident records, kept out of the guides |
 
 ## References
 

@@ -40,6 +40,7 @@
     ];
     claude = [["env" "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB"]];
     antigravity = [];
+    zed = [];
   };
   # Every leaf key path Nix sets in a settings file, such as
   # ["mcp_servers" "cognee" "url"]; a nested key dropped from Nix is then retired
@@ -92,6 +93,12 @@ in {
         name = "antigravity";
         path = "${home}/.gemini/antigravity-cli/settings.json";
         declared = declaredPaths config.programs.antigravity-cli.settings;
+      }
+      # Zed's merge also keeps MCP servers Nix removed from context_servers.
+      ++ lib.optional config.programs.zed-editor.enable {
+        name = "zed";
+        path = "${config.xdg.configHome}/zed/settings.json";
+        declared = declaredPaths config.programs.zed-editor.userSettings;
       };
     retire = file: ''
       run ${retireCommand pkgs} ${file.path} ${config.xdg.stateHome}/forge-agent-policy/${file.name}-managed.json \
@@ -102,7 +109,7 @@ in {
     # The merges never remove keys; retire the ones Nix stopped declaring. The
     # step keeps its old name, so earlier manifests and ordering still apply.
     home.activation.codexRetireSettings =
-      lib.hm.dag.entryAfter ["codexMutableSettings" "claudeCodeSettings" "antigravitySettings"]
+      lib.hm.dag.entryAfter ["codexMutableSettings" "claudeCodeSettings" "antigravitySettings" "zedSettingsActivation"]
       (lib.concatMapStrings retire settingsFiles);
     # Mutable settings can drift from Nix between activations; report it at
     # every switch, and on demand with `agent-policy-status`.
@@ -416,11 +423,12 @@ in {
         }
       };
     # Home Manager's own merge steps, which write the live files at activation.
-    merge = pkgs.writeText "agent-settings-merge.sh" (lib.concatMapStringsSep "\n" (step: local.home.activation.${step}.data) [
-      "codexMutableSettings"
-      "claudeCodeSettings"
-      "codexRetireSettings"
-    ]);
+    zedMerges = local.home.activation ? zedSettingsActivation;
+    merge = pkgs.writeText "agent-settings-merge.sh" (lib.concatMapStringsSep "\n" (step: local.home.activation.${step}.data) (
+      ["codexMutableSettings" "claudeCodeSettings"]
+      ++ lib.optional zedMerges "zedSettingsActivation"
+      ++ ["codexRetireSettings"]
+    ));
   in {
     packages.agent-skills-catalogue = skillsCatalogue;
     packages.agent-config-snapshots = snapshots;
@@ -460,7 +468,12 @@ in {
           '[mcp_servers.cognee.tools.forget]' 'approval_mode = "prompt"' > "$home/.codex/config.toml"
         echo '{"theme": "dark", "permissions": {"ask": ["Bash(just deploy:*)"]}, "hooks": {"PreToolUse": [{"matcher": "Bash"}]}, "env": {"CLAUDE_CODE_SUBPROCESS_ENV_SCRUB": "1"}}' \
           > "$home/.claude/settings.json"
-        ! python3 -B policy_status.py ${policyFile pkgs} "$home" ${ownedCodexServers pkgs local.programs.codex.settings} 2>/dev/null
+        ${lib.optionalString zedMerges ''
+          # Zed: a server Nix declared at the last activation and has since removed.
+          mkdir -p "$home/.config/zed" "$home/.local/state/forge-agent-policy"
+          echo '{"app_owned": "kept", "context_servers": {"retired": {"command": "old"}}}' > "$home/.config/zed/settings.json"
+          echo '[["context_servers", "retired", "command"]]' > "$home/.local/state/forge-agent-policy/zed-managed.json"
+        ''}        ! python3 -B policy_status.py ${policyFile pkgs} "$home" ${ownedCodexServers pkgs local.programs.codex.settings} 2>/dev/null
         # Run the real merge against it, then require the policy and the kept keys.
         sed "s#${local.home.homeDirectory}#$home#g" ${merge} > "$TMPDIR/merge.sh"
         bash -c 'errorEcho() { echo "$@" >&2; }; run() { "$@"; }; set -eu; source "$1"' merge "$TMPDIR/merge.sh"
@@ -481,6 +494,11 @@ in {
         assert claude["permissions"]["ask"] == [] and claude["hooks"]["PreToolUse"] == [], "old ask rules or hooks survived"
         assert "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB" not in claude["env"], "a retired Claude setting survived"
         assert claude["autoMemoryEnabled"] is False and claude["env"]["ENABLE_TOOL_SEARCH"] == "true"
+        zed_path = home / ".config/zed/settings.json"
+        if zed_path.exists():
+            zed = json.loads(zed_path.read_text())
+            assert zed["app_owned"] == "kept", "the Zed merge dropped a key it does not own"
+            assert sorted(zed["context_servers"]) == ["nixos", "webmcp"], "a removed Zed server survived"
         PY
         touch "$out"
       '';

@@ -18,6 +18,19 @@ class Gateway(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def do_POST(self):
+        request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        # The upstream for this model is down, though the gateway still lists it.
+        if self.path != "/v1/chat/completions" or request["model"] == "openrouter/glm-5.3-flash":
+            self.send_response(502)
+            self.end_headers()
+            return
+        body = json.dumps({"choices": [{"message": {"content": "OK"}}]}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(body)
+
     def log_message(self, *arguments):
         pass
 
@@ -37,6 +50,12 @@ class GatewayProbeTests(unittest.TestCase):
         status, message = probe(self.url, "right", ["gemini-3.8-flash", "gpt-retired"])
         self.assertEqual(status, 1)
         self.assertIn("gpt-retired", message)
+
+    def test_inference_catches_a_listed_model_that_does_not_answer(self):
+        self.assertEqual(probe(self.url, "right", ["gemini-3.8-flash"], infer=True)[0], 0)
+        status, message = probe(self.url, "right", ["gemini-3.8-flash", "openrouter/glm-5.3-flash"], infer=True)
+        self.assertEqual(status, 1)
+        self.assertIn("openrouter/glm-5.3-flash", message)
 
     def test_a_refused_key_or_dead_gateway_is_an_outage(self):
         self.assertEqual(probe(self.url, "wrong", ["gemini-3.8-flash"])[0], 2)

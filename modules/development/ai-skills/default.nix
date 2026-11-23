@@ -1,4 +1,10 @@
-{
+{inputs, ...}: {
+  # A flake input, so the daily flake.lock pull request also updates it.
+  flake-file.inputs.tstack = {
+    url = "github:t3dotgg/tstack";
+    flake = false;
+  };
+
   home.ai-environment = {
     config,
     lib,
@@ -38,12 +44,7 @@
           else path
       )
       pstackSkills;
-    tstack = pkgs.fetchFromGitHub {
-      owner = "t3dotgg";
-      repo = "tstack";
-      rev = "11e37a74d0a6868c121cd0910ab2b3bd9873b92a";
-      hash = "sha256-1N0fxvcM44NcGOZeYJiX/EAJuI9GoAj5rEXmu7mJc3w=";
-    };
+    inherit (inputs) tstack;
     # Bundled file-pr and babysit-pr replace tstack's versions, which full-send calls by name.
     tstackSkills = lib.genAttrs ["council" "full-send" "full-stop" "sol-loop"] (skill: "${tstack}/skills/${skill}");
     effectiveSkills =

@@ -12,6 +12,10 @@
       url = "github:ryantm/agenix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    anatomy = {
+      url = "github:wheresryan22/anatomy";
+      flake = false;
+    };
     antigravity-cli = {
       url = "github:selfhost-it/antigravity-cli-nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -109,6 +113,10 @@
     t3-code-nix = {
       url = "github:LisaScheers/t3-code-nix";
       inputs.nixpkgs.follows = "nixpkgs";
+    };
+    tstack = {
+      url = "github:t3dotgg/tstack";
+      flake = false;
     };
     zed.url = "github:zed-industries/zed";
   };

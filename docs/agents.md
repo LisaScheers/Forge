@@ -117,9 +117,14 @@ lists every skill with its clients and what it does, generated the same way.
 | Skill set | Source | Claude | Codex | Antigravity, Copilot |
 | --- | --- | --- | --- | --- |
 | Bundled skills | `ai-skills/skills/` | yes | yes | yes |
-| tstack (`council`, `full-send`, `full-stop`, `sol-loop`) | pinned GitHub revision | yes | yes | no |
+| tstack (`council`, `full-send`, `full-stop`, `sol-loop`) | flake input `tstack` | yes | yes | no |
+| `anatomy` | flake input `anatomy` | yes | yes | yes |
 | pstack | vendored, provenance in `ai-skills/pstack/IMPORT.md` | yes, manual only | yes, manual only | no |
 | REA's `reverse-engineer-anything` | REA package | no | yes | no |
+
+The two flake inputs move with `flake.lock`, so the daily lock-update pull
+request, which CI builds and Lisa merges, also brings their new revisions.
+pstack is vendored and updated by hand, as `IMPORT.md` describes.
 
 All 49 pstack skills set `allow_implicit_invocation: false` in
 `agents/openai.yaml`, so Codex never loads them on its own. Claude reads the same
@@ -252,22 +257,23 @@ its instructions:
 
 ## Mutable settings
 
-Claude Code, Codex and Antigravity use `mutableSettings`. Activation merges the
+Claude Code, Codex, Antigravity and Zed use mutable settings. Activation merges the
 declared values into the writable files, so declared keys win, and settings an
 app writes for itself survive (for example, the Codex app's own `node_repl` and
 `computer-use` servers). The merge itself never removes a key, so a later step,
 `codexRetireSettings`, keeps a manifest per file of the keys Nix declared at the
 last activation, in `~/.local/state/forge-agent-policy/`, and deletes the ones
-Nix no longer declares from `~/.codex/config.toml`, `~/.claude/settings.json` and
-Antigravity's `settings.json`. That is how the old gateway provider
+Nix no longer declares from `~/.codex/config.toml`, `~/.claude/settings.json`,
+Antigravity's `settings.json` and Zed's `settings.json`, where a removed MCP
+server would otherwise stay in `context_servers`. That is how the old gateway provider
 `model_providers.nook` and Claude's former `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` left
 the live files. Keys the app or Lisa added were never in a manifest and stay.
 
 `checks.agent-policy` runs Home Manager's real merge and retirement steps for the
 system's own home against a stale home (the earlier sandbox, ask rules and hook,
-an `npx` server, the retired gateway provider, an app-owned key and server) and
-requires the full-access settings to win, the old rules and provider to go, and
-the app-owned entries to stay.
+an `npx` server, the retired gateway provider, an app-owned key and server, and
+on Vega a Zed server Nix removed) and requires the full-access settings to win,
+the old rules, provider and server to go, and the app-owned entries to stay.
 
 Because those files stay writable, every activation then runs
 `agent-policy-status`, which compares the live `~/.codex/config.toml` and

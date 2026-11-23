@@ -20,6 +20,22 @@
         "type": "github"
       }
     },
+    "anatomy": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1792354824,
+        "narHash": "sha256-v6g6CBGc5p95wdyLJ+UeBuUtX4PMZza31mCz8tvhBjM=",
+        "owner": "wheresryan22",
+        "repo": "anatomy",
+        "rev": "1482e8469b0a9e0d8cc18ea2740a01423d29ae80",
+        "type": "github"
+      },
+      "original": {
+        "owner": "wheresryan22",
+        "repo": "anatomy",
+        "type": "github"
+      }
+    },
     "antigravity-cli": {
       "inputs": {
         "flake-utils": "flake-utils",
@@ -2086,6 +2102,7 @@
     "root": {
       "inputs": {
         "agenix": "agenix",
+        "anatomy": "anatomy",
         "antigravity-cli": "antigravity-cli",
         "authentik-nix": "authentik-nix",
         "catppuccin": "catppuccin",
@@ -2120,6 +2137,7 @@
         "steam-asahi": "steam-asahi",
         "systems": "systems_10",
         "t3-code-nix": "t3-code-nix",
+        "tstack": "tstack",
         "zed": "zed"
       }
     },
@@ -2512,6 +2530,22 @@
       "original": {
         "owner": "numtide",
         "repo": "treefmt-nix",
+        "type": "github"
+      }
+    },
+    "tstack": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794396782,
+        "narHash": "sha256-1N0fxvcM44NcGOZeYJiX/EAJuI9GoAj5rEXmu7mJc3w=",
+        "owner": "t3dotgg",
+        "repo": "tstack",
+        "rev": "11e37a74d0a6868c121cd0910ab2b3bd9873b92a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "t3dotgg",
+        "repo": "tstack",
         "type": "github"
       }
     },

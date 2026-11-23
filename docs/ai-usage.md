@@ -119,14 +119,12 @@ the gateway's captures. Claude Code sends metrics and events with
 plus spans with that text redacted; Codex sends events with `log_user_prompt`
 and `log_agent_responses` off, `tool_result.max_bytes = 0`, and its default
 Statsig metrics disabled. Each host names itself: Codex sends its configured
-`environment` as the `env` resource attribute, and both clients add `host.name`.
+`environment` as the `env` resource attribute, and both clients' OpenTelemetry
+SDKs add the machine's `host.name` on their own (seen in ClickHouse's resource
+attributes on 2026-11-23), so Nix does not set it.
 
-Codex's `codex.tool_result` events kept up to 2,048 bytes of each tool result
-until `tool_result.max_bytes = 0` reached Vega at 07:43 CET on 2026-11-23; the last
-event with output arrived at 07:30. Events received before then can hold command
-output, so treat them like captures. They can be removed on
-Nook with `ALTER TABLE otel.otel_logs DELETE WHERE ServiceName = 'codex-app-server'
-AND Timestamp < '<deployment time>'`.
+Codex events from before 07:43 CET on 2026-11-23 can hold command output; see
+[history](history/codex-tool-output.md).
 `checks.agent-policy` fails if either client starts logging content.
 
 | Signal | Client | Configured | Received on Nook | Last verified |
@@ -232,7 +230,8 @@ Activate Nook before any client change. Verify `cli-proxy-api-plus`,
 `clickhouse`, `ai-usage-schema` and the `ai-usage-ingest.timer`, trusted TLS,
 rejection of missing API keys, and a real request's transcript and usage in
 ClickHouse before switching clients. `ai-gateway-probe` on Vega checks that the
-gateway lists every model its clients send. Restart Antigravity after changing
+gateway lists every model its clients send; `ai-gateway-probe --infer` also asks
+each one for a single token, since a listed model can still fail upstream. Restart Antigravity after changing
 provider configuration; it and Cognee fail when the gateway is unavailable
 rather than falling back to a direct route.
 
