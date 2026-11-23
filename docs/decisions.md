@@ -4,6 +4,24 @@ Each entry records a choice that shapes Lisa's agent setup, why it was made, and
 what it costs. The guides describe the current state; this file explains it.
 Newest first.
 
+## 2026-11-23: session files are backed up to Nook, encrypted
+
+**Decision.** Vega backs up its Claude and Codex session files to Nook daily
+with restic; the repository password is encrypted to Lisa's age key.
+
+**Why.** Those files are the only transcripts of the two main clients since
+Codex capture was removed. Lisa chose an encrypted copy over a searchable one.
+
+**Cost.** The AI archive cannot search them; restoring needs Lisa's age identity.
+
+## 2026-11-23: no custom subagents or commands
+
+**Decision.** Lisa's agents get shared instructions and skills, but no custom
+subagents or slash commands of their own.
+
+**Why.** Lisa's choice. Her instructions already limit delegation, and skills
+cover the repeatable workflows.
+
 ## 2026-11-23: skills are installed globally, not linked per repository
 
 **Decision.** Every skill is installed for its clients in every directory; no

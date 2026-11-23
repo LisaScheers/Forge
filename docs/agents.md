@@ -55,8 +55,32 @@ flowchart LR
   cognee --> backup --> atlas
 ```
 
-Claude and Codex transcripts stay in their local session files; only usage
-reaches Nook. Cognee's own model calls also go through the gateway.
+Claude and Codex transcripts stay in their local session files, and only usage
+reaches Nook live; the session files themselves reach Nook once a day as an
+encrypted backup. Cognee's own model calls also go through the gateway.
+
+## Session backup
+
+`modules/services/session-backup.nix` backs up `~/.claude/projects`,
+`~/.codex/sessions` and `~/.codex/archived_sessions` from Vega to Nook every day
+at 04:45, with restic. Snapshots are deduplicated, so each day stores only what
+changed, and restic keeps 14 daily, 8 weekly and 12 monthly snapshots.
+
+- **Encrypted end to end.** The repository password is an agenix secret
+  encrypted to Lisa's age key and Vega's host key; Nook holds only ciphertext.
+- **Write-only path.** Vega writes as `session-backup`, whose key's forced command
+  is the SFTP server in that account's directory, so it cannot run a shell.
+- **Tested.** `checks.x86_64-linux.session-backup` runs the same script between
+  two VMs: first backup and restore, ciphertext only on the server, a second
+  snapshot, and a key that cannot run commands.
+
+The job logs to `~/Library/Logs/session-backup.log`. To restore, decrypt the
+password with Lisa's age identity and point restic at the repository:
+
+```sh
+age -d -i ~/.config/sops/age/keys.txt modules/security/agenix/secrets/vega/session-backup-password.age > /tmp/restic-password
+RESTIC_PASSWORD_FILE=/tmp/restic-password restic -r sftp:session-backup@nook:/srv/disks/projects/session-backup/repo snapshots
+```
 
 ## Instructions and skills
 

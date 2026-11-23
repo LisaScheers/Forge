@@ -45,6 +45,8 @@ in {
 
     "secrets/vega/home-server-builder-ssh-key.age".publicKeys = readers ["vega"];
     "secrets/vega/nix-github-access-token-conf.age".publicKeys = readers ["vega"];
+    "secrets/vega/session-backup-key.age".publicKeys = readers ["vega"];
+    "secrets/vega/session-backup-password.age".publicKeys = readers ["vega"];
 
     "secrets/shared/ai-proxy-client-key.age".publicKeys = readers ["atlas" "nook" "vega"];
     "secrets/shared/cognee-oidc-env.age".publicKeys = readers ["atlas" "nook"];
