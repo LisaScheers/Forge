@@ -1,15 +1,10 @@
 # Cognee on Nook
 
-Status: GLM 5.3 Flash through OpenRouter was deployed and verified on 2026-10-03
-after Lisa approved replacing GPT-6 Luna. JSON-schema inference and a full MCP
-write, graph build and retrieval passed in the `forge_operations` dataset.
-Existing `life` memory remains readable. Lisa subsequently chose local searchable
-email indexing with a maximum $10 OpenRouter import budget. The paid bulk run was
-stopped, and cleaned emails use a deterministic pipeline with local embeddings.
-Lisa's Vega Codex and Nook's `codex` account use Authentik. OpenRouter usage is
-billed to Lisa's existing OpenRouter account.
-Graph storage was recovered and the viewer and MCP recall verified again on
-2026-10-03; the deployed graph library and buffer limits are described below.
+Cognee runs on Nook as Lisa's personal memory for Claude Code and Codex: a
+graph and vector store behind an Authentik-protected MCP endpoint, a local email
+index with dated sources, a read-only graph viewer and a nightly encrypted
+off-site backup. The dated rollout history is at the end, in
+[Rollout and verification](#rollout-and-verification).
 
 ## Storage and services
 
@@ -41,7 +36,7 @@ Both containers share the host network but bind only to loopback:
 | --- | --- |
 | `127.0.0.1:8321` | Cognee REST API |
 | `127.0.0.1:8322` | Cognee MCP with Authentik OAuth |
-| `https://cognee.local.bylisa.dev/mcp` | Codex MCP endpoint |
+| `https://cognee.local.bylisa.dev/mcp` | MCP endpoint for Claude Code and Codex |
 | `https://cognee.local.bylisa.dev/api/v1/…` | REST endpoint for other AI workloads |
 | `https://cognee.local.bylisa.dev/graph/` | Authentik-protected, read-only graph viewer |
 
@@ -266,7 +261,7 @@ Encrypted backend secrets are limited to Lisa and Nook. The Authentik OIDC secre
 and MCP signing key are limited to Lisa, Nook and Atlas. No plaintext secret is
 placed in Nix settings or the repository.
 
-## Codex setup
+## Client setup
 
 `modules/development/mcp.nix` declares the remote MCP entry once for Claude Code,
 Codex and Nook's `codex` daemon ([coding agents](agents.md#mcp-servers)). Codex's
@@ -331,6 +326,17 @@ explicit remember/recall tools without copying every session. Personal facts
 remain recorded in the Life repository as specified by Lisa's instructions.
 
 ## Rollout and verification
+
+On 2026-10-03, GLM 5.3 Flash through OpenRouter was deployed and verified on 2026-10-03
+after Lisa approved replacing GPT-6 Luna. JSON-schema inference and a full MCP
+write, graph build and retrieval passed in the `forge_operations` dataset.
+Existing `life` memory remains readable. Lisa subsequently chose local searchable
+email indexing with a maximum $10 OpenRouter import budget. The paid bulk run was
+stopped, and cleaned emails use a deterministic pipeline with local embeddings.
+Lisa's Vega Codex and Nook's `codex` account use Authentik. OpenRouter usage is
+billed to Lisa's existing OpenRouter account.
+Graph storage was recovered and the viewer and MCP recall verified again on
+2026-10-03; the deployed graph library and buffer limits are described below.
 
 Changes were published to `origin/main` before the approved manual rollout.
 Atlas's Authentik application was deployed first, then Nook. Subsequent updates

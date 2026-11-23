@@ -27,6 +27,23 @@ Manager writes it as `~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`,
 `~/.gemini/GEMINI.md` (Antigravity) and Copilot's instructions. This repository's
 own rules for agents are in the root [AGENTS.md](../AGENTS.md).
 
+Counts and MCP loading on Vega, rendered from Nix; `checks.agent-policy` fails
+when this block no longer matches and prints the current version:
+
+<!-- catalogue:start: rendered from Nix; checks.agent-policy prints the current version when this differs -->
+| Skills on Vega | Claude | Codex | Antigravity | Copilot |
+| --- | ---: | ---: | ---: | ---: |
+| Installed | 64 | 65 | 11 | 11 |
+| Of which pstack, manual only | 49 | 49 | 0 | 0 |
+
+| MCP server | Claude | Codex | Approval |
+| --- | --- | --- | --- |
+| clerk_mcp | tool search | loaded at start | every tool asks |
+| cognee | tool search | loaded at start | `forget` asks |
+| rea | tool search | tool search | client default |
+| webmcp | tool search | loaded at start | client default |
+<!-- catalogue:end -->
+
 | Skill set | Source | Claude | Codex | Antigravity, Copilot |
 | --- | --- | --- | --- | --- |
 | Bundled skills | `ai-skills/skills/` | yes | yes | yes |
@@ -44,16 +61,15 @@ frontmatter, a name equal to its directory, a description within the
 
 ## MCP servers
 
-`modules/development/mcp.nix` declares the shared servers once.
+`modules/development/mcp.nix` declares the shared servers once: Cognee (personal
+memory, OAuth through Authentik; Nook's Codex service gets it too), Clerk,
+webmcp (a Nix-packaged bundle, so nothing is fetched from npm at run time), and
+REA from `modules/development/rea.nix`. The catalogue above shows how each
+client loads them and which ask first; Claude mirrors Codex's approvals with ask
+rules. Every stdio server must run from the Nix store: `checks.agent-policy`
+rejects package runners such as `npx` or `uvx`.
 
-| Server | Claude | Codex | Approval |
-| --- | --- | --- | --- |
-| Cognee (personal memory, OAuth through Authentik) | yes | yes, and Nook's service | `forget` asks in both |
-| Clerk | yes | yes | every tool asks in both |
-| REA (`modules/development/rea.nix`) | yes, through tool search | yes, through tool search | client default |
-| webmcp (Nix-packaged bundle, no npm fetch at runtime) | yes | yes | client default |
-
-REA's 229 tool schemas measure about 3.8 MB, roughly 950,000 tokens, so neither
+REA's 229 tool schemas measured about 3.8 MB on 2026-11-23, roughly 950,000 tokens, so neither
 client loads them up front. Claude Code runs with `ENABLE_TOOL_SEARCH=true`, and
 Codex marks REA `omit_tools_from = ["direct"]`; both find REA's tools through tool
 search when a task needs them. `checks.agent-policy` and `checks.rea-codex-config`
@@ -96,6 +112,26 @@ across sessions, and AGENTS.md says when to use it. Claude also runs with
 the hook, and `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1`, so the commands, hooks and
 stdio MCP servers it starts get no credentials from its environment (GitHub
 tokens excepted). Neither client checks for its own updates; Nix installs both.
+
+## What this does not protect against
+
+The policy guards against an agent's mistakes and makes the risky actions
+visible; it is not a sandbox against a hostile prompt. Specifically:
+
+- **Shell reads.** Claude's `Read(...)` deny rules stop its Read tool, not a
+  shell command such as `cat ~/.ssh/id_ed25519`, and Codex's sandbox limits writes,
+  not reads. Claude Code's OS sandbox would close this; Lisa keeps it off,
+  because it confines writes to the working directory and T3 worktrees commit
+  to a `.git` outside it. Codex's permission profiles, which can deny reads, are
+  rejected by Codex 0.169.
+- **Network.** Both clients keep network access, so a prompt injection that gets
+  a command to run can send what that command can read.
+- **Pattern evasion.** The hook and rules match command text. A command built at
+  run time, for example from variables (`x=just; $x deploy`), is not recognised.
+  They stop accidental deploys and switches, not a determined attacker.
+- **Modes that never ask.** In T3's full-access mode Codex blocks live-system
+  commands instead of asking, and Claude still asks; other commands run without
+  review in both.
 
 ## Mutable settings
 

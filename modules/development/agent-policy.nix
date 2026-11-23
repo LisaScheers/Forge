@@ -23,9 +23,10 @@
     ["deploy"]
     ["nixos-anywhere"]
   ];
-  # Matches the command after `cd x &&`, `sudo`, a pipe or a path prefix, but
+  # Matches the command after `cd x &&`, `sudo`, a pipe, a path prefix, a quote
+  # (`bash -c "…"`, `eval '…'`) or `$(`, but
   # not a longer word such as `deploy-build`. Valid as Python and Rust regex.
-  commandPattern = tokens: "(^|[\\s;&|(/])${lib.concatMapStringsSep "\\s+" lib.escapeRegex tokens}($|[\\s;&|)])";
+  commandPattern = tokens: "(^|[\\s;&|(/\"'`])${lib.concatMapStringsSep "\\s+" lib.escapeRegex tokens}($|[\\s;&|)\"'`])";
   commandText = lib.concatStringsSep " ";
   # Every pattern the hook and Zed match. Prefix rules cannot express `nix run
   # <flake>#darwin-rebuild -- switch`, so only the hook and Zed see that form.
@@ -215,7 +216,9 @@ in {
             && codex.settings.otel.metrics_exporter == "none"))
         (expect "Codex must prompt before Cognee forget and Clerk tools"
           (servers.cognee.tools.forget.approval_mode == "prompt" && servers.clerk_mcp.default_tools_approval_mode == "prompt"))
-        (expect "webmcp must run from the Nix store, not npx" (!(lib.hasInfix "npx" servers.webmcp.command)))
+        (expect "Every stdio MCP server must run from the Nix store, not a package runner such as npx or uvx"
+          (builtins.all (server: (server.command or null) == null || lib.hasPrefix builtins.storeDir server.command)
+            (builtins.attrValues servers ++ builtins.attrValues home.programs.mcp.servers)))
         (expect "Claude permission rules differ from agent-policy.nix"
           (claude.settings.permissions.ask == claudeAsk && claude.settings.permissions.deny == claudeDeny))
         (expect "Claude must run the approval hook before Bash and agent launches"
@@ -234,6 +237,42 @@ in {
           (!(builtins.elem name workstations) || home.programs.zed-editor.userSettings.agent.tool_permissions.tools.terminal.always_confirm == zedConfirm))
       ]);
     vega = homes."lisa@vega".programs.antigravity-cli;
+
+    # The skill and MCP tables in docs/agents.md, rendered from Vega's home.
+    vegaHome = homes."lisa@vega";
+    claudeServers = builtins.attrNames vegaHome.programs.mcp.servers ++ builtins.attrNames vegaHome.programs.claude-code.mcpServers;
+    codexServers = vegaHome.programs.codex.settings.mcp_servers;
+    claudeDefers = (vegaHome.programs.claude-code.settings.env.ENABLE_TOOL_SEARCH or "") == "true";
+    loading = present: deferred:
+      if !present
+      then "not installed"
+      else if deferred
+      then "tool search"
+      else "loaded at start";
+    approval = server:
+      if (server.default_tools_approval_mode or null) == "prompt"
+      then "every tool asks"
+      else if ((server.tools or {}).forget.approval_mode or null) == "prompt"
+      then "`forget` asks"
+      else "client default";
+    serverRow = name: let
+      codexServer = codexServers.${name} or {};
+    in "| ${name} | ${loading (builtins.elem name claudeServers) claudeDefers} | ${loading (codexServers ? ${name}) (builtins.elem "direct" (codexServer.omit_tools_from or []))} | ${approval codexServer} |";
+    skillCount = client: toString (builtins.length (builtins.attrNames vegaHome.programs.${client}.skills));
+    pstackCount = toString (builtins.length (builtins.attrNames (builtins.readDir ./ai-skills/pstack/skills)));
+    catalogue = lib.concatStringsSep "\n" ([
+        "<!-- catalogue:start: rendered from Nix; checks.agent-policy prints the current version when this differs -->"
+        "| Skills on Vega | Claude | Codex | Antigravity | Copilot |"
+        "| --- | ---: | ---: | ---: | ---: |"
+        "| Installed | ${skillCount "claude-code"} | ${skillCount "codex"} | ${skillCount "antigravity-cli"} | ${skillCount "github-copilot-cli"} |"
+        "| Of which pstack, manual only | ${pstackCount} | ${pstackCount} | 0 | 0 |"
+        ""
+        "| MCP server | Claude | Codex | Approval |"
+        "| --- | --- | --- | --- |"
+      ]
+      ++ map serverRow (lib.unique (lib.sort builtins.lessThan (claudeServers ++ builtins.attrNames codexServers)))
+      ++ ["<!-- catalogue:end -->"]);
+    catalogueCurrent = lib.hasInfix catalogue (builtins.readFile ../../docs/agents.md);
     failures =
       lib.concatMap homeFailures (builtins.attrNames homes)
       ++ expect "lisa@vega: Antigravity must read AGENTS.md, stay in its workspace and ask before live-system commands"
@@ -277,6 +316,7 @@ in {
     ]);
   in {
     checks.agent-policy = assert lib.assertMsg (failures == []) "Agent configuration no longer matches agent-policy.nix:\n${lib.concatStringsSep "\n" failures}";
+    assert lib.assertMsg catalogueCurrent "docs/agents.md's catalogue differs from Nix; replace it with:\n${catalogue}";
       pkgs.runCommand "agent-policy" {
         nativeBuildInputs = [(pkgs.python3.withPackages (ps: [ps.pyyaml ps.tomli-w])) pkgs.gnused];
         AGENT_POLICY = policyFile pkgs;

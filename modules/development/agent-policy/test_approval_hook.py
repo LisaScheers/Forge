@@ -36,6 +36,11 @@ class ApprovalHookTests(unittest.TestCase):
             "nix run nix-darwin -- switch --flake .#vega",
             "nix run nixpkgs#nixos-rebuild -- switch --flake .#asterion",
             "nix run home-manager/master -- switch --flake .",
+            'bash -c "just switch"',
+            "eval 'just deploy nook'",
+            "sh -c 'sudo darwin-rebuild switch --flake .#vega'",
+            "echo $(just deploy atlas)",
+            "x=`just deploy nook`",
         ]:
             self.assert_asks(command)
 
@@ -47,6 +52,7 @@ class ApprovalHookTests(unittest.TestCase):
             "git log --oneline -5",
             "darwin-rebuild build --flake .#vega",
             "cat docs/deploy.md",
+            'git commit -m "document just deploy-build"',
         ]:
             self.assert_allows(command)
 
