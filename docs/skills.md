@@ -20,6 +20,7 @@ explains where each set comes from. pstack skills run only when named.
 | `postplan-read` | bundled | yes | yes | yes | yes | Use when the user supplies a plans.bylisa.dev URL or asks to read a document from the hosted PostPlan service. |
 | `visualize` | bundled | yes | yes | yes | yes | Create or revise interactive visual explanations, data graphs, spatial maps, molecules, mathematical plots, 3D scenes, and simulations as local HTML Canvas/WebGL artifacts. |
 | `anatomy` | pinned extra | yes | yes | yes | yes | Build crafted, highly detailed, interactive isometric SVG figures that explain a technical idea as a real physical object (a test rig, a dial gauge, a cabinet of drawers, a plotter, a lock), with many small precise solid parts, four-tone shading, correct painter's order, a framed card with title, hint and live readout, and calm eased motion. |
+| `ui-sdk` | pinned extra | yes | yes | yes | yes | Builds interfaces with ui-sdk in React, Vue, Svelte, Solid or web components. |
 | `architect` | pstack | yes | yes |  |  | Sketch types, signatures, and module structure before code, then stay in the loop while implementation fills in. |
 | `arena` | pstack | yes | yes |  |  | Spawn N parallel candidates at the same task, pick a base, graft the strongest parts of the losers into it. |
 | `automate-me` | pstack | yes | yes |  |  | Use for "automate me", "create/update/refresh my -mode skill", "turn/capture my preferences or working style into a skill", or wanting agents to follow how the user works. |
@@ -84,6 +85,6 @@ description; manual-only skills and deferred MCP tools add nothing up front.
 | Part | Claude | Codex | Antigravity | Copilot |
 | --- | ---: | ---: | ---: | ---: |
 | Shared instructions (`AGENTS.md`) | 1,635 | 1,635 | 1,635 | 1,635 |
-| Skills the model may load on its own | 15 | 16 | 11 | 11 |
-| Their index: names and descriptions | 848 | 855 | 786 | 786 |
+| Skills the model may load on its own | 16 | 17 | 12 | 12 |
+| Their index: names and descriptions | 982 | 989 | 920 | 920 |
 | MCP tool schemas up front | none: tool search | none: tool search | `mcp-nixos` and webmcp | none |

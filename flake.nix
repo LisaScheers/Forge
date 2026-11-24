@@ -118,6 +118,10 @@
       url = "github:t3dotgg/tstack";
       flake = false;
     };
+    ui-sdk = {
+      url = "github:vercel-labs/ui";
+      flake = false;
+    };
     zed.url = "github:zed-industries/zed";
   };
 }

@@ -2138,6 +2138,7 @@
         "systems": "systems_10",
         "t3-code-nix": "t3-code-nix",
         "tstack": "tstack",
+        "ui-sdk": "ui-sdk",
         "zed": "zed"
       }
     },
@@ -2546,6 +2547,22 @@
       "original": {
         "owner": "t3dotgg",
         "repo": "tstack",
+        "type": "github"
+      }
+    },
+    "ui-sdk": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1795467302,
+        "narHash": "sha256-D89z92HsNjclrDAjoUAOkKl+cWDeRAY1V/Y0trN7dm8=",
+        "owner": "vercel-labs",
+        "repo": "ui",
+        "rev": "926dab872d1f2aa23df4bd9b5cf21c879c9abac9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "vercel-labs",
+        "repo": "ui",
         "type": "github"
       }
     },

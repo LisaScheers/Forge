@@ -113,7 +113,7 @@ lists every skill with its clients and what it does, generated the same way.
 <!-- catalogue:start: rendered from Nix; checks.agent-policy prints the current version when this differs -->
 | Skills on Vega | Claude | Codex | Antigravity | Copilot |
 | --- | ---: | ---: | ---: | ---: |
-| Installed | 64 | 65 | 11 | 11 |
+| Installed | 65 | 66 | 12 | 12 |
 | Of which pstack, manual only | 49 | 49 | 0 | 0 |
 
 | MCP server | Claude | Codex | Zed | Antigravity |
@@ -130,6 +130,7 @@ lists every skill with its clients and what it does, generated the same way.
 | Bundled skills | `ai-skills/skills/` | yes | yes | yes |
 | tstack (`council`, `full-send`, `full-stop`, `sol-loop`) | flake input `tstack` | yes | yes | no |
 | `anatomy` | flake input `anatomy` | yes | yes | yes |
+| `ui-sdk` ([ui-sdk.dev](https://ui-sdk.dev/)) | flake input `ui-sdk`, `packages/core/skills/ui-sdk` | yes | yes | yes |
 | pstack | vendored, provenance in `ai-skills/pstack/IMPORT.md` | yes, manual only | yes, manual only | no |
 | REA's `reverse-engineer-anything` | REA package | no | yes | no |
 
