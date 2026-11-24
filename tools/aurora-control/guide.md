@@ -26,7 +26,7 @@ this server does not add it to a running viewer.
 - Release automation when done: `viewer_move` op `stop`, `viewer_input` op
   `drag_end`. A hold ends `duration_ms` after it was last sent (default 1000,
   at most 10000); send it again with `duration_ms` to extend it. A drag ends
-  10 seconds after its last `drag_move`.
+  10 seconds after `drag_start` or its last `drag_move`, whichever came later.
 
 ## Conversations
 

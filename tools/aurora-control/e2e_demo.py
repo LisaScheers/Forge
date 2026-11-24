@@ -41,7 +41,6 @@ class Check:
     def __init__(self, directory: Path):
         self.directory = directory
         self.passed: list[str] = []
-        self.covered = False
 
     def call(self, tool: str, **arguments: Any) -> Any:
         return viewer_api.call(self.directory, tool, **arguments)
@@ -143,7 +142,6 @@ class Check:
             # macOS draws nothing for a covered window
             if not self.call("viewer_capture", op="poll")["occluded"]:
                 raise
-            self.covered = True
             print("skip capture: the viewer window is covered; uncover it to check captures", flush=True)
         else:
             assert shot["status"] == "done" and shot["width"] <= 640, {k: v for k, v in shot.items() if k != "png_base64"}
@@ -196,14 +194,14 @@ class Check:
             assert not state["isError"] and state["structuredContent"]["result"]["pid"] == pid
             image = rpc(4, "tools/call", {"name": "viewer_capture", "arguments": {"max_width": 320}})["result"]
             result = image["structuredContent"]["result"]
-            if result["status"] == "done":
+            captured = result["status"] == "done"
+            if captured:
                 assert not image["isError"] and image["content"][0]["type"] == "image", result
-                self.covered = False
             else:
                 assert result["status"] == "pending" and result["occluded"], result
             guide = rpc(5, "resources/read", {"uri": "aurora://guide"})["result"]["contents"][0]["text"]
             assert "viewer_state" in guide
-            self.ok("mcp: initialize, 16 tools, viewer_state, capture" + (" (pending: window covered)" if self.covered else " image") + ", guide")
+            self.ok("mcp: initialize, 16 tools, viewer_state, capture" + (" image" if captured else " (pending: window covered)") + ", guide")
         finally:
             server.stdin.close()
             server.wait(timeout=10)
