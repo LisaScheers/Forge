@@ -24,8 +24,12 @@ rustPlatform.buildRustPackage {
 
   # macOS's Metal compiler fails to encode the fully inlined terrain shaders
   # on M3 and later (Aurora-Viewer#4785): a black world. Keep the debug views
-  # in a function that the patched wgpu-hal leaves as a call.
-  patches = [./metal-outlined-debug-view.patch];
+  # in a function that the patched wgpu-hal leaves as a call. control.patch
+  # adds the local control bridge behind AURORA_CONTROL_DIR (docs/aurora-viewer.md).
+  patches = [
+    ./metal-outlined-debug-view.patch
+    ./control.patch
+  ];
   prePatch = ''
     patch -d "$cargoDepsCopy/source-git-0/wgpu-hal-30.0.1" -p1 < ${./wgpu-hal-outlined-functions.patch}
   '';
