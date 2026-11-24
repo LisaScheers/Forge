@@ -145,6 +145,19 @@ in {
     ...
   }: let
     homes = lib.genAttrs ["lisa@vega" "lisa@asterion" "lisa@nook"] (name: config.flake.homeConfigurations.${name}.config);
+    # Each system's check covers the home it builds. Evaluating another
+    # system's home builds that system's catppuccin themes during evaluation
+    # (import from derivation), which a CI runner of one system cannot do.
+    homeHere =
+      {
+        aarch64-darwin = "lisa@vega";
+        aarch64-linux = "lisa@asterion";
+        x86_64-linux = "lisa@nook";
+      }.${
+        system
+      };
+    onVega = homeHere == "lisa@vega";
+    onNook = homeHere == "lisa@nook";
     workstations = ["lisa@vega" "lisa@asterion"];
     nookCodex = config.flake.nixosConfigurations.nook.config.systemd.services.codex.serviceConfig.ExecStart;
     expect = label: condition: lib.optional (!condition) label;
@@ -382,7 +395,7 @@ in {
     staleSnapshots = builtins.filter (name:
       !(builtins.pathExists (snapshotFile name))
       || builtins.fromJSON (builtins.readFile (snapshotFile name)) != builtins.fromJSON (builtins.toJSON (renderedConfig name)))
-    (builtins.attrNames homes);
+    [homeHere];
     snapshots = pkgs.runCommand "agent-config-snapshots" {nativeBuildInputs = [pkgs.python3];} ''
       mkdir "$out"
       ${lib.concatMapStrings (name: ''
@@ -393,35 +406,26 @@ in {
 
     agentSkillNames = pkgs.writeText "agent-skill-names.json" (builtins.toJSON (lib.unique (installedSkills "claude-code" ++ installedSkills "codex")));
     failures =
-      lib.concatMap homeFailures (builtins.attrNames homes)
-      ++ clientContracts
-      ++ expect "Zed and Antigravity, which load every schema up front, must get only nixos and webmcp"
-      (zedServers == ["nixos" "webmcp"] && antigravityServers == ["nixos" "webmcp"])
+      homeFailures homeHere
       ++ expect "Skill names must be unique across sets; duplicated: ${toString duplicateSkills}" (duplicateSkills == [])
       ++ expect "modules.homeManager.ai-environment must work on its own" standaloneWorks
-      ++ expect "lisa@vega: Antigravity must read AGENTS.md and run without workspace limits or ask rules"
-      (vega.context.GEMINI
-        == homes."lisa@vega".programs.codex.context
-        && vega.settings.allowNonWorkspaceAccess
-        && vega.settings.permissions.ask == [])
-      ++ expect "nook: nginx must route OTLP logs, metrics and traces to the collector"
-      (config.flake.nixosConfigurations.nook.config.services.nginx.virtualHosts."otel.local.bylisa.dev".locations ? "~ ^/v1/(logs|metrics|traces)$")
       # Every client loads the shared instructions in full, in every session.
       ++ expect "AGENTS.md must stay under 16 KiB"
       (builtins.stringLength (builtins.readFile ./ai-skills/AGENTS.md) <= 16384)
-      ++ expect "nook: the Codex service must use the shared Cognee server"
-      (lib.hasInfix "mcp_servers.cognee.url=" nookCodex);
+      ++ lib.optionals onVega (clientContracts
+        ++ expect "Zed and Antigravity, which load every schema up front, must get only nixos and webmcp"
+        (zedServers == ["nixos" "webmcp"] && antigravityServers == ["nixos" "webmcp"])
+        ++ expect "lisa@vega: Antigravity must read AGENTS.md and run without workspace limits or ask rules"
+        (vega.context.GEMINI
+          == homes."lisa@vega".programs.codex.context
+          && vega.settings.allowNonWorkspaceAccess
+          && vega.settings.permissions.ask == []))
+      ++ lib.optionals onNook (expect "nook: nginx must route OTLP logs, metrics and traces to the collector"
+        (config.flake.nixosConfigurations.nook.config.services.nginx.virtualHosts."otel.local.bylisa.dev".locations ? "~ ^/v1/(logs|metrics|traces)$")
+        ++ expect "nook: the Codex service must use the shared Cognee server"
+        (lib.hasInfix "mcp_servers.cognee.url=" nookCodex));
     # The home this system builds, so its generated files exist here.
-    local =
-      homes.${
-        {
-          aarch64-darwin = "lisa@vega";
-          aarch64-linux = "lisa@asterion";
-          x86_64-linux = "lisa@nook";
-        }.${
-          system
-        }
-      };
+    local = homes.${homeHere};
     # Home Manager's own merge steps, which write the live files at activation.
     zedMerges = local.home.activation ? zedSettingsActivation;
     # Each pstack skill as Claude receives it, to compare with the vendored copy.
@@ -438,7 +442,7 @@ in {
     packages.agent-config-snapshots = snapshots;
     checks.agent-policy = assert lib.assertMsg (failures == []) "Agent configuration no longer matches agent-policy.nix:\n${lib.concatStringsSep "\n" failures}";
     assert lib.assertMsg (staleSnapshots == []) "Rendered agent settings changed for ${toString staleSnapshots}; review the change, then: nix build .#agent-config-snapshots && cp result/*.json tests/agent-config/";
-    assert lib.assertMsg catalogueCurrent "docs/agents.md's catalogue differs from Nix; replace it with:\n${catalogue}";
+    assert !onVega || lib.assertMsg catalogueCurrent "docs/agents.md's catalogue differs from Nix; replace it with:\n${catalogue}";
       pkgs.runCommand "agent-policy" {
         nativeBuildInputs = [(pkgs.python3.withPackages (ps: [ps.pyyaml ps.tomli-w])) pkgs.gnused];
       } ''
@@ -475,10 +479,12 @@ in {
 
         # The exported module writes the shared instructions for Codex on its own.
         cmp ${standalone.home.file.".codex/AGENTS.md".source} ${./ai-skills/AGENTS.md}
-        if ! diff -u ${../../docs/skills.md} ${skillsCatalogue}; then
-          echo "docs/skills.md is out of date: nix build .#agent-skills-catalogue && cp result docs/skills.md" >&2
-          exit 1
-        fi
+        ${lib.optionalString onVega ''
+          if ! diff -u ${../../docs/skills.md} ${skillsCatalogue}; then
+            echo "docs/skills.md is out of date: nix build .#agent-skills-catalogue && cp result docs/skills.md" >&2
+            exit 1
+          fi
+        ''}
 
         # A home left from the earlier approval policy: a sandbox, ask rules,
         # a hook, an npx server and the retired gateway provider.

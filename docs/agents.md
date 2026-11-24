@@ -300,7 +300,10 @@ Codex, Claude, the shared MCP servers, and on workstations Zed's agent, plus
 Antigravity and T3's drivers on Vega. Store paths appear as `<store>`, so a
 Nixpkgs update alone changes nothing. `checks.agent-policy` fails when the
 rendered settings differ from the snapshot, so every change to a client's
-settings shows up as a diff in review. After checking the change:
+settings shows up as a diff in review. Each system's check covers the home it
+builds (Vega on `aarch64-darwin`, Asterion on `aarch64-linux`, Nook on
+`x86_64-linux`), because evaluating another system's home builds its catppuccin
+themes during evaluation; CI runs all three. After checking the change:
 
 ```sh
 nix build .#agent-config-snapshots && cp result/*.json tests/agent-config/
