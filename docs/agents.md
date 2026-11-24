@@ -78,7 +78,8 @@ changed, and restic keeps 14 daily, 8 weekly and 12 monthly snapshots.
 The first run, on 2026-11-23, read 1,566 files (3.36 GiB) and stored 2.95 GiB
 in under a minute; later runs store only the difference. The job logs to
 `~/Library/Logs/session-backup.log`. To restore on Vega, use the key and
-password agenix already decrypts there; Nook accepts only that key. Each restore
+password agenix already decrypts there; Nook accepts only that key, and `nook`
+must already be in `~/.ssh/known_hosts`, as it is after any earlier `ssh nook`. Each restore
 goes to a new directory, so earlier recovery files are never overwritten:
 
 ```sh
@@ -91,8 +92,8 @@ target=$(mktemp -d ~/session-restore.XXXXXX) && echo "$target"
 restic -r "$repo" -o sftp.command="$sftp" restore latest --target "$target"
 ```
 
-Without Vega, decrypt `secrets/vega/session-backup-key.age` and
-`session-backup-password.age` with Lisa's age identity into `mktemp` files
+Without Vega, decrypt `modules/security/agenix/secrets/vega/session-backup-key.age`
+and `session-backup-password.age` beside it with Lisa's age identity into `mktemp` files
 under `umask 077`, use those paths instead, and delete them afterwards.
 
 ## Instructions and skills

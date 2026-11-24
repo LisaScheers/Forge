@@ -383,8 +383,10 @@ decrypts. Nothing on Nook changes until it does:
 sudo install -m 0600 -o "$USER" /srv/disks/projects/cognee-backup/cognee.tar.zst.age ~/
 # On Vega: fetch, decrypt and decompress; a damaged archive fails here.
 umask 077
+# Separate steps, so a failed decryption stops the chain without pipefail.
 scp nook:cognee.tar.zst.age . &&
-  age -d -i ~/.config/sops/age/keys.txt cognee.tar.zst.age | zstd -dc > cognee.tar &&
+  age -d -i ~/.config/sops/age/keys.txt -o cognee.tar.zst cognee.tar.zst.age &&
+  zstd -dq --rm cognee.tar.zst &&
   scp cognee.tar nook: && rm cognee.tar cognee.tar.zst.age
 ```
 
