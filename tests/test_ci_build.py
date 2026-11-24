@@ -115,7 +115,8 @@ class CompareWithBaseTest(unittest.TestCase):
         """Run the comparison on a merge commit whose first parent is the base.
 
         nix prints the given head and base derivations, the base matrix lists the
-        job on base_runner, and fails names the evaluations (head, base) that fail.
+        job on base_runner, and fails names the evaluations (head, base, matrix)
+        that fail.
         """
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -125,7 +126,7 @@ class CompareWithBaseTest(unittest.TestCase):
             nix.write_text('''#!/usr/bin/env bash
 printf '%s\n' "$@" >> "$ARGS_FILE"
 case "$*" in
-  eval*) printf '%s\n' "$BASE_MATRIX" ;;
+  eval*) [[ "$FAILS" != *matrix* ]] || exit 1; printf '%s\n' "$BASE_MATRIX" ;;
   *'&rev='*) [[ "$FAILS" != *base* ]] || exit 1; printf '%s\n' $BASE_DRVS ;;
   *) [[ "$FAILS" != *head* ]] || exit 1; printf '%s\n' $HEAD_DRVS ;;
 esac
@@ -185,7 +186,7 @@ esac
         self.assertEqual(self.compare("", ""), "changed=true\n")
 
     def test_failed_evaluations_build(self):
-        for side in ("head", "base"):
+        for side in ("head", "base", "matrix"):
             with self.subTest(side=side):
                 self.assertEqual(self.compare(fails=side), "changed=true\n")
 
