@@ -87,7 +87,11 @@ password with Lisa's age identity and point restic at the repository:
   password=$(mktemp)
   trap 'rm -f "$password"' EXIT
   age -d -i ~/.config/sops/age/keys.txt modules/security/agenix/secrets/vega/session-backup-password.age > "$password"
-  RESTIC_PASSWORD_FILE="$password" restic -r sftp:session-backup@nook:/srv/disks/projects/session-backup/repo snapshots
+  export RESTIC_PASSWORD_FILE="$password"
+  repo=sftp:session-backup@nook:/srv/disks/projects/session-backup/repo
+  restic -r "$repo" snapshots
+  # Restore into a new directory, then copy back what is needed.
+  restic -r "$repo" restore latest --target ~/session-restore
 )
 ```
 
@@ -149,7 +153,9 @@ each session.
 `modules/development/mcp.nix` declares the shared servers once: Cognee (personal
 memory, OAuth through Authentik; Nook's Codex service gets it too), Clerk,
 `mcp-nixos` (NixOS, Home Manager and nix-darwin package and option lookup),
-webmcp (a Nix-packaged bundle, so nothing is fetched from npm at run time), and
+webmcp (a Nix-packaged bundle, so nothing is fetched from npm at run time,
+patched to listen on 127.0.0.1 only; its daemon outlives the client that starts
+it, so after a switch run `webmcp --quit` once to replace an older one), and
 REA from `modules/development/rea.nix`. The catalogue above shows how each
 client loads them. Zed's agent and Antigravity get only `mcp-nixos` and webmcp:
 they load every tool schema up front, and Cognee and Clerk sign in through

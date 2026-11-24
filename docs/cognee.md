@@ -385,10 +385,15 @@ the services again. Delete the moved directories once Cognee works:
 
 ```sh
 cd /srv/disks/projects/cognee
-sudo mkdir pre-restore
-sudo mv system data credentials openai mcp pre-restore/
-age -d -i ~/.config/sops/age/keys.txt cognee-YYYY-MM-DD.tar.zst.age | zstd -dc | sudo tar -C /srv/disks/projects/cognee -xpf -
+# A new directory per attempt, so a failed extraction can be retried cleanly.
+aside="pre-restore-$(date -u +%Y%m%dT%H%M%SZ)"
+sudo mkdir "$aside" &&
+  sudo mv system data credentials openai mcp "$aside"/ &&
+  age -d -i ~/.config/sops/age/keys.txt cognee-YYYY-MM-DD.tar.zst.age | zstd -dc | sudo tar -C /srv/disks/projects/cognee -xpf -
 ```
+
+If the extraction fails, move the partly restored directories into another
+`pre-restore-*` directory before trying again.
 
 Before the first deployment, create Uptime Kuma push monitors named
 `cognee-backup` and `cognee-backup-copy` and add their tokens to each host's
