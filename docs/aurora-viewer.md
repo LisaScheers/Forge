@@ -25,14 +25,33 @@ the configuration. Log in manually.
 ## Port and package
 
 The source is pinned to upstream release 0.9.13
-(`e961b7df61c49552773f3bc209d7d80d92a0b16b`, 23 November 2026) and carries no
-local patches. Upstream includes the macOS browser integration, media-pack
+(`e961b7df61c49552773f3bc209d7d80d92a0b16b`, 23 November 2026). Upstream includes the macOS browser integration, media-pack
 selection, binding-array page-limit fixes, world render scaling, and masked-pixel
 rejection. The former blended-alpha early-rejection patch was dropped at 0.9.13:
 Medium and higher presets now draw blended faces in exact order through
 `fs_blend_once`, which that patch never covered. In the remaining `fs_blend`
 pass, upstream now shades legacy materials before rejecting empty texels so
 they can still glare. Its measured gain was also within noise (below).
+
+Unpatched 0.9.13 opens to a black world on M3 and later
+([Aurora-Viewer#4785](https://github.com/Aurora-Viewer/Aurora-Viewer/issues/4785)).
+Apple's Metal compiler aborts with `LLVM ERROR: Failed to encode.` on the
+terrain fragment shaders (`fs_terrain`, `fs_terrain_pbr` and their G-buffer
+variants), and the crashed compiler service takes every pipeline compiling
+alongside them down too. The trigger arrived with upstream `c32edd26` and is
+not one construct: deleting code does not avoid it, but keeping any of several
+functions as a real call does. Two local patches do that for the debug views,
+which only run when Preferences › Debug picks one:
+
+- `metal-outlined-debug-view.patch` moves the views into `debug_view_outlined`,
+  called only when a view is chosen.
+- `wgpu-hal-outlined-functions.patch`, applied to the vendored wgpu-hal, marks
+  every generated MSL function named `*_outlined` `noinline`.
+
+Apple's offline compiler (Metal toolchain 27.2, `applegpu-nt`) reproduces the
+failure for G15 to G17 (M3 to M5) and accepts all 135 scene pipelines with the
+patches; M1 and M2 (G13, G14) were never affected. Remove both patches once
+upstream compiles on Metal without them.
 
 Preferences › Graphics › Smoothness includes a 50–100% 3D render scale.
 The interface and HUDs stay at native resolution, and saved photos bypass scaling.

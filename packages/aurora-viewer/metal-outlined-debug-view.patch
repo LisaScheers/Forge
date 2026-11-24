@@ -1,0 +1,21 @@
+diff --git a/crates/aurora-render/src/shaders/common.wgsl b/crates/aurora-render/src/shaders/common.wgsl
+index 19fb620a..aaf903a4 100644
+--- a/crates/aurora-render/src/shaders/common.wgsl
++++ b/crates/aurora-render/src/shaders/common.wgsl
+@@ -1637,6 +1637,16 @@ fn screen_motion(cur: vec4<f32>, prev: vec4<f32>) -> vec2<f32> {
+ // occluded (and everywhere when the effect is off), whatever the exposure
+ // of the sky; cubed, the occlusion being too faint to read as it is.
+ fn debug_view(col: vec3<f32>, world_pos: vec3<f32>, n: vec3<f32>, vertex_depth: f32, frag: vec2<f32>) -> vec3<f32> {
++    if ((frame.light_mode.z & 0xffu) == 0u) {
++        return col;
++    }
++    return debug_view_outlined(col, world_pos, n, vertex_depth, frag);
++}
++
++// The views themselves. On Metal, the patched wgpu-hal keeps a `*_outlined`
++// function as a call: with it inlined, macOS's compiler fails to encode the
++// terrain shaders ("Failed to encode", Aurora-Viewer#4785).
++fn debug_view_outlined(col: vec3<f32>, world_pos: vec3<f32>, n: vec3<f32>, vertex_depth: f32, frag: vec2<f32>) -> vec3<f32> {
+     let view = frame.light_mode.z & 0xffu;
+     if (view == 0u) {
+         return col;

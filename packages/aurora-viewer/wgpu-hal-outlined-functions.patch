@@ -1,0 +1,38 @@
+diff --git a/src/metal/device.rs b/src/metal/device.rs
+index 650f216..e73e933 100644
+--- a/src/metal/device.rs
++++ b/src/metal/device.rs
+@@ -57,6 +57,25 @@ struct CompiledShader {
+     immutable_buffer_mask: usize,
+ }
+ 
++/// Keeps every MSL function whose name ends in `_outlined` as a call.
++/// macOS's Metal compiler fails to encode some of Aurora's scene shaders
++/// with every function inlined ("Failed to encode", Aurora-Viewer#4785).
++fn outline_marked_functions(source: &str) -> alloc::string::String {
++    let mut out = alloc::string::String::with_capacity(source.len());
++    for line in source.lines() {
++        let body = line.trim_start();
++        if line.ends_with("_outlined(") && !body.starts_with("__attribute__") && !body.contains('=') {
++            out.push_str(&line[..line.len() - body.len()]);
++            out.push_str("__attribute__((noinline)) ");
++            out.push_str(body);
++        } else {
++            out.push_str(line);
++        }
++        out.push('\n');
++    }
++    out
++}
++
+ fn create_stencil_desc(
+     face: &wgt::StencilFaceState,
+     read_mask: u32,
+@@ -261,6 +290,7 @@ impl super::Device {
+                     &pipeline_options,
+                 )
+                 .map_err(|e| crate::PipelineError::Linkage(stage_bit, format!("MSL: {e:?}")))?;
++                let source = outline_marked_functions(&source);
+ 
+                 log::debug!(
+                     "Naga generated shader for entry point '{}' and stage {:?}\n{}",
