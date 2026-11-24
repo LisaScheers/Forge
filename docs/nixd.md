@@ -20,9 +20,12 @@ The shared settings provide:
   option declarations. The Home Manager selection follows the target platform:
   Vega on Darwin, Asterion on ARM Linux, Nook on x86 Linux.
 
-Option expressions refer to the pinned Forge source used to build the editor
-configuration. They work from other project directories. Rebuild after changing
-the shared settings or Forge option declarations.
+Option expressions read the host's Forge checkout: `/Users/lisa/Projects/Scheers/forge`
+on Darwin and `/etc/nixos/forge` on Linux. They work from other project
+directories and follow uncommitted option changes without a rebuild. Keeping the
+repository's store copy out of the editor configuration means edits elsewhere in
+Forge leave it, and the host builds that include it, unchanged. Rebuild after
+changing the shared settings themselves.
 
 ## Nixpkgs lookup
 
