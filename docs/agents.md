@@ -77,22 +77,23 @@ changed, and restic keeps 14 daily, 8 weekly and 12 monthly snapshots.
 
 The first run, on 2026-11-23, read 1,566 files (3.36 GiB) and stored 2.95 GiB
 in under a minute; later runs store only the difference. The job logs to
-`~/Library/Logs/session-backup.log`. To restore, decrypt the
-password with Lisa's age identity and point restic at the repository:
+`~/Library/Logs/session-backup.log`. To restore on Vega, use the key and
+password agenix already decrypts there; Nook accepts only that key. Each restore
+goes to a new directory, so earlier recovery files are never overwritten:
 
 ```sh
-(
-  umask 077
-  password=$(mktemp)
-  trap 'rm -f "$password"' EXIT
-  age -d -i ~/.config/sops/age/keys.txt modules/security/agenix/secrets/vega/session-backup-password.age > "$password"
-  export RESTIC_PASSWORD_FILE="$password"
-  repo=sftp:session-backup@nook:/srv/disks/projects/session-backup/repo
-  restic -r "$repo" snapshots
-  # Restore into a new directory, then copy back what is needed.
-  restic -r "$repo" restore latest --target ~/session-restore
-)
+key=/run/agenix/session-backup-key
+export RESTIC_PASSWORD_FILE=/run/agenix/session-backup-password
+repo=sftp:session-backup@nook:/srv/disks/projects/session-backup/repo
+sftp="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes session-backup@nook -s sftp"
+restic -r "$repo" -o sftp.command="$sftp" snapshots
+target=$(mktemp -d ~/session-restore.XXXXXX) && echo "$target"
+restic -r "$repo" -o sftp.command="$sftp" restore latest --target "$target"
 ```
+
+Without Vega, decrypt `secrets/vega/session-backup-key.age` and
+`session-backup-password.age` with Lisa's age identity into `mktemp` files
+under `umask 077`, use those paths instead, and delete them afterwards.
 
 ## Instructions and skills
 
@@ -155,7 +156,8 @@ memory, OAuth through Authentik; Nook's Codex service gets it too), Clerk,
 `mcp-nixos` (NixOS, Home Manager and nix-darwin package and option lookup),
 webmcp (a Nix-packaged bundle, so nothing is fetched from npm at run time,
 patched to listen on 127.0.0.1 only; its daemon outlives the client that starts
-it, so after a switch run `webmcp --quit` once to replace an older one), and
+it, so after a switch run `nix run .#webmcp -- --quit` once from this checkout
+to replace an older one), and
 REA from `modules/development/rea.nix`. The catalogue above shows how each
 client loads them. Zed's agent and Antigravity get only `mcp-nixos` and webmcp:
 they load every tool schema up front, and Cognee and Clerk sign in through

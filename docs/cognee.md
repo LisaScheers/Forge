@@ -375,22 +375,38 @@ graph data, source documents and renewable tokens.
 `checks.x86_64-linux.cognee-backup` runs it in a VM: the writers stop and
 restart, and only the age identity opens the archive.
 
-To restore, stop `podman-cognee-mcp` and `podman-cognee` on Nook. Move the five
-archived directories aside, so files written after the backup do not survive into
-the restored state, unpack the archive into `/srv/disks/projects/cognee`, and start
-the services again. Delete the moved directories once Cognee works:
+To restore, first check on Vega, where Lisa's age identity is, that the archive
+decrypts. Nothing on Nook changes until it does:
 
 ```sh
-cd /srv/disks/projects/cognee
-# A new directory per attempt, so a failed extraction can be retried cleanly.
-aside="pre-restore-$(date -u +%Y%m%dT%H%M%SZ)"
-sudo mkdir "$aside" &&
-  sudo mv system data credentials openai mcp "$aside"/ &&
-  sudo cat /srv/disks/projects/cognee-backup/cognee.tar.zst.age | age -d -i ~/.config/sops/age/keys.txt | zstd -dc | sudo tar -C /srv/disks/projects/cognee -xpf -
+# On Nook: hand the root-only ciphertext to Lisa for copying.
+sudo install -m 0600 -o "$USER" /srv/disks/projects/cognee-backup/cognee.tar.zst.age ~/
+# On Vega: fetch, decrypt and decompress; a damaged archive fails here.
+umask 077
+scp nook:cognee.tar.zst.age . &&
+  age -d -i ~/.config/sops/age/keys.txt cognee.tar.zst.age | zstd -dc > cognee.tar &&
+  scp cognee.tar nook: && rm cognee.tar cognee.tar.zst.age
 ```
 
-If the extraction fails, move the partly restored directories into another
-`pre-restore-*` directory before trying again.
+Then stop `podman-cognee-mcp` and `podman-cognee` on Nook and restore. The
+current directories move into a new `pre-restore-*` directory, so files written
+after the backup do not survive into the restored state, and a failed attempt
+can simply be run again; the script stops at the first failed step:
+
+```sh
+sudo sh -euc '
+  cd /srv/disks/projects/cognee
+  aside=pre-restore-$(date -u +%Y%m%dT%H%M%SZ)
+  mkdir "$aside"
+  for dir in system data credentials openai mcp; do
+    if [ -e "$dir" ]; then mv "$dir" "$aside"/; fi
+  done
+  tar -xpf "$0"
+' ~/cognee.tar && rm ~/cognee.tar ~/cognee.tar.zst.age
+```
+
+Start the services again, and delete the `pre-restore-*` directories once
+Cognee works.
 
 Create an Uptime Kuma push monitor named `cognee-backup` and add its token to
 Nook's `uptime-kuma-probes` secret; until then the report is skipped. Before an
