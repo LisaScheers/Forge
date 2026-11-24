@@ -22,7 +22,7 @@ The shared settings provide:
 
 Option expressions read the host's Forge checkout: `/Users/lisa/Projects/Scheers/forge`
 on Darwin and `/etc/nixos/forge` on Linux. They work from other project
-directories and follow uncommitted option changes without a rebuild. Keeping the
+directories and follow uncommitted edits to tracked files without a rebuild. Keeping the
 repository's store copy out of the editor configuration means edits elsewhere in
 Forge leave it, and the host builds that include it, unchanged. Rebuild after
 changing the shared settings themselves.

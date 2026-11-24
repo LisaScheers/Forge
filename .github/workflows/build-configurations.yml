@@ -58,7 +58,7 @@ jobs:
           ref: ${{ inputs.revision || github.sha }}
           # A pull request's merge commit needs its first parent, the base, to
           # compare against.
-          fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 1 }}
+          fetch-depth: ${{ github.event_name == 'pull_request' && !inputs.revision && 2 || 1 }}
           persist-credentials: false
       - uses: samueldr/lix-gha-installer-action@38852f089fdd2f5aabeec42c59c8d180bb8a15e9 # latest branch; no release tags
         with:
@@ -88,7 +88,9 @@ jobs:
         env:
           TARGET: ${{ matrix.target }}
           CHECKS: ${{ matrix.checks }}
-          BASE_REVISION: ${{ github.event_name == 'pull_request' && 'HEAD^1' || '' }}
+          RUNNER: ${{ matrix.runner }}
+          # A caller's explicit revision always builds, even from a pull request.
+          BASE_REVISION: ${{ github.event_name == 'pull_request' && !inputs.revision && 'HEAD^1' || '' }}
           GIT_LFS_SKIP_SMUDGE: "1"
         run: bash .github/scripts/compare-with-base.sh
       - name: Free macOS build space

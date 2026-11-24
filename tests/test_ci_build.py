@@ -1,4 +1,5 @@
 """Check CI download recovery and failure propagation without real builds."""
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -103,13 +104,19 @@ class CiBuildSystemBashTest(CiBuildTest):
 
 
 COMPARE_SCRIPT = SCRIPT.with_name("compare-with-base.sh")
+CHECK = 'checks.x86_64-linux."a"'
 
 
 class CompareWithBaseTest(unittest.TestCase):
     shell = "bash"
 
-    def compare(self, head, base, base_revision="HEAD^1", base_fails=False):
-        """Run the comparison in a two-commit repository; nix prints the given derivations."""
+    def compare(self, head="/a.drv", base="/a.drv", checks=CHECK, base_revision="HEAD^1",
+                base_runner="runner", fails="", harness_change=False):
+        """Run the comparison on a merge commit whose first parent is the base.
+
+        nix prints the given head and base derivations, the base matrix lists the
+        job on base_runner, and fails names the evaluations (head, base) that fail.
+        """
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             bin_dir = root / "bin"
@@ -118,17 +125,21 @@ class CompareWithBaseTest(unittest.TestCase):
             nix.write_text('''#!/usr/bin/env bash
 printf '%s\n' "$@" >> "$ARGS_FILE"
 case "$*" in
-  *'&rev='*) [[ -z "$BASE_FAILS" ]] || exit 1; printf '%s\n' $BASE_DRVS ;;
-  *) printf '%s\n' $HEAD_DRVS ;;
+  eval*) printf '%s\n' "$BASE_MATRIX" ;;
+  *'&rev='*) [[ "$FAILS" != *base* ]] || exit 1; printf '%s\n' $BASE_DRVS ;;
+  *) [[ "$FAILS" != *head* ]] || exit 1; printf '%s\n' $HEAD_DRVS ;;
 esac
 ''')
             nix.chmod(0o755)
             repository = root / "repository"
-            repository.mkdir()
             git = ["git", "-C", str(repository), "-c", "user.name=CI", "-c", "user.email=ci@example.invalid"]
             subprocess.run(["git", "init", "-q", str(repository)], check=True)
-            for message in ("base", "merge"):
-                subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", message], check=True)
+            subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "base"], check=True)
+            if harness_change:
+                (repository / ".github").mkdir()
+                (repository / ".github/workflow.yml").write_text("changed\n")
+                subprocess.run([*git, "add", "."], check=True)
+            subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "merge"], check=True)
             self.base = subprocess.run(
                 [*git, "rev-parse", "HEAD^1"], check=True, capture_output=True, text=True,
             ).stdout.strip()
@@ -140,11 +151,13 @@ esac
                     **{key: value for key, value in os.environ.items() if key not in ("CHECKS", "BASE_REVISION")},
                     "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
                     "TARGET": "test-target",
-                    "CHECKS": 'checks.x86_64-linux."a"',
+                    "CHECKS": checks,
+                    "RUNNER": "runner",
                     "BASE_REVISION": base_revision,
+                    "BASE_MATRIX": json.dumps([{"target": "test-target", "checks": checks, "runner": base_runner}]),
                     "HEAD_DRVS": head,
                     "BASE_DRVS": base,
-                    "BASE_FAILS": "1" if base_fails else "",
+                    "FAILS": fails,
                     "ARGS_FILE": str(root / "args"),
                     "GITHUB_OUTPUT": str(output),
                 },
@@ -158,18 +171,36 @@ esac
     def test_matching_derivations_skip_the_build(self):
         self.assertEqual(self.compare("/a.drv /b.drv", "/b.drv /a.drv"), "changed=false\n")
         url = f"git+file://{self.repository.resolve()}?shallow=1&rev={self.base}"
-        self.assertIn(f'{url}#checks.x86_64-linux."a"', self.args)
+        self.assertIn(f"{url}#{CHECK}", self.args)
         self.assertIn(f"{url}#test-target", self.args)
+        self.assertIn(f"{url}#ciMatrix.include", self.args)
+
+    def test_a_job_without_checks_can_skip(self):
+        self.assertEqual(self.compare(checks=""), "changed=false\n")
 
     def test_changed_derivations_build(self):
         self.assertEqual(self.compare("/a.drv /b.drv", "/a.drv /c.drv"), "changed=true\n")
 
-    def test_failed_base_evaluation_builds(self):
-        self.assertEqual(self.compare("/a.drv", "/a.drv", base_fails=True), "changed=true\n")
+    def test_empty_derivation_lists_build(self):
+        self.assertEqual(self.compare("", ""), "changed=true\n")
 
-    def test_without_a_base_builds_without_evaluating(self):
-        self.assertEqual(self.compare("/a.drv", "/a.drv", base_revision=""), "changed=true\n")
+    def test_failed_evaluations_build(self):
+        for side in ("head", "base"):
+            with self.subTest(side=side):
+                self.assertEqual(self.compare(fails=side), "changed=true\n")
+
+    def test_a_job_new_to_the_base_matrix_or_its_runner_builds(self):
+        self.assertEqual(self.compare(base_runner="other-runner"), "changed=true\n")
+
+    def test_build_workflow_changes_build_without_evaluating(self):
+        self.assertEqual(self.compare(harness_change=True), "changed=true\n")
         self.assertEqual(self.args, [])
+
+    def test_without_a_resolvable_base_builds_without_evaluating(self):
+        for revision in ("", "HEAD^5"):
+            with self.subTest(revision=revision):
+                self.assertEqual(self.compare(base_revision=revision), "changed=true\n")
+                self.assertEqual(self.args, [])
 
 
 @unittest.skipUnless(Path("/bin/bash").exists(), "no /bin/bash")
