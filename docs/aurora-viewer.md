@@ -24,20 +24,22 @@ the configuration. Log in manually.
 
 ## Port and package
 
-The source is pinned to upstream commit
-`24fe0e77c292068d6b2f01ab457b77efbc9b3ccf` (8 November 2026), after release 0.9.3.
-Upstream now includes the macOS browser integration, media-pack selection,
-binding-array page-limit fixes, world render scaling, and masked-pixel rejection.
-`packages/aurora-viewer/macos.patch` retains only the early rejection of transparent
-blended texels before the remaining material maps are sampled, with its GPU
-regression test. The separate browser patch has been removed.
+The source is pinned to upstream release 0.9.13
+(`e961b7df61c49552773f3bc209d7d80d92a0b16b`, 23 November 2026) and carries no
+local patches. Upstream includes the macOS browser integration, media-pack
+selection, binding-array page-limit fixes, world render scaling, and masked-pixel
+rejection. The former blended-alpha early-rejection patch was dropped at 0.9.13:
+Medium and higher presets now draw blended faces in exact order through
+`fs_blend_once`, which that patch never covered. In the remaining `fs_blend`
+pass, upstream now shades legacy materials before rejecting empty texels so
+they can still glare. Its measured gain was also within noise (below).
 
 Preferences › Graphics › Smoothness includes a 50–100% 3D render scale.
 The interface and HUDs stay at native resolution, and saved photos bypass scaling.
 `AURORA_RENDER_SCALE` and `AURORA_TEXTURE_BUDGET_MB` allow isolated comparisons.
 
 The package uses upstream's optimized development profile. It identifies itself
-as `0.9.3+macos.24fe0e77`. The app bundle includes an icon and microphone usage
+as `0.9.13+macos.e961b7df`. The app bundle includes an icon and microphone usage
 description. Earlier performance measurements below describe the October build;
 they have not been repeated for this source revision.
 
@@ -56,12 +58,12 @@ of a 10.54-second trace, with median 18.74 ms active per frame. Fragment shading
 was the main cost; spatial upscaling took about 0.77 ms and egui 0.23 ms.
 These pipeline timings overlap. More texture budget is unlikely to help that
 view: about 4.2 GB was resident within the manually selected 10 GB budget.
-The early-alpha candidate measured 145.6 before / 146.5 FPS after in a separate
+The dropped early-alpha patch measured 145.6 before / 146.5 FPS after in a separate
 layered-hair offline scene (3,000 frames, final 15 profile samples); that small
 difference does not establish an FPS improvement in the live scene. A later
 live trace measured 21.05 ms GPU active per frame, with vertex work higher too
 (8.28 vs 7.19 ms); the changing live workload prevents attributing that
-difference to the alpha change. The candidate remains experimental.
+difference to the alpha change.
 
 The 8 November package passed 7,920 workspace tests (52 ignored), including
 the rebased GPU alpha tests and the separately executed statistics HTTP fixture.
