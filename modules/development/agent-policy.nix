@@ -178,8 +178,8 @@ in {
         (expect "Codex must run with full access and no approval prompts"
           (codex.settings.sandbox_mode == "danger-full-access" && codex.settings.approval_policy == "never"))
         (expect "Codex must have no approval rules or hooks" (codex.rules == {} && codex.hooks == {}))
-        (expect "Codex MCP servers must be exactly clerk_mcp, cognee, nixos, rea and webmcp"
-          (builtins.attrNames servers == ["clerk_mcp" "cognee" "nixos" "rea" "webmcp"]))
+        (expect "Codex MCP servers must be exactly clerk_mcp, cognee, nixos, rea and webmcp, plus aurora on Vega"
+          (builtins.attrNames servers == lib.optional (name == "lisa@vega") "aurora" ++ ["clerk_mcp" "cognee" "nixos" "rea" "webmcp"]))
         (expect "Codex must keep every MCP server's tools out of the initial context and reach them through tool search"
           (builtins.all (server: (server.omit_tools_from or []) == ["direct"]) (builtins.attrValues servers)))
         (expect "Claude must always defer MCP tools to tool search" (claude.settings.env.ENABLE_TOOL_SEARCH == "true"))
@@ -213,12 +213,15 @@ in {
             && claude.settings.hooks.PreToolUse == []
             && claude.settings.skipDangerousModePermissionPrompt))
         (expect "Claude's own memory must stay off; Cognee holds memory" (claude.settings.autoMemoryEnabled == false))
-        (expect "Claude must load Clerk, mcp-nixos, webmcp and Cognee, and attach REA on demand with Codex's REA server"
+        (expect "Claude must load Clerk, mcp-nixos, webmcp and Cognee, and attach REA (and Aurora on Vega) on demand with Codex's servers"
           (builtins.attrNames home.programs.mcp.servers
             == ["clerk_mcp" "nixos" "webmcp"]
             && claude.mcpServers ? cognee
-            && (builtins.fromJSON (builtins.unsafeDiscardStringContext home.home.file.".claude/mcp-available/rea.json".text)).mcpServers.rea.command
-            == builtins.unsafeDiscardStringContext servers.rea.command))
+            && builtins.all (server: let
+              onDemand = (builtins.fromJSON (builtins.unsafeDiscardStringContext home.home.file.".claude/mcp-available/${server}.json".text)).mcpServers.${server};
+            in
+              onDemand.command == builtins.unsafeDiscardStringContext servers.${server}.command && (onDemand.args or []) == (servers.${server}.args or []))
+            (["rea"] ++ lib.optional (name == "lisa@vega") "aurora")))
         (expect "Claude must not auto-start project MCP servers" (claude.settings.enableAllProjectMcpServers == false))
         (expect "Codex and Claude must read the same AGENTS.md" (codex.context == claude.context))
         (expect "Shell-wide gateway variables would reroute clients that sign in directly"
