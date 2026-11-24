@@ -42,7 +42,7 @@ in {
         };
         textGenerationModelSelection = {
           instanceId = "codex";
-          model = "gpt-5.5";
+          model = "gpt-6-luna";
           options = [
             {
               id = "reasoningEffort";
@@ -64,12 +64,12 @@ in {
       userSettings = {
         defaultAutoPull = true;
         defaultModelSelection = {
-          instanceId = "codex";
-          model = "gpt-6-astra";
+          instanceId = "claudeAgent";
+          model = "Opus-5.5";
           options = [
             {
               id = "reasoningEffort";
-              value = "medium";
+              value = "high";
             }
             {
               id = "serviceTier";
@@ -139,7 +139,7 @@ in {
         };
         sourceControlWriterModelSelection = {
           instanceId = "codex";
-          model = "gpt-5.6-luna";
+          model = "gpt-6-luna";
           options = [
             {
               id = "reasoningEffort";
