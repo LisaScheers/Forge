@@ -3,8 +3,7 @@
 Cognee runs on Nook as Lisa's personal memory for Claude Code and Codex: a
 graph and vector store behind an Authentik-protected MCP endpoint, a local email
 index with dated sources, a read-only graph viewer and a nightly encrypted
-backup, which Atlas copies off Nook once the backup module reaches `main`
-([Backup and restore](#backup-and-restore)). The dated rollout history is in
+backup that stays on Nook ([Backup and restore](#backup-and-restore)). The dated rollout history is in
 [history](history/cognee-rollout.md).
 
 ## Storage and services
@@ -356,31 +355,29 @@ Never expose the loopback ports directly.
 
 ## Backup and restore
 
-`modules/services/cognee/backup.nix` copies Cognee's state off Nook every night.
-Nook's half was deployed on 2026-11-23; its first archive is due at 03:15 UTC on
-2026-11-24. Atlas's copy starts once these modules reach `main`, which Atlas
-deploys and updates from.
+`modules/services/cognee/backup.nix` archives Cognee's state on Nook every night.
+It was deployed on 2026-11-23. The archive stays on Nook: Lisa does not want
+Cognee's data on Atlas, a public cloud host, so no other host copies it, even
+as ciphertext. It protects against a damaged graph or a bad upgrade, not
+against losing Nook's projects disk.
 
 1. At 03:15 UTC `cognee-backup.service` stops the MCP and API containers, archives
    `system`, `data`, `credentials`, `openai` and `mcp`, compresses the archive with
    zstd, encrypts it to Lisa's age key, and starts the containers again. They
    restart even when the copy fails. Cached models and images are re-created, so
-   they are left out.
-2. At 04:15 UTC Atlas fetches that night's archive over Tailscale with a key whose
-   forced command can only print it. Atlas refuses an archive from an earlier day
-   or one that is not an age file, and keeps seven dated copies in
-   `/var/backups/cognee`.
-3. Uptime Kuma receives `cognee-backup` from Nook and `cognee-backup-copy` from
-   Atlas, so a missed night shows as a missed push.
+   they are left out. Each night replaces `/srv/disks/projects/cognee-backup/cognee.tar.zst.age`,
+   readable only by root.
+2. Uptime Kuma receives `cognee-backup` from Nook, so a missed night shows as a
+   missed push.
 
-Atlas holds only ciphertext; Lisa's age identity is the only key that opens it.
-The archive still contains graph data, source documents and renewable tokens.
-`checks.x86_64-linux.cognee-backup` runs the whole path in two VMs: encryption,
-the restricted key, refusal of stale and corrupt archives, and pruning.
+Lisa's age identity is the only key that opens the archive. It still contains
+graph data, source documents and renewable tokens.
+`checks.x86_64-linux.cognee-backup` runs it in a VM: the writers stop and
+restart, and only the age identity opens the archive.
 
 To restore, stop `podman-cognee-mcp` and `podman-cognee` on Nook. Move the five
 archived directories aside, so files written after the backup do not survive into
-the restored state, unpack a copy into `/srv/disks/projects/cognee`, and start
+the restored state, unpack the archive into `/srv/disks/projects/cognee`, and start
 the services again. Delete the moved directories once Cognee works:
 
 ```sh
@@ -389,16 +386,15 @@ cd /srv/disks/projects/cognee
 aside="pre-restore-$(date -u +%Y%m%dT%H%M%SZ)"
 sudo mkdir "$aside" &&
   sudo mv system data credentials openai mcp "$aside"/ &&
-  age -d -i ~/.config/sops/age/keys.txt cognee-YYYY-MM-DD.tar.zst.age | zstd -dc | sudo tar -C /srv/disks/projects/cognee -xpf -
+  sudo cat /srv/disks/projects/cognee-backup/cognee.tar.zst.age | age -d -i ~/.config/sops/age/keys.txt | zstd -dc | sudo tar -C /srv/disks/projects/cognee -xpf -
 ```
 
 If the extraction fails, move the partly restored directories into another
 `pre-restore-*` directory before trying again.
 
-Before the first deployment, create Uptime Kuma push monitors named
-`cognee-backup` and `cognee-backup-copy` and add their tokens to each host's
-`uptime-kuma-probes` secret; until then the reports are skipped. Check Atlas's free
-space against the archive size after the first copy. Before an image upgrade,
+Create an Uptime Kuma push monitor named `cognee-backup` and add its token to
+Nook's `uptime-kuma-probes` secret; until then the report is skipped. Before an
+image upgrade,
 run `systemctl start cognee-backup` and keep the agenix secrets.
 
 ## Documentation review

@@ -38,7 +38,6 @@ flowchart LR
     cognee[Cognee MCP and email index]
     backup[Encrypted nightly backup]
   end
-  atlas[(Atlas: off-site ciphertext)]
   anthropic[Anthropic]
   openai[OpenAI]
   google[Gemini subscription]
@@ -52,7 +51,7 @@ flowchart LR
   otel --> ch
   ch -- read-only --> archive
   claude & codex -- recall and remember --> cognee
-  cognee --> backup -. "from main onwards" .-> atlas
+  cognee --> backup
 ```
 
 Claude and Codex transcripts stay in their local session files, and only usage

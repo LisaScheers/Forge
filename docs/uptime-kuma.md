@@ -34,11 +34,10 @@ Each host's push tokens are encrypted in its `uptime-kuma-probes.age` secret.
   `postgresql-backup-copy`. Create a push monitor with a 26-hour deadline and
   add its token under that key to Nook's `uptime-kuma-probes.age`; until then
   the report fails quietly.
-- Cognee's nightly encrypted archive reports from Nook as `cognee-backup`, and
-  Atlas's off-site copy of it as `cognee-backup-copy`
-  ([Cognee backup](cognee.md#backup-and-restore)). Give both 26-hour deadlines.
-- `projects-disk`, `cognee-backup` and `cognee-backup-copy` need push monitors
-  and tokens added before they report; until then their reports fail quietly.
+- Cognee's nightly encrypted archive reports from Nook as `cognee-backup`
+  ([Cognee backup](cognee.md#backup-and-restore)). Give it a 26-hour deadline.
+- `projects-disk` and `cognee-backup` need push monitors and tokens added before
+  they report; until then their reports fail quietly.
 - Atlas's automatic update job also reports through `ExecStartPost`. Its
   monitor allows two hours for builds and updates. Nook has no scheduled
   auto-update job, so its completion monitor is paused as not applicable.

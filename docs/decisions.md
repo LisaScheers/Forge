@@ -137,16 +137,18 @@ Codex's config.
 **Cost.** A key Lisa adds by hand under a name Nix later stops declaring is
 removed with it.
 
-## 2026-11-23: Cognee's backup leaves Nook as ciphertext
+## 2026-11-24: Cognee's backup stays on Nook
 
 **Decision.** Nook writes a nightly archive of Cognee's state encrypted to Lisa's
-age key; Atlas pulls it with a key whose forced command can only print it
-(`modules/services/cognee/backup.nix`).
+age key and keeps it on Nook (`modules/services/cognee/backup.nix`). No other
+host copies it. This replaces the 2026-11-23 plan, never deployed, for Atlas to
+pull the ciphertext.
 
-**Why.** Atlas is internet-facing. It should hold a copy it cannot read.
+**Why.** Lisa did not approve the Atlas copy and does not want her data on a
+public cloud host, even encrypted.
 
 **Cost.** Restores need Lisa's age identity. Cognee stops for the length of the
-copy at 03:15 UTC. Atlas's pull starts once the module reaches `main`.
+copy at 03:15 UTC. The archive does not survive the loss of Nook's projects disk.
 
 ## 2026-11-23: the archive reads ClickHouse through a read-only account
 

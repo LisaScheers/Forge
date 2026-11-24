@@ -119,15 +119,10 @@
         "-+${lib.getExe report} postgresql-backup-copy"
       ];
     };
-    # Cognee's encrypted archive on Nook, and Atlas's off-site copy of it.
+    # Cognee's encrypted archive on Nook.
     systemd.services.cognee-backup = lib.mkIf (host == "nook") {
       serviceConfig.ExecStartPost = [
         "-+${lib.getExe report} cognee-backup"
-      ];
-    };
-    systemd.services.cognee-backup-pull = lib.mkIf (host == "atlas") {
-      serviceConfig.ExecStartPost = [
-        "-+${lib.getExe report} cognee-backup-copy"
       ];
     };
   };
