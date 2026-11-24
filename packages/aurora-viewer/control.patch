@@ -53,7 +53,7 @@ index dae6b4a5..ab56cce5 100644
          if self.gfx.as_ref().is_some_and(|g| !g.shown) {
 diff --git a/crates/aurora-viewer/src/app/control_bridge.rs b/crates/aurora-viewer/src/app/control_bridge.rs
 new file mode 100644
-index 00000000..35c31950
+index 00000000..1f9fb03e
 --- /dev/null
 +++ b/crates/aurora-viewer/src/app/control_bridge.rs
 @@ -0,0 +1,386 @@
@@ -97,8 +97,8 @@ index 00000000..35c31950
 +        id: u64,
 +        max_width: u32,
 +        /// When the renderer was asked for the picture (once; again after
-+        /// `CAPTURE_RETRY` without one).
-+        asked: Option<Instant>,
++        /// `CAPTURE_RETRY` without one), and the interface scale then.
++        asked: Option<(Instant, f32)>,
 +    },
 +    Done {
 +        id: u64,
@@ -1136,10 +1136,10 @@ index 00000000..09cd68e2
 +}
 diff --git a/crates/aurora-viewer/src/app/control_bridge/input.rs b/crates/aurora-viewer/src/app/control_bridge/input.rs
 new file mode 100644
-index 00000000..1d9f8121
+index 00000000..3d329d21
 --- /dev/null
 +++ b/crates/aurora-viewer/src/app/control_bridge/input.rs
-@@ -0,0 +1,405 @@
+@@ -0,0 +1,415 @@
 +//! `viewer_ui`, `viewer_input` and `viewer_capture`: panels and shortcuts,
 +//! synthetic pointer and keyboard input, and pictures of the window.
 +
@@ -1499,18 +1499,28 @@ index 00000000..1d9f8121
 +        let Some((w, h, pixels)) = picture else {
 +            // one request at a time: a second picture would be left for
 +            // another capture's owner to take
-+            if asked.is_none_or(|at| at.elapsed() >= super::CAPTURE_RETRY) {
++            if asked.is_none_or(|(at, _)| at.elapsed() >= super::CAPTURE_RETRY) {
 +                renderer.capture_request = true;
 +                self.control.capture = Capture::Requested {
 +                    id,
 +                    max_width,
-+                    asked: Some(Instant::now()),
++                    asked: Some((Instant::now(), self.control.window.2)),
 +                };
 +            }
 +            return;
 +        };
-+        // the window's geometry when the picture was taken, for mapping it
-+        let (_, _, ppp, window_w, window_h) = self.control.window;
++        // The picture's own size is the window's at capture; the scale is the
++        // one when it was asked for, and a change since makes the mapping
++        // unknown.
++        let ppp = asked.map_or(self.control.window.2, |(_, ppp)| ppp);
++        if (self.control.window.2 - ppp).abs() > f32::EPSILON {
++            self.control.capture = Capture::Done {
++                id,
++                result: json!({"status": "failed", "capture_id": id, "error": "the interface scale changed during the capture; start another"}),
++            };
++            return;
++        }
++        let (window_w, window_h) = (w, h);
 +        let result = match encode_png(w, h, pixels, max_width) {
 +            Ok((png, width, height)) => {
 +                use base64::Engine;
