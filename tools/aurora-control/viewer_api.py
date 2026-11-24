@@ -59,9 +59,10 @@ def request(
     try:
         try:
             connection.connect(str(path))
-        except (FileNotFoundError, ConnectionRefusedError) as error:
+        except OSError as error:
+            # nothing was sent: no endpoint, a stale socket, or no access
             raise ViewerUnavailable(
-                f"no Aurora control bridge at {path}: launch the viewer with {ENV}={directory}"
+                f"no Aurora control bridge at {path} ({error.strerror or error}): launch the viewer with {ENV}={directory}"
             ) from error
         try:
             connection.sendall(line.encode())

@@ -58,7 +58,9 @@ class Check:
 
     def run(self) -> None:
         state = wait(lambda: viewer_api.request(self.directory, "viewer_state").get("result"), "the endpoint")
-        assert state["demo"] is True, "refusing: this is not the offline demo"
+        if state["demo"] is not True:
+            # an explicit check: assert would vanish under python -O
+            raise SystemExit("refusing: this viewer is not the offline demo")
         state = wait(lambda: (s := self.call("viewer_state"))["in_world"] and s, "the demo world", 180)
         assert state["pid"] > 0 and state["agent"]["id"]
         cursor = state["events"]["cursor"]
@@ -193,10 +195,12 @@ class Check:
             state = rpc(3, "tools/call", {"name": "viewer_state", "arguments": {}})["result"]
             assert not state["isError"] and state["structuredContent"]["result"]["pid"] == pid
             image = rpc(4, "tools/call", {"name": "viewer_capture", "arguments": {"max_width": 320}})["result"]
-            if self.covered:
-                assert image["structuredContent"]["result"]["status"] == "pending", image["structuredContent"]
+            result = image["structuredContent"]["result"]
+            if result["status"] == "done":
+                assert not image["isError"] and image["content"][0]["type"] == "image", result
+                self.covered = False
             else:
-                assert not image["isError"] and image["content"][0]["type"] == "image", image["structuredContent"]
+                assert result["status"] == "pending" and result["occluded"], result
             guide = rpc(5, "resources/read", {"uri": "aurora://guide"})["result"]["contents"][0]["text"]
             assert "viewer_state" in guide
             self.ok("mcp: initialize, 16 tools, viewer_state, capture" + (" (pending: window covered)" if self.covered else " image") + ", guide")

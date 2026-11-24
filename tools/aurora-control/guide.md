@@ -24,8 +24,9 @@ this server does not add it to a running viewer.
   automatically. Receipts keep 128 commands and events 512 entries; a `gap`
   means you must read fresh state.
 - Release automation when done: `viewer_move` op `stop`, `viewer_input` op
-  `drag_end`. Holds and drags end on their own 10 seconds after the last
-  renewal.
+  `drag_end`. A hold ends `duration_ms` after it was last sent (default 1000,
+  at most 10000); send it again with `duration_ms` to extend it. A drag ends
+  10 seconds after its last `drag_move`.
 
 ## Conversations
 

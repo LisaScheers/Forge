@@ -107,7 +107,7 @@ class Server:
     def call_tool(self, params: dict[str, Any]) -> dict[str, Any]:
         name = params.get("name")
         arguments = params.get("arguments") or {}
-        if name not in self.tool_names:
+        if not isinstance(name, str) or name not in self.tool_names:
             raise InvalidParams(f"unknown tool {name}")
         if not isinstance(arguments, dict):
             raise InvalidParams("arguments must be an object")

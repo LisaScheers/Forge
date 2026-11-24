@@ -53,10 +53,10 @@ index dae6b4a5..ab56cce5 100644
          if self.gfx.as_ref().is_some_and(|g| !g.shown) {
 diff --git a/crates/aurora-viewer/src/app/control_bridge.rs b/crates/aurora-viewer/src/app/control_bridge.rs
 new file mode 100644
-index 00000000..a3a38eaf
+index 00000000..35c31950
 --- /dev/null
 +++ b/crates/aurora-viewer/src/app/control_bridge.rs
-@@ -0,0 +1,380 @@
+@@ -0,0 +1,386 @@
 +//! The control bridge in the frame (forge patch): requests from
 +//! `crate::control` are answered here, on the frame thread, through the
 +//! viewer's own paths. Every network command goes through `App::send`, so
@@ -164,6 +164,14 @@ index 00000000..a3a38eaf
 +    pub(super) fn event(&mut self, kind: &'static str, data: Value) {
 +        let request = self.current.clone();
 +        self.journal.push(kind, request.as_deref(), data);
++    }
++}
++
++pub(super) fn screen_name(screen: &Screen) -> &'static str {
++    match screen {
++        Screen::Login => "login",
++        Screen::Loading { .. } => "loading",
++        Screen::World => "world",
 +    }
 +}
 +
@@ -278,11 +286,7 @@ index 00000000..a3a38eaf
 +    /// Events from what changed since the last frame: nearby chat and
 +    /// conversation lines, notifications, the screen, region and posture.
 +    fn control_watch(&mut self) {
-+        let screen = match self.screen {
-+            Screen::Login => "login",
-+            Screen::Loading { .. } => "loading",
-+            Screen::World => "world",
-+        };
++        let screen = screen_name(&self.screen);
 +        let first = !self.control.cursors.started;
 +        self.control.cursors.started = true;
 +        if self.control.cursors.screen != screen {
@@ -294,7 +298,9 @@ index 00000000..a3a38eaf
 +        let region = self.world.main().map(|r| r.name.clone());
 +        if self.control.cursors.region != region {
 +            if !first && region.is_some() {
-+                self.control.journal.push("region", None, json!({"region": region}));
++                // RLVa @showloc: the change is reported, not where to
++                let shown = if self.world.rlva.has("showloc") { None } else { region.clone() };
++                self.control.journal.push("region", None, json!({"region": shown}));
 +            }
 +            self.control.cursors.region = region;
 +        }
@@ -439,10 +445,10 @@ index 00000000..a3a38eaf
 +}
 diff --git a/crates/aurora-viewer/src/app/control_bridge/act.rs b/crates/aurora-viewer/src/app/control_bridge/act.rs
 new file mode 100644
-index 00000000..5458abf1
+index 00000000..09cd68e2
 --- /dev/null
 +++ b/crates/aurora-viewer/src/app/control_bridge/act.rs
-@@ -0,0 +1,684 @@
+@@ -0,0 +1,685 @@
 +//! The tools that act: each takes the viewer's own path for the action, so
 +//! its permission checks, protections and RLVa apply.
 +
@@ -673,14 +679,15 @@ index 00000000..5458abf1
 +                    None => self.send(NetCommand::Touch { local_id: key.local_id }),
 +                    Some(face) => {
 +                        let faces = self.world.objects.get(idx).and_then(|o| o.te.as_ref().map(|te| te.faces.len()));
-+                        if face < 0 || faces.is_some_and(|n| face as usize >= n) {
-+                            return Err(ControlError::invalid("face is not one of the object's faces"));
-+                        }
++                        let face = i32::try_from(face)
++                            .ok()
++                            .filter(|f| *f >= 0 && faces.is_none_or(|n| (*f as usize) < n))
++                            .ok_or_else(|| ControlError::invalid("face is not one of the object's faces"))?;
 +                        let flat = |v: Option<Vec3>| v.map(|v| Vec3::new(v.x, v.y, 0.0)).unwrap_or(Vec3::splat(0.5).with_z(0.0));
 +                        let surface = aurora_net::TouchSurface {
 +                            uv: flat(opt_vec3(args, "uv")?),
 +                            st: flat(opt_vec3(args, "st")?),
-+                            face: face as i32,
++                            face,
 +                            position: opt_vec3(args, "position")?.unwrap_or_else(|| self.control_position(idx).unwrap_or_default()),
 +                            ..Default::default()
 +                        };
@@ -1129,15 +1136,15 @@ index 00000000..5458abf1
 +}
 diff --git a/crates/aurora-viewer/src/app/control_bridge/input.rs b/crates/aurora-viewer/src/app/control_bridge/input.rs
 new file mode 100644
-index 00000000..a0638906
+index 00000000..1d9f8121
 --- /dev/null
 +++ b/crates/aurora-viewer/src/app/control_bridge/input.rs
-@@ -0,0 +1,404 @@
+@@ -0,0 +1,405 @@
 +//! `viewer_ui`, `viewer_input` and `viewer_capture`: panels and shortcuts,
 +//! synthetic pointer and keyboard input, and pictures of the window.
 +
 +use super::*;
-+use crate::control::{opt_f64, opt_str, opt_u64, str_arg};
++use crate::control::{opt_f32, opt_str, opt_u64, str_arg};
 +
 +/// Panels by name, with the shortcut that guards them under RLVa.
 +macro_rules! panels {
@@ -1307,8 +1314,8 @@ index 00000000..a0638906
 +    }
 +
 +    fn point(&self, args: &Map<String, Value>) -> Result<(f32, f32), ControlError> {
-+        let x = opt_f64(args, "x")?.ok_or_else(|| ControlError::invalid("x is required"))? as f32;
-+        let y = opt_f64(args, "y")?.ok_or_else(|| ControlError::invalid("y is required"))? as f32;
++        let x = opt_f32(args, "x")?.ok_or_else(|| ControlError::invalid("x is required"))?;
++        let y = opt_f32(args, "y")?.ok_or_else(|| ControlError::invalid("y is required"))?;
 +        let (w, h, ..) = self.control.window;
 +        if x < 0.0 || y < 0.0 || x > w || y > h {
 +            return Err(ControlError::invalid(format!("({x}, {y}) is outside the window ({w} × {h} points)")));
@@ -1320,16 +1327,21 @@ index 00000000..a0638906
 +        let op = str_arg(args, "op")?;
 +        let next = self.frame_count + 1;
 +        let human_gesture = self.left_down && self.control.drag_at.is_none();
++        // an earlier gesture's press or release still queued holds the pointer
++        let gesture_queued = self.control.native.iter().any(|(_, n)| matches!(n, Native::Button(..)));
 +        match op {
 +            "move" | "click" | "double_click" | "scroll" => {
++                // everything is checked before anything is queued
 +                let (x, y) = self.point(args)?;
 +                let pos = egui::pos2(x, y);
 +                let mods = modifiers(args)?;
++                let (button, _) = pointer_button(opt_str(args, "button")?)?;
++                let dx = opt_f32(args, "dx")?.unwrap_or(0.0);
++                let dy = opt_f32(args, "dy")?.unwrap_or(0.0);
 +                let egui = &mut self.control.egui;
 +                egui.push_back((next, egui::Event::PointerMoved(pos)));
 +                match op {
 +                    "click" | "double_click" => {
-+                        let (button, _) = pointer_button(opt_str(args, "button")?)?;
 +                        let clicks = if op == "double_click" { 2 } else { 1 };
 +                        for i in 0..clicks {
 +                            let frame = next + 1 + 2 * i;
@@ -1347,8 +1359,6 @@ index 00000000..a0638906
 +                        }
 +                    }
 +                    "scroll" => {
-+                        let dx = opt_f64(args, "dx")?.unwrap_or(0.0) as f32;
-+                        let dy = opt_f64(args, "dy")?.unwrap_or(0.0) as f32;
 +                        egui.push_back((
 +                            next,
 +                            egui::Event::MouseWheel {
@@ -1391,7 +1401,7 @@ index 00000000..a0638906
 +                Ok(json!({"status": "queued", "route": "egui"}))
 +            }
 +            "game_click" => {
-+                if human_gesture || self.control.drag_at.is_some() || self.clicks.waiting() {
++                if human_gesture || gesture_queued || self.control.drag_at.is_some() || self.clicks.waiting() {
 +                    return Err(ControlError::unavailable("a gesture or pick is in progress; wait for pointer_down=false and pick_pending=false"));
 +                }
 +                let (x, y) = self.point(args)?;
@@ -1403,7 +1413,7 @@ index 00000000..a0638906
 +                Ok(json!({"status": "queued", "route": "native"}))
 +            }
 +            "drag_start" => {
-+                if human_gesture || self.control.drag_at.is_some() || self.clicks.waiting() {
++                if human_gesture || gesture_queued || self.control.drag_at.is_some() || self.clicks.waiting() {
 +                    return Err(ControlError::unavailable("a gesture or pick is in progress"));
 +                }
 +                let (x, y) = self.point(args)?;
@@ -1442,7 +1452,6 @@ index 00000000..a0638906
 +    }
 +
 +    pub(super) fn control_capture(&mut self, args: &Map<String, Value>, _request_id: &str) -> Outcome {
-+        let (_, _, ppp, w, h) = self.control.window;
 +        match str_arg(args, "op")? {
 +            "start" => {
 +                let max_width = opt_u64(args, "max_width")?.unwrap_or(1600).clamp(64, 8192) as u32;
@@ -1467,12 +1476,7 @@ index 00000000..a0638906
 +                        // macOS draws nothing for a covered window
 +                        "occluded": self.occluded,
 +                    })),
-+                    Capture::Done { id, result } if wanted.is_none_or(|w| w == *id) => {
-+                        let mut result = result.clone();
-+                        result["window_pixels"] = json!([w, h]);
-+                        result["ui_pixels_per_point"] = json!(ppp);
-+                        Ok(result)
-+                    }
++                    Capture::Done { id, result } if wanted.is_none_or(|w| w == *id) => Ok(result.clone()),
 +                    _ => Err(ControlError::not_found("that capture was replaced by a newer one")),
 +                }
 +            }
@@ -1505,6 +1509,8 @@ index 00000000..a0638906
 +            }
 +            return;
 +        };
++        // the window's geometry when the picture was taken, for mapping it
++        let (_, _, ppp, window_w, window_h) = self.control.window;
 +        let result = match encode_png(w, h, pixels, max_width) {
 +            Ok((png, width, height)) => {
 +                use base64::Engine;
@@ -1513,6 +1519,8 @@ index 00000000..a0638906
 +                    "capture_id": id,
 +                    "width": width,
 +                    "height": height,
++                    "window_pixels": [window_w, window_h],
++                    "ui_pixels_per_point": ppp,
 +                    "png_base64": base64::engine::general_purpose::STANDARD.encode(png),
 +                })
 +            }
@@ -1539,10 +1547,10 @@ index 00000000..a0638906
 +}
 diff --git a/crates/aurora-viewer/src/app/control_bridge/query.rs b/crates/aurora-viewer/src/app/control_bridge/query.rs
 new file mode 100644
-index 00000000..724e8ba8
+index 00000000..e1986bea
 --- /dev/null
 +++ b/crates/aurora-viewer/src/app/control_bridge/query.rs
-@@ -0,0 +1,518 @@
+@@ -0,0 +1,522 @@
 +//! `viewer_state` and `viewer_query`: observation only.
 +
 +use super::*;
@@ -1605,12 +1613,14 @@ index 00000000..724e8ba8
 +        let agent = &self.world.agent;
 +        let in_world = matches!(self.screen, Screen::World);
 +        let unread_ims: usize = self.world.social.ims.iter().map(|s| s.unread).sum();
++        // RLVa @showloc hides where the avatar is, as the viewer's own bars do
++        let location = !self.world.rlva.has("showloc");
 +        json!({
 +            "api": 1,
 +            "pid": std::process::id(),
 +            "version": aurora_version::version(),
 +            "demo": self.demo,
-+            "screen": self.control.cursors.screen,
++            "screen": super::screen_name(&self.screen),
 +            "in_world": in_world,
 +            "agent": in_world.then(|| json!({
 +                "id": self.world.agent_id,
@@ -1623,8 +1633,9 @@ index 00000000..724e8ba8
 +                "autopilot": self.autopilot.is_some(),
 +                "following": self.world.following_avatar,
 +            })),
-+            "region": self.world.main().map(|r| json!({"name": r.name, "handle": r.handle})),
-+            "parcel": in_world.then(|| json!({"name": self.world.parcel_name})),
++            "region": self.world.main().filter(|_| location).map(|r| json!({"name": r.name, "handle": r.handle})),
++            "parcel": (in_world && location).then(|| json!({"name": self.world.parcel_name})),
++            "location_hidden": !location,
 +            "camera": in_world.then(|| json!({
 +                "position": vec3_json(self.camera.position),
 +                "target": vec3_json(self.camera.target),
@@ -1693,7 +1704,8 @@ index 00000000..724e8ba8
 +    pub(super) fn control_name(&self, idx: usize) -> Option<String> {
 +        let o = self.world.objects.get(idx)?;
 +        if o.is_avatar() {
-+            return Some(self.world.social.name_of(&o.full_id));
++            // RLVa @shownames: the same rule as the avatars topic
++            return (!self.world.rlva.has("shownames") || o.full_id == self.world.agent_id).then(|| self.world.social.name_of(&o.full_id));
 +        }
 +        self.build
 +            .props
@@ -2063,7 +2075,7 @@ index 00000000..724e8ba8
 +}
 diff --git a/crates/aurora-viewer/src/control/journal.rs b/crates/aurora-viewer/src/control/journal.rs
 new file mode 100644
-index 00000000..28004a56
+index 00000000..3a0a5720
 --- /dev/null
 +++ b/crates/aurora-viewer/src/control/journal.rs
 @@ -0,0 +1,177 @@
@@ -2186,7 +2198,7 @@ index 00000000..28004a56
 +    /// `gap` says events after the cursor were already dropped: the client
 +    /// must read fresh state instead of assuming what happened.
 +    pub fn after(&self, after: u64, limit: usize, request_id: Option<&str>) -> Value {
-+        let gap = after + 1 < self.oldest() && after < self.cursor();
++        let gap = after < self.oldest().saturating_sub(1) && after < self.cursor();
 +        let mut next = after.max(self.oldest().saturating_sub(1)).min(self.cursor());
 +        let mut events = Vec::new();
 +        for event in self.events.iter().filter(|e| e.seq > after) {
@@ -2246,10 +2258,10 @@ index 00000000..28004a56
 +}
 diff --git a/crates/aurora-viewer/src/control/mod.rs b/crates/aurora-viewer/src/control/mod.rs
 new file mode 100644
-index 00000000..2960983a
+index 00000000..d2ecc254
 --- /dev/null
 +++ b/crates/aurora-viewer/src/control/mod.rs
-@@ -0,0 +1,409 @@
+@@ -0,0 +1,428 @@
 +//! The local control bridge (forge patch, not upstream Aurora).
 +//!
 +//! With `AURORA_CONTROL_DIR` set to a short absolute path that does not exist
@@ -2289,6 +2301,8 @@ index 00000000..2960983a
 +const REPLY_WAIT: Duration = Duration::from_secs(30);
 +/// sockaddr_un's path on macOS holds 104 bytes with its terminator.
 +const MAX_SOCKET_PATH: usize = 103;
++/// Requests admitted but not yet answered; more are refused as `busy`.
++const QUEUE: usize = 64;
 +
 +/// A failed command: a stable code and a human-readable message.
 +#[derive(Debug, Clone, PartialEq, Eq)]
@@ -2434,7 +2448,7 @@ index 00000000..2960983a
 +        }
 +        let listener = std::os::unix::net::UnixListener::bind(&socket).map_err(|e| cleanup(format!("cannot listen: {e}")))?;
 +        let _ = std::fs::set_permissions(&socket, std::fs::Permissions::from_mode(0o600));
-+        let (sender, requests) = crossbeam_channel::unbounded();
++        let (sender, requests) = crossbeam_channel::bounded(QUEUE);
 +        std::thread::Builder::new()
 +            .name("aurora-control".into())
 +            .spawn(move || accept(listener, sender))
@@ -2522,8 +2536,16 @@ index 00000000..2960983a
 +                    arguments,
 +                    reply,
 +                };
-+                if sender.send(pending).is_err() {
-+                    return;
++                match sender.try_send(pending) {
++                    Ok(()) => {}
++                    Err(crossbeam_channel::TrySendError::Full(_)) => {
++                        let busy = ControlError::new("busy", "the viewer has too many requests waiting; nothing was run, retry later");
++                        if writeln!(writer, "{}", envelope(&request_id, &Err(busy))).and_then(|_| writer.flush()).is_err() {
++                            return;
++                        }
++                        continue;
++                    }
++                    Err(crossbeam_channel::TrySendError::Disconnected(_)) => return,
 +                }
 +                answer.recv_timeout(REPLY_WAIT).unwrap_or_else(|_| {
 +                    envelope(
@@ -2589,6 +2611,15 @@ index 00000000..2960983a
 +    }
 +}
 +
++/// A number that stays finite as an `f32` (1e100 does not).
++pub fn opt_f32(args: &Map<String, Value>, name: &str) -> Result<Option<f32>, ControlError> {
++    match opt_f64(args, name)? {
++        None => Ok(None),
++        Some(f) if (f as f32).is_finite() => Ok(Some(f as f32)),
++        Some(_) => Err(ControlError::invalid(format!("{name} is out of range"))),
++    }
++}
++
 +pub fn opt_u64(args: &Map<String, Value>, name: &str) -> Result<Option<u64>, ControlError> {
 +    match arg(args, name) {
 +        None => Ok(None),
@@ -2617,9 +2648,9 @@ index 00000000..2960983a
 +            for (slot, v) in out.iter_mut().zip(a) {
 +                *slot = v
 +                    .as_f64()
++                    .map(|f| f as f32)
 +                    .filter(|f| f.is_finite())
-+                    .ok_or_else(|| ControlError::invalid(format!("{name} must hold three finite numbers")))?
-+                    as f32;
++                    .ok_or_else(|| ControlError::invalid(format!("{name} must hold three finite numbers")))?;
 +            }
 +            Ok(Some(glam::Vec3::from_array(out)))
 +        }
@@ -2661,10 +2692,10 @@ index 00000000..2960983a
 +}
 diff --git a/crates/aurora-viewer/src/control/settings.rs b/crates/aurora-viewer/src/control/settings.rs
 new file mode 100644
-index 00000000..bdb626fe
+index 00000000..0218cee9
 --- /dev/null
 +++ b/crates/aurora-viewer/src/control/settings.rs
-@@ -0,0 +1,110 @@
+@@ -0,0 +1,149 @@
 +//! `viewer_settings`: JSON Pointer reads and type-preserving writes over the
 +//! serialized preferences. Login, account, proxy, update and RLVa settings
 +//! are not reachable: the bridge never handles credentials or lifts
@@ -2726,7 +2757,34 @@ index 00000000..bdb626fe
 +    keys
 +}
 +
-+pub fn get(tree: &Value, pointer: &str) -> Result<Value, ControlError> {
++fn escape(key: &str) -> String {
++    key.replace('~', "~0").replace('/', "~1")
++}
++
++/// Removes the hidden keys below `pointer` from `value`; true if any was.
++fn redact(value: &mut Value, pointer: &str) -> bool {
++    match value {
++        Value::Object(map) => {
++            let before = map.len();
++            map.retain(|k, _| !hidden(&format!("{pointer}/{}", escape(k))));
++            let mut removed = map.len() != before;
++            for (k, v) in map.iter_mut() {
++                removed |= redact(v, &format!("{pointer}/{}", escape(k)));
++            }
++            removed
++        }
++        Value::Array(items) => {
++            let mut removed = false;
++            for (i, v) in items.iter_mut().enumerate() {
++                removed |= redact(v, &format!("{pointer}/{i}"));
++            }
++            removed
++        }
++        _ => false,
++    }
++}
++
++fn read(tree: &Value, pointer: &str) -> Result<Value, ControlError> {
 +    if pointer.is_empty() {
 +        return Err(ControlError::invalid("read a specific pointer; list shows the top-level keys"));
 +    }
@@ -2736,6 +2794,13 @@ index 00000000..bdb626fe
 +    tree.pointer(pointer)
 +        .cloned()
 +        .ok_or_else(|| ControlError::not_found(format!("no setting at {pointer}")))
++}
++
++/// The value at `pointer`, without the hidden settings below it.
++pub fn get(tree: &Value, pointer: &str) -> Result<Value, ControlError> {
++    let mut value = read(tree, pointer)?;
++    redact(&mut value, pointer);
++    Ok(value)
 +}
 +
 +fn kind(v: &Value) -> &'static str {
@@ -2754,7 +2819,12 @@ index 00000000..bdb626fe
 +/// JSON type (an integer may stand for a number, not the reverse). Returns
 +/// the previous value.
 +pub fn set(tree: &mut Value, pointer: &str, value: Value) -> Result<Value, ControlError> {
-+    let previous = get(tree, pointer)?;
++    let previous = read(tree, pointer)?;
++    // a hidden setting below would be replaced with its parent: set the
++    // visible children one by one instead
++    if redact(&mut previous.clone(), pointer) || redact(&mut value.clone(), pointer) {
++        return Err(ControlError::refused("this value holds settings that are not available through the control bridge"));
++    }
 +    let compatible = match (&previous, &value) {
 +        (Value::Number(old), Value::Number(new)) => old.is_f64() || !new.is_f64(),
 +        // an optional setting that is unset accepts any value; the
@@ -2777,10 +2847,10 @@ index 00000000..bdb626fe
 +}
 diff --git a/crates/aurora-viewer/src/control/tests.rs b/crates/aurora-viewer/src/control/tests.rs
 new file mode 100644
-index 00000000..e6ff2773
+index 00000000..82148d1e
 --- /dev/null
 +++ b/crates/aurora-viewer/src/control/tests.rs
-@@ -0,0 +1,196 @@
+@@ -0,0 +1,217 @@
 +use super::journal::{EVENTS, LEASE, RECEIPTS, Receipt};
 +use super::*;
 +use std::io::{BufRead, BufReader, Write};
@@ -2864,6 +2934,8 @@ index 00000000..e6ff2773
 +    assert_eq!(page["more"], false);
 +    let page = journal.after(600, 100, None);
 +    assert!(page["events"].as_array().unwrap().is_empty());
++    let page = journal.after(u64::MAX, 100, None);
++    assert!(page["events"].as_array().unwrap().is_empty() && page["gap"] == false, "a future cursor is no gap");
 +    assert_eq!(page["next"], 600);
 +    // one request's events; the cursor still advances over the others
 +    let page = journal.after(590, 100, Some("even"));
@@ -2913,6 +2985,25 @@ index 00000000..e6ff2773
 +    assert_eq!(set(&mut tree, "/username", json!("b")).unwrap_err().code, "refused");
 +    assert!(set(&mut tree, "/opt", json!({"a": 1})).is_ok(), "an unset option takes a value");
 +    assert_eq!(get(&tree, "").unwrap_err().code, "invalid_argument");
++}
++
++#[test]
++fn hidden_settings_stay_hidden_below_a_visible_parent() {
++    use super::settings::{get, set};
++    let mut tree = json!({"audio": {"master": 0.5, "stream_password": "x", "list": [{"token": "t", "url": "u"}]}});
++    assert_eq!(get(&tree, "/audio").unwrap(), json!({"master": 0.5, "list": [{"url": "u"}]}));
++    let refused = set(&mut tree, "/audio", json!({"master": 1.0})).unwrap_err();
++    assert_eq!(refused.code, "refused", "replacing the parent would drop the hidden child");
++    assert_eq!(set(&mut tree, "/audio/master", json!(1.0)).unwrap(), json!(0.5));
++    assert_eq!(tree["audio"]["stream_password"], "x");
++}
++
++#[test]
++fn numbers_must_stay_finite_as_f32() {
++    let args = json!({"p": [1e100, 0, 0], "x": 1e100, "y": 2.5}).as_object().unwrap().clone();
++    assert!(opt_vec3(&args, "p").is_err());
++    assert!(opt_f32(&args, "x").is_err());
++    assert_eq!(opt_f32(&args, "y").unwrap(), Some(2.5));
 +}
 +
 +#[test]

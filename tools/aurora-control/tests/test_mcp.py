@@ -54,9 +54,18 @@ class FramingTests(unittest.TestCase):
         self.assertEqual(reply["result"]["protocolVersion"], mcp_server.PROTOCOL_VERSIONS[0])
 
     def test_errors_follow_json_rpc(self):
-        replies = exchange(self.server, "not json\n", rpc(3, "nope"), {"id": 4}, rpc(5, "tools/call", {"name": "viewer_nope"}), rpc(6, "tools/call", []))
-        self.assertEqual([r["error"]["code"] for r in replies], [-32700, -32601, -32600, -32602, -32602])
-        self.assertEqual([r["id"] for r in replies], [None, 3, 4, 5, 6])
+        replies = exchange(
+            self.server,
+            "not json\n",
+            rpc(3, "nope"),
+            {"id": 4},
+            rpc(5, "tools/call", {"name": "viewer_nope"}),
+            rpc(6, "tools/call", []),
+            rpc(7, "tools/call", {"name": []}),
+            rpc(8, "ping"),
+        )
+        self.assertEqual([r.get("error", {}).get("code") for r in replies], [-32700, -32601, -32600, -32602, -32602, -32602, None])
+        self.assertEqual([r["id"] for r in replies], [None, 3, 4, 5, 6, 7, 8], "a bad name does not stop the server")
 
     def test_a_batch_gets_a_batch(self):
         (reply,) = exchange(self.server, json.dumps([rpc(1, "ping"), rpc(2, "ping")]) + "\n")

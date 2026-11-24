@@ -26,6 +26,11 @@
       runtimeInputs = [cfg.package];
       text = ''
         dir="''${AURORA_CONTROL_DIR:-${cfg.directory}}"
+        # a relative path would probe one place and clear another
+        if [[ $dir != /* ]]; then
+          echo "aurora-viewer-control: AURORA_CONTROL_DIR must be an absolute path" >&2
+          exit 2
+        fi
         if [ -e "$dir" ] || [ -L "$dir" ]; then
           status=0
           aurora-control --directory "$dir" --timeout 5 viewer_state </dev/null >/dev/null 2>&1 || status=$?

@@ -47,6 +47,11 @@ class FailureTests(unittest.TestCase):
         with self.assertRaises(viewer_api.ViewerUnavailable):
             viewer_api.request("/tmp/acf-no-such-viewer", "viewer_state")
 
+    def test_an_unreachable_directory_is_unavailable(self):
+        with mock.patch("socket.socket.connect", side_effect=PermissionError(13, "Permission denied")):
+            with self.assertRaises(viewer_api.ViewerUnavailable):
+                viewer_api.request("/tmp/acf-private", "viewer_state")
+
     def check_lost(self, handler, code):
         viewer = FakeViewer(handler)
         self.addCleanup(viewer.close)
