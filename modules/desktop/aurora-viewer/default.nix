@@ -1,4 +1,8 @@
-{lib, ...}: {
+{
+  config,
+  lib,
+  ...
+}: {
   overlays.aurora-viewer = final: _prev: {
     aurora-viewer = final.callPackage ../../../packages/aurora-viewer/package.nix {};
   };
@@ -7,11 +11,12 @@
       packages.aurora-viewer = pkgs.aurora-viewer;
     };
 
-  # Disabled on vega: no binary cache has it, so every rebuild compiles it.
-  # Re-enable with: home.lisa-vega.imports = [config.home.aurora-viewer];
+  # No binary cache has it: Vega compiles it (with its tests) whenever the
+  # source or its Nixpkgs inputs change.
   home.aurora-viewer = {pkgs, ...}: {
     home.packages = [pkgs.aurora-viewer];
   };
+  home.lisa-vega.imports = [config.home.aurora-viewer];
 
   # Exported from Aurora's settings UI; the viewer may rewrite these files.
   home.lisa-vega.forge.mutablePreferences = {
