@@ -404,7 +404,7 @@ in {
       '') (builtins.attrNames homes)}
     '';
 
-    agentSkillNames = pkgs.writeText "agent-skill-names.json" (builtins.toJSON (lib.unique (installedSkills "claude-code" ++ installedSkills "codex")));
+    agentSkillNames = pkgs.writeText "agent-skill-names.json" (builtins.toJSON (lib.unique (builtins.attrNames local.programs.claude-code.skills ++ builtins.attrNames local.programs.codex.skills)));
     failures =
       homeFailures homeHere
       ++ expect "Skill names must be unique across sets; duplicated: ${toString duplicateSkills}" (duplicateSkills == [])
