@@ -22,6 +22,87 @@ The demo uses separate settings and caches and needs no Second Life account.
 For normal use, launch the app from Finder or run `aurora-viewer` after applying
 the configuration. Log in manually.
 
+## Control bridge
+
+Upstream Aurora has no automation API, so forge patches one in
+([`control.patch`](../packages/aurora-viewer/control.patch)). It lets agents
+read chat and conversations, reply to IMs and drive the viewer when its own
+window is no use, for example while the scene draws black. With
+`AURORA_CONTROL_DIR` unset, the viewer behaves exactly as upstream.
+
+Launch the app with the bridge on Vega:
+
+```sh
+aurora-viewer-control
+```
+
+The launcher opens a new instance of the Home Manager app with
+`AURORA_CONTROL_DIR=~/Library/Caches/aurora-control` and passes its arguments
+to the viewer. If a viewer with the bridge already answers there, it refuses;
+if a viewer that did not quit cleanly left the directory behind, it removes the
+stale socket and directory first. Launches from Finder and `aurora-viewer` stay
+without the bridge: the endpoint is opt-in per session, so no agent can drive a
+session a person did not start for that. A person still logs in by hand; the
+bridge never handles credentials.
+
+How it works:
+
+- The viewer creates the directory itself (mode 0700; an existing path is
+  refused) and listens on `control.sock` (0600). Connections from other users
+  are refused. Quitting removes both.
+- Each connection carries one JSON request per line and gets one reply line:
+  `result` or `error`, plus `request_id`.
+- Connection threads only forward requests. The frame answers them through the
+  viewer's own paths: chat and IMs go through the conversation field's handler,
+  inventory edits through the inventory window's, notifications through the
+  cards' answers, shortcuts through the key handler. Every network command
+  passes `App::send`, so RLVa's send boundary and the simulator's permissions
+  apply. Protected inventory, worn items, no-copy rules and RLVa restrictions
+  (`@showinv`, `@viewscript`, `@shownearby`, `@showloc`, camera locks) refuse
+  the matching tools. Login, account, proxy, update and RLVa preferences are
+  out of reach of `viewer_settings`.
+- Receipts keep the last 128 commands and an event ring the last 512 entries
+  (chat and IM lines, notifications, screen, region, posture, commands).
+- Automation movement holds and drags end 10 seconds after their last renewal.
+- With requests waiting and no frame for 250 ms (macOS stops redrawing an
+  occluded window), the bridge runs a frame itself.
+
+The client, CLI and MCP server are the `aurora-control` package
+([`tools/aurora-control`](../tools/aurora-control)), standard-library Python.
+`aurora-control --directory DIR TOOL` reads JSON arguments on stdin;
+`aurora-control-mcp --directory DIR` serves the sixteen tools and the
+`aurora://guide` and `aurora://tools` resources over stdio. Codex has the
+`aurora` server behind tool search; Claude attaches it on request:
+
+```sh
+claude --mcp-config ~/.claude/mcp-available/aurora.json
+```
+
+The [`aurora-viewer-control` skill](../modules/development/ai-skills/skills/aurora-viewer-control/SKILL.md)
+describes the workflows and safety rules.
+
+Not covered yet: rezzing new prims, notecards, teleports, payments and
+purchases. Use the visual fallback (`viewer_capture`, `viewer_input`) or the
+viewer itself.
+
+### Checks
+
+- The patch's Rust tests (`control::tests`, `app::control_bridge`) run in the
+  package build: request framing, receipt and event limits, leases, settings
+  pointers and type checks, the endpoint's permissions and cleanup, and a
+  settings round trip on the real preferences.
+- `checks.aarch64-darwin.aurora-control` runs the client, CLI and MCP framing
+  tests against a stand-in socket.
+- `e2e_demo.py` drives an offline demo end to end; it refuses to run unless
+  `viewer_state` reports `demo=true`. macOS draws nothing for a covered
+  window, so the capture step reports a skip while the viewer is covered.
+  `AURORA_DEMO=1 aurora-viewer-control` starts the demo with the bridge too:
+
+```sh
+AURORA_DEMO=1 AURORA_CONTROL_DIR=/tmp/aurora-e2e ./result/bin/aurora-viewer &
+python3 "$(nix build --no-link --print-out-paths path:.#aurora-control)/lib/aurora-control/e2e_demo.py" /tmp/aurora-e2e
+```
+
 ## Port and package
 
 The source is pinned to upstream release 0.9.13
@@ -52,6 +133,8 @@ Apple's offline compiler (Metal toolchain 27.2, `applegpu-nt`) reproduces the
 failure for G15 to G17 (M3 to M5) and accepts all 135 scene pipelines with the
 patches; M1 and M2 (G13, G14) were never affected. Remove both patches once
 upstream compiles on Metal without them.
+
+A third local patch, `control.patch`, adds the control bridge described above.
 
 Preferences › Graphics › Smoothness includes a 50–100% 3D render scale.
 The interface and HUDs stay at native resolution, and saved photos bypass scaling.
