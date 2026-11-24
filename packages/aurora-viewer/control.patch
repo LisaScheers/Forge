@@ -1136,10 +1136,10 @@ index 00000000..09cd68e2
 +}
 diff --git a/crates/aurora-viewer/src/app/control_bridge/input.rs b/crates/aurora-viewer/src/app/control_bridge/input.rs
 new file mode 100644
-index 00000000..3d329d21
+index 00000000..f73e8f68
 --- /dev/null
 +++ b/crates/aurora-viewer/src/app/control_bridge/input.rs
-@@ -0,0 +1,415 @@
+@@ -0,0 +1,445 @@
 +//! `viewer_ui`, `viewer_input` and `viewer_capture`: panels and shortcuts,
 +//! synthetic pointer and keyboard input, and pictures of the window.
 +
@@ -1509,34 +1509,34 @@ index 00000000..3d329d21
 +            }
 +            return;
 +        };
-+        // The picture's own size is the window's at capture; the scale is the
-+        // one when it was asked for, and a change since makes the mapping
-+        // unknown.
-+        let ppp = asked.map_or(self.control.window.2, |(_, ppp)| ppp);
-+        if (self.control.window.2 - ppp).abs() > f32::EPSILON {
-+            self.control.capture = Capture::Done {
-+                id,
-+                result: json!({"status": "failed", "capture_id": id, "error": "the interface scale changed during the capture; start another"}),
-+            };
-+            return;
-+        }
-+        let (window_w, window_h) = (w, h);
-+        let result = match encode_png(w, h, pixels, max_width) {
-+            Ok((png, width, height)) => {
-+                use base64::Engine;
-+                json!({
-+                    "status": "done",
-+                    "capture_id": id,
-+                    "width": width,
-+                    "height": height,
-+                    "window_pixels": [window_w, window_h],
-+                    "ui_pixels_per_point": ppp,
-+                    "png_base64": base64::engine::general_purpose::STANDARD.encode(png),
-+                })
-+            }
-+            Err(e) => json!({"status": "failed", "capture_id": id, "error": e}),
-+        };
++        let asked_scale = asked.map_or(self.control.window.2, |(_, ppp)| ppp);
++        let result = capture_result(id, max_width, (w, h, pixels), asked_scale, self.control.window.2);
 +        self.control.capture = Capture::Done { id, result };
++    }
++}
++
++/// A delivered picture as `viewer_capture` reports it. Its own size is the
++/// window's when it was drawn, whatever the window does before this runs;
++/// the scale is the one when it was asked for, and a change since then
++/// makes the mapping to interface points unknown.
++fn capture_result(id: u64, max_width: u32, (w, h, pixels): (u32, u32, Vec<u8>), asked_scale: f32, scale_now: f32) -> Value {
++    if (scale_now - asked_scale).abs() > f32::EPSILON {
++        return json!({"status": "failed", "capture_id": id, "error": "the interface scale changed during the capture; start another"});
++    }
++    match encode_png(w, h, pixels, max_width) {
++        Ok((png, width, height)) => {
++            use base64::Engine;
++            json!({
++                "status": "done",
++                "capture_id": id,
++                "width": width,
++                "height": height,
++                "window_pixels": [w, h],
++                "ui_pixels_per_point": asked_scale,
++                "png_base64": base64::engine::general_purpose::STANDARD.encode(png),
++            })
++        }
++        Err(e) => json!({"status": "failed", "capture_id": id, "error": e}),
 +    }
 +}
 +
@@ -1554,6 +1554,36 @@ index 00000000..3d329d21
 +        .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
 +        .map_err(|e| e.to_string())?;
 +    Ok((png, width, height))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::capture_result;
++
++    fn picture(w: u32, h: u32) -> (u32, u32, Vec<u8>) {
++        (w, h, vec![200; (w * h * 4) as usize])
++    }
++
++    #[test]
++    fn a_capture_reports_the_geometry_it_was_drawn_with() {
++        // the window was resized to anything after the frame was drawn:
++        // only the picture's own size and the asked scale count
++        let result = capture_result(3, 1000, picture(40, 20), 2.0, 2.0);
++        assert_eq!(result["status"], "done");
++        assert_eq!(result["window_pixels"], serde_json::json!([40, 20]));
++        assert_eq!(result["ui_pixels_per_point"], 2.0);
++        assert_eq!((result["width"].as_u64(), result["height"].as_u64()), (Some(40), Some(20)));
++        let scaled = capture_result(4, 10, picture(40, 20), 2.0, 2.0);
++        assert_eq!((scaled["width"].as_u64(), scaled["height"].as_u64()), (Some(10), Some(5)));
++        assert_eq!(scaled["window_pixels"], serde_json::json!([40, 20]), "the window size is the drawn one, not the scaled image's");
++    }
++
++    #[test]
++    fn a_scale_change_before_delivery_fails_the_capture() {
++        let result = capture_result(5, 1000, picture(40, 20), 2.0, 1.0);
++        assert_eq!(result["status"], "failed");
++        assert!(result.get("png_base64").is_none());
++    }
 +}
 diff --git a/crates/aurora-viewer/src/app/control_bridge/query.rs b/crates/aurora-viewer/src/app/control_bridge/query.rs
 new file mode 100644
