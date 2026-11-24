@@ -33,7 +33,8 @@ in {
       unitConfig.RequiresMountsFor = ["/srv/disks/projects"];
       serviceConfig = {
         ExecStart = "${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 ${source}/server.py";
-        EnvironmentFile = "/srv/disks/projects/ai-usage-secrets/clickhouse.env";
+        EnvironmentFile = "/srv/disks/projects/ai-usage-secrets/archive.env";
+        Environment = ["AI_ARCHIVE_CLICKHOUSE_USER=ai_archive"];
         DynamicUser = true;
         Group = "nginx";
         StateDirectory = "ai-archive";

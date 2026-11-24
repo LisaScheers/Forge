@@ -54,6 +54,7 @@ in {
         assert pathlib.Path(server["env"]["PATH"].split(":")[0], "rea").is_file()
         assert server["startup_timeout_sec"] == 30
         assert server["tool_timeout_sec"] == 600
+        assert server["omit_tools_from"] == ["direct"]
         PY
         touch "$out"
       '';
@@ -93,15 +94,18 @@ in {
 
     config = lib.mkIf cfg.enable {
       home.packages = [cfg.package];
-      home.file = lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
-        "Library/Application Support/rizin/cutter/plugins/python/rea_bridge.py".source = "${cfg.package}/lib/node_modules/rea-agents/bridge/cutter/rea_bridge.py";
-      };
+      home.file =
+        lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
+          "Library/Application Support/rizin/cutter/plugins/python/rea_bridge.py".source = "${cfg.package}/lib/node_modules/rea-agents/bridge/cutter/rea_bridge.py";
+        }
+        // {
+          # REA's 229 tool names alone cost Claude thousands of tokens per session
+          # even deferred, so Claude attaches it only on request:
+          # `claude --mcp-config ~/.claude/mcp-available/rea.json`.
+          ".claude/mcp-available/rea.json".text = builtins.toJSON {mcpServers.rea = mcpServer;};
+        };
       xdg.dataFile = lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
         "rizin/cutter/plugins/python/rea_bridge.py".source = "${cfg.package}/lib/node_modules/rea-agents/bridge/cutter/rea_bridge.py";
-      };
-      programs.mcp = {
-        enable = true;
-        servers.rea = mcpServer;
       };
       programs.codex = {
         enableMcpIntegration = lib.mkDefault true;
@@ -111,6 +115,9 @@ in {
           // {
             startup_timeout_sec = 30;
             tool_timeout_sec = 600;
+            # REA's 229 tool schemas are about 3.8 MB; Codex finds them through
+            # tool search instead of loading them into every session.
+            omit_tools_from = ["direct"];
           };
         skills.reverse-engineer-anything = "${cfg.package}/lib/node_modules/rea-agents/skills/reverse-engineer-anything";
       };

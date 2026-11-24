@@ -1,53 +1,31 @@
 {inputs, ...}: {
-  home.lisa = {
-    lib,
-    pkgs,
-    ...
-  }: {
-    programs = {
-      codex = {
-        enable = true;
-        enableMcpIntegration = true;
-        mutableSettings = true;
+  home.lisa = {lib, ...}: {
+    programs.codex = {
+      enable = true;
+      mutableSettings = true;
 
-        settings = {
-          approval_policy = "never";
-          sandbox_mode = "danger-full-access";
-          model_reasoning_effort = lib.mkDefault "high";
-          personality = "pragmatic";
+      settings = {
+        # Full access with no approval prompts, as for every agent (agent-policy.nix).
+        approval_policy = "never";
+        sandbox_mode = "danger-full-access";
+        model_reasoning_effort = lib.mkDefault "high";
+        personality = "pragmatic";
+        # Nix installs and updates Codex.
+        check_for_update_on_startup = false;
 
-          agents.max_concurrent_threads_per_session = 10;
+        agents.max_concurrent_threads_per_session = 10;
 
-          features = {
-            memories = false;
-            prevent_idle_sleep = true;
-          };
+        # The TUI footer: model and effort, context used, and plan limits.
+        tui.status_line = ["model-with-reasoning" "context-used" "five-hour-limit" "weekly-limit"];
 
-          memories = {
-            generate_memories = false;
-            use_memories = false;
-          };
-
-          mcp_servers.cognee = {
-            url = "https://cognee.local.bylisa.dev/mcp";
-            startup_timeout_sec = 30;
-            tool_timeout_sec = 600;
-            tools.forget.approval_mode = "prompt";
-          };
-
-          mcp_servers.webmcp = {
-            command = "${pkgs.nodejs}/bin/npx";
-            args = ["-y" "@jason.today/webmcp@0.1.13" "--mcp"];
-            startup_timeout_sec = 60;
-          };
+        features = {
+          memories = false;
+          prevent_idle_sleep = true;
         };
-      };
 
-      mcp = {
-        enable = true;
-        servers.clerk_mcp = {
-          enabled = true;
-          url = "https://mcp.clerk.com/mcp";
+        memories = {
+          generate_memories = false;
+          use_memories = false;
         };
       };
     };

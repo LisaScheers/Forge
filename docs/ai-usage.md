@@ -2,9 +2,42 @@
 
 One CLIProxyAPIPlus instance runs on Nook and archives its full request logs in
 ClickHouse. Nook and Vega were deployed and verified on 2026-11-05, including
-Vega's final system-generation switch. Asterion is excluded for now. Codex,
-T3's Codex driver, Antigravity CLI, and Cognee had client routes in that change;
-Codex and T3 have since moved to Codex's built-in provider (see below).
+Vega's final system-generation switch. Asterion is excluded for now.
+
+## What is captured
+
+The gateway captures full transcripts of the traffic sent through it: since the
+Codex capture pipeline was removed on 2026-11-20 (commit `fbf67bc`), that is
+Antigravity CLI and Cognee. Claude Code and Codex sign in to their providers
+directly, and send usage telemetry instead, with no prompt or response text:
+Claude Code's token, cost and session metrics and events, and Codex's events,
+which carry each response's token counts, model and latency.
+No shell-wide variable sends any client to the gateway; each client sets its own
+route.
+
+| Client | Route | Full transcripts | Usage in ClickHouse |
+| --- | --- | --- | --- |
+| Antigravity CLI on Vega | Gateway, through its `agy` wrapper | ClickHouse and the archive | `ai_usage` token views |
+| Cognee on Nook | Gateway, through `ai-proxy-cognee-env` | ClickHouse and the archive | `ai_usage` token views |
+| Claude Code, including T3's Claude driver | Anthropic, direct | Local session files in `~/.claude/projects` only | `otel` metrics and events |
+| Codex CLI, desktop app and T3's Codex driver | OpenAI, built-in `openai` provider | Local session files in `~/.codex/sessions` only | `otel` events |
+| Zed agent | Codex subscription; OpenRouter for commit messages | Not captured | None; provider dashboards |
+| Antigravity driver in T3 | T3's managed runtime | Not captured | None; provider dashboard |
+| Copilot CLI | GitHub, direct | Local files only | None; provider dashboard |
+
+CodexBar shows the Claude and Codex plan limits on Vega.
+
+Run `ai-gateway-probe` on Vega to check the route these clients depend on: it
+exits 0 when the gateway lists every model they use (`gemini-3.8-flash` for
+Antigravity, `openrouter/glm-5.3-flash` for Cognee), 1 when one has disappeared
+upstream, and 2 when the gateway is unreachable or refuses the key. Add
+`--infer` to also ask each model for one token: a model can stay listed while
+its upstream fails.
+
+Last verified against the configuration on 2026-11-23. To capture another client,
+route it through the gateway in `modules/services/ai-proxy/clients.nix` with a
+wrapper like Antigravity's, then confirm a real request's transcript and usage in
+ClickHouse.
 
 The API endpoint is `https://cliproxy.local.bylisa.dev`. Managed machines map it to
 Nook's stable Tailscale address, `100.106.233.104`. Tailscale uses a direct LAN path
@@ -77,6 +110,58 @@ exact token counts by this collector.
 Cognee's Fastembed embeddings run locally and do not emit provider API usage;
 its remote LLM inference goes through the gateway.
 
+## Usage telemetry
+
+`modules/services/ai-proxy/telemetry.nix` runs an OpenTelemetry collector on Nook.
+nginx accepts OTLP/HTTP logs and metrics at `https://otel.local.bylisa.dev` from LAN
+and Tailscale addresses only, with a 4 MB body limit and a per-address rate limit,
+and the collector writes them to ClickHouse's `otel` database through its own
+`ai_otel` account. That account can create and fill only `otel`; it cannot read
+the gateway's captures. Claude Code sends metrics and events with
+`OTEL_LOG_USER_PROMPTS=0`, `OTEL_LOG_TOOL_DETAILS=0` and `OTEL_LOG_TOOL_CONTENT=0`,
+plus spans with that text redacted; Codex sends events with `log_user_prompt`
+and `log_agent_responses` off, `tool_result.max_bytes = 0`, and its default
+Statsig metrics disabled. Each host names itself: Codex sends its configured
+`environment` as the `env` resource attribute, and both clients' OpenTelemetry
+SDKs add the machine's `host.name` on their own (seen in ClickHouse's resource
+attributes on 2026-11-23), so Nix does not set it.
+
+Codex events from before 07:43 CET on 2026-11-23 can hold command output; see
+[history](history/codex-tool-output.md).
+`checks.agent-policy` fails if either client starts logging content.
+
+| Signal | Client | Configured | Received on Nook | Last verified |
+| --- | --- | --- | --- | --- |
+| Metrics: tokens, cost, sessions, active time | Claude Code | Vega, active since 2026-11-23 | Yes: `claude_code.token.usage`, `cost.usage`, `session.count`, `active_time.total` | 2026-11-23 |
+| Events: API requests, tool decisions | Claude Code | Vega, active since 2026-11-23 | Yes: 80 events by 06:41 UTC on the first day | 2026-11-23 |
+| Events: responses with token counts and latency | Codex | Vega, active since 2026-11-23 | Yes: 220 `codex-app-server` events from T3 | 2026-11-23 |
+| Traces: prompt, API request and tool spans, text redacted | Claude Code | Vega, from 2026-11-23 | Yes: `claude-code` spans in `otel.otel_traces` | 2026-11-23 |
+| Collector to ClickHouse | Nook | `telemetry.nix`, deployed 2026-11-23 | Yes: a test record over the private endpoint | 2026-11-23, and `checks.x86_64-linux.ai-usage-clickhouse` |
+
+Verify each row with the queries below and update this table when it changes.
+
+Signals the clients offer that are deliberately not wired, as of 2026-11-23:
+
+| Signal | Why it stays off |
+| --- | --- |
+| Codex metrics (`otel.metrics_exporter`) | Its events already carry each response's tokens, model and latency; the setting stays `none` so nothing goes to Statsig. |
+| Codex traces (`otel.trace_exporter`) | Not checked for tool arguments or output, unlike Claude's redacted spans; enable it only after a content check like the one for events. |
+| Zed agent, Copilot CLI, T3's Antigravity driver | No OTLP export to configure; their providers' dashboards show usage. |
+
+```sql
+SELECT ServiceName, count() FROM otel.otel_logs GROUP BY ServiceName;
+
+SELECT MetricName, sum(Value) FROM otel.otel_metrics_sum
+WHERE MetricName = 'claude_code.token.usage' GROUP BY MetricName;
+```
+
+The endpoint has no client credential: Codex can only send static headers, which
+would put a secret in the Nix store. The network allowlist, the size and rate
+limits, and the write-only account bound what a misbehaving client on the LAN
+can do. The ClickHouse integration check runs this collector configuration
+against a temporary ClickHouse and confirms an OTLP log arrives and that the
+collector's account cannot read captures.
+
 ## Storage and queries
 
 The private browser and analytics dashboard is at
@@ -100,6 +185,13 @@ checkpoint live under `/srv/disks/projects/ai-proxy`, owned by `ai-proxy` with m
 0700. ClickHouse data lives under `/srv/disks/projects/ai-usage`, owned by
 `clickhouse`. Its random password is generated once in the root-only
 `/srv/disks/projects/ai-usage-secrets/clickhouse.env` and loaded by systemd.
+The archive web app uses a separate ClickHouse account, `ai_archive`, whose
+password is in `archive.env` beside it. ClickHouse grants that account only
+`SELECT` on `ai_usage` and pins it to read-only mode, so the server, not the
+client, stops it from writing. Both accounts are defined in
+`services/ai-usage/clickhouse-users.xml`, which the integration check loads too.
+Nook's `projects-disk` probe reports to Uptime Kuma when that disk is more than
+90% full, since nothing here expires.
 Prompt and response text is intentionally retained in full; upstream logging
 masks authentication headers.
 
@@ -117,63 +209,15 @@ GROUP BY token_category;
 SELECT file_name, model, usage_json FROM ai_usage.usage_events LIMIT 10;
 ```
 
-## Cutover requirements
+Captures have no expiry, so check their growth before Nook's `projects-disk` probe
+fires. This lists captures and stored bytes per month:
 
-Build Nook and its deploy-rs checks before activation. Lisa approved the scoped
-`nixpkgs.config.problems.handlers."gtk+".broken = "warn"` exception on Nook on
-2026-11-05, preserving the existing Firestorm dependency at this Nixpkgs lock.
-The host build, deployment schema, and activation checks passed before cutover.
-That exception was removed on 2026-11-20 once Nook evaluated without it. At
-cutover, the `dendritic` check also failed on the visualize skill's recipe,
-since moved to `packages/visualize-skill/`.
-
-Vega disables `targets.darwin.copyApps.enable` and enables
-`targets.darwin.linkApps.enable` at Lisa's request, following the
-[upstream workaround](https://github.com/nix-community/home-manager/issues/8336).
-The App Management preflight repeatedly reset consent, and macOS also rejected
-app copying. Home Manager now manages application symlinks and completed two
-consecutive activations successfully. The final system-generation switch was
-also verified on 2026-11-05. The former copied-app directory is preserved under
-`~/.local/state/forge-home-manager/apps-backup-20261105T142541/`.
-Existing conflicting GPG backups and the local Aurora skill symlink were preserved under
-`~/.local/state/forge-ai-proxy/activation-backup-20261105T140308`.
-
-For subsequent changes, activate Nook first. Verify `cli-proxy-api-plus`,
-`clickhouse`, `ai-usage-schema`, and the `ai-usage-ingest.timer`, trusted TLS,
-rejection of missing API keys, and a real request's transcript and usage in
-ClickHouse before switching clients. Update Vega's system configuration to
-install its agenix key and host record. Restart Antigravity and other sessions
-that read `OPENAI_BASE_URL` or `ANTHROPIC_BASE_URL` after changing provider
-configuration; they and Cognee fail when the gateway is unavailable rather than
-falling back to a direct route.
-
-Codex, T3's Codex driver and Nook's `codex` account no longer use a gateway
-provider: since the native-capture change they select Codex's built-in `openai`
-provider (`model_provider = "openai"`). Cognee uses its existing OpenRouter
-model through the gateway, with a private generated client environment file
-written by `ai-proxy-cognee-env` ([Cognee](cognee.md#models)).
-
-Antigravity CLI uses [Gemini API mode and a custom endpoint](https://antigravity.google/docs/install?tab=cli).
-Its wrapper reads the shared key at runtime, including when launched outside an
-interactive shell. The live gateway catalog has replaced Gemini 3.7 Flash High
-with `gemini-3.8-flash-high`. The client selects `Gemini 3.8 Flash (High)` by its
-display name; Gemini API mode sends `gemini-3.8-flash`, which the gateway aliases
-to that subscription model while retaining the original ID. Its subscription
-sign-in completed on Nook on 2026-11-05;
-the resulting credential is encrypted with agenix for provisioning the service.
-
-Real Vega Codex and Antigravity CLI requests both completed through the gateway.
-The Codex verification stored 14,964 total tokens, including 6,272 cached input
-tokens. Antigravity's verification stored the full Gemini usage object and
-request/response transcript.
-
-Asterion is excluded from this cutover at Lisa's request. Its provider
-configuration is prepared, but its runtime key must be provisioned if it is
-included later. Its host key is not
-yet a recipient of the shared agenix secret, so this change does not declare an
-undecryptable system secret for it. Standalone Home Manager installations use
-`~/.config/cli-proxy-api-plus/client-api-key`; integrated Vega/Nook configurations
-read their agenix secret paths.
+```sql
+SELECT toStartOfMonth(observed_at) AS month, count() AS captures,
+       formatReadableSize(sum(bytes)) AS stored
+FROM ai_usage.files FINAL
+GROUP BY month ORDER BY month;
+```
 
 ## Verification
 
@@ -190,3 +234,33 @@ Responses, WebSockets, a prompt larger than 1 MiB, complete transcripts, future
 token categories, and idempotent replay. It uses synthetic credentials and incurs
 no provider usage. Unit tests cover upload failures, changing logs, Unicode chunk
 boundaries, partial usage, and preservation of refreshed OAuth credentials.
+
+## Operations
+
+Activate Nook before any client change. Verify `cli-proxy-api-plus`,
+`clickhouse`, `ai-usage-schema` and the `ai-usage-ingest.timer`, trusted TLS,
+rejection of missing API keys, and a real request's transcript and usage in
+ClickHouse before switching clients. `ai-gateway-probe` on Vega checks that the
+gateway lists every model its clients send; `ai-gateway-probe --infer` also asks
+each one for a single token, since a listed model can still fail upstream. Restart Antigravity after changing
+provider configuration; it and Cognee fail when the gateway is unavailable
+rather than falling back to a direct route.
+
+Codex, T3's Codex driver and Nook's `codex` account use Codex's built-in
+`openai` provider (`model_provider = "openai"`), not the gateway. Cognee uses
+its OpenRouter model through the gateway, with a private generated client
+environment file written by `ai-proxy-cognee-env` ([Cognee](cognee.md#models)).
+
+Antigravity CLI uses [Gemini API mode and a custom endpoint](https://antigravity.google/docs/install?tab=cli).
+Its wrapper reads the shared key at runtime, including when launched outside an
+interactive shell. The client selects `Gemini 3.8 Flash (High)` by display
+name; Gemini API mode sends `gemini-3.8-flash`, which the gateway aliases to the
+`gemini-3.8-flash-high` subscription model while retaining the original ID.
+
+Standalone Home Manager installations read
+`~/.config/cli-proxy-api-plus/client-api-key`; integrated Vega and Nook
+configurations read their agenix secret paths. Asterion's host key is not a
+recipient of the shared secret, so its runtime key must be provisioned before
+it uses the gateway.
+
+The 2026-11-05 cutover is recorded in [history](history/ai-gateway-cutover.md).

@@ -12,7 +12,6 @@
       enable = true;
       mutableSettings = true;
       settings = {
-        allowNonWorkspaceAccess = true;
         enableTelemetry = false;
         model = "Gemini 3.8 Flash (High)";
         permissions = {

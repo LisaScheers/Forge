@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Forge Tab Bridge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Connect a tab to the local chrome-tab CLI by clicking the toolbar button.",
   "minimum_chrome_version": "118",
   "permissions": [

@@ -30,6 +30,8 @@ in {
           pkgs.runCommand "ai-usage-clickhouse-tests" {
             CLICKHOUSE_BINARY = "${pkgs.clickhouse}/bin/clickhouse";
             CLIPROXY_BINARY = "${pkgs.cli-proxy-api-plus-capture}/bin/cli-proxy-api-plus";
+            OTELCOL_BINARY = lib.getExe pkgs.opentelemetry-collector-contrib;
+            OTELCOL_CONFIG = builtins.toFile "otel-collector.json" (builtins.toJSON config.flake.lib.aiTelemetryCollectorSettings);
             AI_USAGE_CLICKHOUSE_PASSWORD = "test";
           } ''
             ${pkgs.python3.withPackages (ps: [ps.aiohttp])}/bin/python3 -B -m unittest discover -s ${tree} -v
@@ -45,6 +47,8 @@ in {
     root = "/srv/disks/projects/ai-proxy";
     databaseRoot = "/srv/disks/projects/ai-usage";
     databaseEnv = "/srv/disks/projects/ai-usage-secrets/clickhouse.env";
+    archiveEnv = "/srv/disks/projects/ai-usage-secrets/archive.env";
+    otelEnv = "/srv/disks/projects/ai-usage-secrets/otel.env";
     template = pkgs.writeText "cli-proxy-api-plus.json" (builtins.toJSON {
       host = "127.0.0.1";
       inherit port;
@@ -127,6 +131,14 @@ in {
         if [ ! -s ${databaseEnv} ]; then
           ${pkgs.python3}/bin/python3 -c 'import secrets; print("AI_USAGE_CLICKHOUSE_PASSWORD=" + secrets.token_hex(32))' > ${databaseEnv}
         fi
+        # The archive's read-only account and the telemetry collector each
+        # have their own password and file.
+        if [ ! -s ${archiveEnv} ]; then
+          ${pkgs.python3}/bin/python3 -c 'import secrets; print("AI_ARCHIVE_CLICKHOUSE_PASSWORD=" + secrets.token_hex(32))' > ${archiveEnv}
+        fi
+        if [ ! -s ${otelEnv} ]; then
+          ${pkgs.python3}/bin/python3 -c 'import secrets; print("AI_OTEL_CLICKHOUSE_PASSWORD=" + secrets.token_hex(32))' > ${otelEnv}
+        fi
       '';
     };
     services.clickhouse = {
@@ -141,19 +153,14 @@ in {
         format_schema_path = "${databaseRoot}/format_schemas/";
         max_server_memory_usage = 2147483648;
       };
-      extraUsersConfig = ''
-        <clickhouse><users><default>
-          <password from_env="AI_USAGE_CLICKHOUSE_PASSWORD"/>
-          <networks replace="replace"><ip>127.0.0.1</ip></networks>
-        </default></users></clickhouse>
-      '';
+      extraUsersConfig = builtins.readFile (tree + /clickhouse-users.xml);
     };
     systemd.services.clickhouse = {
       requires = ["ai-usage-secrets.service"];
       after = ["ai-usage-secrets.service" "systemd-tmpfiles-setup.service"];
       restartTriggers = [config.environment.etc."clickhouse-server/config.d/100-nixos-module-config.yaml".source];
       unitConfig.RequiresMountsFor = ["/srv/disks/projects"];
-      serviceConfig.EnvironmentFile = databaseEnv;
+      serviceConfig.EnvironmentFile = [databaseEnv archiveEnv otelEnv];
     };
     systemd.services.ai-usage-schema = {
       requires = ["clickhouse.service"];

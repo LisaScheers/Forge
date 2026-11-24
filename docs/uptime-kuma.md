@@ -23,7 +23,9 @@ Each host's push tokens are encrypted in its `uptime-kuma-probes.age` secret.
 
 - Atlas runs a PostgreSQL `SELECT 1` over the local socket as `postgres`.
 - Nook checks Sonarr, Radarr, and Prowlarr HTTP responses, and the Squid and
-  Dante TCP listeners.
+  Dante TCP listeners. Under `projects-disk` it reports down when
+  `/srv/disks/projects`, which holds AI captures, ClickHouse and Cognee without
+  expiry, is more than 90% full.
 - Local probes run 60 seconds after their previous run finishes. Kuma expects
   a report within 180 seconds.
 - A successful full-cluster PostgreSQL backup reports through `ExecStartPost`.
@@ -32,6 +34,10 @@ Each host's push tokens are encrypted in its `uptime-kuma-probes.age` secret.
   `postgresql-backup-copy`. Create a push monitor with a 26-hour deadline and
   add its token under that key to Nook's `uptime-kuma-probes.age`; until then
   the report fails quietly.
+- Cognee's nightly encrypted archive reports from Nook as `cognee-backup`
+  ([Cognee backup](cognee.md#backup-and-restore)). Give it a 26-hour deadline.
+- `projects-disk` and `cognee-backup` need push monitors and tokens added before
+  they report; until then their reports fail quietly.
 - Atlas's automatic update job also reports through `ExecStartPost`. Its
   monitor allows two hours for builds and updates. Nook has no scheduled
   auto-update job, so its completion monitor is paused as not applicable.

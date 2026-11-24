@@ -1,8 +1,9 @@
 # REA
 
-`home.rea` installs the pinned REA CLI, registers its local MCP server through
-`programs.mcp`, and installs the matching `reverse-engineer-anything` skill for
-Codex. Lisa's main Home Manager profile selects it on Vega, Nook, and Asterion.
+`home.rea` installs the pinned REA CLI, registers its local MCP server for
+Codex, writes the same server to `~/.claude/mcp-available/rea.json` for Claude
+to attach on demand (`claude --mcp-config ~/.claude/mcp-available/rea.json`),
+and installs the matching `reverse-engineer-anything` skill for Codex. Lisa's main Home Manager profile selects it on Vega, Nook, and Asterion.
 
 The package uses REA's published 6.8.0 runtime and skill with the matching
 release lockfile. Node 26 supplies a supported runtime independently of the

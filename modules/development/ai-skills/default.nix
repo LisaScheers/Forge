@@ -1,4 +1,10 @@
-{
+{inputs, ...}: {
+  # A flake input, so the daily flake.lock pull request also updates it.
+  flake-file.inputs.tstack = {
+    url = "github:t3dotgg/tstack";
+    flake = false;
+  };
+
   home.ai-environment = {
     config,
     lib,
@@ -22,12 +28,23 @@
       name = skill;
       value = ./pstack/skills/${skill};
     }) (builtins.attrNames (builtins.readDir ./pstack/skills)));
-    tstack = pkgs.fetchFromGitHub {
-      owner = "t3dotgg";
-      repo = "tstack";
-      rev = "11e37a74d0a6868c121cd0910ab2b3bd9873b92a";
-      hash = "sha256-1N0fxvcM44NcGOZeYJiX/EAJuI9GoAj5rEXmu7mJc3w=";
-    };
+    # Codex reads a skill's invocation policy from agents/openai.yaml; Claude
+    # reads it from the SKILL.md frontmatter. Carry the manual-only policy over.
+    manualOnly = path: lib.hasInfix "allow_implicit_invocation: false" (builtins.readFile (path + "/agents/openai.yaml"));
+    claudePstackSkills =
+      lib.mapAttrs (
+        name: path:
+          if manualOnly path
+          then
+            pkgs.runCommandLocal "claude-skill-${name}" {} ''
+              cp -r ${path} "$out"
+              chmod -R u+w "$out"
+              sed -i '0,/^---$/s//---\ndisable-model-invocation: true/' "$out/SKILL.md"
+            ''
+          else path
+      )
+      pstackSkills;
+    inherit (inputs) tstack;
     # Bundled file-pr and babysit-pr replace tstack's versions, which full-send calls by name.
     tstackSkills = lib.genAttrs ["council" "full-send" "full-stop" "sol-loop"] (skill: "${tstack}/skills/${skill}");
     effectiveSkills =
@@ -39,6 +56,9 @@
     effectiveCodexSkills =
       effectiveAgentSkills
       // lib.optionalAttrs cfg.enablePstackSkills pstackSkills;
+    effectiveClaudeSkills =
+      effectiveAgentSkills
+      // lib.optionalAttrs cfg.enablePstackSkills claudePstackSkills;
   in {
     options.forge.ai-skills = {
       enable = (lib.mkEnableOption "the declarative ai skills environment") // {default = true;};
@@ -47,7 +67,7 @@
         type = lib.types.either lib.types.lines lib.types.path;
         default = ./AGENTS.md;
         defaultText = lib.literalExpression "./AGENTS.md";
-        description = "Global instructions shared by Codex, Claude Code, and GitHub Copilot CLI.";
+        description = "Global instructions shared by Codex, Claude Code, Antigravity CLI and GitHub Copilot CLI.";
       };
 
       enableBundledSkills = lib.mkOption {
@@ -59,7 +79,7 @@
       enablePstackSkills = lib.mkOption {
         type = lib.types.bool;
         default = true;
-        description = "Whether to install the separately maintained pstack skills in Codex.";
+        description = "Whether to install the separately maintained pstack skills in Codex and Claude Code.";
       };
 
       enableTstackSkills = lib.mkOption {
@@ -87,10 +107,11 @@
 
         claude-code = {
           context = cfg.agentsFile;
-          skills = effectiveAgentSkills;
+          skills = effectiveClaudeSkills;
         };
 
         antigravity-cli = {
+          context.GEMINI = cfg.agentsFile;
           skills = effectiveSkills;
         };
 
