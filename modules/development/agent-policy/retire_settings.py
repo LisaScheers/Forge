@@ -75,7 +75,11 @@ def main():
             os.replace(temporary, config_path)
             print(f"Removed settings Nix no longer declares from {config_path}: " + ", ".join(removed))
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(json.dumps(sorted(declared)), encoding="utf-8")
+    # A half-written manifest would stop every later activation, so replace it whole.
+    handle, temporary = tempfile.mkstemp(dir=manifest_path.parent, prefix=f".{manifest_path.name}.")
+    with os.fdopen(handle, "w", encoding="utf-8") as output:
+        output.write(json.dumps(sorted(declared)))
+    os.replace(temporary, manifest_path)
 
 
 if __name__ == "__main__":

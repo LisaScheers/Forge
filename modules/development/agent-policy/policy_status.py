@@ -34,20 +34,32 @@ def differences(expected, home, owned=()):
         claude = json.loads(claude_path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         claude = {}
-    permissions = claude.get("permissions") or {}
-    for key, value in expected["claude"]["permissions"].items():
-        if isinstance(value, list):
-            missing = [rule for rule in value if rule not in (permissions.get(key) or [])]
-            if missing:
-                found.append(f"{claude_path}: permissions.{key} lacks {', '.join(missing)}")
-        elif permissions.get(key) != value:
-            found.append(f"{claude_path}: permissions.{key} is {permissions.get(key)!r}, policy says {value!r}")
+    for section, rules in expected["claude"].items():
+        actual = claude.get(section) or {}
+        for key, value in rules.items():
+            name = f"{claude_path}: {section}.{key}"
+            if value == []:
+                # Nothing allowed: an ask rule or hook added after activation is drift.
+                if actual.get(key):
+                    found.append(f"{name} is {actual.get(key)!r}, policy says []")
+            elif isinstance(value, list):
+                # Required rules; the app or a person may add more.
+                missing = [rule for rule in value if rule not in (actual.get(key) or [])]
+                if missing:
+                    found.append(f"{name} lacks {', '.join(missing)}")
+            elif actual.get(key) != value:
+                found.append(f"{name} is {actual.get(key)!r}, policy says {value!r}")
     owned = {tuple(path) for path in owned}
     for server in sorted({path[1] for path in owned}):
         table = (codex.get("mcp_servers") or {}).get(server)
-        for path in leaf_paths(table or {}, ("mcp_servers", server)):
-            if table and path not in owned:
+        if not table:
+            continue
+        for path in leaf_paths(table, ("mcp_servers", server)):
+            if path not in owned:
                 found.append(f"{codex_path}: {'.'.join(path)} is not declared by Nix")
+        for key, value in expected.get("codex_servers", {}).items():
+            if table.get(key) != value:
+                found.append(f"{codex_path}: mcp_servers.{server}.{key} is {table.get(key)!r}, policy says {value!r}")
     return found
 
 

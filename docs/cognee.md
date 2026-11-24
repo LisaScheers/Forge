@@ -378,10 +378,15 @@ The archive still contains graph data, source documents and renewable tokens.
 `checks.x86_64-linux.cognee-backup` runs the whole path in two VMs: encryption,
 the restricted key, refusal of stale and corrupt archives, and pruning.
 
-To restore, stop `podman-cognee-mcp` and `podman-cognee` on Nook, then unpack a copy
-into `/srv/disks/projects/cognee` and start them again:
+To restore, stop `podman-cognee-mcp` and `podman-cognee` on Nook. Move the five
+archived directories aside, so files written after the backup do not survive into
+the restored state, unpack a copy into `/srv/disks/projects/cognee`, and start
+the services again. Delete the moved directories once Cognee works:
 
 ```sh
+cd /srv/disks/projects/cognee
+sudo mkdir pre-restore
+sudo mv system data credentials openai mcp pre-restore/
 age -d -i ~/.config/sops/age/keys.txt cognee-YYYY-MM-DD.tar.zst.age | zstd -dc | sudo tar -C /srv/disks/projects/cognee -xpf -
 ```
 

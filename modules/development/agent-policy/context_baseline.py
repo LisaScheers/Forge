@@ -9,7 +9,7 @@ With --probe it instead starts one short headless session per client in an
 empty directory and reports that session's first request: a controlled
 measurement that past sessions, with their varied working directories, are not.
 --budget N then exits 1 when a probed client starts above N tokens. --layers
-also probes each client with its MCP servers left out (and Claude with its skills
+also probes each client with its configured MCP servers left out (and Claude with its skills
 left out too), so the difference shows what each layer costs.
 
 Usage: context_baseline.py [HOME] [--days N] | --probe [--layers] [--budget N]
@@ -17,10 +17,12 @@ Usage: context_baseline.py [HOME] [--days N] | --probe [--layers] [--budget N]
 
 import argparse
 import json
+import os
 import statistics
 import subprocess
 import tempfile
 import time
+import tomllib
 from pathlib import Path
 
 PROBE_PROMPT = "Reply with OK."
@@ -55,9 +57,16 @@ def codex_first_input(path):
     return None
 
 
+def recent_size(path, first_input, since):
+    # A client may delete a session between the scan and the read.
+    try:
+        return first_input(path) if path.stat().st_mtime >= since else None
+    except FileNotFoundError:
+        return None
+
+
 def summarise(files, first_input, since):
-    sizes = [size for path in files if path.stat().st_mtime >= since
-             for size in [first_input(path)] if size]
+    sizes = [size for path in files for size in [recent_size(path, first_input, since)] if size]
     if not sizes:
         return None
     return {"sessions": len(sizes), "median": int(statistics.median(sizes)), "min": min(sizes), "max": max(sizes)}
@@ -92,19 +101,37 @@ def codex_probe_input(output):
 
 CLAUDE = ["claude", "-p", PROBE_PROMPT, "--output-format", "json"]
 CODEX = ["codex", "exec", "--json", "--skip-git-repo-check", PROBE_PROMPT]
-LAYERS = {
-    "claude without MCP": (CLAUDE + ["--strict-mcp-config"], claude_probe_input),
-    "claude without MCP or skills": (CLAUDE + ["--strict-mcp-config", "--disable-slash-commands"], claude_probe_input),
-    "codex without MCP": (CODEX[:2] + ["-c", "mcp_servers={}"] + CODEX[2:], codex_probe_input),
-}
+def codex_without(servers):
+    """Codex merges `-c mcp_servers={}` into its config and keeps every server,
+    so each configured server is switched off by name instead."""
+    flags = [flag for name in servers for flag in ("-c", f"mcp_servers.{name}.enabled=false")]
+    return CODEX[:2] + flags + CODEX[2:]
 
 
-def probe(layers=False):
+def layers(codex_servers):
+    return {
+        "claude without MCP": (CLAUDE + ["--strict-mcp-config"], claude_probe_input),
+        "claude without MCP or skills": (CLAUDE + ["--strict-mcp-config", "--disable-slash-commands"],
+                                         claude_probe_input),
+        "codex without MCP": (codex_without(codex_servers), codex_probe_input),
+    }
+
+
+def configured_codex_servers():
+    """The servers in Codex's config.toml. Plugin servers cannot be switched off with -c."""
+    config = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex") / "config.toml"
+    try:
+        return sorted((tomllib.loads(config.read_text(encoding="utf-8")).get("mcp_servers") or {}))
+    except FileNotFoundError:
+        return []
+
+
+def probe(with_layers=False):
     commands = {"claude": (CLAUDE, claude_probe_input), "codex": (CODEX, codex_probe_input)}
-    if layers:
-        commands.update(LAYERS)
     sizes = {}
     with tempfile.TemporaryDirectory() as empty:
+        if with_layers:
+            commands.update(layers(configured_codex_servers()))
         for client, (command, parse) in commands.items():
             result = subprocess.run(command, cwd=empty, stdin=subprocess.DEVNULL, capture_output=True,
                                     text=True, timeout=300, check=True)

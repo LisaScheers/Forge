@@ -11,7 +11,7 @@ class SkillsCatalogueTests(unittest.TestCase):
         self.addCleanup(directory.cleanup)
         skill = Path(directory.name, "file-pr")
         skill.mkdir()
-        (skill / "SKILL.md").write_text('---\nname: file-pr\ndescription: "Use when filing a PR. Also | more."\n---\nBody\n')
+        (skill / "SKILL.md").write_text('---\nname: file-pr\ndescription: "Use when filing a PR. Also | more---here."\n---\nBody\n')
         manual = Path(directory.name, "principle-x")
         (manual / "agents").mkdir(parents=True)
         (manual / "SKILL.md").write_text("---\nname: principle-x\ndescription: " + "y" * 400 + "\n---\n")

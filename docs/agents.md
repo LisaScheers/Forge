@@ -68,8 +68,10 @@ changed, and restic keeps 14 daily, 8 weekly and 12 monthly snapshots.
 
 - **Encrypted end to end.** The repository password is an agenix secret
   encrypted to Lisa's age key and Vega's host key; Nook holds only ciphertext.
-- **Write-only path.** Vega writes as `session-backup`, whose key's forced command
-  is the SFTP server in that account's directory, so it cannot run a shell.
+- **Restricted SFTP path.** Vega writes as `session-backup`, whose key's forced
+  command is the SFTP server in that account's directory, so it cannot run a
+  shell. Inside that directory it can also read and delete files, which restic
+  needs to prune old snapshots.
 - **Tested.** `checks.x86_64-linux.session-backup` runs the same script between
   two VMs: first backup and restore, ciphertext only on the server, a second
   snapshot, and a key that cannot run commands.
@@ -80,8 +82,13 @@ in under a minute; later runs store only the difference. The job logs to
 password with Lisa's age identity and point restic at the repository:
 
 ```sh
-age -d -i ~/.config/sops/age/keys.txt modules/security/agenix/secrets/vega/session-backup-password.age > /tmp/restic-password
-RESTIC_PASSWORD_FILE=/tmp/restic-password restic -r sftp:session-backup@nook:/srv/disks/projects/session-backup/repo snapshots
+(
+  umask 077
+  password=$(mktemp)
+  trap 'rm -f "$password"' EXIT
+  age -d -i ~/.config/sops/age/keys.txt modules/security/agenix/secrets/vega/session-backup-password.age > "$password"
+  RESTIC_PASSWORD_FILE="$password" restic -r sftp:session-backup@nook:/srv/disks/projects/session-backup/repo snapshots
+)
 ```
 
 ## Instructions and skills
@@ -175,7 +182,7 @@ What that saves, measured on Vega on 2026-11-23:
 | Claude probe: one "Reply with OK." session in an empty directory | 44,557 tokens (50,651 with REA attached) |
 | Codex probe: the same, with every Nix-declared server deferred | 25,089 tokens |
 | Claude probe without MCP servers (`--strict-mcp-config`) | 37,723 tokens |
-| Codex probe without MCP servers (`mcp_servers={}`) | 25,089 tokens |
+| Codex probe without its configured MCP servers, each `enabled=false` (2026-11-24) | 25,087 tokens, against 25,338 with them |
 
 The first request carries the system prompt, instructions, skill descriptions
 and every tool schema loaded up front, so it is what each new session costs
@@ -185,11 +192,13 @@ the session files both clients keep (`--days N`, token counts only), and with
 which isolates the setup from each project's own files. Add `--budget N` to make
 the probe fail when a client starts above N tokens, for example before and after
 adding a server or skill, and `--layers` to probe each client again without its
-MCP servers (and Claude without skills). The session median predates deferring
+configured MCP servers (and Claude without skills). Codex merges
+`-c mcp_servers={}` into its config and keeps every server, so the probe switches
+each one off by name; servers that plugins add stay on. The session median predates deferring
 Clerk, Cognee and webmcp in Codex; the probes were run afterwards.
 
-The layers show where deferral still costs something. Codex starts the same with
-or without its servers. Claude's MCP layer is about 6,800 tokens even deferred:
+The layers show where deferral still costs something. Codex's deferred servers
+add about 250 tokens. Claude's MCP layer is about 6,800 tokens even deferred:
 tool search still lists the name of every deferred tool, and Clerk's and the
 claude.ai connectors' come to a few hundred names. With REA it was about 12,900,
 which is why Claude attaches REA on demand. Claude's

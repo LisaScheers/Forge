@@ -28,7 +28,7 @@ def answers(base_url, key, model):
     body = {"model": model, "max_tokens": 1, "messages": [{"role": "user", "content": "Reply with OK."}]}
     try:
         return bool(call(base_url, key, "/v1/chat/completions", body)["choices"])
-    except (urllib.error.URLError, OSError, ValueError, KeyError) as error:
+    except (urllib.error.URLError, OSError, ValueError, KeyError, TypeError) as error:
         if isinstance(error, urllib.error.HTTPError):
             error.close()
         return False
@@ -37,7 +37,7 @@ def answers(base_url, key, model):
 def probe(base_url, key, expected, infer=False):
     try:
         listed = {model["id"] for model in call(base_url, key, "/v1/models", timeout=15)["data"]}
-    except (urllib.error.URLError, OSError, ValueError, KeyError) as error:
+    except (urllib.error.URLError, OSError, ValueError, KeyError, TypeError) as error:
         if isinstance(error, urllib.error.HTTPError):
             error.close()
         return 2, f"gateway unreachable or refused the key: {error}"

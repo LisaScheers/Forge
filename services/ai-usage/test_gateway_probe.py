@@ -8,6 +8,12 @@ from gateway_probe import probe
 
 class Gateway(BaseHTTPRequestHandler):
     def do_GET(self):
+        if self.headers.get("Authorization") == "Bearer null":
+            # A proxy in a bad state can answer 200 with a body that is not the model list.
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"null")
+            return
         if self.headers.get("Authorization") != "Bearer right" or self.path != "/v1/models":
             self.send_response(401)
             self.end_headers()
@@ -60,6 +66,9 @@ class GatewayProbeTests(unittest.TestCase):
     def test_a_refused_key_or_dead_gateway_is_an_outage(self):
         self.assertEqual(probe(self.url, "wrong", ["gemini-3.8-flash"])[0], 2)
         self.assertEqual(probe("http://127.0.0.1:9", "right", ["gemini-3.8-flash"])[0], 2)
+
+    def test_a_malformed_model_list_is_an_outage(self):
+        self.assertEqual(probe(self.url, "null", ["gemini-3.8-flash"])[0], 2)
 
 
 if __name__ == "__main__":

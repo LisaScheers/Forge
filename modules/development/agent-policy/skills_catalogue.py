@@ -18,13 +18,15 @@ import yaml
 CLIENTS = ["Claude", "Codex", "Antigravity", "Copilot"]
 # Skills AGENTS.md names without a hyphen.
 ALSO_SKILLS = {"council", "postplan"}
+# The same rule as check_skills.py: `---` closes the frontmatter only on its own line.
+FRONTMATTER = re.compile(r"\A---\n(.*?)^---$", re.S | re.M)
 
 
 def description(directory):
     if directory is None:
         return ""
     text = Path(directory, "SKILL.md").read_text(encoding="utf-8")
-    meta = yaml.safe_load(text.split("---", 2)[1]) or {}
+    meta = yaml.safe_load(FRONTMATTER.match(text)[1]) or {}
     return " ".join(str(meta.get("description", "")).split())
 
 

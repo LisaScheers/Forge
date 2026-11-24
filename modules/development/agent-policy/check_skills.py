@@ -14,7 +14,9 @@ import yaml
 NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 # Reference documents a skill tells the agent to open. Scripts and assets may
 # name files in another repository or a packaged build, so only these are checked.
-BUNDLED = re.compile(r"(?<![\w/.-])(references/[\w./-]*\w)")
+BUNDLED = re.compile(r"(?<![\w/.-])(?:\./)?(references/[\w./-]*\w)")
+# `---` closes the frontmatter only on a line of its own, not inside a value.
+FRONTMATTER = re.compile(r"\A---\n(.*?)^---$\n?(.*)", re.S | re.M)
 
 
 def problems(skill):
@@ -22,10 +24,13 @@ def problems(skill):
     if not source.is_file():
         return [f"{skill}: no SKILL.md"]
     text = source.read_text(encoding="utf-8")
-    parts = text.split("---", 2)
-    if not text.startswith("---") or len(parts) < 3:
+    match = FRONTMATTER.match(text)
+    if not match:
         return [f"{source}: no YAML frontmatter"]
-    meta = yaml.safe_load(parts[1]) or {}
+    try:
+        meta = yaml.safe_load(match[1]) or {}
+    except yaml.YAMLError as error:
+        return [f"{source}: invalid YAML frontmatter: {error}"]
     found = []
     name = meta.get("name")
     if name != skill.name or not NAME.match(str(name)):
@@ -35,7 +40,7 @@ def problems(skill):
         found.append(f"{source}: missing description")
     elif len(description) > 1024:
         found.append(f"{source}: description is {len(description)} characters; clients truncate after 1024")
-    for reference in sorted(set(BUNDLED.findall(parts[2]))):
+    for reference in sorted(set(BUNDLED.findall(match[2]))):
         if not (skill / reference).exists():
             found.append(f"{source}: references missing {reference}")
     return found

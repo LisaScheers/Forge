@@ -25,10 +25,16 @@
       sandbox_mode = "danger-full-access";
       approval_policy = "never";
     };
-    claude.permissions = {
-      defaultMode = "bypassPermissions";
-      deny = claudeDeny;
+    claude = {
+      permissions = {
+        defaultMode = "bypassPermissions";
+        deny = claudeDeny;
+        ask = [];
+      };
+      hooks.PreToolUse = [];
     };
+    # Every MCP server table Nix owns in Codex's config.
+    codex_servers.omit_tools_from = ["direct"];
   };
   # Keys Nix declared in each settings file before its retirement manifest existed.
   retiredPaths = {
@@ -195,7 +201,7 @@ in {
         (expect "No MCP tool may ask for approval"
           (builtins.all (server: !(server ? default_tools_approval_mode) && !(server ? tools)) (builtins.attrValues servers)))
         (expect "Every stdio MCP server must run from the Nix store, not a package runner such as npx or uvx"
-          (builtins.all (server: (server.command or null) == null || lib.hasPrefix builtins.storeDir server.command)
+          (builtins.all (server: (server.command or null) == null || lib.hasPrefix "${builtins.storeDir}/" server.command && !(lib.hasInfix "/../" server.command))
             (builtins.attrValues servers ++ builtins.attrValues home.programs.mcp.servers)))
         (expect "Claude must start in bypass mode with no ask rules or hooks, and deny only credential reads"
           (claude.settings.permissions
@@ -422,8 +428,8 @@ in {
           && vega.settings.permissions.ask == []))
       ++ lib.optionals onNook (expect "nook: nginx must route OTLP logs, metrics and traces to the collector"
         (config.flake.nixosConfigurations.nook.config.services.nginx.virtualHosts."otel.local.bylisa.dev".locations ? "~ ^/v1/(logs|metrics|traces)$")
-        ++ expect "nook: the Codex service must use the shared Cognee server"
-        (lib.hasInfix "mcp_servers.cognee.url=" nookCodex));
+        ++ expect "nook: the Codex service must use the shared Cognee server, deferred to tool search"
+        (lib.hasInfix "mcp_servers.cognee.url=" nookCodex && lib.hasInfix "mcp_servers.cognee.omit_tools_from=" nookCodex));
     # The home this system builds, so its generated files exist here.
     local = homes.${homeHere};
     # Home Manager's own merge steps, which write the live files at activation.
@@ -502,7 +508,12 @@ in {
           mkdir -p "$home/.config/zed" "$home/.local/state/forge-agent-policy"
           echo '{"app_owned": "kept", "context_servers": {"retired": {"command": "old"}}}' > "$home/.config/zed/settings.json"
           echo '[["context_servers", "retired", "command"]]' > "$home/.local/state/forge-agent-policy/zed-managed.json"
-        ''}        ! python3 -B policy_status.py ${policyFile pkgs} "$home" ${ownedCodexServers pkgs local.programs.codex.settings} 2>/dev/null
+        ''}        # `!` would not stop the script under errexit, so the old home must fail explicitly.
+        if python3 -B policy_status.py ${policyFile pkgs} "$home" ${ownedCodexServers pkgs local.programs.codex.settings} 2> "$TMPDIR/drift"; then
+          echo "policy_status passed settings left from the approval policy" >&2
+          exit 1
+        fi
+        grep -q "sandbox_mode is 'workspace-write'" "$TMPDIR/drift"
         # Run the real merge against it, then require the policy and the kept keys.
         sed "s#${local.home.homeDirectory}#$home#g" ${merge} > "$TMPDIR/merge.sh"
         bash -c 'errorEcho() { echo "$@" >&2; }; run() { "$@"; }; set -eu; source "$1"' merge "$TMPDIR/merge.sh"

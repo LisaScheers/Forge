@@ -94,7 +94,7 @@ in {
   nixos.nook = {pkgs, ...}: {
     systemd.services.codex.serviceConfig.ExecStart = lib.escapeShellArgs (
       ["${pkgs.codex}/bin/codex"]
-      ++ codexOverrides "mcp_servers.cognee" codexCognee
+      ++ codexOverrides "mcp_servers.cognee" (codexCognee // deferred)
       ++ ["remote-control"]
     );
   };
