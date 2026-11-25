@@ -1,0 +1,354 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Store",
+  "name": "N&G Pool Service",
+  "telephone": "+3215760566",
+  "email": "info@ngpoolservice.be",
+  "url": "https://beta.ng.bylisa.dev/",
+  "image": "https://beta.ng.bylisa.dev/assets/shop-1200.jpg",
+  "vatID": "BE0810208534",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "Liersesteenweg 212a",
+    "postalCode": "2220",
+    "addressLocality": "Heist-op-den-Berg",
+    "addressCountry": "BE",
+    "addressRegion": "Antwerpen"
+  },
+  "@id": "https://beta.ng.bylisa.dev/#business",
+  "description": "Zwembadwinkel in Heist-op-den-Berg sinds 2009: advies bij zelfbouwzwembaden en groen of troebel water, waterbehandeling, onderdelen en jacuzziverzorging.",
+  "logo": "https://beta.ng.bylisa.dev/assets/logo-dark.png",
+  "hasMap": "https://maps.google.com/?cid=17918386577759365098",
+  "contactPoint": {
+    "@type": "ContactPoint",
+    "contactType": "customer service",
+    "telephone": "+3215760566",
+    "email": "info@ngpoolservice.be",
+    "availableLanguage": [
+      "nl"
+    ]
+  },
+  "openingHoursSpecification": [
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Wednesday",
+        "https://schema.org/Thursday",
+        "https://schema.org/Friday"
+      ],
+      "opens": "10:00",
+      "closes": "12:00",
+      "validFrom": "2026-01-01",
+      "validThrough": "2026-03-14"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Wednesday",
+        "https://schema.org/Thursday",
+        "https://schema.org/Friday"
+      ],
+      "opens": "14:00",
+      "closes": "17:00",
+      "validFrom": "2026-01-01",
+      "validThrough": "2026-03-14"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Saturday"
+      ],
+      "opens": "10:00",
+      "closes": "13:00",
+      "validFrom": "2026-01-01",
+      "validThrough": "2026-03-14"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Wednesday",
+        "https://schema.org/Thursday",
+        "https://schema.org/Friday"
+      ],
+      "opens": "10:00",
+      "closes": "12:30",
+      "validFrom": "2026-03-15",
+      "validThrough": "2026-10-14"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Wednesday",
+        "https://schema.org/Thursday",
+        "https://schema.org/Friday"
+      ],
+      "opens": "14:00",
+      "closes": "18:00",
+      "validFrom": "2026-03-15",
+      "validThrough": "2026-10-14"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Saturday"
+      ],
+      "opens": "09:00",
+      "closes": "13:00",
+      "validFrom": "2026-03-15",
+      "validThrough": "2026-10-14"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Wednesday",
+        "https://schema.org/Thursday",
+        "https://schema.org/Friday"
+      ],
+      "opens": "10:00",
+      "closes": "12:00",
+      "validFrom": "2026-10-15",
+      "validThrough": "2026-12-31"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Wednesday",
+        "https://schema.org/Thursday",
+        "https://schema.org/Friday"
+      ],
+      "opens": "14:00",
+      "closes": "17:00",
+      "validFrom": "2026-10-15",
+      "validThrough": "2026-12-31"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Saturday"
+      ],
+      "opens": "10:00",
+      "closes": "13:00",
+      "validFrom": "2026-10-15",
+      "validThrough": "2026-12-31"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Wednesday",
+        "https://schema.org/Thursday",
+        "https://schema.org/Friday"
+      ],
+      "opens": "10:00",
+      "closes": "12:00",
+      "validFrom": "2027-01-01",
+      "validThrough": "2027-03-14"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Wednesday",
+        "https://schema.org/Thursday",
+        "https://schema.org/Friday"
+      ],
+      "opens": "14:00",
+      "closes": "17:00",
+      "validFrom": "2027-01-01",
+      "validThrough": "2027-03-14"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Saturday"
+      ],
+      "opens": "10:00",
+      "closes": "13:00",
+      "validFrom": "2027-01-01",
+      "validThrough": "2027-03-14"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Wednesday",
+        "https://schema.org/Thursday",
+        "https://schema.org/Friday"
+      ],
+      "opens": "10:00",
+      "closes": "12:30",
+      "validFrom": "2027-03-15",
+      "validThrough": "2027-10-14"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Wednesday",
+        "https://schema.org/Thursday",
+        "https://schema.org/Friday"
+      ],
+      "opens": "14:00",
+      "closes": "18:00",
+      "validFrom": "2027-03-15",
+      "validThrough": "2027-10-14"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Saturday"
+      ],
+      "opens": "09:00",
+      "closes": "13:00",
+      "validFrom": "2027-03-15",
+      "validThrough": "2027-10-14"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Wednesday",
+        "https://schema.org/Thursday",
+        "https://schema.org/Friday"
+      ],
+      "opens": "10:00",
+      "closes": "12:00",
+      "validFrom": "2027-10-15",
+      "validThrough": "2027-12-31"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Wednesday",
+        "https://schema.org/Thursday",
+        "https://schema.org/Friday"
+      ],
+      "opens": "14:00",
+      "closes": "17:00",
+      "validFrom": "2027-10-15",
+      "validThrough": "2027-12-31"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": [
+        "https://schema.org/Saturday"
+      ],
+      "opens": "10:00",
+      "closes": "13:00",
+      "validFrom": "2027-10-15",
+      "validThrough": "2027-12-31"
+    }
+  ],
+  "hasOfferCatalog": {
+    "@type": "OfferCatalog",
+    "name": "Ons aanbod",
+    "itemListElement": [
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "@id": "https://beta.ng.bylisa.dev/zwembad-zelf-bouwen/#service",
+          "url": "https://beta.ng.bylisa.dev/zwembad-zelf-bouwen/",
+          "name": "Zelfbouwzwembaden",
+          "description": "U bouwt zelf, want zelf plaatsen we geen zwembaden. We denken budgetbewust mee en leveren pomp, filter, zeswegkraan en inbouwdelen, van eerste schets tot onderhoud.",
+          "provider": {
+            "@id": "https://beta.ng.bylisa.dev/#business"
+          }
+        }
+      },
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "@id": "https://beta.ng.bylisa.dev/groen-zwembadwater/#service",
+          "url": "https://beta.ng.bylisa.dev/groen-zwembadwater/",
+          "name": "Waterkwaliteit",
+          "description": "We meten een staal van uw zwembadwater in de winkel met meettoestellen van Hanna Instruments. Daarna zoeken we samen met u de oorzaak en de juiste behandeling.",
+          "provider": {
+            "@id": "https://beta.ng.bylisa.dev/#business"
+          }
+        }
+      },
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "@id": "https://beta.ng.bylisa.dev/jacuzzi-onderhoud/#service",
+          "url": "https://beta.ng.bylisa.dev/jacuzzi-onderhoud/",
+          "name": "Jacuzzi & wellness",
+          "description": "Voor uw jacuzzi of spa vindt u in de winkel waterverzorging en onderhoudsproducten, met advies over wat u wanneer gebruikt.",
+          "provider": {
+            "@id": "https://beta.ng.bylisa.dev/#business"
+          }
+        }
+      },
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "@id": "https://beta.ng.bylisa.dev/zwembad-overwinteren/#service",
+          "url": "https://beta.ng.bylisa.dev/zwembad-overwinteren/",
+          "name": "Overwinteren",
+          "description": "Zwembad actief overwinteren: de pomp draait regelmatig om bevriezing te voorkomen. Advies en producten bij N&G Pool Service, Heist-op-den-Berg.",
+          "provider": {
+            "@id": "https://beta.ng.bylisa.dev/#business"
+          }
+        }
+      },
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "@id": "https://beta.ng.bylisa.dev/zwembad-onderdelen/#service",
+          "url": "https://beta.ng.bylisa.dev/zwembad-onderdelen/",
+          "name": "Onderdeel vervangen",
+          "description": "Een onderdeel van uw zwembad of jacuzzi vervangen? Breng het mee naar N&G Pool Service in Heist-op-den-Berg. Niet op voorraad? We bestellen het voor u.",
+          "provider": {
+            "@id": "https://beta.ng.bylisa.dev/#business"
+          }
+        }
+      }
+    ]
+  },
+  "legalName": "N&G Pool-Service BV",
+  "foundingDate": "2009-02-24",
+  "geo": {
+    "@type": "GeoCoordinates",
+    "latitude": 51.0553,
+    "longitude": 4.7244
+  },
+  "sameAs": [
+    "https://maps.google.com/?cid=17918386577759365098",
+    "https://kbopub.economie.fgov.be/kbopub/toonondernemingps.html?lang=nl&ondernemingsnummer=0810208534"
+  ],
+  "knowsAbout": [
+    "Waterbehandeling",
+    "Meten en testen",
+    "Filtratie en techniek",
+    "Inbouw en leidingwerk",
+    "Schoonmaak en onderhoud",
+    "Jacuzzi en spa",
+    "Toebehoren en veiligheid"
+  ],
+  "areaServed": [
+    {
+      "@type": "City",
+      "name": "Heist-op-den-Berg"
+    },
+    {
+      "@type": "AdministrativeArea",
+      "name": "Antwerpen"
+    }
+  ],
+  "specialOpeningHoursSpecification": [
+    {
+      "@type": "OpeningHoursSpecification",
+      "opens": "10:00",
+      "closes": "11:00",
+      "validFrom": "2026-11-25",
+      "validThrough": "2026-11-25"
+    },
+    {
+      "@type": "OpeningHoursSpecification",
+      "opens": "15:00",
+      "closes": "17:00",
+      "validFrom": "2026-11-25",
+      "validThrough": "2026-11-25"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+# N&G Pool Service
+
+> Zwembadwinkel in Heist-op-den-Berg, België, sinds 2009. Zelfbouwzwembaden, advies over waterkwaliteit en jacuzzi- en wellnessproducten. De website is Nederlandstalig.
+
+N&G Pool Service plaatst zelf geen zwembaden: klanten bouwen zelf, met advies, techniek en onderdelen uit de winkel.
+
+Adres: Liersesteenweg 212a, 2220 Heist-op-den-Berg. Telefoon: +3215760566. E-mail: info@ngpoolservice.be.
+Openingsuren verschillen tussen zomer en winter en volgen Europe/Brussels. Afwijkingen zoals verlof verschijnen als mededeling op de website; bel bij twijfel de winkel.
+Mededeling (momentopname, laatst bijgewerkt op 2026-11-18): Woensdag 25 november, zal de winkel gesloten zijn tussen 11.00u en 15.00u. Aangepaste uren: woensdag 25 november 2026: 10:00–11:00 & 15:00–17:00.
+Productgroepen in de winkel: waterbehandeling, meten en testen, filtratie en techniek, inbouw en leidingwerk, schoonmaak en onderhoud, jacuzzi en spa, toebehoren en veiligheid.
+
+## Informatie
+
+- [Volledige website in Markdown](https://beta.ng.bylisa.dev/index.md): Aanbod, contactgegevens, beide seizoensroosters en veelgestelde vragen.
+- [Bedrijfsgegevens als Schema.org JSON-LD](https://beta.ng.bylisa.dev/business.jsonld): Bedrijf, contact, diensten en datumgebonden openingsuren.
+- [Zelf een zwembad bouwen](https://beta.ng.bylisa.dev/zwembad-zelf-bouwen/): Zelf een zwembad bouwen of renoveren? N&G Pool Service in Heist-op-den-Berg denkt mee en levert pompen, filters, skimmers en inbouwdelen. Maak een afspraak.
+- [Groen of troebel water](https://beta.ng.bylisa.dev/groen-zwembadwater/): Groen of troebel zwembadwater? Breng een staal mee naar N&G Pool Service in Heist-op-den-Berg. We meten het en adviseren de juiste behandeling.
+- [Jacuzzi en spa](https://beta.ng.bylisa.dev/jacuzzi-onderhoud/): Waterverzorging en onderhoud voor uw jacuzzi of spa bij N&G Pool Service in Heist-op-den-Berg: pH-correctie, antischuim, testers en vervangonderdelen.
+- [Overwinteren](https://beta.ng.bylisa.dev/zwembad-overwinteren/): Zwembad actief overwinteren: de pomp draait regelmatig om bevriezing te voorkomen. Advies en producten bij N&G Pool Service, Heist-op-den-Berg.
+- [Onderdeel vervangen](https://beta.ng.bylisa.dev/zwembad-onderdelen/): Een onderdeel van uw zwembad of jacuzzi vervangen? Breng het mee naar N&G Pool Service in Heist-op-den-Berg. Niet op voorraad? We bestellen het voor u.
+- [Website](https://beta.ng.bylisa.dev/): Dezelfde informatie met navigatie en contactlinks.
+
+## Contact
+
+- [Bellen](tel:+3215760566): Bel de winkel voor advies. Tinne staat alleen in de winkel en kan niet altijd opnemen terwijl ze een klant helpt.
+- [Mailen](mailto:info@ngpoolservice.be): De betrouwbaarste manier als de telefoon niet wordt opgenomen.
+- [Route](https://www.google.com/maps/dir/?api=1&destination=N%26G%20Pool%20Service%2C%20Liersesteenweg%20212a%2C%202220%20Heist-op-den-Berg): Open de route in Google Maps.
