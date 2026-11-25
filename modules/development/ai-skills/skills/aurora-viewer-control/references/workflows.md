@@ -5,18 +5,19 @@ tool catalog is authoritative for operation names and fields.
 
 ## Direct Python client
 
-Resolve `viewer_source` and `directory` from the selected checkout and endpoint.
-Import the existing client rather than reimplementing socket framing. Its reply
-has `result` or `error`, plus `request_id`; MCP places the same envelope in
-`structuredContent` (or the JSON text content).
+Resolve the client from the installed `aurora-control` and `directory` from the
+selected endpoint. Import the existing client rather than reimplementing socket
+framing. Its reply has `result` or `error`, plus `request_id`; MCP places the
+same envelope in `structuredContent` (or the JSON text content).
 
 ```python
+import shutil
 import sys
 from pathlib import Path
 
-viewer_source = Path("/Users/lisa/Projects/Scheers/work/aurora-mcp")
-directory = Path("/tmp/aurora-my-test")  # Replace with the exact selected endpoint.
-sys.path.insert(0, str(viewer_source / "scripts/control"))
+client = Path(shutil.which("aurora-control")).resolve().parent.parent / "lib/aurora-control"
+directory = Path.home() / "Library/Caches/aurora-control"  # Replace with the exact selected endpoint.
+sys.path.insert(0, str(client))
 from viewer_api import request
 
 def call(tool, **arguments):
@@ -48,9 +49,9 @@ when a deadline expires. A disappearing or replaced viewer PID ends the workflow
   do not repeat a creation merely because the original cache has not caught up.
 - Trash and purge are separate operations. Purge is permanent and only accepts
   eligible items already in Trash. Native protection and worn/no-copy checks apply.
-- For notecards, preview the inventory item or open the task notecard, then query
-  `topic="documents", id=ITEM_UUID` until loaded. The exact-ID query includes
-  readable source; save through the corresponding inventory/contents operation.
+- `topic="documents"` lists the open script editors; with `id=ITEM_UUID` (and
+  `object` for a task script) it includes readable source. Notecards have no
+  semantic operation yet; use the visual fallback for them.
 
 ## Scripts
 

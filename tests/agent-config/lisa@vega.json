@@ -205,6 +205,18 @@
       "prevent_idle_sleep": true
     },
     "mcp_servers": {
+      "aurora": {
+        "args": [
+          "--directory",
+          "/Users/lisa/Library/Caches/aurora-control"
+        ],
+        "command": "<store>/bin/aurora-control-mcp",
+        "omit_tools_from": [
+          "direct"
+        ],
+        "startup_timeout_sec": 10,
+        "tool_timeout_sec": 60
+      },
       "clerk_mcp": {
         "enabled": true,
         "omit_tools_from": [

@@ -119,6 +119,7 @@ lists every skill with its clients and what it does, generated the same way.
 
 | MCP server | Claude | Codex | Zed | Antigravity |
 | --- | --- | --- | --- | --- |
+| aurora | on demand | tool search | not installed | not installed |
 | clerk_mcp | tool search | tool search | not installed | not installed |
 | cognee | tool search | tool search | not installed | not installed |
 | nixos | tool search | tool search | loaded at start | loaded at start |
@@ -181,7 +182,12 @@ anything, so Claude does not start it by default. Nix writes the same server to
 its deferred servers cost nothing up front. `checks.agent-policy` fails if the
 on-demand file and Codex's entry run different commands.
 
-What that saves, measured on Vega on 2026-11-23:
+Aurora Viewer's control server follows the same pattern on Vega only:
+`claude --mcp-config ~/.claude/mcp-available/aurora.json` attaches it, and
+Codex keeps it behind tool search. It reaches a viewer started with
+`aurora-viewer-control` ([aurora-viewer.md](aurora-viewer.md)).
+
+What REA's exception saves, measured on Vega on 2026-11-23:
 
 | Measurement | Size |
 | --- | --- |

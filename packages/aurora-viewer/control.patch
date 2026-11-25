@@ -1,0 +1,3204 @@
+Aurora control bridge (forge patch; upstream has no automation API).
+
+With AURORA_CONTROL_DIR set, the viewer creates that directory (0700) and
+answers JSON-line requests on control.sock through its own action paths,
+so RLVa and native permissions apply. Unset, nothing changes.
+See docs/aurora-viewer.md and tools/aurora-control.
+
+diff --git a/crates/aurora-viewer/src/app.rs b/crates/aurora-viewer/src/app.rs
+index dae6b4a5..ab56cce5 100644
+--- a/crates/aurora-viewer/src/app.rs
++++ b/crates/aurora-viewer/src/app.rs
+@@ -60,2 +60,3 @@ mod color_picker;
+ mod contents_copy;
++mod control_bridge;
+ mod context_menu;
+@@ -513,2 +514,4 @@ pub struct App {
+     game_control: game_control::State,
++    /// The local control bridge (`AURORA_CONTROL_DIR`, forge patch).
++    control: control_bridge::State,
+     /// Keys and bindable mouse buttons held down.
+@@ -1898,2 +1901,3 @@ impl App {
+             game_control: Default::default(),
++            control: control_bridge::State::from_env(),
+             down: HashSet::new(),
+@@ -5382,2 +5386,7 @@ impl App {
+         };
++        self.run_shortcut(action);
++    }
++
++    /// A pressed shortcut's action; the control bridge runs them by name.
++    fn run_shortcut(&mut self, action: Action) {
+         match action {
+@@ -9139,3 +9148,3 @@ impl App {
+         // the Controls window's buttons, held like their keys
+-        let held = |a: Action| self.controls_held.contains(&a);
++        let held = |a: Action| self.controls_held.contains(&a) || self.control.holds(a);
+         i.forward |= held(Action::Forward);
+@@ -12707,2 +12716,3 @@ impl App {
+         self.demo_script_input(&mut raw);
++        self.control_egui_input(&mut raw);
+         // Synthetic preedit uses the ordinary focused Conversations editor.
+@@ -13379,2 +13389,3 @@ impl App {
+         }
++        self.control_frame(&mut actions, &mut gfx);
+         self.handle_actions(actions, event_loop);
+@@ -20198,2 +20209,3 @@ impl App {
+                 self.world.notification_history = hist;
++                answers.extend(self.control.take_answers());
+                 // the region restart over the toasts, under the open list
+@@ -25083,2 +25095,3 @@ impl ApplicationHandler for App {
+         self.game_control_dispatch(event_loop);
++        self.control_idle(event_loop);
+         if self.gfx.as_ref().is_some_and(|g| !g.shown) {
+diff --git a/crates/aurora-viewer/src/app/control_bridge.rs b/crates/aurora-viewer/src/app/control_bridge.rs
+new file mode 100644
+index 00000000..1f9fb03e
+--- /dev/null
++++ b/crates/aurora-viewer/src/app/control_bridge.rs
+@@ -0,0 +1,386 @@
++//! The control bridge in the frame (forge patch): requests from
++//! `crate::control` are answered here, on the frame thread, through the
++//! viewer's own paths. Every network command goes through `App::send`, so
++//! RLVa's send boundary and the viewer's permission checks apply; the tools
++//! add no way around them.
++
++mod act;
++mod input;
++mod query;
++
++use super::*;
++use crate::control::{ControlError, Journal, Lease, Outcome, Pending, journal::Receipt};
++use serde_json::{Map, Value, json};
++use glam::Quat;
++use std::collections::{HashMap, HashSet, VecDeque};
++use uuid::Uuid;
++
++/// Requests answered per frame; the rest wait for the next one.
++const PER_FRAME: usize = 32;
++/// With requests waiting and no frame for this long (an occluded window on
++/// macOS gets no redraws), the bridge runs a frame itself.
++const STALL: Duration = Duration::from_millis(250);
++/// A capture asked for and not delivered in this time is asked again.
++const CAPTURE_RETRY: Duration = Duration::from_secs(5);
++
++/// A synthetic native input event, sent through `window_event` from
++/// `about_to_wait` once the frame counter reaches `frame`.
++pub(super) enum Native {
++    Move(f32, f32),
++    Button(winit::event::MouseButton, bool),
++}
++
++#[derive(Default)]
++pub(super) enum Capture {
++    #[default]
++    Idle,
++    Requested {
++        id: u64,
++        max_width: u32,
++        /// When the renderer was asked for the picture (once; again after
++        /// `CAPTURE_RETRY` without one), and the interface scale then.
++        asked: Option<(Instant, f32)>,
++    },
++    Done {
++        id: u64,
++        result: Value,
++    },
++}
++
++#[derive(Default)]
++struct Cursors {
++    started: bool,
++    chat: Option<(u64, u64)>,
++    ims: HashMap<uuid::Uuid, (u64, u64)>,
++    notifications: HashSet<u64>,
++    screen: &'static str,
++    region: Option<String>,
++    seated: bool,
++    flying: bool,
++}
++
++#[derive(Default)]
++pub(super) struct State {
++    endpoint: Option<crate::control::Endpoint>,
++    journal: Journal,
++    hold: Lease,
++    held: Vec<Action>,
++    drag: Lease,
++    drag_at: Option<(f32, f32)>,
++    answers: Vec<(u64, crate::world::notifications::Response)>,
++    egui: VecDeque<(u64, egui::Event)>,
++    native: VecDeque<(u64, Native)>,
++    capture: Capture,
++    captures: u64,
++    cursors: Cursors,
++    /// The request being answered, for the events it causes.
++    current: Option<String>,
++    /// The window's logical size and scale, read in the frame.
++    window: (f32, f32, f32, u32, u32),
++}
++
++impl State {
++    pub(super) fn from_env() -> State {
++        State {
++            endpoint: crate::control::Endpoint::from_env(),
++            ..State::default()
++        }
++    }
++
++    pub(super) fn enabled(&self) -> bool {
++        self.endpoint.is_some()
++    }
++
++    /// An automation hold of `action` (`viewer_move` op `hold`).
++    pub(super) fn holds(&self, action: Action) -> bool {
++        self.hold.active(Instant::now()) && self.held.contains(&action)
++    }
++
++    /// Notification answers chosen through `viewer_notifications`, handled
++    /// with the cards' own answers.
++    pub(super) fn take_answers(&mut self) -> Vec<(u64, crate::world::notifications::Response)> {
++        std::mem::take(&mut self.answers)
++    }
++
++    pub(super) fn event(&mut self, kind: &'static str, data: Value) {
++        let request = self.current.clone();
++        self.journal.push(kind, request.as_deref(), data);
++    }
++}
++
++pub(super) fn screen_name(screen: &Screen) -> &'static str {
++    match screen {
++        Screen::Login => "login",
++        Screen::Loading { .. } => "loading",
++        Screen::World => "world",
++    }
++}
++
++impl App {
++    /// `about_to_wait`: synthetic native input, and a frame when requests
++    /// wait while the window gets none.
++    pub(super) fn control_idle(&mut self, event_loop: &ActiveEventLoop) {
++        if !self.control.enabled() {
++            return;
++        }
++        self.control_pump_native(event_loop);
++        let waiting = self.control.endpoint.as_ref().is_some_and(|e| e.waiting());
++        if waiting && self.gfx.as_ref().is_some_and(|g| g.shown) && self.last_frame.elapsed() > STALL {
++            self.frame(event_loop);
++        }
++    }
++
++    /// The frame, before the interface's actions apply: the requests, the
++    /// leases, the capture and the events.
++    pub(super) fn control_frame(&mut self, actions: &mut UiActions, gfx: &mut Gfx) {
++        if !self.control.enabled() {
++            return;
++        }
++        let size = gfx.window.inner_size();
++        let ppp = self.egui_ctx.pixels_per_point();
++        self.control.window = (size.width as f32 / ppp, size.height as f32 / ppp, ppp, size.width, size.height);
++        self.control_capture_frame(&mut gfx.renderer);
++        let now = Instant::now();
++        if self.control.hold.expired(now) {
++            self.control.held.clear();
++            self.control.journal.push("lease_expired", None, json!({"lease": "hold"}));
++        }
++        if self.control.drag.expired(now) {
++            self.control_release_drag();
++            self.control.journal.push("lease_expired", None, json!({"lease": "drag"}));
++        }
++        for _ in 0..PER_FRAME {
++            let Some(pending) = self.control.endpoint.as_ref().and_then(|e| e.try_recv()) else {
++                break;
++            };
++            self.control_answer(pending, actions);
++        }
++        self.control_watch();
++    }
++
++    fn control_answer(&mut self, pending: Pending, actions: &mut UiActions) {
++        let op = pending.arguments.get("op").and_then(Value::as_str).map(str::to_owned);
++        self.control.current = Some(pending.request_id.clone());
++        let outcome = self.control_call(&pending.tool, &pending.arguments, &pending.request_id, actions);
++        let ok = outcome.is_ok();
++        // the receipt keeps what was answered; a capture's picture stays out
++        let kept = match &outcome {
++            Ok(result) if pending.tool == "viewer_capture" => json!({"status": result.get("status")}),
++            Ok(result) => result.clone(),
++            Err(error) => error.to_value(),
++        };
++        if !matches!(pending.tool.as_str(), "viewer_state" | "viewer_query" | "viewer_events") {
++            let data = json!({"tool": pending.tool, "op": op, "ok": ok, "error": outcome.as_ref().err().map(ControlError::to_value)});
++            self.control.event("command", data);
++            log::info!(
++                "control bridge: {} {} {}",
++                pending.tool,
++                op.as_deref().unwrap_or("-"),
++                if ok { "ok" } else { "refused or failed" }
++            );
++        }
++        self.control.journal.record(Receipt {
++            request_id: pending.request_id.clone(),
++            tool: pending.tool.clone(),
++            op,
++            time: std::time::SystemTime::now(),
++            outcome: kept,
++            ok,
++        });
++        self.control.current = None;
++        pending.answer(&outcome);
++    }
++
++    fn control_call(&mut self, tool: &str, args: &Map<String, Value>, request_id: &str, actions: &mut UiActions) -> Outcome {
++        match tool {
++            "viewer_state" => Ok(self.control_state()),
++            "viewer_query" => self.control_query(args),
++            "viewer_events" => self.control_events(args),
++            "viewer_settings" => self.control_settings(args, actions),
++            "viewer_move" => self.control_move(args),
++            "viewer_camera" => self.control_camera(args),
++            "viewer_object" => self.control_object(args),
++            "viewer_build" => self.control_build(args),
++            "viewer_inventory" => self.control_inventory(args),
++            "viewer_contents" => self.control_contents(args),
++            "viewer_script" => self.control_script(args),
++            "viewer_notifications" => self.control_notifications(args),
++            "viewer_chat" => self.control_chat(args, actions),
++            "viewer_ui" => self.control_ui(args),
++            "viewer_input" => self.control_input(args),
++            "viewer_capture" => self.control_capture(args, request_id),
++            other => Err(ControlError::new("unknown_tool", format!("no tool named {other}"))),
++        }
++    }
++
++    fn control_events(&mut self, args: &Map<String, Value>) -> Outcome {
++        let after = crate::control::opt_u64(args, "after")?.unwrap_or(0);
++        let limit = crate::control::opt_u64(args, "limit")?.unwrap_or(100).clamp(1, 512) as usize;
++        let request_id = crate::control::opt_str(args, "request_id")?;
++        let mut page = self.control.journal.after(after, limit, request_id);
++        if let Some(id) = request_id {
++            page["receipt"] = self.control.journal.receipt(id).map_or(Value::Null, Receipt::to_value);
++        }
++        Ok(page)
++    }
++
++    /// Events from what changed since the last frame: nearby chat and
++    /// conversation lines, notifications, the screen, region and posture.
++    fn control_watch(&mut self) {
++        let screen = screen_name(&self.screen);
++        let first = !self.control.cursors.started;
++        self.control.cursors.started = true;
++        if self.control.cursors.screen != screen {
++            if !first {
++                self.control.journal.push("screen", None, json!({"screen": screen}));
++            }
++            self.control.cursors.screen = screen;
++        }
++        let region = self.world.main().map(|r| r.name.clone());
++        if self.control.cursors.region != region {
++            if !first && region.is_some() {
++                // RLVa @showloc: the change is reported, not where to
++                let shown = if self.world.rlva.has("showloc") { None } else { region.clone() };
++                self.control.journal.push("region", None, json!({"region": shown}));
++            }
++            self.control.cursors.region = region;
++        }
++        let (seated, flying) = (self.world.agent.seated, self.world.agent.flying);
++        if (seated, flying) != (self.control.cursors.seated, self.control.cursors.flying) {
++            if !first {
++                self.control.journal.push("posture", None, json!({"seated": seated, "flying": flying}));
++            }
++            self.control.cursors.seated = seated;
++            self.control.cursors.flying = flying;
++        }
++        // nearby chat: the lines numbered after the last one seen
++        let clock = self.world.chat_clock;
++        let last = clock.first + self.world.chat.len() as u64;
++        let since = match self.control.cursors.chat {
++            Some((token, seen)) if token == clock.token => seen,
++            _ => last,
++        };
++        if since < last {
++            let skip = since.saturating_sub(clock.first) as usize;
++            let lines: Vec<Value> = self
++                .world
++                .chat
++                .iter()
++                .enumerate()
++                .skip(skip)
++                .filter(|(_, l)| !l.blocked)
++                .map(|(i, l)| query::chat_line(clock.first + i as u64, l))
++                .collect();
++            for line in lines {
++                self.control.journal.push("chat", None, line);
++            }
++        }
++        self.control.cursors.chat = Some((clock.token, last));
++        // conversations
++        let mut seen = HashMap::with_capacity(self.world.social.ims.len());
++        let mut new_lines = Vec::new();
++        for session in &self.world.social.ims {
++            let last = session.clock.first + session.lines.len() as u64;
++            let since = match self.control.cursors.ims.get(&session.other) {
++                Some((token, seen)) if *token == session.clock.token => *seen,
++                Some(_) => last,
++                // a conversation that opens with lines: those after the
++                // history it loaded are new
++                None if first => last,
++                None => session.clock.first + session.lines.len().saturating_sub(session.unread) as u64,
++            };
++            let skip = since.saturating_sub(session.clock.first) as usize;
++            for (i, line) in session.lines.iter().enumerate().skip(skip) {
++                if line.blocked {
++                    continue;
++                }
++                let mut value = query::chat_line(session.clock.first + i as u64, line);
++                value["session"] = json!(session.other);
++                value["group"] = json!(self.world.is_group_session(&session.other));
++                new_lines.push(value);
++            }
++            seen.insert(session.other, (session.clock.token, last));
++        }
++        self.control.cursors.ims = seen;
++        for line in new_lines {
++            self.control.journal.push("im", None, line);
++        }
++        // notifications that came or went
++        let listed: HashSet<u64> = self.world.notifications.list.iter().map(|n| n.id).collect();
++        if !first {
++            let arrived: Vec<Value> = self
++                .world
++                .notifications
++                .list
++                .iter()
++                .filter(|n| !self.control.cursors.notifications.contains(&n.id))
++                .map(query::notification)
++                .collect();
++            for n in arrived {
++                self.control.journal.push("notification", None, n);
++            }
++            let mut gone: Vec<u64> = self.control.cursors.notifications.difference(&listed).copied().collect();
++            gone.sort_unstable();
++            for id in gone {
++                self.control.journal.push("notification_closed", None, json!({"id": id}));
++            }
++        }
++        self.control.cursors.notifications = listed;
++    }
++
++    /// Releases the automation drag, if one is held (cleanup, lease end).
++    fn control_release_drag(&mut self) {
++        if self.control.drag_at.take().is_some() {
++            let frame = self.frame_count;
++            self.control
++                .native
++                .push_back((frame, Native::Button(winit::event::MouseButton::Left, false)));
++        }
++        self.control.drag.release();
++    }
++
++    /// Feeds the queued synthetic native input through the window's own
++    /// event handler, as the system would.
++    fn control_pump_native(&mut self, event_loop: &ActiveEventLoop) {
++        let Some(id) = self.gfx.as_ref().map(|g| g.window.id()) else { return };
++        let scale = self.control.window.2.max(0.1);
++        while self.control.native.front().is_some_and(|(frame, _)| *frame <= self.frame_count) {
++            let Some((_, input)) = self.control.native.pop_front() else { break };
++            let device_id = winit::event::DeviceId::dummy();
++            let event = match input {
++                Native::Move(x, y) => WindowEvent::CursorMoved {
++                    device_id,
++                    position: winit::dpi::PhysicalPosition::new(f64::from(x * scale), f64::from(y * scale)),
++                },
++                Native::Button(button, pressed) => WindowEvent::MouseInput {
++                    device_id,
++                    state: if pressed {
++                        winit::event::ElementState::Pressed
++                    } else {
++                        winit::event::ElementState::Released
++                    },
++                    button,
++                },
++            };
++            ApplicationHandler::window_event(self, event_loop, id, event);
++        }
++    }
++
++    /// Appends the synthetic egui events due this frame (`viewer_input`'s
++    /// UI-only operations).
++    pub(super) fn control_egui_input(&mut self, raw: &mut egui::RawInput) {
++        while self.control.egui.front().is_some_and(|(frame, _)| *frame <= self.frame_count) {
++            if let Some((_, event)) = self.control.egui.pop_front() {
++                raw.events.push(event);
++            }
++        }
++    }
++
++    fn require_world(&self) -> Result<(), ControlError> {
++        if matches!(self.screen, Screen::World) {
++            Ok(())
++        } else {
++            Err(ControlError::unavailable("not in world: a person must log in first (or use the offline demo)"))
++        }
++    }
++}
+diff --git a/crates/aurora-viewer/src/app/control_bridge/act.rs b/crates/aurora-viewer/src/app/control_bridge/act.rs
+new file mode 100644
+index 00000000..09cd68e2
+--- /dev/null
++++ b/crates/aurora-viewer/src/app/control_bridge/act.rs
+@@ -0,0 +1,685 @@
++//! The tools that act: each takes the viewer's own path for the action, so
++//! its permission checks, protections and RLVa apply.
++
++use super::*;
++use crate::control::{opt_bool, opt_f64, opt_i64, opt_str, opt_u64, opt_uuid, opt_vec3, str_arg, uuid_arg, vec3_json};
++use crate::world::inventory::actions as rules;
++use aurora_net::inventory::operations::{Mutation, Operation};
++
++fn op(args: &Map<String, Value>) -> Result<&str, ControlError> {
++    str_arg(args, "op")
++}
++
++fn unknown(op: &str, known: &str) -> ControlError {
++    ControlError::new("unknown_op", format!("unknown op {op}; ops: {known}"))
++}
++
++fn uuids(args: &Map<String, Value>, name: &str) -> Result<Vec<Uuid>, ControlError> {
++    match crate::control::arg(args, name) {
++        Some(Value::Array(a)) if !a.is_empty() && a.len() <= 256 => a
++            .iter()
++            .map(|v| {
++                v.as_str()
++                    .and_then(|s| Uuid::parse_str(s).ok())
++                    .ok_or_else(|| ControlError::invalid(format!("{name} must hold UUIDs")))
++            })
++            .collect(),
++        Some(Value::String(_)) => Ok(vec![uuid_arg(args, name)?]),
++        _ => Err(ControlError::invalid(format!("{name} must be a UUID or a list of 1 to 256 UUIDs"))),
++    }
++}
++
++/// The runtime-only settings (`#[serde(skip)]`) a JSON round trip resets:
++/// carried over from the settings in use.
++fn carry_runtime(old: &mut crate::settings::Settings, new: &mut crate::settings::Settings) {
++    std::mem::swap(&mut new.debug, &mut old.debug);
++    std::mem::swap(&mut new.hover_height_account, &mut old.hover_height_account);
++    std::mem::swap(&mut new.draw_stepping, &mut old.draw_stepping);
++    std::mem::swap(&mut new.autotune_hold, &mut old.autotune_hold);
++    std::mem::swap(&mut new.photo_held, &mut old.photo_held);
++    std::mem::swap(&mut new.newer_file, &mut old.newer_file);
++    std::mem::swap(&mut new.mfa_hash, &mut old.mfa_hash);
++    new.new_profile = old.new_profile;
++    new.camera_limits_restored = old.camera_limits_restored;
++    new.beacons.light_boxes = old.beacons.light_boxes;
++    new.world_overlays.land_owners = old.world_overlays.land_owners;
++    new.world_overlays.hide_particles = old.world_overlays.hide_particles;
++    new.radar.alert_sounds = old.radar.alert_sounds;
++    new.build.show_probe_volumes = old.build.show_probe_volumes;
++    new.build.select_probes = old.build.select_probes;
++    new.weather.touched = old.weather.touched;
++}
++
++const DIRECTIONS: [(&str, Action); 8] = [
++    ("forward", Action::Forward),
++    ("back", Action::Back),
++    ("left", Action::Left),
++    ("right", Action::Right),
++    ("strafe_left", Action::StrafeLeft),
++    ("strafe_right", Action::StrafeRight),
++    ("up", Action::Up),
++    ("down", Action::Down),
++];
++
++impl App {
++    pub(super) fn control_settings(&mut self, args: &Map<String, Value>, actions: &mut UiActions) -> Outcome {
++        use crate::control::settings;
++        let tree = serde_json::to_value(&self.settings).map_err(|e| ControlError::new("internal", e.to_string()))?;
++        match op(args)? {
++            "list" => Ok(json!({"keys": settings::list(&tree)})),
++            "get" => {
++                let pointer = str_arg(args, "pointer")?;
++                Ok(json!({"pointer": pointer, "value": settings::get(&tree, pointer)?}))
++            }
++            "set" => {
++                let pointer = str_arg(args, "pointer")?;
++                let value = args
++                    .get("value")
++                    .cloned()
++                    .ok_or_else(|| ControlError::invalid("value is required"))?;
++                let persist = opt_bool(args, "persist")?.unwrap_or(false);
++                let mut tree = tree;
++                let previous = settings::set(&mut tree, pointer, value)?;
++                let new: crate::settings::Settings =
++                    serde_json::from_value(tree).map_err(|e| ControlError::invalid(format!("the viewer refused the value: {e}")))?;
++                let mut old = std::mem::replace(&mut self.settings, new);
++                carry_runtime(&mut old, &mut self.settings);
++                let stored = serde_json::to_value(&self.settings)
++                    .ok()
++                    .and_then(|t| t.pointer(pointer).cloned())
++                    .unwrap_or(Value::Null);
++                actions.settings_changed = true;
++                let saved = persist && !self.demo;
++                if saved {
++                    self.settings.save();
++                }
++                Ok(json!({"pointer": pointer, "previous": previous, "value": stored, "persisted": saved}))
++            }
++            other => Err(unknown(other, "list, get, set")),
++        }
++    }
++
++    pub(super) fn control_move(&mut self, args: &Map<String, Value>) -> Outcome {
++        self.require_world()?;
++        match op(args)? {
++            "hold" => {
++                let wanted = match crate::control::arg(args, "directions") {
++                    Some(Value::Array(a)) => a,
++                    _ => return Err(ControlError::invalid("directions must be a list")),
++                };
++                let mut held = Vec::new();
++                for d in wanted {
++                    let name = d.as_str().unwrap_or_default();
++                    let (_, action) = DIRECTIONS.iter().find(|(n, _)| *n == name).ok_or_else(|| {
++                        ControlError::invalid(format!("unknown direction {name}; directions: forward, back, left, right, strafe_left, strafe_right, up, down"))
++                    })?;
++                    held.push(*action);
++                }
++                let duration = opt_u64(args, "duration_ms")?.unwrap_or(1000);
++                let held_for = self.control.hold.renew(Instant::now(), Duration::from_millis(duration));
++                self.control.held = held;
++                Ok(json!({"status": "holding", "duration_ms": held_for.as_millis() as u64, "position": vec3_json(self.world.agent.position)}))
++            }
++            "stop" => {
++                self.control.held.clear();
++                self.control.hold.release();
++                if self.autopilot.is_some() {
++                    self.stop_autopilot(true);
++                }
++                if self.world.following_avatar.is_some() {
++                    self.on_ctx_action(ui::context::CtxAction::StopFollowing);
++                }
++                Ok(json!({"status": "stopped", "position": vec3_json(self.world.agent.position)}))
++            }
++            "goto" => {
++                let target = crate::control::vec3_arg(args, "position")?;
++                let run = opt_bool(args, "run")?.unwrap_or(false);
++                self.walk_to(target, run);
++                Ok(json!({"status": "dispatched", "autopilot": self.autopilot.is_some()}))
++            }
++            "fly" => {
++                let before = self.world.agent.flying;
++                self.run_shortcut(Action::Fly);
++                Ok(json!({"status": "dispatched", "flying_before": before, "flying": self.world.agent.flying}))
++            }
++            "sit" => {
++                let target = uuid_arg(args, "id")?;
++                self.world
++                    .objects
++                    .index_of_uuid(&target)
++                    .ok_or_else(|| ControlError::not_found("object not in view"))?;
++                let offset = opt_vec3(args, "offset")?.unwrap_or(Vec3::ZERO);
++                self.on_ctx_action(ui::context::CtxAction::Sit { target, offset });
++                Ok(json!({"status": "dispatched"}))
++            }
++            "stand" => {
++                self.on_ctx_action(ui::context::CtxAction::StandUp);
++                Ok(json!({"status": "dispatched"}))
++            }
++            "sit_ground" => {
++                self.on_ctx_action(ui::context::CtxAction::SitGround);
++                Ok(json!({"status": "dispatched"}))
++            }
++            other => Err(unknown(other, "hold, stop, goto, fly, sit, stand, sit_ground")),
++        }
++    }
++
++    pub(super) fn control_camera(&mut self, args: &Map<String, Value>) -> Outcome {
++        self.require_world()?;
++        let operation = op(args)?;
++        if operation != "get" && self.world.rlva.camera_owner().is_some() {
++            return Err(ControlError::refused("RLVa controls the camera"));
++        }
++        match operation {
++            "get" => {}
++            "reset" => self.run_shortcut(Action::ResetCamera),
++            "mouselook" => self.run_shortcut(Action::Mouselook),
++            "zoom" => {
++                let fraction = opt_f64(args, "fraction")?.ok_or_else(|| ControlError::invalid("fraction is required"))?;
++                if !(0.0..=1.0).contains(&fraction) {
++                    return Err(ControlError::invalid("fraction must be within [0, 1]"));
++                }
++                self.camera.set_zoom_fraction(fraction as f32);
++            }
++            "focus" => {
++                let (point, avatar) = if let Some(id) = opt_uuid(args, "id")? {
++                    let idx = self
++                        .world
++                        .objects
++                        .index_of_uuid(&id)
++                        .ok_or_else(|| ControlError::not_found("object not in view"))?;
++                    let avatar = self.world.objects.get(idx).is_some_and(|o| o.is_avatar()).then_some(id);
++                    (self.control_position(idx).unwrap_or_default(), avatar)
++                } else {
++                    (crate::control::vec3_arg(args, "position")?, None)
++                };
++                self.on_ctx_action(ui::context::CtxAction::Zoom(point, avatar));
++            }
++            other => return Err(unknown(other, "get, reset, mouselook, zoom, focus")),
++        }
++        Ok(json!({
++            "position": vec3_json(self.camera.position),
++            "target": vec3_json(self.camera.target),
++            "mouselook": self.camera.mouselook(),
++            "zoom": self.camera.zoom_fraction(),
++        }))
++    }
++
++    pub(super) fn control_object(&mut self, args: &Map<String, Value>) -> Outcome {
++        self.require_world()?;
++        let operation = op(args)?;
++        let id = uuid_arg(args, "id")?;
++        let idx = self
++            .world
++            .objects
++            .index_of_uuid(&id)
++            .ok_or_else(|| ControlError::not_found("object not in view"))?;
++        let key = self.world.objects.get(idx).map(|o| o.key).ok_or_else(|| ControlError::not_found("object gone"))?;
++        match operation {
++            "inspect" => {
++                self.on_ctx_action(ui::context::CtxAction::Inspect(id));
++                Ok(json!({"status": "dispatched", "object": self.control_object_detail(idx)}))
++            }
++            "touch" => {
++                if !self.world.rlva_can_touch(key.region, key.local_id) {
++                    return Err(ControlError::refused("RLVa forbids touching this object"));
++                }
++                match opt_i64(args, "face")? {
++                    None => self.send(NetCommand::Touch { local_id: key.local_id }),
++                    Some(face) => {
++                        let faces = self.world.objects.get(idx).and_then(|o| o.te.as_ref().map(|te| te.faces.len()));
++                        let face = i32::try_from(face)
++                            .ok()
++                            .filter(|f| *f >= 0 && faces.is_none_or(|n| (*f as usize) < n))
++                            .ok_or_else(|| ControlError::invalid("face is not one of the object's faces"))?;
++                        let flat = |v: Option<Vec3>| v.map(|v| Vec3::new(v.x, v.y, 0.0)).unwrap_or(Vec3::splat(0.5).with_z(0.0));
++                        let surface = aurora_net::TouchSurface {
++                            uv: flat(opt_vec3(args, "uv")?),
++                            st: flat(opt_vec3(args, "st")?),
++                            face,
++                            position: opt_vec3(args, "position")?.unwrap_or_else(|| self.control_position(idx).unwrap_or_default()),
++                            ..Default::default()
++                        };
++                        self.send(NetCommand::ObjectGrab {
++                            handle: key.region,
++                            local_id: key.local_id,
++                            offset: Vec3::ZERO,
++                            surface,
++                        });
++                        self.send(NetCommand::ObjectRelease {
++                            handle: key.region,
++                            local_id: key.local_id,
++                            surface,
++                        });
++                    }
++                }
++                Ok(json!({"status": "dispatched"}))
++            }
++            "sit" => {
++                let offset = opt_vec3(args, "offset")?.unwrap_or(Vec3::ZERO);
++                self.on_ctx_action(ui::context::CtxAction::Sit { target: id, offset });
++                Ok(json!({"status": "dispatched"}))
++            }
++            other => Err(unknown(other, "inspect, touch, sit")),
++        }
++    }
++
++    pub(super) fn control_build(&mut self, args: &Map<String, Value>) -> Outcome {
++        self.require_world()?;
++        match op(args)? {
++            "select" => {
++                let ids = uuids(args, "ids")?;
++                let mut idxs = Vec::new();
++                for id in &ids {
++                    idxs.push(
++                        self.world
++                            .objects
++                            .index_of_uuid(id)
++                            .ok_or_else(|| ControlError::not_found(format!("{id} not in view")))?,
++                    );
++                }
++                self.build.select_many(&mut self.world, &self.settings.build, &idxs);
++                self.flush_build();
++                Ok(json!({"selected": self.build.sel_prims(&self.world).len()}))
++            }
++            "deselect" => {
++                self.build.deselect_all(&self.world);
++                self.flush_build();
++                Ok(json!({"selected": 0}))
++            }
++            "set" => {
++                let prims = self.build.sel_prims(&self.world);
++                if prims.is_empty() {
++                    return Err(ControlError::unavailable("nothing selected; select first"));
++                }
++                if !prims.iter().any(|&idx| self.build.can_modify(&self.world, idx)) {
++                    return Err(ControlError::refused("you may not modify the selection"));
++                }
++                let position = opt_vec3(args, "position")?;
++                let scale = opt_vec3(args, "scale")?;
++                let rotation = opt_vec3(args, "rotation")?.map(|d| {
++                    Quat::from_euler(glam::EulerRot::ZYX, d.z.to_radians(), d.y.to_radians(), d.x.to_radians())
++                });
++                if position.is_some() || scale.is_some() || rotation.is_some() {
++                    self.build
++                        .set_transform(&mut self.world, &self.settings.build, position, scale, rotation, true);
++                }
++                if let Some(name) = opt_str(args, "name")? {
++                    self.build.set_name(&self.world, name, false);
++                }
++                if let Some(description) = opt_str(args, "description")? {
++                    self.build.set_name(&self.world, description, true);
++                }
++                self.flush_build();
++                Ok(json!({"status": "dispatched", "status_text": self.build.status}))
++            }
++            other => Err(unknown(other, "select, deselect, set")),
++        }
++    }
++
++    fn control_inventory_edit(&mut self, change: Result<Mutation, String>) -> Outcome {
++        let change = change.map_err(ControlError::refused)?;
++        self.apply_inventory_action(ui::inventory::InvAction::Edit(change));
++        Ok(json!({"status": "dispatched"}))
++    }
++
++    pub(super) fn control_inventory(&mut self, args: &Map<String, Value>) -> Outcome {
++        self.require_world()?;
++        if self.world.rlva.has("showinv") {
++            return Err(ControlError::refused("RLVa closes the inventory (@showinv)"));
++        }
++        let operation = op(args)?;
++        let protected = self.settings.inventory.protected.clone();
++        let worn = crate::ui::appearance::items::worn_items(&self.world);
++        let inv = &self.world.inventory;
++        match operation {
++            "fetch" => {
++                let id = opt_uuid(args, "id")?.unwrap_or(inv.root);
++                if !inv.folders.contains_key(&id) {
++                    return Err(ControlError::not_found("folder not known; fetch its parent first"));
++                }
++                self.world.inventory.request(id);
++                let state = self.world.inventory.folders.get(&id).map(|f| format!("{:?}", f.state).to_ascii_lowercase());
++                Ok(json!({"status": "dispatched", "state": state}))
++            }
++            "create_folder" => {
++                let parent = opt_uuid(args, "parent")?.unwrap_or(inv.root);
++                if !rules::destination(inv, parent) {
++                    return Err(ControlError::refused("folders cannot be created there"));
++                }
++                let change = rules::create_folder(parent, str_arg(args, "name")?);
++                self.control_inventory_edit(change)
++            }
++            "rename" => {
++                let id = uuid_arg(args, "id")?;
++                if !rules::renameable(inv, id) || protected.contains(&id) {
++                    return Err(ControlError::refused("this entry cannot be renamed"));
++                }
++                let name = rules::clean_name(str_arg(args, "name")?).map_err(ControlError::invalid)?;
++                let change = rules::patch(inv, id, aurora_llsd::llsd_map! { "name" => name });
++                self.control_inventory_edit(change)
++            }
++            "move" => {
++                let ids = uuids(args, "ids")?;
++                let to = uuid_arg(args, "to")?;
++                let change = rules::move_selection(inv, &ids, to, &protected, &worn);
++                self.control_inventory_edit(change)
++            }
++            "copy" => {
++                let id = uuid_arg(args, "id")?;
++                let to = uuid_arg(args, "to")?;
++                let change = rules::copy_tree(inv, id, to);
++                self.control_inventory_edit(change)
++            }
++            "trash" => {
++                let ids = uuids(args, "ids")?;
++                let holds_worn = rules::worn_ancestors(inv, &worn);
++                if ids.iter().any(|id| !rules::removable(inv, *id, &protected) || holds_worn.contains(id) || worn.contains(id)) {
++                    return Err(ControlError::refused("the selection holds a protected, system or worn entry"));
++                }
++                let trash = rules::system(inv, 14).ok_or_else(|| ControlError::unavailable("Trash folder not found"))?;
++                let change = rules::move_selection(inv, &ids, trash, &protected, &worn);
++                self.control_inventory_edit(change)
++            }
++            "purge" => {
++                // permanent: only entries already in Trash (ui/inventory/delete.rs::plan)
++                let ids = rules::roots(inv, &uuids(args, "ids")?);
++                let holds_worn = rules::worn_ancestors(inv, &worn);
++                let eligible = |id: &Uuid| {
++                    rules::removable(inv, *id, &protected) && rules::in_type(inv, *id, 14) && !holds_worn.contains(id) && !worn.contains(id)
++                };
++                if !ids.iter().all(eligible) || ids.iter().any(|id| Some(*id) == rules::system(inv, 14)) {
++                    return Err(ControlError::refused("purge only accepts removable entries already in Trash"));
++                }
++                let change = Mutation {
++                    operations: ids
++                        .iter()
++                        .map(|id| Operation::Delete {
++                            id: *id,
++                            folder: inv.folders.contains_key(id),
++                        })
++                        .collect(),
++                    refresh: ids.iter().filter_map(|id| rules::parent(inv, *id)).collect(),
++                    removed: ids,
++                    ..Default::default()
++                };
++                self.control_inventory_edit(Ok(change))
++            }
++            "wear" | "add" | "take_off" => {
++                let id = uuid_arg(args, "id")?;
++                if !inv.items.contains_key(&id) && !inv.folders.contains_key(&id) {
++                    return Err(ControlError::not_found("not in the cached inventory"));
++                }
++                use crate::world::appearance::Action as Look;
++                let action = match operation {
++                    "wear" => Look::WearItem {
++                        item: id,
++                        replace: true,
++                        point: opt_u64(args, "point")?.unwrap_or(0).min(255) as u8,
++                    },
++                    "add" => Look::Add(id),
++                    _ => Look::Remove(id),
++                };
++                self.apply_inventory_action(ui::inventory::InvAction::Appearance(action));
++                Ok(json!({"status": "dispatched"}))
++            }
++            other => Err(unknown(other, "fetch, create_folder, rename, move, copy, trash, purge, wear, add, take_off")),
++        }
++    }
++
++    pub(super) fn control_contents(&mut self, args: &Map<String, Value>) -> Outcome {
++        self.require_world()?;
++        let operation = op(args)?;
++        let id = uuid_arg(args, "id")?;
++        let idx = self
++            .world
++            .objects
++            .index_of_uuid(&id)
++            .ok_or_else(|| ControlError::not_found("object not in view"))?;
++        match operation {
++            "fetch" => {
++                self.build.request_contents(&self.world, idx, true);
++                self.flush_build();
++                Ok(json!({"status": "dispatched"}))
++            }
++            "copy_to_inventory" => {
++                let listing = self
++                    .build
++                    .contents
++                    .objects
++                    .get(&id)
++                    .filter(|c| !c.loading)
++                    .ok_or_else(|| ControlError::unavailable("contents not loaded; fetch and wait for loading=false"))?;
++                let wanted = match crate::control::arg(args, "items") {
++                    None => None,
++                    Some(_) => Some(uuids(args, "items")?),
++                };
++                let items: Vec<_> = listing
++                    .items
++                    .iter()
++                    .filter(|i| wanted.as_ref().is_none_or(|w| w.contains(&i.item_id)))
++                    .cloned()
++                    .collect();
++                if items.is_empty() {
++                    return Err(ControlError::not_found("no matching contents"));
++                }
++                self.build.copy_contents_to_inventory(&self.world, idx, &items);
++                Ok(json!({"status": "dispatched", "items": items.len()}))
++            }
++            other => Err(unknown(other, "fetch, copy_to_inventory")),
++        }
++    }
++
++    pub(super) fn control_contents_query(&self, args: &Map<String, Value>) -> Outcome {
++        let id = uuid_arg(args, "id")?;
++        let Some(listing) = self.build.contents.objects.get(&id) else {
++            return Ok(json!({"id": id, "known": false, "loading": false, "items": []}));
++        };
++        let items: Vec<Value> = listing
++            .items
++            .iter()
++            .map(|i| {
++                json!({
++                    "id": i.item_id,
++                    "name": i.name,
++                    "description": i.description,
++                    "asset_type": i.asset_type,
++                    "inv_type": i.inv_type,
++                    "owner_permissions": query::perm_names(i.owner_mask),
++                    "next_owner_permissions": query::perm_names(i.next_owner_mask),
++                    "creator": i.creator_id,
++                })
++            })
++            .collect();
++        Ok(json!({"id": id, "known": listing.requested.is_some() || !listing.items.is_empty(), "loading": listing.loading, "items": items}))
++    }
++
++    pub(super) fn control_documents_query(&self, args: &Map<String, Value>) -> Outcome {
++        let id = opt_uuid(args, "id")?;
++        let object = opt_uuid(args, "object")?.unwrap_or(Uuid::nil());
++        let rows: Vec<Value> = self
++            .script_editors
++            .control_documents()
++            .into_iter()
++            .filter(|d| id.is_none_or(|id| d["item"] == json!(id) && d["object"] == json!(object)))
++            .collect();
++        match id {
++            Some(_) => rows
++                .into_iter()
++                .next()
++                .ok_or_else(|| ControlError::not_found("no open document for that item; open it first")),
++            None => Ok(json!({"rows": rows.into_iter().map(|mut d| {
++                d.as_object_mut().map(|m| m.remove("source"));
++                d
++            }).collect::<Vec<_>>()})),
++        }
++    }
++
++    pub(super) fn control_script(&mut self, args: &Map<String, Value>) -> Outcome {
++        self.require_world()?;
++        let operation = op(args)?;
++        let target = aurora_net::scripts::ScriptTarget {
++            object: opt_uuid(args, "object")?.unwrap_or(Uuid::nil()),
++            item: uuid_arg(args, "item")?,
++        };
++        let open = |app: &App| app.script_editors.documents.iter().any(|e| e.target == target);
++        match operation {
++            "open" => {
++                if self.world.rlva.has("viewscript") {
++                    return Err(ControlError::refused("RLVa forbids viewing scripts (@viewscript)"));
++                }
++                self.open_script(target);
++                if !open(self) {
++                    return Err(ControlError::refused("the script cannot be opened (permissions or a locked attachment)"));
++                }
++            }
++            "read" => {}
++            "edit" => {
++                let source = str_arg(args, "source")?;
++                self.script_editors.control_edit(target, source).map_err(ControlError::refused)?;
++            }
++            "save" => {
++                if let Some(action) = self.script_editors.control_save(target).map_err(ControlError::refused)? {
++                    self.apply_script_action(action);
++                }
++            }
++            other => return Err(unknown(other, "open, read, edit, save")),
++        }
++        if !open(self) {
++            return Err(ControlError::not_found("no open editor for that script; open it first"));
++        }
++        self.script_editors
++            .control_documents()
++            .into_iter()
++            .find(|d| d["item"] == json!(target.item) && d["object"] == json!(target.object))
++            .ok_or_else(|| ControlError::not_found("editor closed"))
++    }
++
++    pub(super) fn control_notifications(&mut self, args: &Map<String, Value>) -> Outcome {
++        use crate::world::notifications::{Data, Response};
++        let operation = op(args)?;
++        if operation == "list" {
++            let rows = self.world.notifications.list.iter().map(query::notification).collect::<Vec<_>>();
++            return Ok(json!({"rows": rows}));
++        }
++        let id = opt_u64(args, "id")?.ok_or_else(|| ControlError::invalid("id is required"))?;
++        let n = self
++            .world
++            .notifications
++            .list
++            .iter_mut()
++            .find(|n| n.id == id)
++            .ok_or_else(|| ControlError::not_found("no such notification (answered or gone)"))?;
++        let response = match operation {
++            "button" => {
++                let index = opt_u64(args, "index")?.ok_or_else(|| ControlError::invalid("index is required"))? as usize;
++                match &n.data {
++                    Data::Dialog { buttons, .. } if index < buttons.len() => Response::Button(index),
++                    Data::Dialog { .. } => return Err(ControlError::invalid("index is out of range")),
++                    _ => return Err(ControlError::invalid("not a script dialog")),
++                }
++            }
++            "text" => {
++                if !matches!(n.data, Data::TextBox { .. }) {
++                    return Err(ControlError::invalid("not a text box"));
++                }
++                let mut text = str_arg(args, "text")?.to_owned();
++                crate::world::notifications::clamp_text_box_reply(&mut text);
++                n.text = text;
++                Response::SendText
++            }
++            "accept" => Response::Accept,
++            "decline" => Response::Decline,
++            "dismiss" => Response::Dismiss,
++            other => return Err(unknown(other, "list, button, text, accept, decline, dismiss")),
++        };
++        self.control.answers.push((id, response));
++        Ok(json!({"status": "queued"}))
++    }
++
++    pub(super) fn control_chat(&mut self, args: &Map<String, Value>, actions: &mut UiActions) -> Outcome {
++        self.require_world()?;
++        let operation = op(args)?;
++        let text = str_arg(args, "text")?;
++        if text.trim().is_empty() {
++            return Err(ControlError::invalid("text is empty"));
++        }
++        match operation {
++            "say" => {
++                if actions.chat.is_some() {
++                    return Err(ControlError::unavailable("a line is already being sent this frame; retry"));
++                }
++                let chat_type = match opt_str(args, "volume")?.unwrap_or("normal") {
++                    "normal" => aurora_net::ChatType::Normal,
++                    "whisper" => aurora_net::ChatType::Whisper,
++                    "shout" => aurora_net::ChatType::Shout,
++                    _ => return Err(ControlError::invalid("volume must be normal, whisper or shout")),
++                };
++                let channel = opt_i64(args, "channel")?.unwrap_or(0);
++                let channel = i32::try_from(channel).map_err(|_| ControlError::invalid("channel out of range"))?;
++                actions.chat = Some(ui::chat::OutgoingChat {
++                    message: text.to_owned(),
++                    channel,
++                    chat_type,
++                });
++                Ok(json!({"status": "dispatched"}))
++            }
++            "im" => {
++                let to = uuid_arg(args, "to")?;
++                if to == self.world.agent_id {
++                    return Err(ControlError::invalid("cannot message yourself"));
++                }
++                // the conversation field would unblock them (handle_actions):
++                // that is the person's choice, not the bridge's
++                if !self.world.is_group_session(&to) && self.world.mutes.is_muted_id(&to) {
++                    return Err(ControlError::refused("this resident is blocked; unblock them in the viewer first"));
++                }
++                actions.ims.push((to, text.to_owned()));
++                Ok(json!({"status": "dispatched", "group": self.world.is_group_session(&to)}))
++            }
++            other => Err(unknown(other, "say, im")),
++        }
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::carry_runtime;
++    use crate::control::settings;
++    use crate::settings::Settings;
++
++    #[test]
++    fn a_setting_survives_the_round_trip_and_runtime_state_is_kept() {
++        let mut current = Settings {
++            new_profile: true,
++            camera_limits_restored: true,
++            ..Settings::default()
++        };
++        current.world_overlays.hide_particles = true;
++        current.weather.touched = true;
++        let mut tree = serde_json::to_value(&current).unwrap();
++        let before = current.draw_distance;
++        let previous = settings::set(&mut tree, "/draw_distance", serde_json::json!(before + 32.0)).unwrap();
++        assert_eq!(previous, serde_json::json!(before));
++        let new: Settings = serde_json::from_value(tree).unwrap();
++        let mut old = std::mem::replace(&mut current, new);
++        carry_runtime(&mut old, &mut current);
++        assert_eq!(current.draw_distance, before + 32.0);
++        assert!(current.new_profile && current.camera_limits_restored);
++        assert!(current.world_overlays.hide_particles && current.weather.touched);
++        // every other setting reads back unchanged
++        let mut expected = serde_json::to_value(&old).unwrap();
++        expected["draw_distance"] = serde_json::json!(before + 32.0);
++        assert_eq!(serde_json::to_value(&current).unwrap(), expected);
++    }
++
++    #[test]
++    fn login_and_rlva_settings_stay_out_of_reach() {
++        let tree = serde_json::to_value(Settings::default()).unwrap();
++        let keys = settings::list(&tree);
++        for hidden in ["username", "last_login", "grids", "proxy", "rlva", "rlva_enabled", "mfa_hash"] {
++            assert!(!keys.iter().any(|k| k == hidden), "{hidden}");
++        }
++        assert!(keys.iter().any(|k| k == "draw_distance"));
++    }
++}
+diff --git a/crates/aurora-viewer/src/app/control_bridge/input.rs b/crates/aurora-viewer/src/app/control_bridge/input.rs
+new file mode 100644
+index 00000000..f73e8f68
+--- /dev/null
++++ b/crates/aurora-viewer/src/app/control_bridge/input.rs
+@@ -0,0 +1,445 @@
++//! `viewer_ui`, `viewer_input` and `viewer_capture`: panels and shortcuts,
++//! synthetic pointer and keyboard input, and pictures of the window.
++
++use super::*;
++use crate::control::{opt_f32, opt_str, opt_u64, str_arg};
++
++/// Panels by name, with the shortcut that guards them under RLVa.
++macro_rules! panels {
++    ($($name:ident $(=> $action:ident)?),* $(,)?) => {
++        const PANELS: &[&str] = &[$(stringify!($name)),*];
++
++        fn panel_open(p: &ui::Panels, name: &str) -> Option<bool> {
++            match name {
++                $(stringify!($name) => Some(p.$name),)*
++                _ => None,
++            }
++        }
++
++        fn panel_slot<'a>(p: &'a mut ui::Panels, name: &str) -> Option<&'a mut bool> {
++            match name {
++                $(stringify!($name) => Some(&mut p.$name),)*
++                _ => None,
++            }
++        }
++
++        fn panel_action(name: &str) -> Option<Action> {
++            match name {
++                $($(stringify!($name) => Some(Action::$action),)?)*
++                _ => None,
++            }
++        }
++    };
++}
++
++panels! {
++    chat => NearbyChat,
++    people => People,
++    minimap => Minimap,
++    world_map => WorldMap,
++    region_tracker,
++    beacons => Beacons,
++    settings => Preferences,
++    environment,
++    inventory => Inventory,
++    texture_library => TextureLibrary,
++    gestures => Gestures,
++    appearance => Appearance,
++    ao,
++    contacts => Contacts,
++    about_land,
++    region_estate => RegionEstate,
++    places,
++    search => Search,
++    area_search,
++    snapshot => PhotoWindow,
++    perf => Performance,
++    debug_settings => DebugSettings,
++    conversation_log,
++    camera_controls => CameraControls,
++    movement_controls,
++    money_tracker,
++    experiences,
++    grid_status,
++    voice_controls,
++    destinations,
++    quick_prefs,
++    omnifilter,
++    about,
++}
++
++/// The shortcut actions (`keybinds::Action`) a request may run: the held
++/// movement keys go through `viewer_move` instead.
++const SHORTCUTS: &[&str] = &[
++    "StopMoving", "Fly", "FlyOverride", "AlwaysRun", "SitGround", "Mouselook", "ResetCamera", "ResetCameraAngles",
++    "FocusSelection", "ZoomSelection", "LookAtLastChatter", "CameraControls", "LensZoomIn", "LensZoomOut", "LensZoomDefault",
++    "Conversations", "Contacts", "NearbyChat", "People", "Friends", "Groups", "ContactSets", "Inventory", "NewInventoryWindow",
++    "Appearance", "Gestures", "Minimap", "WorldMap", "TeleportHistory", "RegionEstate", "TextureLibrary", "Search",
++    "Performance", "Preferences", "ToggleInterface", "HoverTips", "ShowHuds", "ShowTransparency", "SelectionOutlines",
++    "Beacons", "ContactMarkers", "PropertyLines", "LandOwners", "HideParticles", "DebugSettings", "Rebake", "StopAnimations",
++    "ResyncAnimations", "RefreshAttachments", "PhotoWindow", "EnvSunrise", "EnvMidday", "EnvSunset", "EnvMidnight", "EnvShared",
++];
++
++fn pointer_button(name: Option<&str>) -> Result<(egui::PointerButton, winit::event::MouseButton), ControlError> {
++    match name.unwrap_or("left") {
++        "left" => Ok((egui::PointerButton::Primary, winit::event::MouseButton::Left)),
++        "right" => Ok((egui::PointerButton::Secondary, winit::event::MouseButton::Right)),
++        "middle" => Ok((egui::PointerButton::Middle, winit::event::MouseButton::Middle)),
++        _ => Err(ControlError::invalid("button must be left, right or middle")),
++    }
++}
++
++fn modifiers(args: &Map<String, Value>) -> Result<egui::Modifiers, ControlError> {
++    let mut m = egui::Modifiers::default();
++    if let Some(Value::Array(list)) = crate::control::arg(args, "modifiers") {
++        for name in list {
++            match name.as_str() {
++                Some("shift") => m.shift = true,
++                Some("ctrl") => m.ctrl = true,
++                Some("alt") => m.alt = true,
++                Some("command") => {
++                    m.command = true;
++                    m.mac_cmd = cfg!(target_os = "macos");
++                }
++                _ => return Err(ControlError::invalid("modifiers: shift, ctrl, alt, command")),
++            }
++        }
++    }
++    if !cfg!(target_os = "macos") && m.ctrl {
++        m.command = true;
++    }
++    Ok(m)
++}
++
++impl App {
++    pub(super) fn control_ui(&mut self, args: &Map<String, Value>) -> Outcome {
++        match str_arg(args, "op")? {
++            "list" => {
++                let mut rows: Vec<Value> = PANELS
++                    .iter()
++                    .map(|name| json!({"name": name, "open": panel_open(&self.panels, name)}))
++                    .collect();
++                rows.push(json!({"name": "notifications", "open": self.notif_ui.open}));
++                Ok(json!({"panels": rows}))
++            }
++            "actions" => {
++                let actions: Vec<Value> = SHORTCUTS
++                    .iter()
++                    .filter_map(|name| {
++                        let action: Action = serde_json::from_value(json!(name)).ok()?;
++                        Some(json!({
++                            "name": name,
++                            "label": crate::keybinds::label(action),
++                            "refused": self.rlva_refuses_shortcut(action),
++                        }))
++                    })
++                    .collect();
++                Ok(json!({"actions": actions, "note": "shortcut actions may toggle; read their effect afterwards"}))
++            }
++            "run" => {
++                self.require_world()?;
++                let name = str_arg(args, "action")?;
++                let action: Action = SHORTCUTS
++                    .contains(&name)
++                    .then(|| serde_json::from_value(json!(name)).ok())
++                    .flatten()
++                    .ok_or_else(|| ControlError::invalid("unknown action; see op actions"))?;
++                if self.rlva_refuses_shortcut(action) {
++                    return Err(ControlError::refused("RLVa refuses this action"));
++                }
++                self.run_shortcut(action);
++                Ok(json!({"status": "dispatched"}))
++            }
++            op @ ("open" | "close") => {
++                let name = str_arg(args, "name")?;
++                let open = op == "open";
++                if name == "notifications" {
++                    self.notif_ui.open = open;
++                    return Ok(json!({"name": name, "open": open}));
++                }
++                if open
++                    && let Some(action) = panel_action(name)
++                    && self.rlva_refuses_shortcut(action)
++                {
++                    return Err(ControlError::refused("RLVa refuses this panel"));
++                }
++                let slot = panel_slot(&mut self.panels, name).ok_or_else(|| ControlError::not_found("unknown panel; see op list"))?;
++                *slot = open;
++                Ok(json!({"name": name, "open": open}))
++            }
++            other => Err(ControlError::new("unknown_op", format!("unknown op {other}; ops: list, open, close, actions, run"))),
++        }
++    }
++
++    fn point(&self, args: &Map<String, Value>) -> Result<(f32, f32), ControlError> {
++        let x = opt_f32(args, "x")?.ok_or_else(|| ControlError::invalid("x is required"))?;
++        let y = opt_f32(args, "y")?.ok_or_else(|| ControlError::invalid("y is required"))?;
++        let (w, h, ..) = self.control.window;
++        if x < 0.0 || y < 0.0 || x > w || y > h {
++            return Err(ControlError::invalid(format!("({x}, {y}) is outside the window ({w} × {h} points)")));
++        }
++        Ok((x, y))
++    }
++
++    pub(super) fn control_input(&mut self, args: &Map<String, Value>) -> Outcome {
++        let op = str_arg(args, "op")?;
++        let next = self.frame_count + 1;
++        let human_gesture = self.left_down && self.control.drag_at.is_none();
++        // an earlier gesture's press or release still queued holds the pointer
++        let gesture_queued = self.control.native.iter().any(|(_, n)| matches!(n, Native::Button(..)));
++        match op {
++            "move" | "click" | "double_click" | "scroll" => {
++                // everything is checked before anything is queued
++                let (x, y) = self.point(args)?;
++                let pos = egui::pos2(x, y);
++                let mods = modifiers(args)?;
++                let (button, _) = pointer_button(opt_str(args, "button")?)?;
++                let dx = opt_f32(args, "dx")?.unwrap_or(0.0);
++                let dy = opt_f32(args, "dy")?.unwrap_or(0.0);
++                let egui = &mut self.control.egui;
++                egui.push_back((next, egui::Event::PointerMoved(pos)));
++                match op {
++                    "click" | "double_click" => {
++                        let clicks = if op == "double_click" { 2 } else { 1 };
++                        for i in 0..clicks {
++                            let frame = next + 1 + 2 * i;
++                            for pressed in [true, false] {
++                                egui.push_back((
++                                    frame + u64::from(!pressed),
++                                    egui::Event::PointerButton {
++                                        pos,
++                                        button,
++                                        pressed,
++                                        modifiers: mods,
++                                    },
++                                ));
++                            }
++                        }
++                    }
++                    "scroll" => {
++                        egui.push_back((
++                            next,
++                            egui::Event::MouseWheel {
++                                unit: egui::MouseWheelUnit::Line,
++                                delta: egui::vec2(dx, dy),
++                                phase: egui::TouchPhase::Move,
++                                source: egui::MouseWheelSource::Wheel,
++                                modifiers: mods,
++                            },
++                        ));
++                    }
++                    _ => {}
++                }
++                Ok(json!({"status": "queued", "route": "egui"}))
++            }
++            "key" => {
++                let name = str_arg(args, "key")?;
++                let key = egui::Key::from_name(name).ok_or_else(|| ControlError::invalid("unknown key name (egui names: Enter, Escape, Tab, A…)"))?;
++                let mods = modifiers(args)?;
++                for (offset, pressed) in [(0, true), (1, false)] {
++                    self.control.egui.push_back((
++                        next + offset,
++                        egui::Event::Key {
++                            key,
++                            physical_key: None,
++                            pressed,
++                            repeat: false,
++                            modifiers: mods,
++                        },
++                    ));
++                }
++                Ok(json!({"status": "queued", "route": "egui"}))
++            }
++            "text" => {
++                let text = str_arg(args, "text")?;
++                if text.len() > 4096 {
++                    return Err(ControlError::invalid("text longer than 4096 bytes"));
++                }
++                self.control.egui.push_back((next, egui::Event::Text(text.to_owned())));
++                Ok(json!({"status": "queued", "route": "egui"}))
++            }
++            "game_click" => {
++                if human_gesture || gesture_queued || self.control.drag_at.is_some() || self.clicks.waiting() {
++                    return Err(ControlError::unavailable("a gesture or pick is in progress; wait for pointer_down=false and pick_pending=false"));
++                }
++                let (x, y) = self.point(args)?;
++                let (_, button) = pointer_button(opt_str(args, "button")?)?;
++                let native = &mut self.control.native;
++                native.push_back((self.frame_count, Native::Move(x, y)));
++                native.push_back((next, Native::Button(button, true)));
++                native.push_back((next + 2, Native::Button(button, false)));
++                Ok(json!({"status": "queued", "route": "native"}))
++            }
++            "drag_start" => {
++                if human_gesture || gesture_queued || self.control.drag_at.is_some() || self.clicks.waiting() {
++                    return Err(ControlError::unavailable("a gesture or pick is in progress"));
++                }
++                let (x, y) = self.point(args)?;
++                self.control.native.push_back((self.frame_count, Native::Move(x, y)));
++                self.control.native.push_back((next, Native::Button(winit::event::MouseButton::Left, true)));
++                self.control.drag_at = Some((x, y));
++                self.control.drag.renew(Instant::now(), crate::control::journal::LEASE);
++                Ok(json!({"status": "queued", "route": "native", "lease_ms": crate::control::journal::LEASE.as_millis() as u64}))
++            }
++            "drag_move" => {
++                if self.control.drag_at.is_none() {
++                    return Err(ControlError::unavailable("no automation drag; drag_start first"));
++                }
++                let (x, y) = self.point(args)?;
++                self.control.native.push_back((self.frame_count, Native::Move(x, y)));
++                self.control.drag_at = Some((x, y));
++                self.control.drag.renew(Instant::now(), crate::control::journal::LEASE);
++                Ok(json!({"status": "queued", "route": "native"}))
++            }
++            "drag_end" => {
++                if self.control.drag_at.is_none() {
++                    return Err(ControlError::unavailable("no automation drag"));
++                }
++                if crate::control::arg(args, "x").is_some() {
++                    let (x, y) = self.point(args)?;
++                    self.control.native.push_back((self.frame_count, Native::Move(x, y)));
++                }
++                self.control_release_drag();
++                Ok(json!({"status": "queued", "route": "native"}))
++            }
++            other => Err(ControlError::new(
++                "unknown_op",
++                format!("unknown op {other}; ops: move, click, double_click, scroll, key, text, game_click, drag_start, drag_move, drag_end"),
++            )),
++        }
++    }
++
++    pub(super) fn control_capture(&mut self, args: &Map<String, Value>, _request_id: &str) -> Outcome {
++        match str_arg(args, "op")? {
++            "start" => {
++                let max_width = opt_u64(args, "max_width")?.unwrap_or(1600).clamp(64, 8192) as u32;
++                self.control.captures += 1;
++                let id = self.control.captures;
++                // a pending capture is replaced; the picture already asked
++                // for serves the new one
++                let asked = match self.control.capture {
++                    Capture::Requested { asked, .. } => asked,
++                    _ => None,
++                };
++                self.control.capture = Capture::Requested { id, max_width, asked };
++                Ok(json!({"status": "pending", "capture_id": id, "occluded": self.occluded}))
++            }
++            "poll" => {
++                let wanted = opt_u64(args, "capture_id")?;
++                match &self.control.capture {
++                    Capture::Idle => Err(ControlError::not_found("no capture; start one")),
++                    Capture::Requested { id, .. } if wanted.is_none_or(|w| w == *id) => Ok(json!({
++                        "status": "pending",
++                        "capture_id": id,
++                        // macOS draws nothing for a covered window
++                        "occluded": self.occluded,
++                    })),
++                    Capture::Done { id, result } if wanted.is_none_or(|w| w == *id) => Ok(result.clone()),
++                    _ => Err(ControlError::not_found("that capture was replaced by a newer one")),
++                }
++            }
++            other => Err(ControlError::new("unknown_op", format!("unknown op {other}; ops: start, poll"))),
++        }
++    }
++
++    /// Asks the renderer for the next frame's picture when no other capture
++    /// is waiting for one, and encodes it once it is back.
++    pub(super) fn control_capture_frame(&mut self, renderer: &mut aurora_render::Renderer) {
++        let Capture::Requested { id, max_width, asked } = self.control.capture else { return };
++        let others = self.inventory_images.capturing.is_some()
++            || self.inventory_images.auto_capture_pending
++            || self.scene_capture_pending
++            || self.capture.is_some();
++        if others {
++            return;
++        }
++        let picture = if asked.is_some() { renderer.captured.take() } else { None };
++        let Some((w, h, pixels)) = picture else {
++            // one request at a time: a second picture would be left for
++            // another capture's owner to take
++            if asked.is_none_or(|(at, _)| at.elapsed() >= super::CAPTURE_RETRY) {
++                renderer.capture_request = true;
++                self.control.capture = Capture::Requested {
++                    id,
++                    max_width,
++                    asked: Some((Instant::now(), self.control.window.2)),
++                };
++            }
++            return;
++        };
++        let asked_scale = asked.map_or(self.control.window.2, |(_, ppp)| ppp);
++        let result = capture_result(id, max_width, (w, h, pixels), asked_scale, self.control.window.2);
++        self.control.capture = Capture::Done { id, result };
++    }
++}
++
++/// A delivered picture as `viewer_capture` reports it. Its own size is the
++/// window's when it was drawn, whatever the window does before this runs;
++/// the scale is the one when it was asked for, and a change since then
++/// makes the mapping to interface points unknown.
++fn capture_result(id: u64, max_width: u32, (w, h, pixels): (u32, u32, Vec<u8>), asked_scale: f32, scale_now: f32) -> Value {
++    if (scale_now - asked_scale).abs() > f32::EPSILON {
++        return json!({"status": "failed", "capture_id": id, "error": "the interface scale changed during the capture; start another"});
++    }
++    match encode_png(w, h, pixels, max_width) {
++        Ok((png, width, height)) => {
++            use base64::Engine;
++            json!({
++                "status": "done",
++                "capture_id": id,
++                "width": width,
++                "height": height,
++                "window_pixels": [w, h],
++                "ui_pixels_per_point": asked_scale,
++                "png_base64": base64::engine::general_purpose::STANDARD.encode(png),
++            })
++        }
++        Err(e) => json!({"status": "failed", "capture_id": id, "error": e}),
++    }
++}
++
++fn encode_png(w: u32, h: u32, pixels: Vec<u8>, max_width: u32) -> Result<(Vec<u8>, u32, u32), String> {
++    let image = image::RgbaImage::from_raw(w, h, pixels).ok_or("the capture has the wrong size")?;
++    let image = if w > max_width {
++        let height = ((h as u64 * max_width as u64) / w as u64).max(1) as u32;
++        image::imageops::resize(&image, max_width, height, image::imageops::FilterType::Triangle)
++    } else {
++        image
++    };
++    let (width, height) = image.dimensions();
++    let mut png = Vec::new();
++    image::DynamicImage::ImageRgba8(image)
++        .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
++        .map_err(|e| e.to_string())?;
++    Ok((png, width, height))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::capture_result;
++
++    fn picture(w: u32, h: u32) -> (u32, u32, Vec<u8>) {
++        (w, h, vec![200; (w * h * 4) as usize])
++    }
++
++    #[test]
++    fn a_capture_reports_the_geometry_it_was_drawn_with() {
++        // the window was resized to anything after the frame was drawn:
++        // only the picture's own size and the asked scale count
++        let result = capture_result(3, 1000, picture(40, 20), 2.0, 2.0);
++        assert_eq!(result["status"], "done");
++        assert_eq!(result["window_pixels"], serde_json::json!([40, 20]));
++        assert_eq!(result["ui_pixels_per_point"], 2.0);
++        assert_eq!((result["width"].as_u64(), result["height"].as_u64()), (Some(40), Some(20)));
++        let scaled = capture_result(4, 10, picture(40, 20), 2.0, 2.0);
++        assert_eq!((scaled["width"].as_u64(), scaled["height"].as_u64()), (Some(10), Some(5)));
++        assert_eq!(scaled["window_pixels"], serde_json::json!([40, 20]), "the window size is the drawn one, not the scaled image's");
++    }
++
++    #[test]
++    fn a_scale_change_before_delivery_fails_the_capture() {
++        let result = capture_result(5, 1000, picture(40, 20), 2.0, 1.0);
++        assert_eq!(result["status"], "failed");
++        assert!(result.get("png_base64").is_none());
++    }
++}
+diff --git a/crates/aurora-viewer/src/app/control_bridge/query.rs b/crates/aurora-viewer/src/app/control_bridge/query.rs
+new file mode 100644
+index 00000000..e1986bea
+--- /dev/null
++++ b/crates/aurora-viewer/src/app/control_bridge/query.rs
+@@ -0,0 +1,522 @@
++//! `viewer_state` and `viewer_query`: observation only.
++
++use super::*;
++use crate::control::{opt_bool, opt_f64, opt_str, opt_uuid, page, paging, quat_json, str_arg, unix_ms, vec3_json};
++use crate::world::{ChatKind, ChatLine};
++
++pub(super) fn chat_kind(kind: &ChatKind) -> String {
++    let volume = |t: &aurora_net::ChatType| format!("{t:?}").to_ascii_lowercase();
++    match kind {
++        ChatKind::Local(t) => format!("local:{}", volume(t)),
++        ChatKind::Object(t) => format!("object:{}", volume(t)),
++        ChatKind::System => "system".into(),
++        ChatKind::Im => "im".into(),
++        ChatKind::ObjectIm => "object_im".into(),
++        ChatKind::Own(t) => format!("own:{}", volume(t)),
++        ChatKind::Invite(_) => "card:teleport".into(),
++        ChatKind::InventoryOffer(_) => "card:inventory".into(),
++        ChatKind::Payment(_) => "card:payment".into(),
++    }
++}
++
++/// A chat or conversation line: `n` is its stable line number.
++pub(super) fn chat_line(n: u64, line: &ChatLine) -> Value {
++    json!({
++        "n": n,
++        "time_ms": unix_ms(line.time),
++        "from": line.from,
++        "source": line.source,
++        "kind": chat_kind(&line.kind),
++        "text": line.text,
++    })
++}
++
++pub(super) fn notification(n: &crate::world::notifications::Notification) -> Value {
++    use crate::world::notifications::Data;
++    let (buttons, text_box, object) = match &n.data {
++        Data::Dialog { buttons, object, .. } => (buttons.clone(), false, Some(*object)),
++        Data::TextBox { object, .. } => (Vec::new(), true, Some(*object)),
++        _ => (Vec::new(), false, None),
++    };
++    json!({
++        "id": n.id,
++        "time_ms": unix_ms(n.time),
++        "kind": format!("{:?}", n.kind).to_ascii_lowercase(),
++        "title": n.title,
++        "body": n.body,
++        "read": n.read,
++        "interactive": n.interactive(),
++        "buttons": buttons,
++        "text_box": text_box,
++        "object": object,
++        "text": n.text,
++    })
++}
++
++impl App {
++    pub(super) fn control_state(&self) -> Value {
++        let now = Instant::now();
++        let (width, height, ppp, pixels_w, pixels_h) = self.control.window;
++        let agent = &self.world.agent;
++        let in_world = matches!(self.screen, Screen::World);
++        let unread_ims: usize = self.world.social.ims.iter().map(|s| s.unread).sum();
++        // RLVa @showloc hides where the avatar is, as the viewer's own bars do
++        let location = !self.world.rlva.has("showloc");
++        json!({
++            "api": 1,
++            "pid": std::process::id(),
++            "version": aurora_version::version(),
++            "demo": self.demo,
++            "screen": super::screen_name(&self.screen),
++            "in_world": in_world,
++            "agent": in_world.then(|| json!({
++                "id": self.world.agent_id,
++                "name": self.world.own_name(),
++                "position": vec3_json(agent.position),
++                "velocity": vec3_json(agent.velocity),
++                "yaw": agent.yaw,
++                "flying": agent.flying,
++                "seated": agent.seated,
++                "autopilot": self.autopilot.is_some(),
++                "following": self.world.following_avatar,
++            })),
++            "region": self.world.main().filter(|_| location).map(|r| json!({"name": r.name, "handle": r.handle})),
++            "parcel": (in_world && location).then(|| json!({"name": self.world.parcel_name})),
++            "location_hidden": !location,
++            "camera": in_world.then(|| json!({
++                "position": vec3_json(self.camera.position),
++                "target": vec3_json(self.camera.target),
++                "mouselook": self.camera.mouselook(),
++                "zoom": self.camera.zoom_fraction(),
++                "rlva_owned": self.world.rlva.camera_owner().is_some(),
++            })),
++            "inventory_root": (!self.world.inventory.root.is_nil()).then_some(self.world.inventory.root),
++            "library_root": (!self.world.inventory.lib_root.is_nil()).then_some(self.world.inventory.lib_root),
++            "unread": {
++                "nearby": self.world.chat_unread,
++                "conversations": unread_ims,
++                "notifications": self.world.notifications.unread(),
++            },
++            "window": {
++                "width_points": width,
++                "height_points": height,
++                "ui_pixels_per_point": ppp,
++                "window_pixels": [pixels_w, pixels_h],
++                "focused": self.focused,
++                "occluded": self.occluded,
++            },
++            "input": {
++                "pointer_down": self.left_down,
++                "pick_pending": self.clicks.waiting(),
++                "drag": self.control.drag_at.is_some(),
++                "drag_ms": self.control.drag.remaining_ms(now),
++                "hold": self.control.held.iter().map(|a| format!("{a:?}")).collect::<Vec<_>>(),
++                "hold_ms": self.control.hold.remaining_ms(now),
++            },
++            "rlva": self.settings.rlva_enabled,
++            "events": {"cursor": self.control.journal.cursor(), "oldest": self.control.journal.oldest()},
++            "receipts": self.control.journal.receipt_count(),
++            "endpoint": self.control.endpoint.as_ref().map(|e| e.socket().display().to_string()),
++        })
++    }
++
++    /// Region-local position of an object (its parents applied), in the
++    /// main region's frame.
++    pub(super) fn control_position(&self, idx: usize) -> Option<Vec3> {
++        let mut o = self.world.objects.get(idx)?;
++        let mut position = o.position;
++        for _ in 0..16 {
++            let Some(parent) = self.world.objects.parent_of(o).and_then(|p| self.world.objects.get(p)) else {
++                break;
++            };
++            if parent.is_avatar() && o.is_attachment() {
++                // attachments follow their wearer's body: report the wearer
++                position = parent.position;
++            } else {
++                position = parent.position + parent.rotation * position;
++            }
++            o = parent;
++        }
++        Some(position + self.world.region_offset(o.key.region).unwrap_or(Vec3::ZERO))
++    }
++
++    /// A group or conference session's name, or the resident's.
++    pub(super) fn control_conversation_name(&self, id: Uuid) -> String {
++        match self.world.groups.sessions.get(&id) {
++            Some(session) if !session.name.is_empty() => session.name.clone(),
++            _ => self.world.social.name_of(&id),
++        }
++    }
++
++    pub(super) fn control_name(&self, idx: usize) -> Option<String> {
++        let o = self.world.objects.get(idx)?;
++        if o.is_avatar() {
++            // RLVa @shownames: the same rule as the avatars topic
++            return (!self.world.rlva.has("shownames") || o.full_id == self.world.agent_id).then(|| self.world.social.name_of(&o.full_id));
++        }
++        self.build
++            .props
++            .get(&o.full_id)
++            .map(|p| p.name.clone())
++            .or_else(|| o.display_name())
++    }
++
++    fn control_object_row(&self, idx: usize) -> Option<Value> {
++        let o = self.world.objects.get(idx)?;
++        let position = self.control_position(idx)?;
++        Some(json!({
++            "id": o.full_id,
++            "local_id": o.key.local_id,
++            "name": self.control_name(idx),
++            "position": vec3_json(position),
++            "distance": (position - self.world.agent.position).length(),
++            "owner": o.owner_id,
++            "click_action": o.click_action,
++            "text": (!o.text.is_empty()).then_some(&o.text),
++        }))
++    }
++
++    pub(super) fn control_object_detail(&self, idx: usize) -> Option<Value> {
++        let o = self.world.objects.get(idx)?;
++        let props = self.build.props.get(&o.full_id);
++        let parent = self.world.objects.parent_of(o).and_then(|p| self.world.objects.get(p)).map(|p| p.full_id);
++        let children: Vec<Uuid> = self
++            .world
++            .objects
++            .children_of(&o.key)
++            .iter()
++            .filter_map(|&c| self.world.objects.get(c).map(|c| c.full_id))
++            .collect();
++        let faces = o.te.as_ref().map(|te| te.faces.len());
++        Some(json!({
++            "id": o.full_id,
++            "local_id": o.key.local_id,
++            "name": self.control_name(idx),
++            "description": props.map(|p| &p.description),
++            "properties_loaded": props.is_some(),
++            "position": self.control_position(idx).map(vec3_json),
++            "local_position": vec3_json(o.position),
++            "rotation": quat_json(o.rotation),
++            "scale": vec3_json(o.scale),
++            "parent": parent,
++            "children": children,
++            "owner": o.owner_id,
++            "creator": props.map(|p| p.creator_id),
++            "group": props.map(|p| p.group_id),
++            "permissions": props.map(|p| json!({
++                "owner": perm_names(p.owner_mask),
++                "next_owner": perm_names(p.next_owner_mask),
++                "group": perm_names(p.group_mask),
++                "everyone": perm_names(p.everyone_mask),
++            })),
++            "touch_name": props.map(|p| &p.touch_name),
++            "sit_name": props.map(|p| &p.sit_name),
++            "click_action": o.click_action,
++            "faces": faces,
++            "avatar": o.is_avatar(),
++            "attachment": o.is_attachment(),
++            "attachment_point": o.is_attachment().then(|| o.attachment_point()),
++            "hud": self.world.objects.worn_on_hud(idx),
++            "text": o.text,
++        }))
++    }
++
++    pub(super) fn control_query(&mut self, args: &Map<String, Value>) -> Outcome {
++        let topic = str_arg(args, "topic")?;
++        let (offset, limit) = paging(args)?;
++        let rlva = &self.world.rlva;
++        match topic {
++            "chat" => {
++                let first = self.world.chat_clock.first;
++                let rows: Vec<Value> = self
++                    .world
++                    .chat
++                    .iter()
++                    .enumerate()
++                    .filter(|(_, l)| !l.blocked)
++                    .map(|(i, l)| chat_line(first + i as u64, l))
++                    .collect();
++                Ok(latest_page(rows, offset, limit, opt_bool(args, "latest")?.unwrap_or(true)))
++            }
++            "conversations" => {
++                let rows = self
++                    .world
++                    .social
++                    .ims
++                    .iter()
++                    .map(|s| {
++                        json!({
++                            "id": s.other,
++                            "name": self.control_conversation_name(s.other),
++                            "group": self.world.is_group_session(&s.other),
++                            "unread": s.unread,
++                            "lines": s.lines.len(),
++                            "last": s.lines.back().map(|l| unix_ms(l.time)),
++                        })
++                    })
++                    .collect();
++                Ok(page(rows, offset, limit))
++            }
++            "im" => {
++                let id = crate::control::uuid_arg(args, "id")?;
++                let session = self
++                    .world
++                    .social
++                    .ims
++                    .iter()
++                    .find(|s| s.other == id)
++                    .ok_or_else(|| ControlError::not_found("no conversation with that id; see topic conversations"))?;
++                let rows = session
++                    .lines
++                    .iter()
++                    .enumerate()
++                    .filter(|(_, l)| !l.blocked)
++                    .map(|(i, l)| chat_line(session.clock.first + i as u64, l))
++                    .collect();
++                let mut result = latest_page(rows, offset, limit, opt_bool(args, "latest")?.unwrap_or(true));
++                result["unread"] = json!(session.unread);
++                Ok(result)
++            }
++            "avatars" => {
++                self.require_world()?;
++                if rlva.has("shownearby") {
++                    return Err(ControlError::refused("RLVa hides nearby residents (@shownearby)"));
++                }
++                let names = !rlva.has("shownames");
++                let me = self.world.agent.position;
++                let mut rows: Vec<(f32, Value)> = self
++                    .world
++                    .objects
++                    .avatars()
++                    .filter(|(_, o)| o.full_id != self.world.agent_id)
++                    .filter_map(|(idx, o)| {
++                        let position = self.control_position(idx)?;
++                        let distance = (position - me).length();
++                        Some((
++                            distance,
++                            json!({
++                                "id": o.full_id,
++                                "name": names.then(|| self.world.social.name_of(&o.full_id)),
++                                "position": vec3_json(position),
++                                "distance": distance,
++                            }),
++                        ))
++                    })
++                    .collect();
++                rows.sort_by(|a, b| a.0.total_cmp(&b.0));
++                Ok(page(rows.into_iter().map(|r| r.1).collect(), offset, limit))
++            }
++            "objects" => {
++                self.require_world()?;
++                let radius = opt_f64(args, "radius")?.unwrap_or(32.0).clamp(1.0, 256.0) as f32;
++                let search = opt_str(args, "search")?.map(str::to_lowercase);
++                let me = self.world.agent.position;
++                let mut rows: Vec<(f32, Value)> = self
++                    .world
++                    .objects
++                    .iter()
++                    .filter(|(_, o)| !o.is_avatar() && !o.is_attachment() && o.parent_id == 0)
++                    .filter_map(|(idx, _)| {
++                        let position = self.control_position(idx)?;
++                        let distance = (position - me).length();
++                        if distance > radius {
++                            return None;
++                        }
++                        let row = self.control_object_row(idx)?;
++                        if let Some(search) = &search {
++                            let name = row["name"].as_str().unwrap_or_default().to_lowercase();
++                            if !name.contains(search.as_str()) {
++                                return None;
++                            }
++                        }
++                        Some((distance, row))
++                    })
++                    .collect();
++                rows.sort_by(|a, b| a.0.total_cmp(&b.0));
++                Ok(page(rows.into_iter().map(|r| r.1).collect(), offset, limit))
++            }
++            "object" => {
++                self.require_world()?;
++                let id = crate::control::uuid_arg(args, "id")?;
++                let idx = self
++                    .world
++                    .objects
++                    .index_of_uuid(&id)
++                    .ok_or_else(|| ControlError::not_found("object not in view (not cached is not proof it does not exist)"))?;
++                self.control_object_detail(idx).ok_or_else(|| ControlError::not_found("object gone"))
++            }
++            "huds" | "attachments" => {
++                self.require_world()?;
++                let me = self.world.agent_id;
++                let hud = topic == "huds";
++                let rows = self
++                    .world
++                    .objects
++                    .iter()
++                    .filter(|(idx, o)| {
++                        o.is_attachment()
++                            && self.world.objects.worn_on_hud(*idx) == hud
++                            && crate::ui::context::wearer(&self.world, *idx) == Some(me)
++                    })
++                    .filter_map(|(idx, o)| {
++                        let root = self.world.objects.linkset_root(idx);
++                        let mut row = self.control_object_row(idx)?;
++                        row["root"] = json!(self.world.objects.get(root).map(|r| r.full_id));
++                        row["attachment_point"] = json!(self.world.objects.get(root).map(|r| r.attachment_point()));
++                        row["local_position"] = vec3_json(o.position);
++                        row["scale"] = vec3_json(o.scale);
++                        row["faces"] = json!(o.te.as_ref().map(|te| te.faces.len()));
++                        if hud {
++                            row.as_object_mut().map(|m| m.remove("distance"));
++                        }
++                        Some(row)
++                    })
++                    .collect();
++                Ok(page(rows, offset, limit))
++            }
++            "parcel" => {
++                self.require_world()?;
++                if rlva.has("showloc") {
++                    return Err(ControlError::refused("RLVa hides the location (@showloc)"));
++                }
++                Ok(json!({
++                    "name": self.world.parcel_name,
++                    "info": self.world.parcel.as_deref().map(|p| json!({
++                        "local_id": p.local_id,
++                        "name": p.name,
++                        "description": p.desc,
++                        "owner": p.owner_id,
++                        "area": p.area,
++                    })),
++                    "region": self.world.main().map(|r| &r.name),
++                }))
++            }
++            "friends" => {
++                let rows = self
++                    .world
++                    .social
++                    .friends
++                    .iter()
++                    .map(|f| json!({"id": f.id, "name": self.world.social.name_of(&f.id), "online": f.online}))
++                    .collect();
++                Ok(page(rows, offset, limit))
++            }
++            "groups" => {
++                let rows = self
++                    .world
++                    .groups
++                    .groups
++                    .iter()
++                    .map(|g| json!({"id": g.id, "name": g.name, "accept_notices": g.accept_notices}))
++                    .collect();
++                Ok(page(rows, offset, limit))
++            }
++            "notifications" => {
++                let rows = self.world.notifications.list.iter().map(notification).collect();
++                Ok(page(rows, offset, limit))
++            }
++            "inventory" => self.control_inventory_query(args, offset, limit),
++            "contents" => self.control_contents_query(args),
++            "documents" => self.control_documents_query(args),
++            other => Err(ControlError::invalid(format!(
++                "unknown topic {other}; topics: chat, conversations, im, avatars, objects, object, huds, attachments, parcel, friends, groups, notifications, inventory, contents, documents"
++            ))),
++        }
++    }
++
++    fn control_inventory_query(&self, args: &Map<String, Value>, offset: usize, limit: usize) -> Outcome {
++        if self.world.rlva.has("showinv") {
++            return Err(ControlError::refused("RLVa closes the inventory (@showinv)"));
++        }
++        let inv = &self.world.inventory;
++        if inv.root.is_nil() {
++            return Err(ControlError::unavailable("no inventory yet"));
++        }
++        let worn = crate::ui::appearance::items::worn_items(&self.world);
++        if let Some(id) = opt_uuid(args, "id")? {
++            return inventory_row(inv, &worn, id).ok_or_else(|| ControlError::not_found("not in the cached inventory; fetch its folder"));
++        }
++        if let Some(search) = opt_str(args, "search")? {
++            let needle = search.to_lowercase();
++            let mut rows: Vec<Value> = inv
++                .folders
++                .values()
++                .filter(|f| f.info.name.to_lowercase().contains(&needle))
++                .filter_map(|f| inventory_row(inv, &worn, f.info.id))
++                .chain(
++                    inv.items
++                        .values()
++                        .filter(|i| i.name.to_lowercase().contains(&needle))
++                        .filter_map(|i| inventory_row(inv, &worn, i.id)),
++                )
++                .collect();
++            rows.sort_by(|a, b| a["name"].as_str().cmp(&b["name"].as_str()));
++            return Ok(page(rows, offset, limit));
++        }
++        let parent = opt_uuid(args, "parent")?.unwrap_or(inv.root);
++        let folder = inv
++            .folders
++            .get(&parent)
++            .ok_or_else(|| ControlError::not_found("folder not known; fetch its parent first"))?;
++        let rows: Vec<Value> = folder
++            .children
++            .iter()
++            .chain(&folder.items)
++            .filter_map(|id| inventory_row(inv, &worn, *id))
++            .collect();
++        let mut result = page(rows, offset, limit);
++        result["state"] = json!(format!("{:?}", folder.state).to_ascii_lowercase());
++        result["parent"] = json!(parent);
++        Ok(result)
++    }
++}
++
++/// Newest lines by default: `offset` counts back from the latest line.
++fn latest_page(rows: Vec<Value>, offset: usize, limit: usize, latest: bool) -> Value {
++    if !latest {
++        return page(rows, offset, limit);
++    }
++    let total = rows.len();
++    let end = total.saturating_sub(offset);
++    let start = end.saturating_sub(limit);
++    let next = (start > 0).then_some(offset + (end - start));
++    json!({"rows": rows[start..end], "total": total, "offset": offset, "next_offset": next, "latest": true})
++}
++
++pub(super) fn perm_names(mask: u32) -> Vec<&'static str> {
++    // PERM_TRANSFER, PERM_MODIFY, PERM_COPY, PERM_MOVE (llpermissionsflags.h)
++    [(0x2000, "transfer"), (0x4000, "modify"), (0x8000, "copy"), (0x80000, "move")]
++        .into_iter()
++        .filter(|(bit, _)| mask & bit != 0)
++        .map(|(_, name)| name)
++        .collect()
++}
++
++fn inventory_row(inv: &crate::world::inventory::Inventory, worn: &HashSet<Uuid>, id: Uuid) -> Option<Value> {
++    if let Some(f) = inv.folders.get(&id) {
++        return Some(json!({
++            "id": id,
++            "parent": f.info.parent,
++            "name": f.info.name,
++            "folder": true,
++            "type": f.info.type_default,
++            "state": format!("{:?}", f.state).to_ascii_lowercase(),
++            "library": f.library,
++            "children": f.children.len() + f.items.len(),
++        }));
++    }
++    let item = inv.items.get(&id)?;
++    Some(json!({
++        "id": id,
++        "parent": item.parent,
++        "name": item.name,
++        "description": item.desc,
++        "folder": false,
++        "asset_type": item.asset_type,
++        "inv_type": item.inv_type,
++        "permissions": perm_names(crate::world::inventory::actions::held(inv, item)),
++        "worn": worn.contains(&id),
++        "creator": item.creator,
++        "created_ms": item.created_at.max(0) as u64 * 1000,
++    }))
++}
+diff --git a/crates/aurora-viewer/src/control/journal.rs b/crates/aurora-viewer/src/control/journal.rs
+new file mode 100644
+index 00000000..3a0a5720
+--- /dev/null
++++ b/crates/aurora-viewer/src/control/journal.rs
+@@ -0,0 +1,177 @@
++//! What the bridge remembers between requests: a receipt for each of the last
++//! commands, a bounded ring of numbered events, and the leases that end
++//! automation input nobody renews.
++
++use serde_json::{Value, json};
++use std::collections::VecDeque;
++use std::time::{Duration, Instant, SystemTime};
++
++pub const RECEIPTS: usize = 128;
++pub const EVENTS: usize = 512;
++/// The longest an automation hold or drag lasts without renewal.
++pub const LEASE: Duration = Duration::from_secs(10);
++
++#[derive(Debug, Clone)]
++pub struct Receipt {
++    pub request_id: String,
++    pub tool: String,
++    pub op: Option<String>,
++    pub time: SystemTime,
++    /// The reply's `result` or `error`, as sent.
++    pub outcome: Value,
++    pub ok: bool,
++}
++
++impl Receipt {
++    pub fn to_value(&self) -> Value {
++        json!({
++            "request_id": self.request_id,
++            "tool": self.tool,
++            "op": self.op,
++            "time_ms": super::unix_ms(self.time),
++            "ok": self.ok,
++            "outcome": self.outcome,
++        })
++    }
++}
++
++#[derive(Debug, Clone)]
++pub struct Event {
++    pub seq: u64,
++    pub time: SystemTime,
++    pub kind: &'static str,
++    pub request_id: Option<String>,
++    pub data: Value,
++}
++
++impl Event {
++    pub fn to_value(&self) -> Value {
++        json!({
++            "seq": self.seq,
++            "time_ms": super::unix_ms(self.time),
++            "kind": self.kind,
++            "request_id": self.request_id,
++            "data": self.data,
++        })
++    }
++}
++
++pub struct Journal {
++    receipts: VecDeque<Receipt>,
++    events: VecDeque<Event>,
++    next_seq: u64,
++}
++
++impl Default for Journal {
++    fn default() -> Self {
++        Journal {
++            receipts: VecDeque::with_capacity(RECEIPTS),
++            events: VecDeque::with_capacity(EVENTS),
++            next_seq: 1,
++        }
++    }
++}
++
++impl Journal {
++    pub fn record(&mut self, receipt: Receipt) {
++        if self.receipts.len() == RECEIPTS {
++            self.receipts.pop_front();
++        }
++        self.receipts.push_back(receipt);
++    }
++
++    pub fn receipt(&self, request_id: &str) -> Option<&Receipt> {
++        self.receipts.iter().rev().find(|r| r.request_id == request_id)
++    }
++
++    pub fn receipt_count(&self) -> usize {
++        self.receipts.len()
++    }
++
++    pub fn push(&mut self, kind: &'static str, request_id: Option<&str>, data: Value) -> u64 {
++        if self.events.len() == EVENTS {
++            self.events.pop_front();
++        }
++        let seq = self.next_seq;
++        self.next_seq += 1;
++        self.events.push_back(Event {
++            seq,
++            time: SystemTime::now(),
++            kind,
++            request_id: request_id.map(str::to_owned),
++            data,
++        });
++        seq
++    }
++
++    /// The cursor a client keeps: the last event's number (0 before any).
++    pub fn cursor(&self) -> u64 {
++        self.next_seq - 1
++    }
++
++    pub fn oldest(&self) -> u64 {
++        self.events.front().map_or(self.next_seq, |e| e.seq)
++    }
++
++    /// Events after `after`, at most `limit`, optionally for one request.
++    /// `gap` says events after the cursor were already dropped: the client
++    /// must read fresh state instead of assuming what happened.
++    pub fn after(&self, after: u64, limit: usize, request_id: Option<&str>) -> Value {
++        let gap = after < self.oldest().saturating_sub(1) && after < self.cursor();
++        let mut next = after.max(self.oldest().saturating_sub(1)).min(self.cursor());
++        let mut events = Vec::new();
++        for event in self.events.iter().filter(|e| e.seq > after) {
++            if events.len() == limit {
++                break;
++            }
++            next = event.seq;
++            if request_id.is_none_or(|id| event.request_id.as_deref() == Some(id)) {
++                events.push(event.to_value());
++            }
++        }
++        json!({
++            "events": events,
++            "next": next,
++            "oldest": self.oldest(),
++            "cursor": self.cursor(),
++            "gap": gap,
++            "more": next < self.cursor(),
++        })
++    }
++}
++
++/// An automation input that ends on its own `LEASE` after its last renewal.
++#[derive(Debug, Clone, Copy, Default)]
++pub struct Lease {
++    until: Option<Instant>,
++}
++
++impl Lease {
++    /// Held for `wanted`, at most `LEASE`, from `now`.
++    pub fn renew(&mut self, now: Instant, wanted: Duration) -> Duration {
++        let held = wanted.min(LEASE);
++        self.until = Some(now + held);
++        held
++    }
++
++    pub fn active(&self, now: Instant) -> bool {
++        self.until.is_some_and(|until| now < until)
++    }
++
++    /// True once when a held lease ran out (the caller releases its input).
++    pub fn expired(&mut self, now: Instant) -> bool {
++        if self.until.is_some_and(|until| now >= until) {
++            self.until = None;
++            return true;
++        }
++        false
++    }
++
++    pub fn release(&mut self) {
++        self.until = None;
++    }
++
++    pub fn remaining_ms(&self, now: Instant) -> u64 {
++        self.until.map_or(0, |until| until.saturating_duration_since(now).as_millis() as u64)
++    }
++}
+diff --git a/crates/aurora-viewer/src/control/mod.rs b/crates/aurora-viewer/src/control/mod.rs
+new file mode 100644
+index 00000000..d2ecc254
+--- /dev/null
++++ b/crates/aurora-viewer/src/control/mod.rs
+@@ -0,0 +1,428 @@
++//! The local control bridge (forge patch, not upstream Aurora).
++//!
++//! With `AURORA_CONTROL_DIR` set to a short absolute path that does not exist
++//! yet, the viewer creates that directory with owner-only permissions and
++//! listens on `control.sock` inside it. Each connection carries one JSON
++//! request per line and receives one JSON reply per line:
++//!
++//! ```text
++//! {"request_id": "…", "tool": "viewer_state", "arguments": {}}
++//! {"request_id": "…", "result": {…}}            or
++//! {"request_id": "…", "error": {"code": "…", "message": "…"}}
++//! ```
++//!
++//! Connection threads only parse and forward requests; the frame thread
++//! answers them (`app/control.rs`) so every action takes the viewer's own
++//! paths, permission checks and RLVa boundary. Without the variable nothing
++//! here runs.
++
++pub mod journal;
++pub mod settings;
++#[cfg(test)]
++mod tests;
++
++use serde_json::{Map, Value, json};
++use std::io::{BufRead, BufReader, Read, Write};
++use std::path::{Path, PathBuf};
++use std::time::Duration;
++
++pub use journal::{Journal, Lease};
++
++pub const ENV: &str = "AURORA_CONTROL_DIR";
++pub const SOCKET: &str = "control.sock";
++/// The longest request line read; captures travel the other way.
++const MAX_LINE: u64 = 4 << 20;
++/// How long a connection waits for the frame thread before it answers
++/// `timeout`. The command may still run: its receipt says what happened.
++const REPLY_WAIT: Duration = Duration::from_secs(30);
++/// sockaddr_un's path on macOS holds 104 bytes with its terminator.
++const MAX_SOCKET_PATH: usize = 103;
++/// Requests admitted but not yet answered; more are refused as `busy`.
++const QUEUE: usize = 64;
++
++/// A failed command: a stable code and a human-readable message.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub struct ControlError {
++    pub code: &'static str,
++    pub message: String,
++}
++
++impl ControlError {
++    pub fn new(code: &'static str, message: impl Into<String>) -> ControlError {
++        ControlError {
++            code,
++            message: message.into(),
++        }
++    }
++    pub fn invalid(message: impl Into<String>) -> ControlError {
++        ControlError::new("invalid_argument", message)
++    }
++    pub fn not_found(message: impl Into<String>) -> ControlError {
++        ControlError::new("not_found", message)
++    }
++    /// Native permissions, RLVa, protection or a safety rule said no.
++    pub fn refused(message: impl Into<String>) -> ControlError {
++        ControlError::new("refused", message)
++    }
++    /// The viewer is not in a state that allows it (not in world, busy).
++    pub fn unavailable(message: impl Into<String>) -> ControlError {
++        ControlError::new("unavailable", message)
++    }
++    pub fn to_value(&self) -> Value {
++        json!({"code": self.code, "message": self.message})
++    }
++}
++
++pub type Outcome = Result<Value, ControlError>;
++
++/// One request waiting for the frame thread.
++pub struct Pending {
++    pub request_id: String,
++    pub tool: String,
++    pub arguments: Map<String, Value>,
++    reply: crossbeam_channel::Sender<Value>,
++}
++
++impl Pending {
++    pub fn answer(self, outcome: &Outcome) {
++        let _ = self.reply.send(envelope(&self.request_id, outcome));
++    }
++}
++
++pub fn envelope(request_id: &str, outcome: &Outcome) -> Value {
++    match outcome {
++        Ok(result) => json!({"request_id": request_id, "result": result}),
++        Err(error) => json!({"request_id": request_id, "error": error.to_value()}),
++    }
++}
++
++/// A request line: its id (assigned when absent), tool and arguments.
++pub fn parse_request(line: &str) -> Result<(String, String, Map<String, Value>), (String, ControlError)> {
++    let fresh = || uuid::Uuid::new_v4().to_string();
++    let value: Value = serde_json::from_str(line).map_err(|e| (fresh(), ControlError::invalid(format!("request is not JSON: {e}"))))?;
++    let Value::Object(mut object) = value else {
++        return Err((fresh(), ControlError::invalid("request must be a JSON object")));
++    };
++    let request_id = match object.remove("request_id") {
++        None | Some(Value::Null) => fresh(),
++        Some(Value::String(id)) if !id.is_empty() && id.len() <= 128 => id,
++        Some(_) => return Err((fresh(), ControlError::invalid("request_id must be a string of 1 to 128 bytes"))),
++    };
++    let tool = match object.remove("tool") {
++        Some(Value::String(tool)) => tool,
++        _ => return Err((request_id, ControlError::invalid("tool must be a string"))),
++    };
++    let arguments = match object.remove("arguments") {
++        None | Some(Value::Null) => Map::new(),
++        Some(Value::Object(arguments)) => arguments,
++        Some(_) => return Err((request_id, ControlError::invalid("arguments must be a JSON object"))),
++    };
++    Ok((request_id, tool, arguments))
++}
++
++/// Checks `AURORA_CONTROL_DIR` before anything is created.
++pub fn validate_dir(dir: &Path) -> Result<PathBuf, String> {
++    if !dir.is_absolute() {
++        return Err(format!("{ENV} must be an absolute path"));
++    }
++    if dir.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
++        return Err(format!("{ENV} must not contain '..'"));
++    }
++    let socket = dir.join(SOCKET);
++    if socket.as_os_str().len() > MAX_SOCKET_PATH {
++        return Err(format!("{ENV} is too long for a local socket ({} bytes allowed for the socket path)", MAX_SOCKET_PATH));
++    }
++    if std::fs::symlink_metadata(dir).is_ok() {
++        return Err(format!("{ENV} {} already exists; the viewer creates it", dir.display()));
++    }
++    match dir.parent().map(std::fs::metadata) {
++        Some(Ok(meta)) if meta.is_dir() => Ok(socket),
++        _ => Err(format!("the parent of {ENV} {} must be an existing directory", dir.display())),
++    }
++}
++
++/// The listening endpoint; dropping it removes the socket and directory.
++pub struct Endpoint {
++    dir: PathBuf,
++    socket: PathBuf,
++    requests: crossbeam_channel::Receiver<Pending>,
++}
++
++impl Endpoint {
++    /// The endpoint `AURORA_CONTROL_DIR` asks for; none without it or when it
++    /// cannot be made safely (the reason is logged, the viewer runs on).
++    pub fn from_env() -> Option<Endpoint> {
++        let dir = PathBuf::from(std::env::var_os(ENV)?);
++        match Endpoint::open(&dir) {
++            Ok(endpoint) => {
++                log::info!("control bridge listening at {}", endpoint.socket.display());
++                Some(endpoint)
++            }
++            Err(error) => {
++                log::error!("control bridge not started: {error}");
++                None
++            }
++        }
++    }
++
++    pub fn open(dir: &Path) -> Result<Endpoint, String> {
++        use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
++        let socket = validate_dir(dir)?;
++        // create, not create_all: an existing directory (or one made between
++        // the check and here) is refused rather than reused
++        std::fs::DirBuilder::new()
++            .mode(0o700)
++            .create(dir)
++            .map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
++        let cleanup = |message: String| {
++            let _ = std::fs::remove_dir(dir);
++            message
++        };
++        let meta = std::fs::symlink_metadata(dir).map_err(|e| cleanup(e.to_string()))?;
++        if !meta.is_dir() || meta.permissions().mode() & 0o077 != 0 {
++            return Err(cleanup(format!("{} is not a private directory", dir.display())));
++        }
++        let listener = std::os::unix::net::UnixListener::bind(&socket).map_err(|e| cleanup(format!("cannot listen: {e}")))?;
++        let _ = std::fs::set_permissions(&socket, std::fs::Permissions::from_mode(0o600));
++        let (sender, requests) = crossbeam_channel::bounded(QUEUE);
++        std::thread::Builder::new()
++            .name("aurora-control".into())
++            .spawn(move || accept(listener, sender))
++            .map_err(|e| {
++                let _ = std::fs::remove_file(&socket);
++                cleanup(format!("cannot start the listener: {e}"))
++            })?;
++        Ok(Endpoint {
++            dir: dir.to_path_buf(),
++            socket,
++            requests,
++        })
++    }
++
++    pub fn try_recv(&self) -> Option<Pending> {
++        self.requests.try_recv().ok()
++    }
++
++    pub fn waiting(&self) -> bool {
++        !self.requests.is_empty()
++    }
++
++    pub fn socket(&self) -> &Path {
++        &self.socket
++    }
++}
++
++impl Drop for Endpoint {
++    fn drop(&mut self) {
++        let _ = std::fs::remove_file(&self.socket);
++        let _ = std::fs::remove_dir(&self.dir);
++    }
++}
++
++fn accept(listener: std::os::unix::net::UnixListener, sender: crossbeam_channel::Sender<Pending>) {
++    for stream in listener.incoming() {
++        let Ok(stream) = stream else { continue };
++        if !same_user(&stream) {
++            log::warn!("control bridge: refused a connection from another user");
++            continue;
++        }
++        let sender = sender.clone();
++        let _ = std::thread::Builder::new()
++            .name("aurora-control-conn".into())
++            .spawn(move || serve(stream, sender));
++    }
++}
++
++/// The directory is already owner-only; the peer's uid is checked as well.
++fn same_user(stream: &std::os::unix::net::UnixStream) -> bool {
++    use std::os::fd::AsRawFd;
++    let (mut uid, mut gid) = (0, 0);
++    // SAFETY: getpeereid writes two integers through valid pointers for an
++    // open socket descriptor.
++    let ok = unsafe { libc::getpeereid(stream.as_raw_fd(), &mut uid, &mut gid) } == 0;
++    // SAFETY: geteuid has no preconditions.
++    ok && uid == unsafe { libc::geteuid() }
++}
++
++fn serve(stream: std::os::unix::net::UnixStream, sender: crossbeam_channel::Sender<Pending>) {
++    let Ok(writer) = stream.try_clone() else { return };
++    let mut writer = std::io::BufWriter::new(writer);
++    let mut reader = BufReader::new(stream);
++    loop {
++        let mut line = String::new();
++        match (&mut reader).take(MAX_LINE).read_line(&mut line) {
++            Ok(0) | Err(_) => return,
++            Ok(_) => {}
++        }
++        if !line.ends_with('\n') && line.len() as u64 >= MAX_LINE {
++            let reply = envelope("", &Err(ControlError::invalid("request line too long")));
++            let _ = writeln!(writer, "{reply}").and_then(|_| writer.flush());
++            return;
++        }
++        if line.trim().is_empty() {
++            continue;
++        }
++        let reply = match parse_request(line.trim()) {
++            Err((request_id, error)) => envelope(&request_id, &Err(error)),
++            Ok((request_id, tool, arguments)) => {
++                let (reply, answer) = crossbeam_channel::bounded(1);
++                let pending = Pending {
++                    request_id: request_id.clone(),
++                    tool,
++                    arguments,
++                    reply,
++                };
++                match sender.try_send(pending) {
++                    Ok(()) => {}
++                    Err(crossbeam_channel::TrySendError::Full(_)) => {
++                        let busy = ControlError::new("busy", "the viewer has too many requests waiting; nothing was run, retry later");
++                        if writeln!(writer, "{}", envelope(&request_id, &Err(busy))).and_then(|_| writer.flush()).is_err() {
++                            return;
++                        }
++                        continue;
++                    }
++                    Err(crossbeam_channel::TrySendError::Disconnected(_)) => return,
++                }
++                answer.recv_timeout(REPLY_WAIT).unwrap_or_else(|_| {
++                    envelope(
++                        &request_id,
++                        &Err(ControlError::new(
++                            "timeout",
++                            "the viewer did not answer in time; inspect viewer_events with this request_id before any retry",
++                        )),
++                    )
++                })
++            }
++        };
++        if writeln!(writer, "{reply}").and_then(|_| writer.flush()).is_err() {
++            return;
++        }
++    }
++}
++
++// Argument helpers shared by the tools.
++
++pub fn arg<'a>(args: &'a Map<String, Value>, name: &str) -> Option<&'a Value> {
++    args.get(name).filter(|v| !v.is_null())
++}
++
++pub fn str_arg<'a>(args: &'a Map<String, Value>, name: &str) -> Result<&'a str, ControlError> {
++    opt_str(args, name)?.ok_or_else(|| ControlError::invalid(format!("{name} is required")))
++}
++
++pub fn opt_str<'a>(args: &'a Map<String, Value>, name: &str) -> Result<Option<&'a str>, ControlError> {
++    match arg(args, name) {
++        None => Ok(None),
++        Some(Value::String(s)) => Ok(Some(s)),
++        Some(_) => Err(ControlError::invalid(format!("{name} must be a string"))),
++    }
++}
++
++pub fn uuid_arg(args: &Map<String, Value>, name: &str) -> Result<uuid::Uuid, ControlError> {
++    opt_uuid(args, name)?.ok_or_else(|| ControlError::invalid(format!("{name} is required")))
++}
++
++pub fn opt_uuid(args: &Map<String, Value>, name: &str) -> Result<Option<uuid::Uuid>, ControlError> {
++    opt_str(args, name)?
++        .map(|s| uuid::Uuid::parse_str(s).map_err(|_| ControlError::invalid(format!("{name} must be a UUID"))))
++        .transpose()
++}
++
++pub fn opt_bool(args: &Map<String, Value>, name: &str) -> Result<Option<bool>, ControlError> {
++    match arg(args, name) {
++        None => Ok(None),
++        Some(Value::Bool(b)) => Ok(Some(*b)),
++        Some(_) => Err(ControlError::invalid(format!("{name} must be a boolean"))),
++    }
++}
++
++pub fn opt_f64(args: &Map<String, Value>, name: &str) -> Result<Option<f64>, ControlError> {
++    match arg(args, name) {
++        None => Ok(None),
++        Some(v) => v
++            .as_f64()
++            .filter(|f| f.is_finite())
++            .map(Some)
++            .ok_or_else(|| ControlError::invalid(format!("{name} must be a finite number"))),
++    }
++}
++
++/// A number that stays finite as an `f32` (1e100 does not).
++pub fn opt_f32(args: &Map<String, Value>, name: &str) -> Result<Option<f32>, ControlError> {
++    match opt_f64(args, name)? {
++        None => Ok(None),
++        Some(f) if (f as f32).is_finite() => Ok(Some(f as f32)),
++        Some(_) => Err(ControlError::invalid(format!("{name} is out of range"))),
++    }
++}
++
++pub fn opt_u64(args: &Map<String, Value>, name: &str) -> Result<Option<u64>, ControlError> {
++    match arg(args, name) {
++        None => Ok(None),
++        Some(v) => v
++            .as_u64()
++            .map(Some)
++            .ok_or_else(|| ControlError::invalid(format!("{name} must be a non-negative integer"))),
++    }
++}
++
++pub fn opt_i64(args: &Map<String, Value>, name: &str) -> Result<Option<i64>, ControlError> {
++    match arg(args, name) {
++        None => Ok(None),
++        Some(v) => v
++            .as_i64()
++            .map(Some)
++            .ok_or_else(|| ControlError::invalid(format!("{name} must be an integer"))),
++    }
++}
++
++pub fn opt_vec3(args: &Map<String, Value>, name: &str) -> Result<Option<glam::Vec3>, ControlError> {
++    match arg(args, name) {
++        None => Ok(None),
++        Some(Value::Array(a)) if a.len() == 3 => {
++            let mut out = [0.0f32; 3];
++            for (slot, v) in out.iter_mut().zip(a) {
++                *slot = v
++                    .as_f64()
++                    .map(|f| f as f32)
++                    .filter(|f| f.is_finite())
++                    .ok_or_else(|| ControlError::invalid(format!("{name} must hold three finite numbers")))?;
++            }
++            Ok(Some(glam::Vec3::from_array(out)))
++        }
++        Some(_) => Err(ControlError::invalid(format!("{name} must be [x, y, z]"))),
++    }
++}
++
++pub fn vec3_arg(args: &Map<String, Value>, name: &str) -> Result<glam::Vec3, ControlError> {
++    opt_vec3(args, name)?.ok_or_else(|| ControlError::invalid(format!("{name} is required")))
++}
++
++/// `offset`/`limit` paging: limit defaults to 50, at most 200.
++pub fn paging(args: &Map<String, Value>) -> Result<(usize, usize), ControlError> {
++    let offset = opt_u64(args, "offset")?.unwrap_or(0) as usize;
++    let limit = opt_u64(args, "limit")?.unwrap_or(50).clamp(1, 200) as usize;
++    Ok((offset, limit))
++}
++
++/// One page of `rows`, with `total` and `next_offset` (null on the last page).
++pub fn page(rows: Vec<Value>, offset: usize, limit: usize) -> Value {
++    let total = rows.len();
++    let shown: Vec<Value> = rows.into_iter().skip(offset).take(limit).collect();
++    let next = (offset + shown.len() < total).then_some(offset + shown.len());
++    json!({"rows": shown, "total": total, "offset": offset, "next_offset": next})
++}
++
++pub fn vec3_json(v: glam::Vec3) -> Value {
++    let round = |f: f32| (f64::from(f) * 1000.0).round() / 1000.0;
++    json!([round(v.x), round(v.y), round(v.z)])
++}
++
++pub fn quat_json(q: glam::Quat) -> Value {
++    let round = |f: f32| (f64::from(f) * 10000.0).round() / 10000.0;
++    json!([round(q.x), round(q.y), round(q.z), round(q.w)])
++}
++
++pub fn unix_ms(time: std::time::SystemTime) -> u64 {
++    time.duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
++}
+diff --git a/crates/aurora-viewer/src/control/settings.rs b/crates/aurora-viewer/src/control/settings.rs
+new file mode 100644
+index 00000000..0218cee9
+--- /dev/null
++++ b/crates/aurora-viewer/src/control/settings.rs
+@@ -0,0 +1,149 @@
++//! `viewer_settings`: JSON Pointer reads and type-preserving writes over the
++//! serialized preferences. Login, account, proxy, update and RLVa settings
++//! are not reachable: the bridge never handles credentials or lifts
++//! restrictions.
++
++use super::ControlError;
++use serde_json::Value;
++
++/// Top-level settings the bridge neither reads nor writes.
++const HIDDEN: &[&str] = &[
++    "username",
++    "remember_username",
++    "last_login",
++    "remember_password",
++    "grid",
++    "custom_login_uri",
++    "grids",
++    "start_location",
++    "start_region",
++    "mfa_hash",
++    "proxy",
++    "rlva_enabled",
++    "rlva",
++    "crash_reports",
++];
++
++/// Words that mark a secret anywhere in a pointer.
++const SECRET_WORDS: &[&str] = &["password", "token", "secret", "credential", "mfa"];
++
++fn segments(pointer: &str) -> Result<Vec<String>, ControlError> {
++    if pointer.is_empty() {
++        return Ok(Vec::new());
++    }
++    let Some(rest) = pointer.strip_prefix('/') else {
++        return Err(ControlError::invalid("pointer must be empty or start with '/'"));
++    };
++    Ok(rest.split('/').map(|s| s.replace("~1", "/").replace("~0", "~")).collect())
++}
++
++pub fn hidden(pointer: &str) -> bool {
++    let Ok(parts) = segments(pointer) else { return true };
++    let Some(first) = parts.first() else { return false };
++    HIDDEN.contains(&first.as_str())
++        || first.starts_with("login")
++        || first.starts_with("update")
++        || parts.iter().any(|p| {
++            let lower = p.to_ascii_lowercase();
++            SECRET_WORDS.iter().any(|w| lower.contains(w))
++        })
++}
++
++/// The visible top-level keys, sorted.
++pub fn list(tree: &Value) -> Vec<String> {
++    let mut keys: Vec<String> = tree
++        .as_object()
++        .map(|o| o.keys().filter(|k| !hidden(&format!("/{k}"))).cloned().collect())
++        .unwrap_or_default();
++    keys.sort();
++    keys
++}
++
++fn escape(key: &str) -> String {
++    key.replace('~', "~0").replace('/', "~1")
++}
++
++/// Removes the hidden keys below `pointer` from `value`; true if any was.
++fn redact(value: &mut Value, pointer: &str) -> bool {
++    match value {
++        Value::Object(map) => {
++            let before = map.len();
++            map.retain(|k, _| !hidden(&format!("{pointer}/{}", escape(k))));
++            let mut removed = map.len() != before;
++            for (k, v) in map.iter_mut() {
++                removed |= redact(v, &format!("{pointer}/{}", escape(k)));
++            }
++            removed
++        }
++        Value::Array(items) => {
++            let mut removed = false;
++            for (i, v) in items.iter_mut().enumerate() {
++                removed |= redact(v, &format!("{pointer}/{i}"));
++            }
++            removed
++        }
++        _ => false,
++    }
++}
++
++fn read(tree: &Value, pointer: &str) -> Result<Value, ControlError> {
++    if pointer.is_empty() {
++        return Err(ControlError::invalid("read a specific pointer; list shows the top-level keys"));
++    }
++    if hidden(pointer) {
++        return Err(ControlError::refused("this setting is not available through the control bridge"));
++    }
++    tree.pointer(pointer)
++        .cloned()
++        .ok_or_else(|| ControlError::not_found(format!("no setting at {pointer}")))
++}
++
++/// The value at `pointer`, without the hidden settings below it.
++pub fn get(tree: &Value, pointer: &str) -> Result<Value, ControlError> {
++    let mut value = read(tree, pointer)?;
++    redact(&mut value, pointer);
++    Ok(value)
++}
++
++fn kind(v: &Value) -> &'static str {
++    match v {
++        Value::Null => "null",
++        Value::Bool(_) => "boolean",
++        Value::Number(n) if n.is_f64() => "number",
++        Value::Number(_) => "integer",
++        Value::String(_) => "string",
++        Value::Array(_) => "array",
++        Value::Object(_) => "object",
++    }
++}
++
++/// Replaces the value at `pointer`, which must exist, with one of the same
++/// JSON type (an integer may stand for a number, not the reverse). Returns
++/// the previous value.
++pub fn set(tree: &mut Value, pointer: &str, value: Value) -> Result<Value, ControlError> {
++    let previous = read(tree, pointer)?;
++    // a hidden setting below would be replaced with its parent: set the
++    // visible children one by one instead
++    if redact(&mut previous.clone(), pointer) || redact(&mut value.clone(), pointer) {
++        return Err(ControlError::refused("this value holds settings that are not available through the control bridge"));
++    }
++    let compatible = match (&previous, &value) {
++        (Value::Number(old), Value::Number(new)) => old.is_f64() || !new.is_f64(),
++        // an optional setting that is unset accepts any value; the
++        // deserializer decides
++        (Value::Null, _) => true,
++        (old, new) => kind(old) == kind(new),
++    };
++    if !compatible {
++        return Err(ControlError::invalid(format!(
++            "{pointer} holds a {}, not a {}",
++            kind(&previous),
++            kind(&value)
++        )));
++    }
++    let slot = tree
++        .pointer_mut(pointer)
++        .ok_or_else(|| ControlError::not_found(format!("no setting at {pointer}")))?;
++    *slot = value;
++    Ok(previous)
++}
+diff --git a/crates/aurora-viewer/src/control/tests.rs b/crates/aurora-viewer/src/control/tests.rs
+new file mode 100644
+index 00000000..82148d1e
+--- /dev/null
++++ b/crates/aurora-viewer/src/control/tests.rs
+@@ -0,0 +1,217 @@
++use super::journal::{EVENTS, LEASE, RECEIPTS, Receipt};
++use super::*;
++use std::io::{BufRead, BufReader, Write};
++use std::os::unix::fs::PermissionsExt;
++use std::time::{Duration, Instant, SystemTime};
++
++/// A short private parent for test endpoints (socket paths are short).
++fn scratch() -> PathBuf {
++    let base = PathBuf::from("/tmp").join(format!("acb-{}-{}", std::process::id(), uuid::Uuid::new_v4().simple()));
++    let base = PathBuf::from(&base.to_string_lossy()[..30]);
++    std::fs::create_dir(&base).unwrap();
++    base
++}
++
++#[test]
++fn a_request_line_gives_its_id_tool_and_arguments() {
++    let (id, tool, args) = parse_request(r#"{"request_id":"r1","tool":"viewer_query","arguments":{"topic":"chat"}}"#).unwrap();
++    assert_eq!((id.as_str(), tool.as_str()), ("r1", "viewer_query"));
++    assert_eq!(args["topic"], "chat");
++    let (id, _, args) = parse_request(r#"{"tool":"viewer_state"}"#).unwrap();
++    assert_eq!(id.len(), 36, "an id is assigned when absent");
++    assert!(args.is_empty());
++}
++
++#[test]
++fn malformed_requests_are_refused_with_an_id() {
++    for line in ["not json", "[1]", r#"{"request_id":"r2"}"#, r#"{"tool":"x","arguments":[]}"#, r#"{"request_id":5,"tool":"x"}"#] {
++        let (id, error) = parse_request(line).unwrap_err();
++        assert!(!id.is_empty());
++        assert_eq!(error.code, "invalid_argument", "{line}");
++    }
++    let (id, _) = parse_request(r#"{"request_id":"r2"}"#).unwrap_err();
++    assert_eq!(id, "r2", "a known id is kept for the error reply");
++}
++
++#[test]
++fn replies_carry_result_or_error_and_the_request_id() {
++    let ok = envelope("a", &Ok(json!({"x": 1})));
++    assert_eq!(ok, json!({"request_id": "a", "result": {"x": 1}}));
++    let err = envelope("b", &Err(ControlError::refused("no")));
++    assert_eq!(err, json!({"request_id": "b", "error": {"code": "refused", "message": "no"}}));
++}
++
++#[test]
++fn receipts_keep_the_last_128_commands() {
++    let mut journal = Journal::default();
++    for i in 0..RECEIPTS + 10 {
++        journal.record(Receipt {
++            request_id: format!("r{i}"),
++            tool: "viewer_chat".into(),
++            op: Some("say".into()),
++            time: SystemTime::now(),
++            outcome: json!({"status": "dispatched"}),
++            ok: true,
++        });
++    }
++    assert_eq!(journal.receipt_count(), 128);
++    assert!(journal.receipt("r9").is_none(), "the oldest receipts are gone");
++    assert_eq!(journal.receipt("r10").unwrap().op.as_deref(), Some("say"));
++    assert!(journal.receipt(&format!("r{}", RECEIPTS + 9)).is_some());
++}
++
++#[test]
++fn events_keep_512_and_report_a_gap() {
++    let mut journal = Journal::default();
++    assert_eq!(journal.cursor(), 0);
++    for i in 0..EVENTS + 88 {
++        journal.push("chat", (i % 2 == 0).then_some("even"), json!({"i": i}));
++    }
++    assert_eq!(journal.cursor(), 600);
++    assert_eq!(journal.oldest(), 89);
++    let page = journal.after(0, 10, None);
++    assert_eq!(page["gap"], true, "events after the cursor were dropped");
++    assert_eq!(page["events"][0]["seq"], 89);
++    assert_eq!(page["next"], 98);
++    assert_eq!(page["more"], true);
++    let page = journal.after(590, 100, None);
++    assert_eq!(page["gap"], false);
++    assert_eq!(page["events"].as_array().unwrap().len(), 10);
++    assert_eq!(page["next"], 600);
++    assert_eq!(page["more"], false);
++    let page = journal.after(600, 100, None);
++    assert!(page["events"].as_array().unwrap().is_empty());
++    let page = journal.after(u64::MAX, 100, None);
++    assert!(page["events"].as_array().unwrap().is_empty() && page["gap"] == false, "a future cursor is no gap");
++    assert_eq!(page["next"], 600);
++    // one request's events; the cursor still advances over the others
++    let page = journal.after(590, 100, Some("even"));
++    assert!(page["events"].as_array().unwrap().iter().all(|e| e["request_id"] == "even"));
++    assert_eq!(page["events"].as_array().unwrap().len(), 5);
++    assert_eq!(page["next"], 600);
++}
++
++#[test]
++fn leases_end_within_ten_seconds() {
++    let now = Instant::now();
++    let mut lease = Lease::default();
++    assert!(!lease.active(now));
++    assert_eq!(lease.renew(now, Duration::from_secs(60)), LEASE, "a long hold is cut to the lease");
++    assert!(lease.active(now + Duration::from_secs(9)));
++    assert!(!lease.expired(now + Duration::from_secs(9)));
++    assert!(lease.expired(now + Duration::from_secs(10)));
++    assert!(!lease.expired(now + Duration::from_secs(11)), "expiry is reported once");
++    lease.renew(now, Duration::from_millis(500));
++    assert_eq!(lease.remaining_ms(now), 500);
++    lease.release();
++    assert!(!lease.active(now));
++}
++
++#[test]
++fn settings_pointers_hide_logins_secrets_and_rlva() {
++    use super::settings::hidden;
++    for p in ["/username", "/last_login", "/remember_password", "/grids/0", "/proxy/http", "/rlva", "/rlva_enabled", "/update_channel", "/login_screen", "/audio/stream_password", "/a/apiToken"] {
++        assert!(hidden(p), "{p}");
++    }
++    for p in ["/draw_distance", "/audio/master", "/camera/fov", ""] {
++        assert!(!hidden(p), "{p}");
++    }
++    assert!(hidden("draw_distance"), "a pointer without a leading slash is refused");
++}
++
++#[test]
++fn settings_writes_keep_the_type() {
++    use super::settings::{get, list, set};
++    let mut tree = json!({"draw_distance": 128.0, "fps_limit": 60, "show_chat": true, "font": "x", "username": "a", "opt": null});
++    assert_eq!(list(&tree), ["draw_distance", "font", "fps_limit", "opt", "show_chat"]);
++    assert_eq!(set(&mut tree, "/draw_distance", json!(256)).unwrap(), json!(128.0), "an integer may stand for a number");
++    assert_eq!(get(&tree, "/draw_distance").unwrap(), json!(256));
++    assert_eq!(set(&mut tree, "/fps_limit", json!(30.5)).unwrap_err().code, "invalid_argument");
++    assert_eq!(set(&mut tree, "/show_chat", json!("yes")).unwrap_err().code, "invalid_argument");
++    assert_eq!(set(&mut tree, "/missing", json!(1)).unwrap_err().code, "not_found");
++    assert_eq!(set(&mut tree, "/username", json!("b")).unwrap_err().code, "refused");
++    assert!(set(&mut tree, "/opt", json!({"a": 1})).is_ok(), "an unset option takes a value");
++    assert_eq!(get(&tree, "").unwrap_err().code, "invalid_argument");
++}
++
++#[test]
++fn hidden_settings_stay_hidden_below_a_visible_parent() {
++    use super::settings::{get, set};
++    let mut tree = json!({"audio": {"master": 0.5, "stream_password": "x", "list": [{"token": "t", "url": "u"}]}});
++    assert_eq!(get(&tree, "/audio").unwrap(), json!({"master": 0.5, "list": [{"url": "u"}]}));
++    let refused = set(&mut tree, "/audio", json!({"master": 1.0})).unwrap_err();
++    assert_eq!(refused.code, "refused", "replacing the parent would drop the hidden child");
++    assert_eq!(set(&mut tree, "/audio/master", json!(1.0)).unwrap(), json!(0.5));
++    assert_eq!(tree["audio"]["stream_password"], "x");
++}
++
++#[test]
++fn numbers_must_stay_finite_as_f32() {
++    let args = json!({"p": [1e100, 0, 0], "x": 1e100, "y": 2.5}).as_object().unwrap().clone();
++    assert!(opt_vec3(&args, "p").is_err());
++    assert!(opt_f32(&args, "x").is_err());
++    assert_eq!(opt_f32(&args, "y").unwrap(), Some(2.5));
++}
++
++#[test]
++fn the_directory_must_be_new_absolute_and_short() {
++    assert!(validate_dir(Path::new("relative/dir")).is_err());
++    assert!(validate_dir(Path::new("/tmp/../tmp/x")).is_err());
++    assert!(validate_dir(Path::new("/nonexistent-parent-acb/x")).is_err());
++    assert!(validate_dir(Path::new("/tmp")).is_err(), "an existing directory is refused");
++    let long = format!("/tmp/{}", "x".repeat(100));
++    assert!(validate_dir(Path::new(&long)).unwrap_err().contains("too long"));
++    assert!(validate_dir(Path::new("/tmp/acb-not-there")).is_ok());
++}
++
++#[test]
++fn the_endpoint_is_private_answers_lines_and_cleans_up() {
++    let base = scratch();
++    let dir = base.join("c");
++    let endpoint = Endpoint::open(&dir).unwrap();
++    assert_eq!(std::fs::metadata(&dir).unwrap().permissions().mode() & 0o777, 0o700);
++    assert_eq!(std::fs::metadata(endpoint.socket()).unwrap().permissions().mode() & 0o777, 0o600);
++    assert!(Endpoint::open(&dir).is_err(), "a second viewer cannot take the same directory");
++
++    let socket = endpoint.socket().to_path_buf();
++    let client = std::thread::spawn(move || {
++        let stream = std::os::unix::net::UnixStream::connect(socket).unwrap();
++        let mut writer = stream.try_clone().unwrap();
++        let mut reader = BufReader::new(stream);
++        let mut replies = Vec::new();
++        for line in [
++            "{\"request_id\":\"one\",\"tool\":\"viewer_state\"}\n",
++            "garbage\n",
++            "{\"request_id\":\"two\",\"tool\":\"viewer_chat\",\"arguments\":{\"op\":\"say\"}}\n",
++        ] {
++            writer.write_all(line.as_bytes()).unwrap();
++            let mut reply = String::new();
++            reader.read_line(&mut reply).unwrap();
++            replies.push(serde_json::from_str::<Value>(&reply).unwrap());
++        }
++        replies
++    });
++    // the frame thread's side
++    let deadline = Instant::now() + Duration::from_secs(10);
++    let mut answered = 0;
++    while answered < 2 && Instant::now() < deadline {
++        if let Some(pending) = endpoint.try_recv() {
++            let outcome = if pending.tool == "viewer_state" {
++                Ok(json!({"pid": 1}))
++            } else {
++                Err(ControlError::refused(format!("{} {}", pending.tool, pending.arguments["op"])))
++            };
++            pending.answer(&outcome);
++            answered += 1;
++        }
++        std::thread::sleep(Duration::from_millis(5));
++    }
++    let replies = client.join().unwrap();
++    assert_eq!(replies[0], json!({"request_id": "one", "result": {"pid": 1}}));
++    assert_eq!(replies[1]["error"]["code"], "invalid_argument");
++    assert_eq!(replies[2]["request_id"], "two");
++    assert_eq!(replies[2]["error"]["message"], "viewer_chat \"say\"");
++    drop(endpoint);
++    assert!(!dir.exists(), "the endpoint removes its directory");
++    std::fs::remove_dir(&base).unwrap();
++}
+diff --git a/crates/aurora-viewer/src/main.rs b/crates/aurora-viewer/src/main.rs
+index e68544c8..ae00881a 100644
+--- a/crates/aurora-viewer/src/main.rs
++++ b/crates/aurora-viewer/src/main.rs
+@@ -29,4 +29,5 @@ mod cli;
+ mod cmdline;
+ mod colorblind;
++mod control;
+ mod crash;
+ mod creation_permissions;
+diff --git a/crates/aurora-viewer/src/ui/scripts.rs b/crates/aurora-viewer/src/ui/scripts.rs
+index 440ba1f6..913b8f9c 100644
+--- a/crates/aurora-viewer/src/ui/scripts.rs
++++ b/crates/aurora-viewer/src/ui/scripts.rs
+@@ -12,4 +12,5 @@ use uuid::Uuid;
+ pub mod backup;
+ mod colors;
++mod control;
+ mod debug;
+ mod dialogs;
+diff --git a/crates/aurora-viewer/src/ui/scripts/control.rs b/crates/aurora-viewer/src/ui/scripts/control.rs
+new file mode 100644
+index 00000000..98304a52
+--- /dev/null
++++ b/crates/aurora-viewer/src/ui/scripts/control.rs
+@@ -0,0 +1,68 @@
++//! The script editors as the control bridge sees them (forge patch): their
++//! state for `viewer_script`, and edits and saves that go through the same
++//! checks as the editor's own buttons.
++
++use super::*;
++use serde_json::{Value, json};
++
++impl Editors {
++    pub fn control_documents(&self) -> Vec<Value> {
++        self.documents
++            .iter()
++            .filter(|e| !e.closed)
++            .map(|e| {
++                json!({
++                    "item": e.target.item,
++                    "object": e.target.object,
++                    "name": e.name,
++                    "loaded": e.loaded,
++                    "loading": e.loading.is_some(),
++                    "can_read": e.can_read,
++                    "can_edit": e.can_edit,
++                    "dirty": e.dirty(),
++                    "saving": e.saving.is_some() || e.processing.is_some(),
++                    "compile_failed": e.compile_failed,
++                    "errors": e.errors,
++                    "status": e.status,
++                    "running": e.running,
++                    "source": (e.loaded && e.can_read).then_some(&e.source),
++                })
++            })
++            .collect()
++    }
++
++    fn control_editor(&mut self, target: ScriptTarget) -> Result<&mut Editor, String> {
++        self.documents
++            .iter_mut()
++            .find(|e| e.target == target && !e.closed)
++            .ok_or_else(|| "no open editor for that script; open it first".to_owned())
++    }
++
++    /// Replaces the draft; nothing is uploaded until `control_save`.
++    pub fn control_edit(&mut self, target: ScriptTarget, source: &str) -> Result<(), String> {
++        let e = self.control_editor(target)?;
++        if !e.loaded || e.loading.is_some() {
++            return Err("the script has not loaded yet".into());
++        }
++        if !e.can_edit {
++            return Err("you may not edit this script".into());
++        }
++        if e.saving.is_some() || e.processing.is_some() {
++            return Err("a save is in progress".into());
++        }
++        if source.len() > MAX_SOURCE {
++            return Err("the source is too long".into());
++        }
++        e.source = source.to_owned();
++        Ok(())
++    }
++
++    /// The editor's own Save: the preprocessor, then upload and compile.
++    pub fn control_save(&mut self, target: ScriptTarget) -> Result<Option<Action>, String> {
++        let e = self.control_editor(target)?;
++        if !e.can_save() {
++            return Err("the editor cannot save now (not loaded, not editable, unchanged, or busy)".into());
++        }
++        Ok(e.save())
++    }
++}

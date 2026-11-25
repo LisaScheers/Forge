@@ -11,22 +11,26 @@ description: "Control a local Aurora Viewer through its native API or MCP tools:
   `AURORA_CONTROL_DIR` set to a short, absolute, initially nonexistent directory.
   The viewer creates its private endpoint; do not create that directory yourself.
   A running viewer without the bridge cannot acquire it by starting the MCP server.
+  Forge's `aurora-viewer` package carries the bridge as `control.patch`; on Vega,
+  `aurora-viewer-control` launches the app with
+  `~/Library/Caches/aurora-control`. A normal launch has no bridge.
 - Discover connected `viewer_state` / `viewer_query` tools. With MCP, read
   `aurora://guide` and the relevant tool schemas from `aurora://tools` when needed.
-- Otherwise locate the matching viewer checkout or companion package. The local
-  implementation was created in
-  `/Users/lisa/Projects/Scheers/work/aurora-mcp`; verify it still contains
-  `scripts/control/viewer_api.py` and `scripts/control/tools.json`. Read its
-  `docs/MCP.md` for launch/package details. Treat paths as discovery hints, not
-  evidence that the installed app contains this bridge.
+  Codex has the `aurora` server behind tool search; Claude attaches it with
+  `claude --mcp-config ~/.claude/mcp-available/aurora.json`.
+- Otherwise use the direct client from forge's `aurora-control` package (source
+  `tools/aurora-control`). Its files sit in `../lib/aurora-control` beside the
+  resolved `aurora-control` executable: `viewer_api.py`, `tools.json` and the
+  setup notes in `README.md`. Treat paths as discovery hints, not evidence that
+  the running app contains this bridge; `viewer_state` answers that.
 - For the direct client, use `aurora-control --directory DIR TOOL` with a JSON
-  object on stdin, or import `request` from that checkout's `viewer_api` module.
+  object on stdin, or import `request` from that `viewer_api` module.
   Discover operation names and arguments from its matching `tools.json` rather
   than copying a stale catalog into this skill. Python needs only the standard
   library; use the packaged runtime or the project's Nix environment.
 
 ```sh
-printf '{}\n' | aurora-control --directory /tmp/aurora-my-test viewer_state
+printf '{}\n' | aurora-control --directory ~/Library/Caches/aurora-control viewer_state
 ```
 
 Read `viewer_state` first. Confirm `pid`, `demo`, `in_world`, region and current
@@ -34,8 +38,9 @@ avatar/camera state against the intended session. Preserve the event cursor for
 the workflow. If the endpoint is absent or the wrong build is running, report the
 specific prerequisite; do not replace or restart a daily-driver app without
 authorization. Let the human log in. Never handle credentials or automate login.
-For development verification, follow the checkout's instructions and use an
-isolated offline demo rather than starting a grid connection.
+For development verification, use an isolated offline demo
+(`AURORA_DEMO=1` with its own `AURORA_CONTROL_DIR`, checked by
+`e2e_demo.py`) rather than starting a grid connection.
 
 ## Act and verify
 
