@@ -59,9 +59,10 @@ export function openingStatus(now = new Date()) {
 const monthNames = ['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
 
 // Dates written in a free-text notice ("25 november", "25/11/2026", "1 tot 15
-// augustus"). A date without a year is placed in the year that puts it no more
-// than 60 days before the notice was last updated, so a notice edited during a
-// closure keeps its year.
+// augustus"). A date without a year is placed in the nearest year that puts it
+// no more than 60 days before the notice was last updated, so a notice edited
+// during a closure keeps its year and "31 december" written on 1 January is the
+// day just past.
 export function noticeDates(text, updated) {
   const updatedAt = new Date(updated);
   if (!text || !updated || Number.isNaN(updatedAt.getTime())) return [];
@@ -72,6 +73,8 @@ export function noticeDates(text, updated) {
     // "31 november" is not a date; NaN keeps it out of every period comparison.
     if (check.getUTCMonth() !== month - 1) return NaN;
     if (year) return Date.UTC(year < 100 ? 2000 + year : year, month - 1, day);
+    const lastYear = Date.UTC(base.year - 1, month - 1, day);
+    if (lastYear >= earliest && new Date(lastYear).getUTCMonth() === month - 1) return lastYear;
     const date = Date.UTC(base.year, month - 1, day);
     return date < earliest ? Date.UTC(base.year + 1, month - 1, day) : date;
   };
@@ -138,8 +141,10 @@ export function noticeState(text, updated, now = new Date()) {
   const today = Date.UTC(year, month - 1, day);
   if (periods.some(([start, end]) => start <= today && today <= end)) return 'today';
   if (periods.every(([start]) => today < start)) return 'upcoming';
-  // "vanaf 1 december" or "tot nader bericht" is open-ended; "vanaf 11.00u" is a time on the dated day.
-  if (/\bvanaf\b(?!\s*\d{1,2}(?:[.:h]\d{2})?\s*(?:u\b|uur\b))(?!\s*\d{1,2}[.:h]\d{2})|tot nader bericht/i.test(text)) return 'undated';
+  // "vanaf 1 december" or "tot nader bericht" is open-ended; "vanaf 11.00u" is a time on the dated day,
+  // and "vanaf 1 december tot en met 15 december" ends on its last date.
+  const unbounded = text.replace(/\bvanaf\b[^.;!?]*?\s(?:tot(?:\s+en\s+met)?|t\.e\.m\.|t\/m)\s+\d/gi, ' ');
+  if (/\bvanaf\b(?!\s*\d{1,2}(?:[.:h]\d{2})?\s*(?:u\b|uur\b))(?!\s*\d{1,2}[.:h]\d{2})|tot nader bericht/i.test(unbounded)) return 'undated';
   if (periods.every(([, end]) => end < today)) return 'expired';
   return 'between';
 }

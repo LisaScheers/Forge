@@ -1,4 +1,4 @@
-import { openingInfo, displayStatus, noticeState, noticeOverrides, hoursForDay, formatIntervals } from './hours.js?v=eb96bd57a9';
+import { openingInfo, displayStatus, noticeState, noticeOverrides, hoursForDay, formatIntervals } from './hours.js?v=d7b0c59ab7';
 
 const header = document.querySelector('.site-header');
 const menuButton = document.querySelector('.menu-toggle');

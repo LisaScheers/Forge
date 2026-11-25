@@ -2384,9 +2384,9 @@ p {
   margin-top:20px
 }
 @media(forced-colors:active) {
+  /* A border, not an outline, so the focus outline still shows on the selected season. */
   .season-switch button[aria-pressed=true] {
-    outline:2px solid Highlight;
-    outline-offset:-2px
+    border:2px solid Highlight
   }
 }
 @media(max-width:359px) {
