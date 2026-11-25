@@ -245,7 +245,7 @@
           "@id": "https://beta.ng.bylisa.dev/zwembad-zelf-bouwen/#service",
           "url": "https://beta.ng.bylisa.dev/zwembad-zelf-bouwen/",
           "name": "Zelfbouwzwembaden",
-          "description": "U bouwt zelf, want zelf plaatsen we geen zwembaden. We denken budgetbewust mee en leveren pomp, filter, zeswegkraan en inbouwdelen, van eerste schets tot onderhoud.",
+          "description": "Een zwembad in uw eigen tuin? Met onze jarenlange ervaring helpen we u uw droom op een budgetvriendelijke manier waar te maken.",
           "provider": {
             "@id": "https://beta.ng.bylisa.dev/#business"
           }
@@ -258,7 +258,7 @@
           "@id": "https://beta.ng.bylisa.dev/groen-zwembadwater/#service",
           "url": "https://beta.ng.bylisa.dev/groen-zwembadwater/",
           "name": "Waterkwaliteit",
-          "description": "We meten een staal van uw zwembadwater in de winkel met meettoestellen van Hanna Instruments. Daarna zoeken we samen met u de oorzaak en de juiste behandeling.",
+          "description": "We meten een staal van uw zwembadwater in de winkel en zoeken samen met u de oorzaak en de juiste behandeling.",
           "provider": {
             "@id": "https://beta.ng.bylisa.dev/#business"
           }
@@ -271,7 +271,7 @@
           "@id": "https://beta.ng.bylisa.dev/jacuzzi-onderhoud/#service",
           "url": "https://beta.ng.bylisa.dev/jacuzzi-onderhoud/",
           "name": "Jacuzzi & wellness",
-          "description": "Voor uw jacuzzi of spa vindt u in de winkel waterverzorging en onderhoudsproducten, met advies over wat u wanneer gebruikt.",
+          "description": "Ook voor jacuzzi- en wellnessproducten bent u welkom bij N&G Pool Service. Ontdek ons uitgebreide gamma in de winkel.",
           "provider": {
             "@id": "https://beta.ng.bylisa.dev/#business"
           }
