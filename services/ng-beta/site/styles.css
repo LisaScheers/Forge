@@ -2949,6 +2949,7 @@ td[data-exception] .hours-exception {
   color:var(--blue)
 }
 .range-grid .range-item-contact {
+  --focus:#f2c75c;
   background:var(--blue);
   border-color:var(--blue);
   color:var(--white)
