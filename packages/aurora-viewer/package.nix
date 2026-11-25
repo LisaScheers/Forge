@@ -22,6 +22,14 @@ rustPlatform.buildRustPackage {
 
   cargoHash = "sha256-DDUriOujYKHl9pyyxKvZ70qFcvwjLP7KN5+RoBlyqXM=";
 
+  # macOS's Metal compiler fails to encode the fully inlined terrain shaders
+  # on M3 and later (Aurora-Viewer#4785): a black world. Keep the debug views
+  # in a function that the patched wgpu-hal leaves as a call.
+  patches = [./metal-outlined-debug-view.patch];
+  prePatch = ''
+    patch -d "$cargoDepsCopy/source-git-0/wgpu-hal-30.0.1" -p1 < ${./wgpu-hal-outlined-functions.patch}
+  '';
+
   nativeBuildInputs = [cmake pkg-config (python3.withPackages (ps: [ps.pillow]))];
   buildInputs = [apple-sdk_15 aws-lc];
   cargoBuildFlags = ["-p" "aurora-viewer"];
