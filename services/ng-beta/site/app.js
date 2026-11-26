@@ -69,6 +69,97 @@ document.addEventListener('focusin', event => {
   else if (rect.top < headerBottom + 8) window.scrollBy({ top: rect.top - headerBottom - 16, behavior: 'instant' });
 });
 
+const explorer = document.querySelector('.service-explorer');
+const tabList = document.querySelector('.service-tabs');
+// Only the homepage has the service tabs; topic pages share this script.
+if (tabList) {
+  const tabs = [...document.querySelectorAll('[data-service]')];
+  const panels = [...document.querySelectorAll('.service-panel')];
+  const horizontalTabs = matchMedia('(min-width: 581px) and (max-width: 800px)');
+  // On phones the three short panels are stacked, so nothing is hidden behind a tab.
+  const stackedServices = matchMedia('(max-width: 580px)');
+  let selectedService = 'pool';
+
+  function selectService(service, { moveFocus = false, updateUrl = false } = {}) {
+    selectedService = service;
+    if (stackedServices.matches) return;
+    tabs.forEach(tab => {
+      const selected = tab.dataset.service === service;
+      tab.setAttribute('aria-selected', String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+      if (selected && moveFocus) tab.focus();
+    });
+    panels.forEach(panel => { panel.hidden = panel.id !== `panel-${service}`; });
+    if (updateUrl) history.replaceState(null, '', `#panel-${service}`);
+  }
+
+  function applyServiceLayout() {
+    const stacked = stackedServices.matches;
+    tabList.hidden = stacked;
+    tabList.setAttribute('aria-orientation', horizontalTabs.matches ? 'horizontal' : 'vertical');
+    panels.forEach(panel => {
+      if (stacked) {
+        panel.hidden = false;
+        panel.removeAttribute('role');
+        panel.setAttribute('aria-labelledby', `${panel.id.replace('panel-', 'service-')}-title`);
+        panel.removeAttribute('tabindex');
+      } else {
+        panel.setAttribute('role', 'tabpanel');
+        panel.setAttribute('aria-labelledby', panel.id.replace('panel-', 'tab-'));
+        panel.tabIndex = 0;
+      }
+    });
+    if (stacked) delete explorer.dataset.enhanced;
+    else explorer.dataset.enhanced = 'true';
+    selectService(selectedService);
+  }
+
+  tabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => selectService(tab.dataset.service, { updateUrl: true }));
+    tab.addEventListener('keydown', event => {
+      let next;
+      // Horizontal tabs leave Up and Down to scroll the page.
+      const forward = horizontalTabs.matches ? ['ArrowRight'] : ['ArrowDown', 'ArrowRight'];
+      const backward = horizontalTabs.matches ? ['ArrowLeft'] : ['ArrowUp', 'ArrowLeft'];
+      if (forward.includes(event.key)) next = (index + 1) % tabs.length;
+      if (backward.includes(event.key)) next = (index + tabs.length - 1) % tabs.length;
+      if (event.key === 'Home') next = 0;
+      if (event.key === 'End') next = tabs.length - 1;
+      if (next !== undefined) {
+        event.preventDefault();
+        selectService(tabs[next].dataset.service, { moveFocus: true, updateUrl: true });
+      }
+    });
+  });
+  stackedServices.addEventListener('change', applyServiceLayout);
+  horizontalTabs.addEventListener('change', applyServiceLayout);
+  applyServiceLayout();
+
+  function selectServiceFromHash() {
+    const tab = tabs.find(tab => location.hash === `#${tab.getAttribute('aria-controls')}`);
+    if (!tab) return;
+    selectService(tab.dataset.service);
+    // With tabs, show the section heading and the other tabs, not just the panel.
+    const target = stackedServices.matches ? tab.getAttribute('aria-controls') : 'aanbod';
+    document.getElementById(target).scrollIntoView({ block: 'start' });
+  }
+  window.addEventListener('hashchange', selectServiceFromHash);
+  selectServiceFromHash();
+  // Links to a service panel select it and move focus there, even if the hash is already set.
+  document.querySelectorAll('a[href^="#panel-"]').forEach(link => {
+    link.addEventListener('click', event => {
+      if (stackedServices.matches) return;
+      const tab = tabs.find(item => `#${item.getAttribute('aria-controls')}` === link.getAttribute('href'));
+      if (!tab) return;
+      event.preventDefault();
+      selectService(tab.dataset.service);
+      history.pushState(null, '', link.getAttribute('href'));
+      document.getElementById('aanbod').scrollIntoView({ block: 'start' });
+      document.getElementById(tab.getAttribute('aria-controls')).focus({ preventScroll: true });
+    });
+  });
+}
+
 const noticeTexts = [...document.querySelectorAll('[data-shop-notice-text]')];
 const noticeBlocks = [...document.querySelectorAll('[data-shop-notice]')];
 const noticeText = () => noticeTexts[0]?.textContent.trim() || '';
@@ -97,6 +188,7 @@ function renderHours() {
   });
   document.querySelectorAll('[data-status]').forEach(element => { element.textContent = status.text; });
   document.querySelectorAll('[data-status-dot]').forEach(element => { element.dataset.state = status.state; });
+  document.querySelectorAll('[data-season-tip]').forEach(element => { element.hidden = element.dataset.seasonTip !== today.season; });
   seasonButtons.forEach(button => {
     button.setAttribute('aria-pressed', String(button.dataset.season === selectedSeason));
   });

@@ -21,20 +21,21 @@ Taal: Nederlands (België).
 
 ### Zelfbouwzwembaden
 
-U bouwt zelf, want zelf plaatsen we geen zwembaden. We denken budgetbewust mee en leveren pomp, filter, zeswegkraan en inbouwdelen, van eerste schets tot onderhoud.
+Een zwembad in uw eigen tuin? Met onze jarenlange ervaring helpen we u uw droom op een budgetvriendelijke manier waar te maken.
 
-- Afspraak. Breng een schets, de gewenste afmetingen en uw budget mee, voor een nieuw zwembad of een renovatie.
-- Techniek kiezen. Samen kiezen we pomp, filter, zeswegkraan, skimmers en inbouwdelen, tot de PVC-kranen en lijm.
-- Na de bouw. We helpen u verder met onderhoud en waterbehandeling.
+- Breng een schets, de gewenste afmetingen en uw budget mee
+- Techniek in de winkel: pompen, filters, zeswegkranen en skimmers
+- Inbouwdelen en leidingwerk: inlaten, PVC-kranen, lijm en reiniger
+- Niet op voorraad? We bestellen het voor u
+- Na de bouw helpen we u verder met onderhoud en waterbehandeling
 
 [Mail over dit onderwerp](mailto:info@ngpoolservice.be?subject=Afspraak%20voor%20een%20nieuw%20zwembad%20of%20renovatie&body=Nieuw%20zwembad%20of%20renovatie%3F%0D%0AGewenste%20afmetingen%20of%20uw%20plannen%3A%0D%0AVoorkeursmomenten%20binnen%20de%20openingsuren%3A%0D%0A%0D%0AVoeg%20gerust%20een%20schets%20toe.). [Bekijk dit aanbod](https://beta.ng.bylisa.dev/zwembad-zelf-bouwen/).
 
 ### Waterkwaliteit
 
-We meten een staal van uw zwembadwater in de winkel met meettoestellen van Hanna Instruments. Daarna zoeken we samen met u de oorzaak en de juiste behandeling.
+We meten een staal van uw zwembadwater in de winkel en zoeken samen met u de oorzaak en de juiste behandeling.
 
 - Vertel ons wat u ziet en welke producten u al gebruikt
-- Zonder afspraak langskomen kan tijdens de openingsuren
 - Waterbehandeling: chloor, pH-correctie, vlokmiddel en overwintering
 - Meet- en testmateriaal, van testers tot pH-sondes en kalibratievloeistof
 
@@ -42,11 +43,11 @@ We meten een staal van uw zwembadwater in de winkel met meettoestellen van Hanna
 
 ### Jacuzzi & wellness
 
-Voor uw jacuzzi of spa vindt u in de winkel waterverzorging en onderhoudsproducten, met advies over wat u wanneer gebruikt.
+Ook voor jacuzzi- en wellnessproducten bent u welkom bij N&G Pool Service. Ontdek ons uitgebreide gamma in de winkel.
 
+- Waterverzorging voor uw jacuzzi
 - pH-correctie, alkaliniteit, antischuim en metaalreiniger
-- Testers en teststrips om uw jacuzziwater zelf te controleren
-- Versleten filter of onderdeel? Breng het mee, dan zoeken we het juiste vervangstuk
+- Testers en teststrips om uw jacuzziwater te controleren
 
 [Mail over dit onderwerp](mailto:info@ngpoolservice.be?subject=Vraag%20over%20jacuzzi-%20en%20wellnessproducten&body=Merk%20of%20inhoud%20van%20uw%20jacuzzi%3A%0D%0AWat%20zoekt%20u%20of%20wat%20ziet%20u%20aan%20het%20water%3F%0D%0A%0D%0AVoeg%20gerust%20een%20foto%20toe.). [Bekijk dit aanbod](https://beta.ng.bylisa.dev/jacuzzi-onderhoud/).
 
@@ -60,7 +61,7 @@ Voor uw jacuzzi of spa vindt u in de winkel waterverzorging en onderhoudsproduct
 - **Jacuzzi en spa**: Waterverzorging, pH-correctie, antischuim en metaalreiniger.
 - **Toebehoren en veiligheid**: Ladders, chloordrijvers en een alarmarmband voor kinderen.
 
-**Onderdeel vervangen?** Breng het kapotte onderdeel mee, dan zoeken we het juiste vervangstuk. Niet op voorraad? We bestellen het voor u. [Mail merk en type](mailto:info@ngpoolservice.be?subject=Bestelling%20van%20een%20product%20of%20onderdeel&body=Merk%20en%20type%20van%20het%20product%20of%20onderdeel%3A%0D%0A%0D%0AVoeg%20gerust%20een%20foto%20van%20het%20label%20of%20het%20onderdeel%20toe.).
+Iets anders nodig? Niet op voorraad? We bestellen het voor u. Een kapot onderdeel mag u meebrengen. [Mail merk en type](mailto:info@ngpoolservice.be?subject=Bestelling%20van%20een%20product%20of%20onderdeel&body=Merk%20en%20type%20van%20het%20product%20of%20onderdeel%3A%0D%0A%0D%0AVoeg%20gerust%20een%20foto%20van%20het%20label%20of%20het%20onderdeel%20toe.).
 
 Vraag gerust of een product op voorraad is.
 
