@@ -45,7 +45,12 @@ rustPlatform.buildRustPackage {
   # Exercise it separately from the rest of the complete suite.
   checkFlags = ["--skip" "viewer_statistics_leave_on_arrival_every_five_minutes_and_at_logout"];
   dontUseCargoParallelTests = true;
-  buildType = "debug";
+  # Upstream's release profile, tightened from thin LTO and 16 codegen units:
+  # Vega compiles it once per source change. The tests keep the dev profile,
+  # as upstream's CI does, rather than going through whole-program LTO.
+  CARGO_PROFILE_RELEASE_LTO = "fat";
+  CARGO_PROFILE_RELEASE_CODEGEN_UNITS = 16;
+  checkType = "debug";
   AURORA_VERSION_TAG = "v0.9.13+macos.e961b7df";
 
   postCheck = ''

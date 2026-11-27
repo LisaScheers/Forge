@@ -153,7 +153,8 @@ Preferences › Graphics › Smoothness includes a 50–100% 3D render scale.
 The interface and HUDs stay at native resolution, and saved photos bypass scaling.
 `AURORA_RENDER_SCALE` and `AURORA_TEXTURE_BUDGET_MB` allow isolated comparisons.
 
-The package uses upstream's optimized development profile. It identifies itself
+The package builds upstream's release profile with fat LTO and one codegen unit
+in place of thin LTO and 16; the tests run in the dev profile. It identifies itself
 as `0.9.13+macos.e961b7df`. The app bundle includes an icon and microphone usage
 description. Earlier performance measurements below describe the October build;
 they have not been repeated for this source revision.
