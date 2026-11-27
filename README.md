@@ -387,6 +387,12 @@ installers, the per-system check jobs and the VM tests, each on a native Linux o
 macOS runner. These are full builds, with lock-file changes disabled. CI does not
 activate configurations or deploy hosts.
 
+On ordinary PRs, each job first compares its target's and checks' derivations
+with the PR's base (`.github/scripts/compare-with-base.sh`) and reports success
+without building when they match. A job builds when the PR changes `.github`, the
+base matrix lacks the same target, checks and runner, or the comparison fails.
+Pushes to `main`, manual runs and the update workflow always build everything.
+
 ## Further documentation
 
 | Guide | Covers |

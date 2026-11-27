@@ -1,7 +1,14 @@
 {inputs, ...}: {
   # Shared by the nixd config file, Nixvim and Zed.
   flake.lib.nixdSettings = pkgs: let
-    flake = "(builtins.getFlake ${builtins.toJSON (toString inputs.self)})";
+    # The checkout each host edits Forge in. Unlike Forge's own store copy, a
+    # path string keeps the repository out of every closure, so unrelated edits
+    # leave editor configs unchanged and pull request CI can skip their builds.
+    checkout =
+      if pkgs.stdenv.hostPlatform.isDarwin
+      then "/Users/lisa/Projects/Scheers/forge"
+      else "/etc/nixos/forge";
+    flake = "(builtins.getFlake ${builtins.toJSON checkout})";
     homeName =
       if pkgs.stdenv.hostPlatform.isDarwin
       then "lisa@vega"

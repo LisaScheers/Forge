@@ -56,6 +56,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.revision || github.sha }}
+          # A pull request's merge commit needs its first parent, the base, to
+          # compare against.
+          fetch-depth: ${{ github.event_name == 'pull_request' && !inputs.revision && 2 || 1 }}
           persist-credentials: false
       - uses: samueldr/lix-gha-installer-action@38852f089fdd2f5aabeec42c59c8d180bb8a15e9 # latest branch; no release tags
         with:
@@ -80,8 +83,18 @@ jobs:
             echo 'extra-system-features = kvm nixos-test' | sudo tee -a /etc/nix/nix.conf
             sudo systemctl restart nix-daemon
           fi
+      - name: Compare with the pull request base
+        id: compare
+        env:
+          TARGET: ${{ matrix.target }}
+          CHECKS: ${{ matrix.checks }}
+          RUNNER: ${{ matrix.runner }}
+          # A caller's explicit revision always builds, even from a pull request.
+          BASE_REVISION: ${{ github.event_name == 'pull_request' && !inputs.revision && 'HEAD^1' || '' }}
+          GIT_LFS_SKIP_SMUDGE: "1"
+        run: bash .github/scripts/compare-with-base.sh
       - name: Free macOS build space
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && steps.compare.outputs.changed != 'false'
         run: |
           # Zed's source build needs space occupied by unused runner toolchains.
           # Retain the selected Xcode and its SDKs for native builds.
@@ -99,6 +112,7 @@ jobs:
         # deploy scripts run only here.
         run: python3 -B -m unittest tests.test_ci_build tests.test_deploy
       - name: Build target without activation
+        if: steps.compare.outputs.changed != 'false'
         env:
           TARGET: ${{ matrix.target }}
           CHECKS: ${{ matrix.checks }}

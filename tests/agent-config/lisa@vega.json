@@ -79,22 +79,22 @@
             },
             "options": {
               "darwin": {
-                "expr": "(builtins.getFlake \"<store>\").darwinConfigurations.vega.options"
+                "expr": "(builtins.getFlake \"/Users/lisa/Projects/Scheers/forge\").darwinConfigurations.vega.options"
               },
               "devenv": {
-                "expr": "{ devenv.shells.default = (builtins.getFlake \"<store>\").allSystems.\"aarch64-darwin\".options.devenv.shells.type.getSubOptions []; }"
+                "expr": "{ devenv.shells.default = (builtins.getFlake \"/Users/lisa/Projects/Scheers/forge\").allSystems.\"aarch64-darwin\".options.devenv.shells.type.getSubOptions []; }"
               },
               "flake-file": {
-                "expr": "(builtins.getFlake \"<store>\").debug.options.flake-file.type.getSubOptions []"
+                "expr": "(builtins.getFlake \"/Users/lisa/Projects/Scheers/forge\").debug.options.flake-file.type.getSubOptions []"
               },
               "flake-parts": {
-                "expr": "(builtins.getFlake \"<store>\").debug.options"
+                "expr": "(builtins.getFlake \"/Users/lisa/Projects/Scheers/forge\").debug.options"
               },
               "home-manager": {
-                "expr": "(builtins.getFlake \"<store>\").homeConfigurations.\"lisa@vega\".options"
+                "expr": "(builtins.getFlake \"/Users/lisa/Projects/Scheers/forge\").homeConfigurations.\"lisa@vega\".options"
               },
               "nixos": {
-                "expr": "(builtins.getFlake \"<store>\").nixosConfigurations.atlas.options"
+                "expr": "(builtins.getFlake \"/Users/lisa/Projects/Scheers/forge\").nixosConfigurations.atlas.options"
               }
             }
           }
