@@ -26,9 +26,12 @@ rustPlatform.buildRustPackage {
   # on M3 and later (Aurora-Viewer#4785): a black world. Keep the debug views
   # in a function that the patched wgpu-hal leaves as a call. control.patch
   # adds the local control bridge behind AURORA_CONTROL_DIR (docs/aurora-viewer.md).
+  # journal-texture-staging.patch stages texture uploads in the reused journal
+  # staging buffer instead of a new Metal buffer per write.
   patches = [
     ./metal-outlined-debug-view.patch
     ./control.patch
+    ./journal-texture-staging.patch
   ];
   prePatch = ''
     patch -d "$cargoDepsCopy/source-git-0/wgpu-hal-30.0.1" -p1 < ${./wgpu-hal-outlined-functions.patch}

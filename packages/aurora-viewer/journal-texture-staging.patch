@@ -1,0 +1,481 @@
+Stage the frame journal's texture writes like its buffer writes (forge patch;
+local Aurora-Viewer branch perf/metal-upload-writes, not upstream yet).
+
+Queue::write_texture makes a staging buffer per call; on Metal each one is a
+new allocation whose pages the CPU faults in as it fills them, which cost 4 to
+9 ms of the render thread every few frames in a busy region (22 MB in a dozen
+texture writes), up to 72 ms. The replay now copies the texture rows into the
+journal's staging buffer at a copy's pitch and records a buffer-to-texture copy
+in the journal's order. A frame over 32 MB stages what fits instead of sending
+everything through the queue. AURORA_WRITE_STAGING=0 keeps upstream's path.
+
+diff --git a/crates/aurora-render/src/renderer.rs b/crates/aurora-render/src/renderer.rs
+index f697bf473..fc180c857 100644
+--- a/crates/aurora-render/src/renderer.rs
++++ b/crates/aurora-render/src/renderer.rs
+@@ -9145,13 +9145,14 @@ impl Backend {
+         // cannot be drawn.
+         let t_writes = Instant::now();
+         let (recorded, counts) = (writes.bytes(), writes.counts());
+-        // its buffer writes copied from one staging buffer (write_staging.rs)
++        // its writes copied from one staging buffer (write_staging.rs)
+         let mut queue_sink = TrackedSink {
+             queue: &self.queue,
+             lost: &self.lost,
+             frame: index,
+         };
+-        let mut sink = self.write_staging.sink(&self.device, &mut queue_sink, writes.buffer_bytes() as u64);
++        let mut sink = self.write_staging.sink(&self.device, &mut queue_sink, writes.staging_bytes());
++        let sink_ms = t_writes.elapsed().as_secs_f32() * 1000.0;
+         writes.replay(&mut sink);
+         let staged = sink.finish();
+         let replay_ms = t_writes.elapsed().as_secs_f32() * 1000.0;
+@@ -9162,8 +9163,9 @@ impl Backend {
+             // textures, megabytes of records, an arena that grows)
+             let [buffers, textures, submits] = counts;
+             log::info!(
+-                "frame writes took {writes_ms:.1} ms: {} KB in {buffers} buffer ({staged} through the journal staging) and \
+-                 {textures} texture writes, {submits} submits ({replay_ms:.1} ms), staged copies finished in {:.1} ms",
++                "frame writes took {writes_ms:.1} ms: {} KB in {buffers} buffer and {textures} texture writes \
++                 ({staged} through the journal staging, ready in {sink_ms:.1} ms), {submits} submits \
++                 ({replay_ms:.1} ms), streamed copies finished in {:.1} ms",
+                 recorded >> 10,
+                 writes_ms - replay_ms
+             );
+diff --git a/crates/aurora-render/src/write_staging.rs b/crates/aurora-render/src/write_staging.rs
+index 72234b51d..b6969ce20 100644
+--- a/crates/aurora-render/src/write_staging.rs
++++ b/crates/aurora-render/src/write_staging.rs
+@@ -1,4 +1,4 @@
+-//! One staging buffer for the buffer writes of a frame's journal.
++//! One staging buffer for the writes of a frame's journal.
+ //!
+ //! `Queue::write_buffer` creates a staging buffer of its own for each call
+ //! (wgpu-core `Queue::write_buffer` → `StagingBuffer::new`: a Vulkan buffer
+@@ -16,16 +16,25 @@
+ //! submit. Same order as before: the copies keep the journal's order among
+ //! themselves, a submit recorded in the journal (an arena growth) gets the
+ //! copies recorded before it in front of its own commands, and the writes
+-//! after it go through the queue as before (rare). Texture writes still go
+-//! through the queue: they touch no buffer.
++//! after it go through the queue as before (rare).
++//!
++//! Texture writes are staged the same way, their rows spaced to the pitch
++//! a buffer-to-texture copy needs, and copied in the same encoder in the
++//! journal's order. `Queue::write_texture` also makes a staging buffer per
++//! call, and on Metal (unified memory) each one is a new allocation whose
++//! pages the CPU faults in as it fills them: in a busy region on
++//! 2026-11-26 (Apple M5 Pro), a dozen texture writes of 22 MB took 4 to
++//! 9 ms of the render thread every few frames, up to 72 ms.
+ //!
+ //! A few staging buffers take turns: a used one is mapped again
+ //! (`map_async`) and comes back once the GPU has done its copies. When none
+ //! is ready (the GPU is several frames behind, or the frame writes more
+ //! than any of them holds: one of the right size is then made for the
+-//! frames after) or a frame writes more than [`MAX_STAGED`] bytes, the
+-//! frame's writes go through the queue. At most `MAX_SLOTS` buffers of
+-//! [`MAX_STAGED`] bytes stay allocated (a busy region: 1 to 16 MB each).
++//! frames after), the frame's writes go through the queue. A frame that
++//! writes more than [`MAX_STAGED`] bytes stages what fits and sends the
++//! rest through the queue, after the staged copies. At most `MAX_SLOTS`
++//! buffers of [`MAX_STAGED`] bytes stay allocated (a busy region: 1 to
++//! 32 MB each).
+ //! `AURORA_WRITE_STAGING=0` keeps the queue writes, `alt` alternates.
+ 
+ use crate::writes::{TexelDst, WriteSink};
+@@ -37,8 +46,9 @@ use std::sync::{Arc, mpsc};
+ const MAX_SLOTS: usize = 3;
+ /// Smallest staging buffer (bytes).
+ const MIN_SIZE: u64 = 1 << 20;
+-/// A frame that writes more than this (a region's arrival) goes through the
+-/// queue: a staging buffer that large would stay allocated.
++/// The largest staging buffer: a frame that writes more (a region's
++/// arrival) stages this much and sends the rest through the queue, since a
++/// larger staging buffer would stay allocated.
+ pub const MAX_STAGED: u64 = 32 << 20;
+ 
+ /// `AURORA_WRITE_STAGING`: `0` queue writes as before, `alt` alternates.
+@@ -88,11 +98,35 @@ pub struct CopyOp<B> {
+     pub size: u64,
+ }
+ 
++/// A copy from the staging buffer: into a buffer, or texel rows staged at
++/// `src_offset`, [`texel_pitch`] bytes apart, into a texture.
++#[derive(Debug, Clone, PartialEq)]
++pub enum Staged<B, T> {
++    Buffer(CopyOp<B>),
++    Texture { dst: T, at: TexelDst, src_offset: u64 },
++}
++
++/// Where staged texel rows start: D3D12 places a buffer-to-texture copy's
++/// source on 512 bytes (`D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT`), the
++/// strictest of the backends.
++const TEXEL_PLACEMENT: u64 = 512;
++
++/// The bytes between two staged rows of `width` RGBA8 texels: the row,
++/// rounded up to what a buffer-to-texture copy takes.
++pub fn texel_pitch(width: u32) -> u32 {
++    (width * 4).next_multiple_of(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT)
++}
++
++/// Staging bytes a texture write takes, the worst placement included.
++pub fn texel_stage_size(at: &TexelDst) -> u64 {
++    u64::from(texel_pitch(at.width)) * u64::from(at.height) + TEXEL_PLACEMENT
++}
++
+ /// Adds the copy of `size` bytes staged at `src_offset` to `dst` at
+ /// `dst_offset`, extending the last copy when it ends where this one
+ /// starts, in the staging buffer and in `dst`.
+-pub fn push_copy<B: PartialEq + Clone>(copies: &mut Vec<CopyOp<B>>, dst: &B, dst_offset: u64, src_offset: u64, size: u64) {
+-    if let Some(last) = copies.last_mut()
++pub fn push_copy<B: PartialEq + Clone, T>(copies: &mut Vec<Staged<B, T>>, dst: &B, dst_offset: u64, src_offset: u64, size: u64) {
++    if let Some(Staged::Buffer(last)) = copies.last_mut()
+         && last.dst == *dst
+         && last.dst_offset + last.size == dst_offset
+         && last.src_offset + last.size == src_offset
+@@ -100,12 +134,12 @@ pub fn push_copy<B: PartialEq + Clone>(copies: &mut Vec<CopyOp<B>>, dst: &B, dst
+         last.size += size;
+         return;
+     }
+-    copies.push(CopyOp {
++    copies.push(Staged::Buffer(CopyOp {
+         dst: dst.clone(),
+         dst_offset,
+         src_offset,
+         size,
+-    });
++    }));
+ }
+ 
+ /// The size of the staging buffer made for `bytes`.
+@@ -210,17 +244,18 @@ impl WriteStaging {
+         None
+     }
+ 
+-    /// The sink the journal is replayed into: its buffer writes, `bytes` at
+-    /// most, staged when a slot is ready, the rest passed to `inner`. Call
+-    /// [`StagedSink::finish`] once the journal is replayed.
++    /// The sink the journal is replayed into: its writes, which take
++    /// `bytes` of staging (`GpuWrites::staging_bytes`), staged when a slot
++    /// is ready, the rest passed to `inner`. Call [`StagedSink::finish`]
++    /// once the journal is replayed.
+     pub fn sink<'a, S: WriteSink<wgpu::Buffer, wgpu::Texture, wgpu::CommandEncoder>>(
+         &'a mut self,
+         device: &'a wgpu::Device,
+         inner: &'a mut S,
+         bytes: u64,
+     ) -> StagedSink<'a, S> {
+-        let open = if bytes > 0 && bytes <= MAX_STAGED && staging_on() {
+-            self.acquire(bytes).and_then(|slot| {
++        let open = if bytes > 0 && staging_on() {
++            self.acquire(bytes.min(MAX_STAGED)).and_then(|slot| {
+                 let s = &self.slots[slot];
+                 let view = s.buffer.get_mapped_range_mut(..).ok()?;
+                 s.ready.store(false, Ordering::Release);
+@@ -252,8 +287,8 @@ pub struct StagedSink<'a, S> {
+     device: &'a wgpu::Device,
+     inner: &'a mut S,
+     open: Option<Open>,
+-    copies: Vec<CopyOp<wgpu::Buffer>>,
+-    /// Buffer writes staged (diagnostics).
++    copies: Vec<Staged<wgpu::Buffer, wgpu::Texture>>,
++    /// Writes staged (diagnostics).
+     staged: usize,
+ }
+ 
+@@ -283,14 +318,41 @@ impl<S: WriteSink<wgpu::Buffer, wgpu::Texture, wgpu::CommandEncoder>> StagedSink
+             label: Some("journal copies"),
+         });
+         for c in self.copies.drain(..) {
+-            enc.copy_buffer_to_buffer(&slot.buffer, c.src_offset, &c.dst, c.dst_offset, c.size);
++            match c {
++                Staged::Buffer(c) => enc.copy_buffer_to_buffer(&slot.buffer, c.src_offset, &c.dst, c.dst_offset, c.size),
++                Staged::Texture { dst, at, src_offset } => enc.copy_buffer_to_texture(
++                    wgpu::TexelCopyBufferInfo {
++                        buffer: &slot.buffer,
++                        layout: wgpu::TexelCopyBufferLayout {
++                            offset: src_offset,
++                            bytes_per_row: Some(texel_pitch(at.width)),
++                            rows_per_image: Some(at.height),
++                        },
++                    },
++                    wgpu::TexelCopyTextureInfo {
++                        texture: &dst,
++                        mip_level: at.mip,
++                        origin: wgpu::Origin3d {
++                            x: at.x,
++                            y: at.y,
++                            z: at.layer,
++                        },
++                        aspect: wgpu::TextureAspect::All,
++                    },
++                    wgpu::Extent3d {
++                        width: at.width,
++                        height: at.height,
++                        depth_or_array_layers: 1,
++                    },
++                ),
++            }
+         }
+         self.inner.submit(std::iter::once(enc).chain(then).collect());
+         remap(&slot.buffer, &slot.ready);
+     }
+ 
+     /// The end of the replay: the staged copies submitted. The number of
+-    /// buffer writes staged.
++    /// writes staged.
+     pub fn finish(mut self) -> usize {
+         self.close(Vec::new());
+         self.staging.make_wanted(self.device);
+@@ -322,6 +384,28 @@ impl<S: WriteSink<wgpu::Buffer, wgpu::Texture, wgpu::CommandEncoder>> WriteSink<
+     }
+ 
+     fn write_texture(&mut self, texture: &wgpu::Texture, dst: TexelDst, data: &[u8]) {
++        let (row, height) = (dst.width as usize * 4, dst.height as usize);
++        let pitch = texel_pitch(dst.width) as usize;
++        if let Some(open) = &mut self.open
++            && data.len() >= dst.bytes()
++            && let src_offset = open.cursor.next_multiple_of(TEXEL_PLACEMENT)
++            && src_offset + (pitch * height) as u64 <= open.view.len() as u64
++        {
++            let at = src_offset as usize;
++            for (i, src) in data.chunks_exact(row).take(height).enumerate() {
++                open.view.slice(at + i * pitch..at + i * pitch + row).copy_from_slice(src);
++            }
++            self.copies.push(Staged::Texture {
++                dst: texture.clone(),
++                at: dst,
++                src_offset,
++            });
++            open.cursor = src_offset + (pitch * height) as u64;
++            self.staged += 1;
++            return;
++        }
++        // (as for a buffer: what was staged goes first)
++        self.close(Vec::new());
+         self.inner.write_texture(texture, dst, data);
+     }
+ 
+@@ -336,7 +420,7 @@ mod tests {
+ 
+     #[test]
+     fn writes_that_follow_each_other_make_one_copy() {
+-        let mut c: Vec<CopyOp<u32>> = Vec::new();
++        let mut c: Vec<Staged<u32, u32>> = Vec::new();
+         push_copy(&mut c, &1, 0, 0, 64);
+         push_copy(&mut c, &1, 64, 64, 32);
+         // another buffer, then back to the first one out of line
+@@ -344,42 +428,70 @@ mod tests {
+         push_copy(&mut c, &1, 96, 112, 16);
+         // the same buffer but a gap in its range
+         push_copy(&mut c, &1, 256, 128, 8);
++        // a texture write between two that follow each other keeps them
++        // apart: it must land between them
++        let at = TexelDst {
++            mip: 0,
++            x: 0,
++            y: 0,
++            layer: 0,
++            width: 1,
++            height: 1,
++        };
++        c.push(Staged::Texture {
++            dst: 9,
++            at,
++            src_offset: 136,
++        });
++        push_copy(&mut c, &1, 264, 140, 4);
++        let copy = |dst, dst_offset, src_offset, size| {
++            Staged::Buffer(CopyOp {
++                dst,
++                dst_offset,
++                src_offset,
++                size,
++            })
++        };
+         assert_eq!(
+             c,
+             vec![
+-                CopyOp {
+-                    dst: 1,
+-                    dst_offset: 0,
+-                    src_offset: 0,
+-                    size: 96
+-                },
+-                CopyOp {
+-                    dst: 2,
+-                    dst_offset: 96,
+-                    src_offset: 96,
+-                    size: 16
+-                },
+-                CopyOp {
+-                    dst: 1,
+-                    dst_offset: 96,
+-                    src_offset: 112,
+-                    size: 16
+-                },
+-                CopyOp {
+-                    dst: 1,
+-                    dst_offset: 256,
+-                    src_offset: 128,
+-                    size: 8
++                copy(1, 0, 0, 96),
++                copy(2, 96, 96, 16),
++                copy(1, 96, 112, 16),
++                copy(1, 256, 128, 8),
++                Staged::Texture {
++                    dst: 9,
++                    at,
++                    src_offset: 136
+                 },
++                copy(1, 264, 140, 4),
+             ]
+         );
+     }
+ 
+-    /// GPU round trip: a journal with writes that merge, a submit in the
+-    /// middle that copies what was written before it, and a write after it
+-    /// (through the queue), replayed frame after frame until the staging
+-    /// buffer made on its thread takes the writes; then read back. Needs a
+-    /// GPU, so not run by check.ps1:
++    #[test]
++    fn texel_rows_are_staged_at_a_copy_pitch() {
++        assert_eq!(texel_pitch(1), 256);
++        assert_eq!(texel_pitch(64), 256);
++        assert_eq!(texel_pitch(65), 512);
++        assert_eq!(texel_pitch(1024), 4096);
++        let at = |width, height| TexelDst {
++            mip: 0,
++            x: 0,
++            y: 0,
++            layer: 0,
++            width,
++            height,
++        };
++        assert_eq!(texel_stage_size(&at(3, 2)), 2 * 256 + 512);
++        assert_eq!(texel_stage_size(&at(1024, 1024)), (4 << 20) + 512);
++    }
++
++    /// GPU round trip: a journal with writes that merge, a texture write,
++    /// a submit in the middle that copies what was written before it, and a
++    /// write after it (through the queue), replayed frame after frame until
++    /// the staging buffer made on its thread takes the writes; then read
++    /// back. Needs a GPU, so not run by check.ps1:
+     /// `cargo test --workspace staged_writes -- --ignored`.
+     #[test]
+     #[ignore]
+@@ -399,19 +511,55 @@ mod tests {
+                 mapped_at_creation: false,
+             })
+         };
+-        let (a, b) = (buffer(), buffer());
++        let (a, b, c) = (buffer(), buffer(), buffer());
++        // 4 x 4 texels; rows of 3 x 2 written at (1, 1)
++        let texture = device.create_texture(&wgpu::TextureDescriptor {
++            label: None,
++            size: wgpu::Extent3d {
++                width: 4,
++                height: 4,
++                depth_or_array_layers: 1,
++            },
++            mip_level_count: 1,
++            sample_count: 1,
++            dimension: wgpu::TextureDimension::D2,
++            format: wgpu::TextureFormat::Rgba8Unorm,
++            usage: wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::COPY_SRC,
++            view_formats: &[],
++        });
++        let texels = TexelDst {
++            mip: 0,
++            x: 1,
++            y: 1,
++            layer: 0,
++            width: 3,
++            height: 2,
++        };
+         let mut staging = WriteStaging::default();
+         let mut frame = |n: u8| -> usize {
+             let mut j = crate::writes::GpuWrites::default();
+             j.write_buffer(&a, 0, &[n; 64]);
+             j.write_buffer(&a, 64, &[n + 1; 32]);
+             j.write_buffer(&b, 0, &[n + 2; 16]);
++            j.write_texture(&texture, texels, &[n + 4; 24]);
+             let mut enc = device.create_command_encoder(&Default::default());
+             enc.copy_buffer_to_buffer(&a, 0, &b, 256, 96);
++            enc.copy_texture_to_buffer(
++                texture.as_image_copy(),
++                wgpu::TexelCopyBufferInfo {
++                    buffer: &c,
++                    layout: wgpu::TexelCopyBufferLayout {
++                        offset: 0,
++                        bytes_per_row: Some(256),
++                        rows_per_image: Some(4),
++                    },
++                },
++                texture.size(),
++            );
+             j.submit(vec![enc]);
+             j.write_buffer(&a, 0, &[n + 3; 8]);
+             let mut q = crate::writes::QueueSink(&queue);
+-            let mut sink = staging.sink(&device, &mut q, j.buffer_bytes() as u64);
++            let mut sink = staging.sink(&device, &mut q, j.staging_bytes());
+             j.replay(&mut sink);
+             let staged = sink.finish();
+             queue.submit([]);
+@@ -427,7 +575,7 @@ mod tests {
+         }
+         // and the next ones through the same buffer, mapped again
+         let n = (n + 1) * 4;
+-        assert_eq!(frame(n), 3);
++        assert_eq!(frame(n), 4);
+         let read = |buffer: &wgpu::Buffer| -> Vec<u8> {
+             let out = device.create_buffer(&wgpu::BufferDescriptor {
+                 label: None,
+@@ -442,7 +590,7 @@ mod tests {
+             device.poll(wgpu::PollType::wait_indefinitely()).expect("poll");
+             out.get_mapped_range(..).expect("mapped").to_vec()
+         };
+-        let (got_a, got_b) = (read(&a), read(&b));
++        let (got_a, got_b, got_c) = (read(&a), read(&b), read(&c));
+         assert_eq!(got_a[..8], [n + 3; 8], "the write after the submit lands last");
+         assert_eq!(got_a[8..64], [n; 56]);
+         assert_eq!(got_a[64..96], [n + 1; 32]);
+@@ -450,6 +598,12 @@ mod tests {
+         // the submit saw the staged writes before it, not the one after
+         assert_eq!(got_b[256..320], [n; 64]);
+         assert_eq!(got_b[320..352], [n + 1; 32]);
++        // the texels, read back by the submit at 256 bytes a row
++        for row in [1, 2] {
++            assert_eq!(got_c[row * 256 + 4..row * 256 + 16], [n + 4; 12], "texel row {row}");
++            assert_eq!(got_c[row * 256..row * 256 + 4], [0; 4], "left of the write, row {row}");
++        }
++        assert_eq!(got_c[4..16], [0; 12], "above the write");
+     }
+ 
+     #[test]
+diff --git a/crates/aurora-render/src/writes.rs b/crates/aurora-render/src/writes.rs
+index fff8aa073..c4cda49ee 100644
+--- a/crates/aurora-render/src/writes.rs
++++ b/crates/aurora-render/src/writes.rs
+@@ -141,14 +141,16 @@ impl<B: Clone, T: Clone, E> Journal<B, T, E> {
+         self.data.len()
+     }
+ 
+-    /// Bytes of the buffer writes recorded since the last replay: what a
+-    /// staging buffer must hold for them (write_staging.rs).
+-    pub fn buffer_bytes(&self) -> usize {
++    /// What a staging buffer must hold for the writes recorded since the
++    /// last replay: the buffer writes' bytes, and the texture writes' rows
++    /// at a copy's pitch (write_staging.rs).
++    pub fn staging_bytes(&self) -> u64 {
+         self.ops
+             .iter()
+             .map(|op| match op {
+-                Op::Buffer { data, .. } => data.len(),
+-                _ => 0,
++                Op::Buffer { data, .. } => data.len() as u64,
++                Op::Texture { dst, .. } => crate::write_staging::texel_stage_size(dst),
++                Op::Submit(_) => 0,
+             })
+             .sum()
+     }

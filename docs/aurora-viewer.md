@@ -136,6 +136,19 @@ upstream compiles on Metal without them.
 
 A third local patch, `control.patch`, adds the control bridge described above.
 
+A fourth, `journal-texture-staging.patch`, sends the frame journal's texture
+uploads through the staging buffer that its buffer writes already reuse.
+`Queue::write_texture` otherwise makes a new staging buffer per call, and on
+Metal the CPU faults in every page of each one. A live trace in a busy region
+showed a dozen texture writes of about 22 MB taking 4–9 ms of the render thread
+every few frames, and up to 72 ms. In the offline 9,000-texture churn demo
+with 20 avatars, the patch cut frames whose writes took more than 4 ms from
+33–36 to 9–11 per run. Texture writes fell from 0.87–0.96 to 0.33–0.39 ms per
+MB, with unchanged FPS and the same image. `AURORA_WRITE_STAGING=0` restores
+upstream's path. The patch is a local Aurora-Viewer branch
+(`perf/metal-upload-writes`) that has not been submitted upstream. Remove it
+once upstream includes the change.
+
 Preferences › Graphics › Smoothness includes a 50–100% 3D render scale.
 The interface and HUDs stay at native resolution, and saved photos bypass scaling.
 `AURORA_RENDER_SCALE` and `AURORA_TEXTURE_BUDGET_MB` allow isolated comparisons.
